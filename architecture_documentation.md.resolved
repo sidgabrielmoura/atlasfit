@@ -1,0 +1,310 @@
+# AtlasFit — Architecture & Product Documentation
+
+Esta documentação detalha a estrutura funcional e técnica da plataforma AtlasFit, um SaaS fitness multi-tenant projetado para oferecer uma experiência premium em gestão de treinamento, alunos e negócios.
+
+---
+
+# CONTEXTO DO SISTEMA
+
+O AtlasFit opera em um modelo **SaaS Multi-Workspace** (similar ao Slack/Notion).
+*   **Identidade Global**: Um usuário possui uma conta única global.
+*   **Multi-Tenancy**: Um usuário pode ser dono de um workspace, treinador em outro e aluno em um terceiro.
+*   **Isolamento de Dados**: Cada Workspace possui seu próprio banco de dados lógico (isolado por `workspaceId`).
+*   **Hierarquia**: Platform -> Workspace -> Establishment (optional) -> User.
+
+---
+
+# NÍVEIS DE ACESSO (ROLES)
+
+1.  **SuperAdmin**: Administrador global da plataforma AtlasFit. Acesso total a todas as métricas, faturamento global, logs e gerenciamento de todos os workspaces.
+2.  **Workspace Owner**: Dono da assessoria ou academia. Responsável pelo faturamento do workspace, gestão de treinadores e configurações de marca.
+3.  **Trainer (Personal)**: Profissional que prescreve treinos, gerencia alunos e acompanha evolução.
+4.  **Assistant**: Colaborador com permissões limitadas para auxiliar na gestão do workspace.
+5.  **Student (Aluno)**: Usuário final que consome os treinos, registra execuções e acompanha sua própria evolução.
+
+---
+
+# 1. SUPERADMIN (PLATFORM ADMIN)
+
+O SuperAdmin é focado em **infraestrutura, crescimento e auditoria global**.
+
+## PÁGINAS DO NÍVEL
+*   Dashboard Global
+*   Gestão de Usuários
+*   Gestão de Workspaces
+*   Financeiro Global
+*   Biblioteca de Exercícios
+*   Assinaturas & Planos
+*   Logs & Auditoria
+*   Configurações do Sistema
+
+---
+
+## Dashboard Global
+**Objetivo**: Visão 360º da saúde da plataforma em segundos.
+
+### Funcionalidades
+*   Monitoramento de KPIs em tempo real.
+*   Filtro de período (Hoje, 7d, 30d, 1y).
+*   Visualização de tendências de crescimento (setas de porcentagem).
+
+### Componentes Principais
+*   **KPI Cards**: Cards com métricas e mini-gráficos de tendência.
+*   **Top List**: Tabela simplificada de "Exercícios mais usados".
+*   **Status Widget**: Indicador de saúde dos sistemas (Online/Offline).
+
+### Dados Necessários
+*   `totalUsers`, `activeUsers`, `newUsersToday`, `dauMauRatio`.
+*   `activeWorkspaces`, `newWorkspacesWeek`.
+*   `mrr`, `arr`, `churnRate`.
+*   `topExercises` (Array: {name, usageCount}).
+
+### Entidades Relacionadas
+*   `User`, `Workspace`, `Subscription`, `WorkoutExecution`.
+
+### Regras de Negócio
+*   **Acesso Restrito**: Apenas usuários com `role: SUPERADMIN` podem visualizar.
+*   **Cache**: Dados agregados devem ser cacheados ou processados via Job agendado (devido ao volume global).
+
+### Possíveis Endpoints
+*   `GET /api/v1/superadmin/stats`
+*   `GET /api/v1/superadmin/top-exercises`
+
+---
+
+## Gestão de Usuários
+**Objetivo**: Controle total sobre a base de usuários global.
+
+### Funcionalidades
+*   **Pesquisa Global**: Busca por nome, email ou ID em toda a plataforma.
+*   **Filtros**: Filtrar por Role (Trainer, Aluno, Admin).
+*   **Impersonate**: Login como qualquer usuário para suporte técnico.
+*   **Moderação**: Bloquear/Banir usuários por violação de termos.
+*   **Reset**: Redefinição forçada de senha ou 2FA.
+
+### Componentes Principais
+*   **User Table**: Tabela com avatar, nome, email, status e data de último acesso.
+*   **Action Menu**: Dropdown com ações administrativas críticas.
+
+### Entidades Relacionadas
+*   `User`, `LoginLog`, `WorkspaceMember`.
+
+### Regras de Negócio
+*   **Impersonation Log**: Toda ação de "login como" deve ser registrada em `AuditLog`.
+*   **Isolamento**: SuperAdmin não precisa estar em um workspace para gerenciar o usuário.
+
+### Possíveis Endpoints
+*   `GET /api/v1/superadmin/users`
+*   `POST /api/v1/superadmin/users/{id}/impersonate`
+*   `PATCH /api/v1/superadmin/users/{id}/block`
+
+---
+
+## Gestão de Workspaces
+**Objetivo**: Monitorar e gerenciar as instâncias de negócios (SaaS clients).
+
+### Funcionalidades
+*   **Criação Manual**: Criar novos workspaces (Enterprise).
+*   **Gestão de Planos**: Alterar plano de um workspace manualmente.
+*   **Suspensão**: Suspender workspace por falta de pagamento ou abuso.
+*   **Deep Access**: Acesso administrativo direto ao workspace.
+
+### Componentes Principais
+*   **Workspace Grid/Table**: Listagem com Owner, Número de Alunos e Receita Gerada.
+
+### Entidades Relacionadas
+*   `Workspace`, `Subscription`, `Establishment`.
+
+### Possíveis Endpoints
+*   `GET /api/v1/superadmin/workspaces`
+*   `PATCH /api/v1/superadmin/workspaces/{id}/plan`
+
+---
+
+## Financeiro Global
+**Objetivo**: Controle de faturamento de todo o SaaS.
+
+### Funcionalidades
+*   **Monitoramento de MRR/ARR**: Visualização consolidada.
+*   **Inadimplência**: Listagem de faturas atrasadas de Workspaces.
+*   **Cupons**: Criação e gestão de cupons de desconto globais.
+*   **Upgrades**: Feed de upgrades recentes.
+
+### Dados Necessários
+*   Consolidado de `Transaction` e `Subscription`.
+
+---
+
+## Biblioteca de Exercícios
+**Objetivo**: Padronização global de conteúdos de treino.
+
+### Funcionalidades
+*   **Aprovação**: Curadoria de exercícios criados por usuários (trainers) que desejam tornar o exercício "Público/Oficial".
+*   **Editor de Conteúdo**: Edição de nomes, categorias e vídeos oficiais do AtlasFit.
+*   **Destaque**: Marcar exercícios como "Verificados" ou "Premium".
+
+### Componentes Principais
+*   **Moderation Queue**: Cards de exercícios pendentes de aprovação.
+*   **Exercise Table**: Lista de exercícios verificados.
+
+### Entidades Relacionadas
+*   `Exercise`, `ExerciseCategory`.
+
+---
+
+# 2. PERSONAL TRAINER (WORKSPACE MODULE)
+
+O Trainer é o **usuário operacional principal**.
+
+## PÁGINAS DO NÍVEL
+*   Dashboard
+*   Alunos (CRM)
+*   Treinos e Exercícios (Prescrição)
+*   Financeiro (Gestão de Alunos)
+*   Link de Captação (Vendas)
+*   Organização (Staff)
+*   Calendário (Agenda)
+*   Configurações
+
+---
+
+## Dashboard (Personal)
+**Objetivo**: Gestão do dia a dia e alertas de retenção.
+
+### Funcionalidades
+*   Ver alunos treinando em tempo real.
+*   Alertas de "Aluno sumido" (churn prevent).
+*   Próximas renovações financeiras.
+*   Atalhos para criação de treinos.
+
+### Componentes Principais
+*   **Live Feed**: Atividade recente dos alunos.
+*   **Metrics Grid**: Frequência semanal, alunos ativos, faturamento do mês.
+
+---
+
+## Alunos (CRM)
+**Objetivo**: Gestão do ciclo de vida do aluno.
+
+### Funcionalidades
+*   **Onboarding**: Adicionar aluno manual ou via link.
+*   **Prontuário**: Visualizar histórico, fotos, medidas e anamnese.
+*   **Status**: Ativo, Inativo, Pausado, Pendente.
+*   **Atribuição**: Vincular aluno a um programa ou trainer específico.
+
+### Dados Necessários
+*   `StudentProfile`, `BodyMetrics`, `WorkoutHistory`.
+
+### Regras de Negócio
+*   **Privacy**: Fotos de evolução são privadas (Aluno/Trainer).
+
+---
+
+## Treinos e Exercícios
+**Objetivo**: Fábrica de prescrição em alta velocidade.
+
+### Funcionalidades
+*   **Builder de Treino**: Drag and drop de exercícios.
+*   **Template Engine**: Criar modelos de treino (ex: "Emagrecimento A") para reutilização.
+*   **Cópia Rápida**: Duplicar treinos entre alunos.
+*   **Biblioteca Privada**: Exercícios criados pelo trainer visíveis apenas para ele/seu workspace.
+
+### Entidades Relacionadas
+*   `Workout`, `WorkoutPhase`, `Exercise`, `SetGroup`.
+
+---
+
+## Link de Captação
+**Objetivo**: Funil de vendas integrado.
+
+### Funcionalidades
+*   **QR Code**: Gerar código para Instagram/Bio.
+*   **Landing Page Custom**: Página simples com fotos e planos do trainer.
+*   **Checkout**: Integração com pagamento para automação de matrícula.
+
+---
+
+# 3. STUDENT (END-USER APP)
+
+Focado em **execução, simplicidade e motivação**.
+
+## PÁGINAS DO NÍVEL
+*   Início (Dashboard)
+*   Meus Treinos (Lista)
+*   Execução (Modo Treino)
+*   Evolução (Gráficos)
+*   Agenda (Programação)
+*   Reporte de Feedback (Recovery)
+*   Histórico (Arquivo)
+*   Perfil & Configurações
+
+---
+
+## Execução (Modo Treino)
+**Objetivo**: Guia passo a passo durante a sessão de treino.
+
+### Funcionalidades
+*   **Timer**: Descanso automático entre séries.
+*   **Registro de Carga**: Salvar peso/reps reais executadas.
+*   **Vídeo**: Player integrado para ver execução correta.
+*   **Check-off**: Marcar série como concluída.
+*   **Notas**: Deixar comentário sobre o exercício (ex: "Senti dor").
+
+### Componentes Principais
+*   **Workout Player**: Interface otimizada para celular.
+*   **Set Grid**: Linhas para registro de cada série.
+
+### Regras de Negócio
+*   **Offline First**: O treino deve funcionar sem internet (salvamento local e sync posterior).
+*   **Rest Timer**: Notificações de tempo de descanso.
+
+### Possíveis Endpoints
+*   `POST /api/v1/workouts/executions`
+*   `PATCH /api/v1/workouts/executions/{id}/sets`
+
+---
+
+## Evolução (Performance Tracking)
+**Objetivo**: Visualização tangível de progresso.
+
+### Funcionalidades
+*   **Gráficos de Carga**: Progressão de PR (Personal Record).
+*   **Fotos de Antes/Depois**: Comparativo visual.
+*   **Medidas Corporais**: Gráficos de peso, BF, circunferências.
+
+### Entidades Relacionadas
+*   `BodyMeasurement`, `PersonalRecord`, `ProgressPhoto`.
+
+---
+
+# 4. REQUISITOS TÉCNICOS & BACKEND
+
+## Entidades Principais (Schema)
+1.  **Account/User**: Global (ID, Email, Password, GlobalRole).
+2.  **Workspace**: (ID, Name, Slug, PlanId, OwnerId).
+3.  **Member**: Relacionamento (UserId, WorkspaceId, RoleInWorkspace).
+4.  **StudentProfile**: (MemberId, Weight, Height, Goal, Bio).
+5.  **TrainerProfile**: (MemberId, Specialization, Bio, Rating).
+6.  **Workout**: (ID, WorkspaceId, CreatorId, StudentId, Name).
+7.  **Exercise**: (ID, WorkspaceId/Global, Name, VideoUrl, Description).
+8.  **WorkoutExecution**: (ID, StudentId, WorkoutId, StartTime, EndTime).
+9.  **Transaction/Invoice**: (ID, WorkspaceId, Status, Value, GatewayId).
+
+## Realtime Events (WebSockets/SSE)
+*   **Workout Live**: Personal vê quando o aluno inicia o treino.
+*   **Support/Chat**: (Caso implementado futuramente).
+*   **Global Notifications**: Alertas de novos planos, lembretes de treino.
+*   **System Status**: Atualização imediata de disponibilidade.
+
+## Segurança & Autorização
+*   **RBAC (Role-Based Access Control)**: Middleware validando `Role` + `WorkspaceContext`.
+*   **Tenancy Filter**: Toda query SQL deve conter `WHERE workspace_id = X`.
+*   **Data Masking**: Proteção de dados PII (Sensitive Data) em logs.
+
+---
+
+## Fluxo de Dados (Exemplo)
+1.  **Trainer** cria `Workout` -> API valida permissão no Workspace.
+2.  **Student** abre app -> API retorna `Workout` filtrado por `StudentId`.
+3.  **Student** inicia `Execution` -> Backend emite evento `workout.started` via Socket.
+4.  **Student** salva `Sets` -> Banco registra `PersonalRecord` se a carga for a maior da história.

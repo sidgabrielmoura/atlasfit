@@ -1,0 +1,93 @@
+import { proxy, subscribe } from "valtio";
+
+export interface Workspace {
+  id: string;
+  name: string;
+  slug: string;
+  logo: string;
+  primaryColor: string;
+  plan: string;
+}
+
+interface WorkspaceState {
+  activeWorkspaceId: string | null;
+  activeWorkspace: Workspace | null;
+  workspaces: Workspace[];
+  isLoading: boolean;
+}
+
+const storageKey = "atlasfit_workspace_store";
+
+const initialState: WorkspaceState = {
+  activeWorkspaceId: null,
+  activeWorkspace: null,
+  workspaces: [],
+  isLoading: false,
+};
+
+const getPersistedState = () => {
+  if (typeof window === "undefined") return initialState;
+  try {
+    const saved = localStorage.getItem(storageKey);
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      return {
+        ...initialState,
+        activeWorkspaceId: parsed.activeWorkspaceId || null,
+        activeWorkspace: parsed.activeWorkspace || null,
+        workspaces: parsed.workspaces || [],
+      };
+    }
+  } catch (err) {
+    console.error("Failed to parse persisted workspace state:", err);
+  }
+  return initialState;
+};
+
+export const workspaceStore = proxy<WorkspaceState>(getPersistedState());
+
+if (typeof window !== "undefined") {
+  subscribe(workspaceStore, () => {
+    try {
+      localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          activeWorkspaceId: workspaceStore.activeWorkspaceId,
+          activeWorkspace: workspaceStore.activeWorkspace,
+          workspaces: workspaceStore.workspaces,
+        })
+      );
+    } catch (err) {
+      console.error("Failed to persist workspace state:", err);
+    }
+  });
+}
+
+export const workspaceActions = {
+  setWorkspaces(workspaces: Workspace[]) {
+    workspaceStore.workspaces = workspaces;
+    
+    // Auto-select first workspace or sync activeWorkspace if activeWorkspaceId exists
+    if (workspaces.length > 0) {
+      const found = workspaces.find((w) => w.id === workspaceStore.activeWorkspaceId);
+      if (found) {
+        workspaceStore.activeWorkspace = found;
+      } else {
+        workspaceStore.activeWorkspaceId = workspaces[0].id;
+        workspaceStore.activeWorkspace = workspaces[0];
+      }
+    } else {
+      workspaceStore.activeWorkspaceId = null;
+      workspaceStore.activeWorkspace = null;
+    }
+  },
+
+  setActiveWorkspace(workspace: Workspace) {
+    workspaceStore.activeWorkspaceId = workspace.id;
+    workspaceStore.activeWorkspace = workspace;
+  },
+
+  setLoading(loading: boolean) {
+    workspaceStore.isLoading = loading;
+  }
+};

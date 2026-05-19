@@ -1,0 +1,332 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum GlobalRole {
+  SUPERADMIN
+  TRAINER
+  STUDENT
+  USER
+}
+
+enum WorkspaceRole {
+  OWNER
+  TRAINER
+  ASSISTANT
+  STUDENT
+}
+
+model User {
+  id               String            @id @default(cuid())
+  name             String?
+  email            String?           @unique
+  password         String?
+  emailVerified    DateTime?
+  image            String?
+  role             GlobalRole        @default(USER)
+  accounts         Account[]
+  sessions         Session[]
+  workspaces       WorkspaceMember[]
+  auditLogs        AuditLog[]
+  createdExercises Exercise[]        @relation("CreatedExercises")
+  workouts         Workout[]         @relation("CreatedWorkouts")
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  // Personal Trainer profile fields
+  bio              String?
+  specialty        String?
+  whatsapp         String?
+  instagram        String?
+  linkedin         String?
+  city             String?
+  experience       String?
+  cref             String?
+
+  subscription     Subscription?
+  transactions     Transaction[]
+  subscriptionActivities SubscriptionActivity[]
+  adjustmentRequests ExerciseAdjustmentRequest[]
+  adjustmentMessages AdjustmentMessage[]
+}
+
+model Workspace {
+  id                     String                 @id @default(cuid())
+  name                   String
+  slug                   String                 @unique
+  ownerId                String
+  isActive               Boolean                @default(true)
+  members                WorkspaceMember[]
+  plans                  WorkspacePlan[]
+  payments               WorkspacePayment[]
+  createdAt              DateTime               @default(now())
+  updatedAt              DateTime               @updatedAt
+}
+
+model WorkspaceMember {
+  id          String        @id @default(cuid())
+  userId      String
+  workspaceId String
+  role        WorkspaceRole @default(STUDENT)
+  isActive    Boolean       @default(true)
+  plan        String        @default("Mensal")
+  streak      Int           @default(0)
+  progress    Int           @default(0)
+  lastActive  DateTime?     @default(now())
+  user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@unique([userId, workspaceId])
+}
+
+model Plan {
+  id                     String                 @id @default(cuid())
+  name                   String
+  price                  Float
+  interval               String                 @default("month") // "month" or "year"
+  features               String?
+  maxWorkspaces          Int                    @default(1)
+  subscriptions          Subscription[]
+  subscriptionActivities SubscriptionActivity[]
+}
+
+model Subscription {
+  id          String    @id @default(cuid())
+  userId      String    @unique
+  planId      String
+  status      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan        Plan      @relation(fields: [planId], references: [id])
+  startDate   DateTime  @default(now())
+  endDate     DateTime?
+}
+
+model Transaction {
+  id            String    @id @default(cuid())
+  userId        String
+  amount        Float
+  status        String // "APPROVED", "PENDING", "FAILED", "REFUNDED"
+  paymentMethod String? // "CREDIT_CARD", "PIX", "BOLETO"
+  description   String?
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+}
+
+model Coupon {
+  id              String    @id @default(cuid())
+  code            String    @unique
+  discountPercent Int
+  maxUses         Int?
+  usedCount       Int       @default(0)
+  expirationDate  DateTime?
+  isActive        Boolean   @default(true)
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(cuid())
+  userId    String
+  action    String
+  entity    String?
+  entityId  String?
+  ip        String?
+  severity  String   @default("info")
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model MuscleGroup {
+  id        String     @id @default(cuid())
+  name      String     @unique
+  exercises Exercise[]
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+}
+
+model Exercise {
+  id            String  @id @default(cuid())
+  name          String
+  creatorId     String?
+  videoUrl      String?
+  usage         Int     @default(0)
+  isOfficial    Boolean @default(false)
+  status        String  @default("PENDING") // PENDING, APPROVED, REJECTED
+  muscleGroupId String
+
+  muscleGroup MuscleGroup @relation(fields: [muscleGroupId], references: [id], onDelete: Cascade)
+  creator     User?       @relation("CreatedExercises", fields: [creatorId], references: [id], onDelete: SetNull)
+  workoutExercises WorkoutExercise[]
+  adjustmentRequests ExerciseAdjustmentRequest[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Workout {
+  id          String            @id @default(cuid())
+  name        String
+  goal        String            // "Hipertrofia", "Emagrecimento", "Força", "Resistência", etc. (pra que serve)
+  difficulty  String            // "Iniciante", "Intermediário", "Avançado"
+  duration    String            // "60 min", "45 min" (tempo de treino)
+  creatorId   String?
+  creator     User?             @relation("CreatedWorkouts", fields: [creatorId], references: [id], onDelete: SetNull)
+  exercises   WorkoutExercise[]
+
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+model WorkoutExercise {
+  id          String   @id @default(cuid())
+  workoutId   String
+  exerciseId  String
+  sets        Int      // séries
+  reps        String   // repetições
+  rest        String   // descanso
+  order       Int      @default(0) // ordem
+
+  workout     Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  exercise    Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SystemSetting {
+  id          String   @id @default(cuid())
+  key         String   @unique
+  value       String
+  description String?
+  type        String   @default("string") // string, boolean, number
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SubscriptionActivity {
+  id        String   @id @default(cuid())
+  userId    String
+  planId    String
+  type      String // "NEW_SUBSCRIPTION", "RENEWAL", "CANCELLATION", "UPGRADE"
+  amount    Float
+  status    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan      Plan     @relation(fields: [planId], references: [id])
+  createdAt DateTime @default(now())
+}
+model SystemIntegration {
+  id          String   @id @default(cuid())
+  name        String
+  key         String   @unique
+  url         String?
+  icon        String   @default("Zap") // Lucide icon name
+  status      String   @default("Operational")
+  latency     String?
+  category    String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model ExerciseAdjustmentRequest {
+  id          String   @id @default(cuid())
+  exerciseId  String
+  description String
+  requesterId String
+  status      String   @default("PENDING") // PENDING, RESOLVED
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  exercise    Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  requester   User     @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  messages    AdjustmentMessage[]
+
+  @@index([exerciseId])
+  @@index([requesterId])
+}
+
+model AdjustmentMessage {
+  id              String   @id @default(cuid())
+  requestId       String
+  senderId        String
+  message         String
+  isReadByTrainer Boolean  @default(true)
+  isReadByAdmin   Boolean  @default(true)
+  createdAt       DateTime @default(now())
+
+  request         ExerciseAdjustmentRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  sender          User                      @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([requestId])
+  @@index([senderId])
+}
+
+model WorkspacePlan {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  price       Float
+  interval    String   @default("mensal") // "mensal", "trimestral", "semestral", "anual"
+  link        String?  // link base de checkout / pagamento
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model WorkspacePayment {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  studentName   String
+  planName      String
+  amount        Float
+  status        String   // "pago", "pendente", "atrasado"
+  method        String   // "PIX", "BOLETO", "CREDIT_CARD"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
