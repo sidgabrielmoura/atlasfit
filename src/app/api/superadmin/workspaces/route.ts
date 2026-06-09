@@ -73,7 +73,7 @@ export async function POST(req: Request) {
     }
 
     const existingSlug = await prisma.workspace.findUnique({
-      where: { slug }
+      where: { slug: slug.toLowerCase() }
     });
 
     if (existingSlug) {
@@ -84,7 +84,7 @@ export async function POST(req: Request) {
       const workspace = await tx.workspace.create({
         data: {
           name,
-          slug,
+          slug: slug.toLowerCase(),
           ownerId,
         }
       });

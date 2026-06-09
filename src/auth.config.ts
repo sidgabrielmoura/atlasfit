@@ -43,6 +43,10 @@ export const authConfig = {
       if (user) {
         token.role = user.role;
         token.id = user.id;
+        if ((user as any).isImpersonated) {
+          token.isImpersonated = true;
+          token.originalAdminEmail = (user as any).originalAdminEmail;
+        }
       }
       return token;
     },
@@ -50,6 +54,10 @@ export const authConfig = {
       if (token && session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
+        if (token.isImpersonated) {
+          (session.user as any).isImpersonated = true;
+          (session.user as any).originalAdminEmail = token.originalAdminEmail;
+        }
       }
       return session;
     },

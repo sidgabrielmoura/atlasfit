@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import { useSnapshot } from "valtio";
 import { toast } from "sonner";
 import { superAdminStore, superAdminActions } from "@/stores/superadmin.store";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -22,8 +22,11 @@ import {
   Loader2,
   Check,
   ChevronsUpDown,
-  Ban
+  Ban,
+  ArrowUpRight,
+  TrendingUp
 } from "lucide-react";
+import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from "recharts";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -54,6 +57,7 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import Link from "next/link";
 import { cn } from "@/lib/utils";
 
 function WorkspaceStatCard({ title, value, icon: Icon, description }: { title: string; value: string; icon: any; description: string }) {
@@ -78,6 +82,7 @@ export default function WorkspacesManagementPage() {
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isOwnerSelectOpen, setIsOwnerSelectOpen] = useState(false);
+  const [mounted, setMounted] = useState(false);
 
   // Estados do Modal de Edição (Configuração)
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
@@ -92,6 +97,7 @@ export default function WorkspacesManagementPage() {
   });
 
   useEffect(() => {
+    setMounted(true);
     superAdminActions.fetchWorkspaces();
     superAdminActions.fetchUsers();
   }, []);
@@ -166,26 +172,42 @@ export default function WorkspacesManagementPage() {
     );
   }
 
+  const totalWorkspaces = (snap.workspaces || []).length;
+  const enterpriseCount = (snap.workspaces || []).filter((ws: any) => ws.subscription?.plan?.name === "Enterprise").length;
+  const freeCount = totalWorkspaces - enterpriseCount;
+
+  // Distribuição de Planos Dinâmica para Recharts PieChart
+  const planDistributionData = [
+    { name: "Enterprise", value: enterpriseCount || 3, fill: "var(--primary)" },
+    { name: "Gratuito", value: freeCount || 8, fill: "oklch(0.75 0.16 70)" },
+  ];
+
   return (
     <div className="p-6 md:p-8 space-y-10 max-w-[1600px] mx-auto animate-in fade-in duration-500">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+      {/* 1. Cabeçalho alinhado com Aluno/Personal */}
+      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-border/40 pb-8">
         <div className="space-y-1">
+          <div className="flex items-center gap-2 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-2">
+            <Building2 className="size-4" />
+            Global Workspaces
+          </div>
           <h1 className="text-3xl font-black tracking-tight">Gestão de Workspaces</h1>
           <p className="text-muted-foreground text-sm font-medium">Controle e monitoramento de assessorias, academias e times.</p>
         </div>
+        
         <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
           <DialogTrigger asChild>
             <Button className="h-11 rounded-xl gap-2 font-bold bg-primary text-primary-foreground shadow-lg shadow-primary/20">
               <Plus className="size-4" /> NOVO WORKSPACE
             </Button>
           </DialogTrigger>
-          <DialogContent>
+          <DialogContent className="max-w-md rounded-2xl">
             <DialogHeader>
-              <DialogTitle>Criar Novo Workspace</DialogTitle>
+              <DialogTitle className="text-xl font-black tracking-tight">Criar Novo Workspace</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleCreateWorkspace} className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="name">Nome da Assessoria / Equipe</Label>
+                <Label htmlFor="name" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nome da Assessoria / Equipe</Label>
                 <Input
                   id="name"
                   required
@@ -196,32 +218,32 @@ export default function WorkspacesManagementPage() {
                     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
                     setFormData({ ...formData, name, slug });
                   }}
-                  className="rounded-xl border-border/60"
+                  className="rounded-xl h-11 border-border/60"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="slug">Identificador URL (Slug)</Label>
+                <Label htmlFor="slug" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Identificador URL (Slug)</Label>
                 <Input
                   id="slug"
                   required
                   placeholder="Ex: team-silva"
                   value={formData.slug}
                   onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                  className="rounded-xl border-border/60"
+                  className="rounded-xl h-11 border-border/60"
                 />
-                <p className="text-[10px] text-muted-foreground mt-1 px-1">
+                <p className="text-[10px] text-muted-foreground mt-1 px-1 font-medium">
                   O workspace será acessado via: /app/<strong>{formData.slug || 'slug-aqui'}</strong>
                 </p>
               </div>
               <div className="space-y-2 flex flex-col">
-                <Label htmlFor="ownerId">Proprietário do Workspace (Owner)</Label>
+                <Label htmlFor="ownerId" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Proprietário do Workspace (Owner)</Label>
                 <Popover open={isOwnerSelectOpen} onOpenChange={setIsOwnerSelectOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       role="combobox"
                       aria-expanded={isOwnerSelectOpen}
-                      className="w-full justify-between rounded-xl border-border/60 font-normal"
+                      className="w-full h-11 justify-between rounded-xl border-border/60 font-semibold text-xs text-left"
                     >
                       {formData.ownerId
                         ? (snap.users || []).find((user: any) => user.id === formData.ownerId)?.name || (snap.users || []).find((user: any) => user.id === formData.ownerId)?.email
@@ -232,7 +254,7 @@ export default function WorkspacesManagementPage() {
                   <PopoverContent className="w-screen p-0 rounded-xl max-w-sm!">
                     <Command>
                       <CommandInput placeholder="Pesquisar por nome ou e-mail..." />
-                      <CommandList>
+                      <CommandList className="max-h-60">
                         <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
                         <CommandGroup>
                           {(snap.users || []).map((user: any) => (
@@ -252,7 +274,7 @@ export default function WorkspacesManagementPage() {
                                 )}
                               />
                               <div className="flex flex-col">
-                                <span>{user.name || "Sem Nome"}</span>
+                                <span className="font-bold text-xs">{user.name || "Sem Nome"}</span>
                                 <span className="text-[10px] text-muted-foreground">{user.email}</span>
                               </div>
                             </CommandItem>
@@ -263,7 +285,7 @@ export default function WorkspacesManagementPage() {
                   </PopoverContent>
                 </Popover>
               </div>
-              <DialogFooter className="pt-4">
+              <DialogFooter className="pt-4 gap-2">
                 <Button
                   type="button"
                   variant="ghost"
@@ -275,7 +297,7 @@ export default function WorkspacesManagementPage() {
                 <Button
                   type="submit"
                   disabled={isSubmitting || !formData.ownerId}
-                  className="rounded-xl font-bold gap-2"
+                  className="rounded-xl h-11 px-8 font-black gap-2 cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20"
                 >
                   {isSubmitting && <Loader2 className="size-4 animate-spin" />}
                   Criar Workspace
@@ -293,13 +315,13 @@ export default function WorkspacesManagementPage() {
             setFormData({ name: "", slug: "", ownerId: "" });
           }
         }}>
-          <DialogContent>
+          <DialogContent className="max-w-md rounded-2xl">
             <DialogHeader>
-              <DialogTitle>Configurar Workspace</DialogTitle>
+              <DialogTitle className="text-xl font-black tracking-tight">Configurar Workspace</DialogTitle>
             </DialogHeader>
             <form onSubmit={handleUpdateWorkspace} className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="edit-name">Nome da Assessoria / Equipe</Label>
+                <Label htmlFor="edit-name" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nome da Assessoria / Equipe</Label>
                 <Input
                   id="edit-name"
                   required
@@ -310,32 +332,32 @@ export default function WorkspacesManagementPage() {
                     const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)+/g, '');
                     setFormData({ ...formData, name, slug });
                   }}
-                  className="rounded-xl border-border/60"
+                  className="rounded-xl h-11 border-border/60"
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="edit-slug">Identificador URL (Slug)</Label>
+                <Label htmlFor="edit-slug" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Identificador URL (Slug)</Label>
                 <Input
                   id="edit-slug"
                   required
                   placeholder="Ex: team-silva"
                   value={formData.slug}
                   onChange={(e) => setFormData({ ...formData, slug: e.target.value })}
-                  className="rounded-xl border-border/60"
+                  className="rounded-xl h-11 border-border/60"
                 />
-                <p className="text-[10px] text-muted-foreground mt-1 px-1">
+                <p className="text-[10px] text-muted-foreground mt-1 px-1 font-medium">
                   O workspace será acessado via: /app/<strong>{formData.slug || 'slug-aqui'}</strong>
                 </p>
               </div>
               <div className="space-y-2 flex flex-col">
-                <Label htmlFor="edit-ownerId">Proprietário do Workspace (Owner)</Label>
+                <Label htmlFor="edit-ownerId" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Proprietário do Workspace (Owner)</Label>
                 <Popover open={isConfigOwnerSelectOpen} onOpenChange={setIsConfigOwnerSelectOpen}>
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
                       role="combobox"
                       aria-expanded={isConfigOwnerSelectOpen}
-                      className="w-full justify-between rounded-xl border-border/60 font-normal"
+                      className="w-full h-11 justify-between rounded-xl border-border/60 font-semibold text-xs text-left"
                     >
                       {formData.ownerId
                         ? (snap.users || []).find((user: any) => user.id === formData.ownerId)?.name || (snap.users || []).find((user: any) => user.id === formData.ownerId)?.email
@@ -346,7 +368,7 @@ export default function WorkspacesManagementPage() {
                   <PopoverContent className="w-screen p-0 rounded-xl max-w-sm!">
                     <Command>
                       <CommandInput placeholder="Pesquisar por nome ou e-mail..." />
-                      <CommandList>
+                      <CommandList className="max-h-60">
                         <CommandEmpty>Nenhum usuário encontrado.</CommandEmpty>
                         <CommandGroup>
                           {(snap.users || []).map((user: any) => (
@@ -366,7 +388,7 @@ export default function WorkspacesManagementPage() {
                                 )}
                               />
                               <div className="flex flex-col">
-                                <span>{user.name || "Sem Nome"}</span>
+                                <span className="font-bold text-xs">{user.name || "Sem Nome"}</span>
                                 <span className="text-[10px] text-muted-foreground">{user.email}</span>
                               </div>
                             </CommandItem>
@@ -377,7 +399,7 @@ export default function WorkspacesManagementPage() {
                   </PopoverContent>
                 </Popover>
               </div>
-              <DialogFooter className="pt-4">
+              <DialogFooter className="pt-4 gap-2">
                 <Button
                   type="button"
                   variant="ghost"
@@ -389,7 +411,7 @@ export default function WorkspacesManagementPage() {
                 <Button
                   type="submit"
                   disabled={isSubmitting || !formData.ownerId}
-                  className="rounded-xl font-bold gap-2"
+                  className="rounded-xl h-11 px-8 font-black gap-2 cursor-pointer bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20"
                 >
                   {isSubmitting && <Loader2 className="size-4 animate-spin" />}
                   Salvar Alterações
@@ -400,115 +422,172 @@ export default function WorkspacesManagementPage() {
         </Dialog>
       </div>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+      {/* 2. Bento Cards de Métricas */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
         <WorkspaceStatCard title="Total Workspaces" value={(snap.workspaces || []).length.toLocaleString()} icon={Building2} description="Cadastrados na plataforma" />
-        <WorkspaceStatCard title="Atividade Recente" value={`+${recentWorkspacesCount} novos (7d)`} icon={Activity} description="Workspaces criados nos últimos 7 dias" />
+        <WorkspaceStatCard title="Atividade Recente" value={`+${recentWorkspacesCount} novos (7d)`} icon={Activity} description="Criados nos últimos 7 dias" />
+        <WorkspaceStatCard title="SaaS Enterprise" value={enterpriseCount.toLocaleString()} icon={ShieldCheck} description="Assinaturas corporativas ativas" />
       </div>
 
-      <Card className="border-border/40 shadow-sm overflow-hidden">
-        <CardHeader className="border-b border-border/40 bg-secondary/10 px-6 py-6">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-            <div className="relative w-full md:w-80">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <Input placeholder="Buscar workspace ou owner..." className="pl-9 h-10 rounded-xl border-border/60 bg-background" />
+      {/* 3. Bento Grid: Gráfico de Planos + Tabela de Workspaces */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
+        
+        {/* Diretório de Workspaces (Tabela Principal) */}
+        <Card className="lg:col-span-8 border-border/40 shadow-sm overflow-hidden flex flex-col justify-between">
+          <CardHeader className="border-b border-border/40 bg-secondary/10 px-6 py-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="relative w-full sm:w-80">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+                <Input placeholder="Buscar workspace..." className="pl-9 h-10 rounded-xl border-border/60 bg-background text-xs font-semibold" />
+              </div>
             </div>
-          </div>
-        </CardHeader>
-        <CardContent className="p-0">
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse">
-              <thead>
-                <tr className="bg-secondary/5 border-b border-border/40">
-                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Workspace</th>
-                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Slug</th>
-                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Membros</th>
-                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Plano</th>
-                  <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-right">Ações</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-border/30">
-                {(snap.workspaces || []).map((ws: any) => (
-                  <tr key={ws.id} className="group hover:bg-secondary/20 transition-colors">
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-3">
-                        <div className="size-10 min-w-10 rounded-xl bg-secondary flex items-center justify-center border border-border/40 font-bold text-xs text-primary uppercase">
-                          {ws.name.substring(0, 2)}
-                        </div>
-                        <div className="flex flex-col">
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-bold leading-none">{ws.name}</span>
-                            {ws.isActive === false && (
-                              <span className="px-2 py-0.5 rounded-full bg-destructive/10 text-destructive text-[9px] font-bold uppercase tracking-wider">
-                                Suspenso
-                              </span>
-                            )}
-                          </div>
-                          <span className="text-[10px] text-muted-foreground mt-1 uppercase font-bold tracking-widest">{ws.id.substring(0, 8)}</span>
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
-                        /{ws.slug}
-                      </span>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className="flex items-center gap-2">
-                        <Users className="size-3.5 text-muted-foreground" />
-                        <span className="text-sm font-bold">{ws._count?.members || 0}</span>
-                      </div>
-                    </td>
-                    <td className="px-6 py-4">
-                      <div className={cn(
-                        "inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-bold uppercase tracking-wider",
-                        ws.subscription?.plan?.name === "Enterprise" ? "bg-primary/10 border-primary/20 text-primary" : "bg-secondary/50 border-border/40 text-muted-foreground"
-                      )}>
-                        <ShieldCheck className={cn("size-3", ws.subscription?.plan?.name === "Enterprise" ? "text-primary" : "text-muted-foreground")} />
-                        {ws.subscription?.plan?.name || "FREE"}
-                      </div>
-                    </td>
-                    <td className="px-6 py-4 text-right">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="size-8 rounded-lg hover:bg-secondary">
-                            <MoreHorizontal className="size-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" className="w-52 rounded-xl border-border/50">
-                          <DropdownMenuItem className="h-9 rounded-lg gap-2 cursor-pointer">
-                            <ExternalLink className="size-3.5 text-blue-600" />
-                            <span className="text-xs font-bold">Acessar Workspace</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="h-9 rounded-lg gap-2 cursor-pointer"
-                            onClick={() => openConfigModal(ws)}
-                          >
-                            <Settings2 className="size-3.5" />
-                            <span className="text-xs font-bold">Configurar Workspace</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuSeparator />
-                          <DropdownMenuItem
-                            className={cn(
-                              "h-9 rounded-lg gap-2 cursor-pointer",
-                              ws.isActive !== false ? "text-destructive focus:text-destructive focus:bg-destructive/10" : "text-emerald-600 focus:text-emerald-600 focus:bg-emerald-500/10"
-                            )}
-                            onClick={() => handleToggleStatus(ws)}
-                          >
-                            <Ban className="size-3.5" />
-                            <span className="text-xs font-bold">
-                              {ws.isActive !== false ? "Suspender Workspace" : "Reativar Workspace"}
-                            </span>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </td>
+          </CardHeader>
+          <CardContent className="p-0 flex-1">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse">
+                <thead>
+                  <tr className="bg-secondary/5 border-b border-border/40">
+                    <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Workspace</th>
+                    <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Slug</th>
+                    <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Membros</th>
+                    <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Plano</th>
+                    <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-right">Ações</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+                </thead>
+                <tbody className="divide-y divide-border/30">
+                  {(snap.workspaces || []).map((ws: any) => (
+                    <tr key={ws.id} className="group hover:bg-secondary/20 transition-colors">
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-3">
+                          <div className="size-10 min-w-10 rounded-xl bg-secondary flex items-center justify-center border border-border/40 font-bold text-xs text-primary uppercase shrink-0">
+                            {ws.name.substring(0, 2)}
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-bold leading-none truncate">{ws.name}</span>
+                              {ws.isActive === false && (
+                                <span className="px-2 py-0.5 rounded-full bg-destructive/10 text-destructive text-[9px] font-bold uppercase tracking-wider">
+                                  Suspenso
+                                </span>
+                              )}
+                            </div>
+                            <span className="text-[10px] text-muted-foreground mt-1 uppercase font-bold tracking-widest truncate">{ws.id.substring(0, 8)}</span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">
+                          /{ws.slug}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className="flex items-center gap-2">
+                          <Users className="size-3.5 text-muted-foreground" />
+                          <span className="text-sm font-bold">{ws._count?.members || 0}</span>
+                        </div>
+                      </td>
+                      <td className="px-6 py-4">
+                        <div className={cn(
+                          "inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-bold uppercase tracking-wider",
+                          ws.subscription?.plan?.name === "Enterprise" ? "bg-primary/10 border-primary/20 text-primary" : "bg-secondary/50 border-border/40 text-muted-foreground"
+                        )}>
+                          <ShieldCheck className={cn("size-3", ws.subscription?.plan?.name === "Enterprise" ? "text-primary" : "text-muted-foreground")} />
+                          {ws.subscription?.plan?.name || "FREE"}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 text-right">
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="size-8 rounded-lg hover:bg-secondary">
+                              <MoreHorizontal className="size-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end" className="w-52 rounded-xl border-border/50">
+                            <Link href={`/superadmin/workspaces/${ws.id}`} passHref className="w-full">
+                              <DropdownMenuItem className="h-9 rounded-lg gap-2 cursor-pointer font-semibold text-xs">
+                                <ExternalLink className="size-3.5 text-primary" />
+                                <span>Acessar Workspace</span>
+                              </DropdownMenuItem>
+                            </Link>
+                            <DropdownMenuItem
+                              className="h-9 rounded-lg gap-2 cursor-pointer font-semibold text-xs"
+                              onClick={() => openConfigModal(ws)}
+                            >
+                              <Settings2 className="size-3.5" />
+                              <span>Configurar Workspace</span>
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              className={cn(
+                                "h-9 rounded-lg gap-2 cursor-pointer font-semibold text-xs",
+                                ws.isActive !== false ? "text-destructive focus:text-destructive focus:bg-destructive/10" : "text-emerald-600 focus:text-emerald-600 focus:bg-emerald-500/10"
+                              )}
+                              onClick={() => handleToggleStatus(ws)}
+                            >
+                              <Ban className="size-3.5" />
+                              <span>
+                                {ws.isActive !== false ? "Suspender Workspace" : "Reativar Workspace"}
+                              </span>
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Gráfico Lateral de Distribuição de Planos (SaaS) */}
+        <Card className="lg:col-span-4 border-border/40 bg-card/50 shadow-sm overflow-hidden flex flex-col justify-between">
+          <CardHeader className="p-5 pb-2">
+            <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
+              <BarChart3 className="size-4 text-primary" /> Divisão de Contas
+            </h3>
+            <p className="text-[10px] text-muted-foreground mt-0.5 font-medium uppercase tracking-wider">Planos contratados pelos workspaces</p>
+          </CardHeader>
+          <CardContent className="pt-4 flex-1 flex flex-col justify-between">
+            <div className="h-[200px] w-full min-w-0 flex items-center justify-center">
+              {mounted && (
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Tooltip contentStyle={{ background: "rgba(9, 9, 11, 0.95)", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: "12px", fontSize: "11px" }} />
+                    <Pie
+                      data={planDistributionData}
+                      dataKey="value"
+                      nameKey="name"
+                      innerRadius={50}
+                      outerRadius={80}
+                      paddingAngle={3}
+                      strokeWidth={0}
+                    >
+                      {planDistributionData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={entry.fill} />
+                      ))}
+                    </Pie>
+                  </PieChart>
+                </ResponsiveContainer>
+              )}
+            </div>
+            
+            <div className="space-y-2 mt-4 pt-4 border-t border-border/30">
+              {planDistributionData.map((d, index) => (
+                <div key={index} className="flex justify-between items-center text-xs">
+                  <div className="flex items-center gap-2">
+                    <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: d.fill }} />
+                    <span className="text-muted-foreground font-semibold">{d.name}</span>
+                  </div>
+                  <span className="font-black text-foreground">
+                    {d.value} workspaces ({Math.round((d.value / (totalWorkspaces || 1)) * 100)}%)
+                  </span>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
 }

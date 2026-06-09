@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import bcryptjs from "bcryptjs";
+import crypto from "crypto";
 
 // GET: Fetch all students of a given workspace
 export async function GET(req: Request) {
@@ -59,11 +60,15 @@ export async function GET(req: Request) {
         isActive: m.isActive,
         plan: m.plan,
         streak: m.streak,
+        bestStreak: m.bestStreak,
+        image: m.user.image,
         progress: m.progress,
         avatarFallback: fallback,
         lastActive: m.lastActive
           ? new Date(m.lastActive).toLocaleDateString("pt-BR")
           : "Não acessou",
+        setupToken: m.user.setupToken,
+        hasPassword: m.user.password !== null,
       };
     });
 
@@ -83,9 +88,9 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { workspaceId, name, email, password, whatsapp, plan } = body;
+    const { workspaceId, name, email, whatsapp, plan } = body;
 
-    if (!workspaceId || !name || !email || !password || !plan) {
+    if (!workspaceId || !name || !email || !plan) {
       return new NextResponse("Campos obrigatórios ausentes.", { status: 400 });
     }
 
@@ -105,8 +110,6 @@ export async function POST(req: Request) {
     let studentUser = await prisma.user.findUnique({
       where: { email },
     });
-
-    const hashedPassword = await bcryptjs.hash(password, 10);
 
     if (studentUser) {
       // User exists. Let's see if they are already linked to this workspace.
@@ -133,14 +136,25 @@ export async function POST(req: Request) {
           isActive: true,
         },
       });
+
+      // If the existing user doesn't have a password and doesn't have a setupToken, we can generate one.
+      if (!studentUser.password && !studentUser.setupToken) {
+        const setupToken = crypto.randomUUID();
+        await prisma.user.update({
+          where: { id: studentUser.id },
+          data: { setupToken },
+        });
+      }
     } else {
+      const setupToken = crypto.randomUUID();
       // Create new student user and member relation in a transaction
       await prisma.$transaction(async (tx) => {
         const createdUser = await tx.user.create({
           data: {
             name,
             email,
-            password: hashedPassword,
+            password: null,
+            setupToken,
             role: "STUDENT",
             whatsapp,
           },
@@ -165,7 +179,7 @@ export async function POST(req: Request) {
   }
 }
 
-// PUT: Update student details, plan, password, or active status
+// PUT: Update student details, plan, or active status
 export async function PUT(req: Request) {
   const session = await auth();
   if (!session?.user) {
@@ -174,7 +188,7 @@ export async function PUT(req: Request) {
 
   try {
     const body = await req.json();
-    const { userId, workspaceId, name, email, whatsapp, plan, isActive, password } = body;
+    const { userId, workspaceId, name, email, whatsapp, plan, isActive } = body;
 
     if (!userId || !workspaceId) {
       return new NextResponse("ID do usuário e ID do workspace são obrigatórios.", { status: 400 });
@@ -211,9 +225,6 @@ export async function PUT(req: Request) {
     if (name !== undefined) userUpdate.name = name;
     if (email !== undefined) userUpdate.email = email;
     if (whatsapp !== undefined) userUpdate.whatsapp = whatsapp;
-    if (password) {
-      userUpdate.password = await bcryptjs.hash(password, 10);
-    }
 
     // Prepare update data for WorkspaceMember
     const memberUpdate: any = {};

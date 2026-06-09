@@ -20,6 +20,7 @@ import {
   Globe,
   Database,
   Search,
+  Folder,
 } from "lucide-react";
 import {
   Sidebar,
@@ -53,6 +54,7 @@ const superAdminNavItems = [
 
 const platformNavItems = [
   { title: "Exercícios", href: "/superadmin/exercises", icon: Dumbbell },
+  { title: "Arquivos & Documentos", href: "/superadmin/files", icon: Folder },
   { title: "Assinaturas", href: "/superadmin/subscriptions", icon: BadgeCheck },
   { title: "Logs & Auditoria", href: "/superadmin/logs", icon: Database },
   { title: "Configurações", href: "/superadmin/settings", icon: Settings },

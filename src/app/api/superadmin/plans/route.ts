@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
+import { AbacatePay } from "@abacatepay/sdk";
 
 export async function GET() {
   const session = await auth();
@@ -47,6 +48,24 @@ export async function POST(req: Request) {
         maxWorkspaces: maxWorkspaces !== undefined ? parseInt(maxWorkspaces) : 1
       }
     });
+
+    // Sincronizar com o AbacatePay
+    try {
+      const apiKey = process.env.ABACATEPAY_API_KEY;
+      if (apiKey && apiKey !== "abc_dev_placeholder") {
+        const abacate = AbacatePay({ secret: apiKey });
+        await abacate.products.create({
+          externalId: plan.id,
+          name: plan.name,
+          price: Math.round(plan.price * 100), // convert to cents
+          currency: "BRL",
+          description: plan.features || `Plano ${plan.name}`
+        });
+        console.log(`Product synced successfully with AbacatePay: ${plan.id}`);
+      }
+    } catch (abacateError) {
+      console.error("Erro ao sincronizar produto com AbacatePay:", abacateError);
+    }
 
     return NextResponse.json(plan);
   } catch (error) {

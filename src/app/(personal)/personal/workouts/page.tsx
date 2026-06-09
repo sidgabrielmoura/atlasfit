@@ -22,7 +22,8 @@ import {
   MessageSquare,
   Send,
   Check,
-  CheckCircle2
+  CheckCircle2,
+  Timer
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -37,8 +38,9 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
-import { toast } from "sonner";
 import { Label } from "@/components/ui/label";
+import { toast } from "sonner";
+import { ExerciseThumbnail, ExercisePreviewModal } from "@/components/application/exercise-preview-modal";
 import {
   Select,
   SelectContent,
@@ -55,6 +57,26 @@ import {
   DialogTrigger,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+import { useSnapshot } from "valtio";
+import { workspaceStore } from "@/stores/workspace.store";
 
 const container = {
   hidden: { opacity: 0 },
@@ -67,8 +89,15 @@ const item = {
 };
 
 export default function WorkoutsPage() {
+  const workspaceSnap = useSnapshot(workspaceStore);
+  const activeWorkspaceId = workspaceSnap.activeWorkspaceId;
+
   const [workouts, setWorkouts] = useState<any[]>([]);
   const [loadingWorkouts, setLoadingWorkouts] = useState(true);
+
+  // Excluir workout alert dialog state
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+  const [workoutToDelete, setWorkoutToDelete] = useState<string | null>(null);
 
   const [workoutSearch, setWorkoutSearch] = useState("");
   const [workoutFilter, setWorkoutFilter] = useState<string>("all");
@@ -103,6 +132,10 @@ export default function WorkoutsPage() {
 
   const [dbExercises, setDbExercises] = useState<any[]>([]);
   const [loadingDbExercises, setLoadingDbExercises] = useState(true);
+
+  // Exercise Preview State
+  const [previewExercise, setPreviewExercise] = useState<any>(null);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
   // Fetch approved/official exercises
   const fetchDbExercises = async () => {
@@ -161,6 +194,11 @@ export default function WorkoutsPage() {
 
   // Fetch muscle groups & requests to populate dropdown and list
   useEffect(() => {
+    // Reset states to avoid stale data flash on workspace change
+    setDbExercises([]);
+    setRequestedExercises([]);
+    setAdjustmentRequests([]);
+
     const fetchMuscleGroups = async () => {
       try {
         const res = await fetch("/api/personal/workouts/muscle-groups");
@@ -179,7 +217,7 @@ export default function WorkoutsPage() {
     fetchRequestedExercises();
     fetchAdjustmentRequests();
     fetchDbExercises();
-  }, []);
+  }, [activeWorkspaceId]);
 
   const handleRequestSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -321,9 +359,13 @@ export default function WorkoutsPage() {
 
   // Load workouts from the API
   const fetchWorkouts = async () => {
+    if (!activeWorkspaceId) {
+      setLoadingWorkouts(false);
+      return;
+    }
     try {
       setLoadingWorkouts(true);
-      const res = await fetch("/api/personal/workouts");
+      const res = await fetch(`/api/personal/workouts?workspaceId=${activeWorkspaceId}`);
       if (!res.ok) {
         throw new Error("Erro ao carregar treinos.");
       }
@@ -339,7 +381,7 @@ export default function WorkoutsPage() {
 
   useEffect(() => {
     fetchWorkouts();
-  }, []);
+  }, [activeWorkspaceId]);
 
   const handleDuplicate = async (id: string) => {
     try {
@@ -357,19 +399,19 @@ export default function WorkoutsPage() {
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir este modelo de treino?")) {
-      return;
-    }
+  const handleConfirmDelete = async () => {
+    if (!workoutToDelete) return;
     try {
-      const res = await fetch(`/api/personal/workouts/${id}`, {
+      const res = await fetch(`/api/personal/workouts/${workoutToDelete}`, {
         method: "DELETE",
       });
       if (!res.ok) {
         throw new Error("Erro ao excluir treino.");
       }
       toast.success("Modelo de treino excluído!");
-      setWorkouts((prev) => prev.filter((w) => w.id !== id));
+      setWorkouts((prev) => prev.filter((w) => w.id !== workoutToDelete));
+      setIsDeleteAlertOpen(false);
+      setWorkoutToDelete(null);
     } catch (error) {
       console.error(error);
       toast.error("Falha ao excluir treino.");
@@ -450,9 +492,27 @@ export default function WorkoutsPage() {
           </div>
 
           {loadingWorkouts ? (
-            <div className="flex flex-col items-center justify-center py-20 gap-3">
-              <Loader2 className="size-8 text-primary animate-spin" />
-              <p className="text-sm text-muted-foreground">Carregando modelos de treinos...</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 w-full">
+              {[1, 2, 3].map((i) => (
+                <Card key={i} className="p-0 border border-neutral-800 bg-neutral-950/40 rounded-2xl">
+                  <CardContent className="p-5 flex flex-col justify-between gap-4 h-full min-h-[160px]">
+                    <div className="space-y-3">
+                      <Skeleton className="h-6 w-2/3 rounded-lg bg-neutral-900 animate-pulse" />
+                      <div className="flex gap-2">
+                        <Skeleton className="h-5 w-20 rounded bg-neutral-900 animate-pulse" />
+                        <Skeleton className="h-5 w-24 rounded-full bg-neutral-900 animate-pulse" />
+                      </div>
+                    </div>
+                    <div className="border-t border-neutral-900/50 pt-4 flex justify-between items-center mt-2">
+                      <div className="flex gap-3">
+                        <Skeleton className="h-4 w-12 rounded bg-neutral-900 animate-pulse" />
+                        <Skeleton className="h-4 w-12 rounded bg-neutral-900 animate-pulse" />
+                      </div>
+                      <Skeleton className="h-8 w-16 rounded bg-neutral-900 animate-pulse" />
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
             </div>
           ) : (
             <motion.div
@@ -477,6 +537,11 @@ export default function WorkoutsPage() {
                               <Badge variant="secondary" className="text-xs bg-primary/10 text-primary hover:bg-primary/20">
                                 {workout.goal}
                               </Badge>
+                              {workout.muscleGroupLabel && (
+                                <Badge variant="outline" className="text-xs bg-emerald-500/5 text-emerald-500 border-emerald-500/20">
+                                  {workout.muscleGroupLabel}
+                                </Badge>
+                              )}
                               <span className="text-xs text-muted-foreground border border-border rounded-full px-2 py-0.5">
                                 {workout.difficulty}
                               </span>
@@ -498,25 +563,36 @@ export default function WorkoutsPage() {
                                 <Copy className="mr-2 size-4" /> Duplicar
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
-                              <DropdownMenuItem className="text-destructive" onClick={() => handleDelete(workout.id)}>
+                              <DropdownMenuItem
+                                className="text-destructive cursor-pointer"
+                                onClick={() => {
+                                  setWorkoutToDelete(workout.id);
+                                  setIsDeleteAlertOpen(true);
+                                }}
+                              >
                                 <Trash2 className="mr-2 size-4" /> Excluir
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
 
+
                         <div className="flex items-center justify-between mt-2 pt-3 border-t border-border/50">
-                          <div className="flex items-center gap-4 text-sm text-muted-foreground">
-                            <div className="flex items-center gap-1.5">
-                              <Clock className="size-4" />
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+                            <div className="flex items-center gap-1">
+                              <Clock className="size-3.5" />
                               <span>{workout.duration}</span>
                             </div>
-                            <div className="flex items-center gap-1.5">
-                              <Dumbbell className="size-4" />
-                              <span>{workout.exercises?.length || 0} exercícios</span>
+                            <div className="flex items-center gap-1">
+                              <Dumbbell className="size-3.5" />
+                              <span>{workout.exercises?.length || 0} exs</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                              <Timer className="size-3.5" />
+                              <span>{workout.restBetweenExercises || "2 min"}</span>
                             </div>
                           </div>
-                          <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5 text-primary hover:bg-primary hover:text-primary-foreground transition-all rounded-md" asChild>
+                          <Button variant="ghost" size="sm" className="h-8 text-xs gap-1.5 text-primary hover:bg-primary hover:text-primary-foreground transition-all rounded-md shrink-0" asChild>
                             <Link href={`/personal/workouts/${workout.id}`}>
                               <span>Visualizar</span>
                               <Eye className="size-3.5" />
@@ -575,8 +651,8 @@ export default function WorkoutsPage() {
                 <RefreshCw className="size-4" />
                 <span>Atualizar</span>
               </Button>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="shrink-0 gap-2 h-10 flex-1 sm:flex-initial text-primary border-primary/20 hover:bg-primary/10"
                 onClick={() => setIsRequestModalOpen(true)}
               >
@@ -605,8 +681,8 @@ export default function WorkoutsPage() {
                   ).length;
 
                   return (
-                    <div 
-                      key={request.id} 
+                    <div
+                      key={request.id}
                       className="p-4 rounded-xl border border-border/50 bg-secondary/5 hover:bg-secondary/10 transition-all flex items-center justify-between gap-4 min-w-0 cursor-pointer relative"
                       onClick={() => {
                         setSelectedAdjustment(request);
@@ -631,7 +707,7 @@ export default function WorkoutsPage() {
                           </p>
                         </div>
                       </div>
-                      <Badge 
+                      <Badge
                         className={cn(
                           "text-[10px] px-2 py-0.5 rounded-full shrink-0 border font-medium bg-transparent shadow-none",
                           request.status === "PENDING" && "text-amber-500 border-amber-500/20 bg-amber-500/5",
@@ -661,8 +737,8 @@ export default function WorkoutsPage() {
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                 {requestedExercises.map((request) => (
-                  <div 
-                    key={request.id} 
+                  <div
+                    key={request.id}
                     className="p-4 rounded-xl border border-border/50 bg-secondary/5 hover:bg-secondary/10 transition-all flex items-center justify-between gap-4 min-w-0"
                   >
                     <div className="flex items-center gap-3 min-w-0">
@@ -682,7 +758,7 @@ export default function WorkoutsPage() {
                         </p>
                       </div>
                     </div>
-                    <Badge 
+                    <Badge
                       className={cn(
                         "text-[10px] px-2 py-0.5 rounded-full shrink-0 border font-medium bg-transparent shadow-none",
                         request.status === "PENDING" && "text-amber-500 border-amber-500/20 bg-amber-500/5",
@@ -715,12 +791,16 @@ export default function WorkoutsPage() {
                 <motion.div key={exercise.id} variants={item as any}>
                   <Card className="hover:bg-card/60 transition-colors duration-200 p-0">
                     <CardContent className="p-4 flex items-center justify-between gap-4">
-                      <div className="flex items-center gap-4 min-w-0 flex-1">
-                        <div className="size-12 rounded-lg bg-secondary flex items-center justify-center shrink-0 border border-border/50">
-                          <PlaySquare className="size-5 text-muted-foreground/50" />
-                        </div>
+                      <div 
+                        className="flex items-center gap-4 min-w-0 flex-1 cursor-pointer"
+                        onClick={() => {
+                          setPreviewExercise(exercise);
+                          setIsPreviewModalOpen(true);
+                        }}
+                      >
+                        <ExerciseThumbnail videoUrl={exercise.videoUrl} className="size-12 rounded-xl" />
                         <div className="min-w-0 flex-1">
-                          <h4 className="font-medium text-sm truncate">{exercise.name}</h4>
+                          <h4 className="font-bold text-sm text-white truncate group-hover:text-primary transition-colors">{exercise.name}</h4>
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
                             <span className="flex items-center gap-1">
                               <Activity className="size-3" />
@@ -736,7 +816,7 @@ export default function WorkoutsPage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="text-xs text-primary hover:text-primary-foreground hover:bg-primary gap-1 shrink-0 h-8 px-2.5 rounded-md"
+                        className="text-xs text-primary hover:text-primary-foreground hover:bg-primary gap-1 shrink-0 h-8 px-2.5 rounded-md cursor-pointer"
                         onClick={() => {
                           const hasPending = adjustmentRequests.some(
                             (req) => req.exerciseId === exercise.id && req.status === "PENDING"
@@ -884,9 +964,9 @@ export default function WorkoutsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Detalhes e Chat de Reajuste */}
-      <Dialog 
-        open={isAdjustmentDetailModalOpen} 
+      {/* Sheet: Detalhes e Chat de Reajuste */}
+      <Sheet
+        open={isAdjustmentDetailModalOpen}
         onOpenChange={(open) => {
           setIsAdjustmentDetailModalOpen(open);
           if (!open) {
@@ -895,77 +975,79 @@ export default function WorkoutsPage() {
           }
         }}
       >
-        <DialogContent className="max-w-md w-[95%] rounded-xl flex flex-col h-[550px] p-0 overflow-hidden">
+        <SheetContent side="right" className="max-w-2xl! w-full border-l border-white/8 bg-zinc-950/95 backdrop-blur-md flex flex-col h-full p-0 overflow-hidden text-foreground">
           {selectedAdjustment && (
             <>
-              <DialogHeader className="p-5 border-b border-border/60">
-                <DialogTitle className="flex items-center gap-2 justify-between">
-                  <span className="truncate">Reajuste: {selectedAdjustment.exercise?.name}</span>
-                  <Badge 
+              <SheetHeader className="p-6 border-b border-white/4 bg-zinc-900/10">
+                <SheetTitle className="flex items-center gap-3.5 justify-between">
+                  <span className="truncate text-white font-extrabold tracking-tight">Reajuste: {selectedAdjustment.exercise?.name}</span>
+                  <Badge
                     className={cn(
-                      "text-[10px] px-2 py-0.5 rounded-full shrink-0 border font-medium bg-transparent shadow-none",
-                      selectedAdjustment.status === "PENDING" && "text-amber-500 border-amber-500/20 bg-amber-500/5",
-                      selectedAdjustment.status === "RESOLVED" && "text-emerald-500 border-emerald-500/20 bg-emerald-500/5"
+                      "text-[10px] px-2.5 py-0.5 rounded-full shrink-0 border font-bold bg-transparent shadow-none tracking-wider",
+                      selectedAdjustment.status === "PENDING" && "text-amber-400 border-amber-500/25 bg-amber-500/5",
+                      selectedAdjustment.status === "RESOLVED" && "text-emerald-400 border-emerald-500/25 bg-emerald-500/5"
                     )}
                   >
                     {selectedAdjustment.status === "PENDING" ? "Em Aberto" : "Resolvido"}
                   </Badge>
-                </DialogTitle>
-                <DialogDescription className="text-xs text-muted-foreground mt-1">
+                </SheetTitle>
+                <SheetDescription className="text-xs text-zinc-400 mt-1 font-medium">
                   Criada em {new Date(selectedAdjustment.createdAt).toLocaleDateString("pt-BR")} às {new Date(selectedAdjustment.createdAt).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })}
-                </DialogDescription>
-              </DialogHeader>
+                </SheetDescription>
+              </SheetHeader>
 
               {/* Chat Container */}
-              <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-secondary/5">
+              <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-zinc-950/20">
                 {/* Motivo Original */}
-                <div className="flex flex-col gap-1.5 p-3.5 rounded-xl border border-border bg-card shadow-sm">
-                  <span className="text-xs font-semibold text-primary uppercase tracking-wider">Motivo da Solicitação:</span>
-                  <p className="text-sm text-foreground leading-relaxed">{selectedAdjustment.description}</p>
+                <div className="flex flex-col gap-2 p-4 rounded-xl border border-white/[0.05] bg-zinc-900/40 backdrop-blur-sm shadow-inner">
+                  <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Motivo da Solicitação</span>
+                  <p className="text-sm text-zinc-200 leading-relaxed font-medium">{selectedAdjustment.description}</p>
                 </div>
 
-                <div className="relative flex items-center justify-center my-4">
+                <div className="relative flex items-center justify-center my-6">
                   <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-border/60" />
+                    <span className="w-full border-t border-white/[0.04]" />
                   </div>
-                  <span className="relative bg-background px-3 text-[10px] text-muted-foreground uppercase tracking-widest">
+                  <span className="relative bg-zinc-950 px-4 text-[9px] font-black text-zinc-500 uppercase tracking-widest">
                     Conversa com o Administrador
                   </span>
                 </div>
 
                 {/* Messages Thread */}
                 {selectedAdjustment.messages.length === 0 ? (
-                  <div className="text-center py-6 text-xs text-muted-foreground">
+                  <div className="text-center py-8 text-xs text-zinc-500 font-medium italic">
                     Nenhuma mensagem enviada ainda. Aguarde a resposta do SuperAdmin.
                   </div>
                 ) : (
-                  selectedAdjustment.messages.map((message: any) => {
-                    const isMe = message.senderId !== null && message.sender?.role !== "SUPERADMIN";
-                    return (
-                      <div
-                        key={message.id}
-                        className={cn(
-                          "flex flex-col max-w-[80%] rounded-2xl p-3 shadow-sm text-sm leading-relaxed",
-                          isMe 
-                            ? "bg-primary text-primary-foreground ml-auto rounded-tr-none" 
-                            : "bg-card border border-border text-foreground mr-auto rounded-tl-none"
-                        )}
-                      >
-                        <span className="text-[10px] opacity-80 mb-1 font-semibold">
-                          {isMe ? "Você" : "SuperAdmin"}
-                        </span>
-                        <p>{message.message}</p>
-                        <span className="text-[9px] opacity-60 mt-1 self-end">
-                          {new Date(message.createdAt).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                    );
-                  })
+                  <div className="space-y-4">
+                    {selectedAdjustment.messages.map((message: any) => {
+                      const isMe = message.senderId !== null && message.sender?.role !== "SUPERADMIN";
+                      return (
+                        <div
+                          key={message.id}
+                          className={cn(
+                            "flex flex-col max-w-[85%] rounded-2xl px-4 py-3 shadow-md text-sm leading-relaxed transition-all",
+                            isMe
+                              ? "bg-gradient-to-br from-blue-600 to-blue-700 text-white ml-auto rounded-tr-none shadow-blue-500/10"
+                              : "bg-zinc-900/90 border border-white/[0.04] text-zinc-100 mr-auto rounded-tl-none"
+                          )}
+                        >
+                          <span className="text-[9px] opacity-75 mb-1.5 font-bold uppercase tracking-wider">
+                            {isMe ? "Você" : "SuperAdmin"}
+                          </span>
+                          <p className="font-medium whitespace-pre-wrap">{message.message}</p>
+                          <span className="text-[8px] opacity-60 mt-1.5 self-end font-semibold">
+                            {new Date(message.createdAt).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
 
               {/* Footer / Input Bar */}
-              <div className="p-4 border-t border-border/60 bg-background flex flex-col gap-3">
+              <div className="p-5 border-t border-white/[0.04] bg-zinc-900/10 flex flex-col gap-3">
                 {selectedAdjustment.status === "PENDING" ? (
                   <>
                     <form onSubmit={handleSendMessage} className="flex gap-2">
@@ -973,25 +1055,25 @@ export default function WorkoutsPage() {
                         placeholder="Digite sua resposta..."
                         value={newAdjustmentMessage}
                         onChange={(e) => setNewAdjustmentMessage(e.target.value)}
-                        className="bg-card border-border h-10 flex-1"
+                        className="bg-zinc-900/50 border-white/[0.06] focus:border-blue-500/50 h-10 flex-1 rounded-xl"
                         disabled={sendingMessage}
                       />
-                      <Button type="submit" size="icon" className="h-10 w-10 shrink-0" disabled={sendingMessage}>
+                      <Button type="submit" size="icon" className="h-10 w-10 shrink-0 bg-blue-600 hover:bg-blue-500 rounded-xl" disabled={sendingMessage}>
                         {sendingMessage ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
                       </Button>
                     </form>
-                    <Button 
-                      variant="outline" 
+                    <Button
+                      variant="outline"
                       onClick={handleResolveRequest}
                       disabled={resolvingRequest}
-                      className="w-full h-10 gap-2 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600 font-medium"
+                      className="w-full h-10 gap-2 border-emerald-500/20 text-emerald-400 hover:bg-emerald-500/15 hover:text-emerald-300 font-semibold rounded-xl transition-all"
                     >
                       {resolvingRequest ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
                       Satisfeito com a Resposta
                     </Button>
                   </>
                 ) : (
-                  <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-lg flex items-center justify-center gap-2 text-emerald-600 text-sm font-medium">
+                  <div className="p-4 bg-emerald-500/5 border border-emerald-500/20 rounded-xl flex items-center justify-center gap-2 text-emerald-400 text-sm font-semibold">
                     <CheckCircle2 className="size-4" />
                     Esta solicitação foi marcada como resolvida.
                   </div>
@@ -999,8 +1081,29 @@ export default function WorkoutsPage() {
               </div>
             </>
           )}
-        </DialogContent>
-      </Dialog>
+        </SheetContent>
+      </Sheet>
+
+      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+        <AlertDialogContent className="bg-neutral-950 border border-neutral-800 text-white rounded-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Excluir Modelo de Treino?</AlertDialogTitle>
+            <AlertDialogDescription className="text-neutral-400">
+              Tem certeza que deseja excluir este modelo de treino? Essa ação não poderá ser desfeita e removerá permanentemente o modelo.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="bg-transparent border-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-900 rounded-xl">Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90 text-white rounded-xl">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <ExercisePreviewModal
+        exercise={previewExercise}
+        open={isPreviewModalOpen}
+        onOpenChange={setIsPreviewModalOpen}
+      />
     </div>
   );
 }

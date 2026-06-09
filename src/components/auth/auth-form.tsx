@@ -51,7 +51,14 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
       }
 
       toast.success("Bem-vindo de volta!");
-      window.location.href = callbackUrl;
+      
+      const realCallbackUrl = result.role === "SUPERADMIN"
+        ? "/superadmin/dashboard"
+        : result.role === "TRAINER"
+        ? "/personal/dashboard"
+        : "/select-workspace";
+
+      window.location.href = realCallbackUrl;
     } catch (error) {
       toast.error("Ocorreu um erro ao entrar. Tente novamente.");
       setIsLoading(false);
@@ -148,7 +155,7 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
 
       <div className="text-center text-sm">
         <span className="text-muted-foreground">Não tem uma conta? </span>
-        <Link href="#" className="font-bold text-primary hover:underline">
+        <Link href={type === "trainer" ? "/auth/register" : "#"} className="font-bold text-primary hover:underline">
           Criar conta grátis
         </Link>
       </div>

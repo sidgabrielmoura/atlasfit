@@ -19,7 +19,7 @@ export async function getPersonalWorkspaces() {
   return await Promise.all(
     members.map(async (member, index) => {
       const ws = member.workspace;
-      
+
       // Find the owner of the workspace and their active subscription
       const owner = await prisma.user.findUnique({
         where: { id: ws.ownerId },
@@ -44,8 +44,12 @@ export async function getPersonalWorkspaces() {
         name: ws.name,
         slug: ws.slug,
         logo,
-        primaryColor: colors[index % colors.length],
+        logoUrl: ws.logoUrl,
+        primaryColor: ws.primaryColor || "#0ea5e9",
         plan: owner?.subscription?.plan?.name || "Starter",
+        slogan: ws.slogan,
+        watermarkUrl: ws.watermarkUrl,
+        workoutCoverUrl: ws.workoutCoverUrl,
       };
     })
   );
@@ -116,7 +120,7 @@ export async function createWorkspace(data: {
   try {
     // Check if slug is unique
     const existing = await prisma.workspace.findUnique({
-      where: { slug: generatedSlug },
+      where: { slug: generatedSlug.toLowerCase() },
     });
     if (existing) {
       return { error: "Este endereço (slug) já está em uso por outro workspace." };
@@ -128,12 +132,21 @@ export async function createWorkspace(data: {
       include: { plan: true },
     });
 
-    const maxWorkspaces = sub?.plan?.maxWorkspaces || 1;
+    const freeTrial = await prisma.freeTrial.findUnique({
+      where: { userId: session.user.id }
+    });
+
+    const isTrialActive = freeTrial && new Date() < new Date(freeTrial.endDate);
+    const maxWorkspaces = isTrialActive ? 1 : (sub?.plan?.maxWorkspaces || 1);
+
     const ownedCount = await prisma.workspace.count({
       where: { ownerId: session.user.id },
     });
 
     if (ownedCount >= maxWorkspaces) {
+      if (isTrialActive) {
+        return { error: "Durante o período de Free Trial, você só pode criar no máximo 1 workspace." };
+      }
       return { error: `Limite de workspaces atingido para o seu plano (${maxWorkspaces}). Faça o upgrade para criar mais.` };
     }
 
@@ -142,7 +155,7 @@ export async function createWorkspace(data: {
       const ws = await tx.workspace.create({
         data: {
           name,
-          slug: generatedSlug,
+          slug: generatedSlug.toLowerCase(),
           ownerId: session.user.id,
         },
       });
@@ -173,8 +186,12 @@ export async function createWorkspace(data: {
         name: newWorkspace.name,
         slug: newWorkspace.slug,
         logo,
-        primaryColor: "#0ea5e9",
+        logoUrl: newWorkspace.logoUrl,
+        primaryColor: newWorkspace.primaryColor || "#0ea5e9",
         plan: sub?.plan?.name || "Starter",
+        slogan: newWorkspace.slogan,
+        watermarkUrl: newWorkspace.watermarkUrl,
+        workoutCoverUrl: newWorkspace.workoutCoverUrl,
       },
     };
   } catch (error) {

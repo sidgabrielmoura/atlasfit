@@ -25,9 +25,9 @@ export const getSuperAdminStats = unstable_cache(
       prisma.user.count({ where: { createdAt: { gte: last7Days } } }),
       prisma.workspace.count(),
       prisma.workspace.count({ where: { createdAt: { gte: last30Days } } }),
-      prisma.auditLog.count({ where: { action: "WORKOUT_EXECUTION" } }),
+      prisma.workoutLog.count(),
       prisma.subscription.findMany({ 
-        where: { status: "ACTIVE" },
+        where: { status: { in: ["ACTIVE", "active"] } },
         include: { plan: true }
       })
     ]);

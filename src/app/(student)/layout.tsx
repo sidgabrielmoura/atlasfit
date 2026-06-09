@@ -3,8 +3,9 @@ import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/s
 import { Bell, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { auth } from "@/auth";
 import { redirect } from "next/navigation";
+import prisma from "@/lib/prisma";
+import { auth } from "@/auth";
 
 export default async function StudentLayout({
   children,
@@ -19,8 +20,19 @@ export default async function StudentLayout({
   }
 
   const role = (session.user as any).role as string | undefined;
-  if (role !== "STUDENT") {
+  if (role !== "STUDENT" && role !== "SUPERADMIN" && !(session.user as any).isImpersonated) {
     redirect("/auth/student");
+  }
+
+  // Se for superadmin ou sessão impersonada, ignora para permitir suporte e testes
+  if (session?.user?.role !== "SUPERADMIN" && !(session?.user as any)?.isImpersonated) {
+    const maintenanceSetting = await prisma.systemSetting.findUnique({
+      where: { key: "maintenance_mode" }
+    });
+
+    if (maintenanceSetting?.value === "true") {
+      redirect("/maintenance");
+    }
   }
 
   return (
@@ -54,8 +66,7 @@ export default async function StudentLayout({
           </div>
         </header>
 
-        {/* Page Content */}
-        <main className="flex flex-col p-4 md:p-8 max-w-7xl mx-auto w-full">
+        <main className="flex flex-col max-w-7xl mx-auto w-full">
           {children}
         </main>
       </SidebarInset>

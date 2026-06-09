@@ -6,7 +6,7 @@ import {
   Users, UserMinus, CalendarCheck, CheckCircle2, TrendingUp,
   DollarSign, CreditCard, FileText, Target,
   Flame, Trophy, Dumbbell, Activity, AlertTriangle, Clock,
-  ArrowUpRight, ArrowDownRight, BarChart3, MessageSquare, Loader2,
+  ArrowUpRight, ArrowDownRight, BarChart3, MessageSquare,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -198,19 +198,7 @@ export default function DashboardPage() {
   }, [workspaceSnap.activeWorkspaceId]);
 
   if (!workspaceSnap.activeWorkspaceId) {
-    return (
-      <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto flex flex-col items-center justify-center min-h-[60vh]">
-        <div className="flex flex-col items-center text-center max-w-md space-y-4">
-          <div className="size-16 rounded-3xl bg-primary/10 flex items-center justify-center text-primary">
-            <Loader2 className="size-8 animate-spin" />
-          </div>
-          <h2 className="text-xl font-bold">Carregando workspaces...</h2>
-          <p className="text-sm text-muted-foreground">
-            Buscando suas marcas e assessorias esportivas para iniciar o painel.
-          </p>
-        </div>
-      </div>
-    );
+    return <DashboardSkeleton />;
   }
 
   if (error) {
@@ -290,22 +278,22 @@ export default function DashboardPage() {
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
           <Card className="h-full border-border/50">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-bold"><FileText className="size-4 text-primary" />Planos Ativos</CardTitle>
-              <CardDescription>{metrics.financialMetrics.activePlans} planos configurados</CardDescription>
+              <CardTitle className="flex items-center gap-2 font-bold"><FileText className="size-4 text-primary" />Modalidades de Atendimento</CardTitle>
+              <CardDescription>{metrics.studentsMetrics.totalActive} alunos ativos vinculados</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {metrics.planDistribution.map((p: any) => (
                 <div key={p.plan} className="space-y-1.5">
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-muted-foreground font-medium">{p.plan}</span>
-                    <span className="font-semibold">{p.count} <span className="text-xs font-normal text-muted-foreground">· R$ {p.revenue.toLocaleString("pt-BR")}</span></span>
+                    <span className="font-semibold">{p.count} {p.count === 1 ? "aluno" : "alunos"} <span className="text-xs font-normal text-muted-foreground">· R$ {p.revenue.toLocaleString("pt-BR")}</span></span>
                   </div>
-                  <Progress value={(p.count / metrics.financialMetrics.activePlans) * 100} className="h-2 rounded-full" />
+                  <Progress value={(p.count / (metrics.studentsMetrics.totalActive || 1)) * 100} className="h-2 rounded-full" />
                 </div>
               ))}
               <div className="pt-3 border-t space-y-2 mt-4">
-                <div className="flex justify-between text-sm"><span className="text-muted-foreground font-medium">Churn Financeiro</span><span className="font-semibold text-red-400">{metrics.financialMetrics.financialChurn}%</span></div>
-                <div className="flex justify-between text-sm"><span className="text-muted-foreground font-medium">Projeção Próximo Mês</span><span className="font-semibold text-emerald-400">R$ {metrics.financialMetrics.revenueProjection.toLocaleString("pt-BR")}</span></div>
+                <div className="flex justify-between text-sm"><span className="text-muted-foreground font-medium">Rotatividade (Churn)</span><span className="font-semibold text-red-400">{metrics.financialMetrics.financialChurn}%</span></div>
+                <div className="flex justify-between text-sm"><span className="text-muted-foreground font-medium">Projeção de Receita</span><span className="font-semibold text-emerald-400">R$ {metrics.financialMetrics.revenueProjection.toLocaleString("pt-BR")}</span></div>
               </div>
             </CardContent>
           </Card>

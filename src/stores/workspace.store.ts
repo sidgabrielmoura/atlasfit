@@ -5,8 +5,12 @@ export interface Workspace {
   name: string;
   slug: string;
   logo: string;
+  logoUrl?: string | null;
   primaryColor: string;
   plan: string;
+  slogan?: string | null;
+  watermarkUrl?: string | null;
+  workoutCoverUrl?: string | null;
 }
 
 interface WorkspaceState {
@@ -31,11 +35,22 @@ const getPersistedState = () => {
     const saved = localStorage.getItem(storageKey);
     if (saved) {
       const parsed = JSON.parse(saved);
+      const activeWorkspace = parsed.activeWorkspace || null;
+      if (activeWorkspace && (activeWorkspace.primaryColor === "#0ea5e9" || !activeWorkspace.primaryColor)) {
+        activeWorkspace.primaryColor = "#ea580c";
+      }
+      let workspaces = parsed.workspaces || [];
+      workspaces = workspaces.map((w: any) => {
+        if (w.primaryColor === "#0ea5e9" || !w.primaryColor) {
+          return { ...w, primaryColor: "#ea580c" };
+        }
+        return w;
+      });
       return {
         ...initialState,
         activeWorkspaceId: parsed.activeWorkspaceId || null,
-        activeWorkspace: parsed.activeWorkspace || null,
-        workspaces: parsed.workspaces || [],
+        activeWorkspace,
+        workspaces,
       };
     }
   } catch (err) {

@@ -14,6 +14,7 @@ async function main() {
   await prisma.exercise.deleteMany();
   await prisma.muscleGroup.deleteMany();
   await prisma.auditLog.deleteMany();
+  await prisma.freeTrial.deleteMany();
   await prisma.subscription.deleteMany();
   await prisma.subscriptionActivity.deleteMany();
   await prisma.transaction.deleteMany();
@@ -71,6 +72,68 @@ async function main() {
     },
   });
 
+  // Trainer 3: Carlos Teste (Trial Ativo, 5 dias restantes)
+  const trainer3 = await prisma.user.create({
+    data: {
+      name: "Carlos Teste (Free Trial)",
+      email: "trial_trainer@assessoria.com",
+      password: hashedPassword,
+      role: GlobalRole.TRAINER,
+    },
+  });
+
+  // Trainer 4: Bruna Expirada (Trial Expirado, 3 dias atrás)
+  const trainer4 = await prisma.user.create({
+    data: {
+      name: "Bruna Expirada (Ex-Trial)",
+      email: "expired_trainer@assessoria.com",
+      password: hashedPassword,
+      role: GlobalRole.TRAINER,
+    },
+  });
+
+  const now = new Date();
+
+  // Ricardo Silva (Expired Free Trial, but Active Subscription)
+  await prisma.freeTrial.create({
+    data: {
+      userId: trainer1.id,
+      startDate: new Date(now.getTime() - 20 * 24 * 60 * 60 * 1000),
+      endDate: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000),
+      isActive: false,
+    },
+  });
+
+  // Amanda Costa (Expired Free Trial, but Active Subscription)
+  await prisma.freeTrial.create({
+    data: {
+      userId: trainer2.id,
+      startDate: new Date(now.getTime() - 20 * 24 * 60 * 60 * 1000),
+      endDate: new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000),
+      isActive: false,
+    },
+  });
+
+  // Carlos Teste (Active Trial - started 5 days ago, ends in 5 days)
+  await prisma.freeTrial.create({
+    data: {
+      userId: trainer3.id,
+      startDate: new Date(now.getTime() - 5 * 24 * 60 * 60 * 1000),
+      endDate: new Date(now.getTime() + 5 * 24 * 60 * 60 * 1000),
+      isActive: true,
+    },
+  });
+
+  // Bruna Expirada (Expired Trial - started 13 days ago, expired 3 days ago)
+  await prisma.freeTrial.create({
+    data: {
+      userId: trainer4.id,
+      startDate: new Date(now.getTime() - 13 * 24 * 60 * 60 * 1000),
+      endDate: new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000),
+      isActive: true,
+    },
+  });
+
   // Create a sample Student user
   const student1 = await prisma.user.create({
     data: {
@@ -104,6 +167,20 @@ async function main() {
       members: {
         create: {
           userId: trainer2.id,
+          role: WorkspaceRole.OWNER,
+        },
+      },
+    },
+  });
+
+  const workspace3 = await prisma.workspace.create({
+    data: {
+      name: "Carlos Consultoria",
+      slug: "carlos-consultoria",
+      ownerId: trainer3.id,
+      members: {
+        create: {
+          userId: trainer3.id,
           role: WorkspaceRole.OWNER,
         },
       },
@@ -201,10 +278,12 @@ async function main() {
 
   console.log("Seed completed successfully! 🚀");
   console.log("\n=== Credentials ===");
-  console.log("SuperAdmin  → admin@atlasfit.com     / admin123");
-  console.log("Trainer     → ricardo@assessoria.com / admin123");
-  console.log("Trainer     → amanda@fitcoach.com    / admin123");
-  console.log("Student     → lucas@aluno.com        / admin123");
+  console.log("SuperAdmin      → admin@atlasfit.com            / admin123");
+  console.log("Trainer (Active)→ ricardo@assessoria.com        / admin123");
+  console.log("Trainer (Active)→ amanda@fitcoach.com           / admin123");
+  console.log("Trainer (Trial) → trial_trainer@assessoria.com  / admin123");
+  console.log("Trainer (Expired)→ expired_trainer@assessoria.com/ admin123");
+  console.log("Student         → lucas@aluno.com               / admin123");
 }
 
 main()

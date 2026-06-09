@@ -24,6 +24,7 @@ import {
   Sun,
   Moon,
   ChevronRight,
+  FolderOpen,
 } from "lucide-react";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 import {
@@ -39,7 +40,8 @@ import {
   SidebarMenuItem,
   SidebarSeparator,
 } from "@/components/ui/sidebar";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarImage, AvatarFallback } from "@/components/ui/avatar";
+import { Badge } from "@/components/ui/badge";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -69,6 +71,7 @@ const mainNavItems = [
   { title: "Alunos", href: "/personal/clients", icon: Users },
   { title: "Treinos e Exercícios", href: "/personal/workouts", icon: Dumbbell },
   { title: "Financeiro", href: "/personal/finance", icon: DollarSign },
+  { title: "Arquivos", href: "/personal/files", icon: FolderOpen },
   { title: "Link de Captação", href: "#capture", icon: QrCode, isModal: true },
 ];
 
@@ -88,9 +91,17 @@ export function PersonalSidebar() {
   const workspaceSnap = useSnapshot(workspaceStore);
   const { data: session } = useSession();
   const user = session?.user;
+  const [subInfo, setSubInfo] = useState<any>(null);
 
   useEffect(() => {
     setMounted(true);
+    fetch("/api/personal/subscription")
+      .then((res) => {
+        if (res.ok) return res.json();
+        throw new Error();
+      })
+      .then((data) => setSubInfo(data.currentSubscription))
+      .catch(() => {});
   }, []);
 
   const getInitials = (name?: string | null) => {
@@ -201,8 +212,8 @@ export function PersonalSidebar() {
                       isActive={isActive}
                       tooltip={item.title}
                       className={cn(
-                        isActive && "bg-neutral-400/10! text-primary hover:bg-neutral-400/10!",
-                        "bg-blue-200/10 hover:bg-blue-200/10 transition-all"
+                        isActive && "bg-primary/10! text-primary hover:bg-primary/10!",
+                        "transition-all"
                       )}
                     >
                       <Link href={item.href}>
@@ -232,8 +243,8 @@ export function PersonalSidebar() {
                       isActive={isActive}
                       tooltip={item.title}
                       className={cn(
-                        isActive && "bg-neutral-400/10! text-primary",
-                        "bg-blue-200/10 hover:bg-blue-200/10 transition-all"
+                        isActive && "bg-primary/10! text-primary",
+                        "transition-all"
                       )}
                     >
                       <Link href={item.href}>
@@ -257,7 +268,7 @@ export function PersonalSidebar() {
             <SidebarMenuButton
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               tooltip="Alternar Tema"
-              className="cursor-pointer mb-1 bg-neutral-400/10 hover:bg-blue-200/20"
+              className="cursor-pointer mb-1 bg-neutral-400/10 hover:bg-primary/5"
             >
               <div className="relative flex items-center justify-center h-4 w-4 mr-2 overflow-hidden">
                 <Sun className="absolute size-4 rotate-0 scale-100 transition-all duration-500 ease-in-out dark:-rotate-90 dark:scale-0 text-amber-500" />
@@ -271,15 +282,34 @@ export function PersonalSidebar() {
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton size="lg" className="cursor-pointer bg-neutral-400/10 hover:bg-blue-200/20">
+                <SidebarMenuButton size="lg" className="cursor-pointer bg-neutral-400/10 hover:bg-primary/5">
                   <Avatar size="default">
+                    {user?.image && (
+                      <AvatarImage src={user.image} alt={user.name || "Personal"} className="object-cover" />
+                    )}
                     <AvatarFallback className="bg-primary/20 text-primary text-sm font-semibold">
                       {getInitials(user?.name)}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
+                  <div className="flex flex-col gap-1 leading-none group-data-[collapsible=icon]:hidden items-start">
                     <span className="text-sm font-semibold truncate max-w-[130px]">{user?.name || "Personal Trainer"}</span>
-                    <span className="text-xs text-muted-foreground">{user?.role === "TRAINER" ? "Personal Trainer" : "Usuário"}</span>
+                    {subInfo ? (
+                      subInfo.status === "trial" ? (
+                        <Badge variant="outline" className="text-[9px] h-4.5 font-bold px-1.5 bg-amber-500/10 text-amber-500 border-amber-500/20 py-0 uppercase select-none">
+                          Teste: {subInfo.freeTrial?.daysRemaining ?? subInfo.daysRemaining}d
+                        </Badge>
+                      ) : subInfo.status === "active" ? (
+                        <Badge variant="outline" className="text-[9px] h-4.5 font-bold px-1.5 bg-emerald-500/10 text-emerald-500 border-emerald-500/20 py-0 uppercase select-none">
+                          Premium: {subInfo.planName}
+                        </Badge>
+                      ) : (
+                        <Badge variant="outline" className="text-[9px] h-4.5 font-bold px-1.5 bg-red-500/10 text-red-500 border-red-500/20 py-0 uppercase select-none">
+                          Inadimplente
+                        </Badge>
+                      )
+                    ) : (
+                      <span className="text-xs text-muted-foreground">{user?.role === "TRAINER" ? "Personal Trainer" : "Usuário"}</span>
+                    )}
                   </div>
                 </SidebarMenuButton>
               </DropdownMenuTrigger>

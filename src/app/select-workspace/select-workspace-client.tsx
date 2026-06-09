@@ -7,12 +7,15 @@ import { ChevronRight, Plus, LogOut, Flame } from "lucide-react";
 import Link from "next/link";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
+import { workspaceActions } from "@/stores/workspace.store";
 
 interface WorkspaceProps {
   id: string;
   name: string;
   slug: string;
   logo: string;
+  logoUrl?: string | null;
   primaryColor: string;
   plan: string;
 }
@@ -27,6 +30,8 @@ interface SelectWorkspaceClientProps {
 }
 
 export default function SelectWorkspaceClient({ workspaces, user }: SelectWorkspaceClientProps) {
+  const router = useRouter();
+
   const userInitials = user.name
     ? user.name
         .split(" ")
@@ -38,6 +43,18 @@ export default function SelectWorkspaceClient({ workspaces, user }: SelectWorksp
 
   const handleLogout = async () => {
     await signOut({ callbackUrl: "/auth/student" });
+  };
+
+  const handleSelectWorkspace = (workspace: WorkspaceProps) => {
+    // 1. Set active workspace cookie for Server-side parsing
+    document.cookie = `student_active_workspace_id=${workspace.id}; path=/; max-age=31536000; SameSite=Lax`;
+
+    // 2. Set active workspace inside Valtio client store
+    workspaceActions.setWorkspaces(workspaces);
+    workspaceActions.setActiveWorkspace(workspace);
+
+    // 3. Redirect to dashboard
+    router.push("/dashboard");
   };
 
   return (
@@ -64,7 +81,7 @@ export default function SelectWorkspaceClient({ workspaces, user }: SelectWorksp
               Bem-vindo de volta, <span className="text-primary">{user.name?.split(" ")[0] || "Aluno"}</span>
             </h1>
             <p className="text-muted-foreground text-lg max-w-md mx-auto">
-              Selecione em qual assessoria você deseja entrar agora para gerenciar seus treinos.
+               Selecione em qual assessoria você deseja entrar agora para gerenciar seus treinos.
             </p>
           </div>
         </div>
@@ -97,14 +114,25 @@ export default function SelectWorkspaceClient({ workspaces, user }: SelectWorksp
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: index * 0.1 }}
               >
-                <Link href="/dashboard" className="h-full">
-                  <Card className="h-full hover:border-primary/50 transition-all duration-300 cursor-pointer group hover:bg-primary/5 overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm flex flex-col">
+                <div
+                  onClick={() => handleSelectWorkspace(workspace)}
+                  className="h-full cursor-pointer"
+                >
+                  <Card className="h-full hover:border-primary/50 transition-all duration-300 group hover:bg-primary/5 overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm flex flex-col">
                     <CardContent className="p-6 flex flex-row md:flex-col items-center md:items-start gap-4 md:gap-6 flex-1">
                       <div 
-                        className="flex aspect-square size-14 md:size-16 items-center justify-center rounded-2xl text-white font-bold text-xl md:text-2xl shadow-md transition-transform group-hover:scale-110 duration-300"
+                        className="flex aspect-square size-14 md:size-16 items-center justify-center rounded-2xl text-white font-bold text-xl md:text-2xl shadow-md transition-transform group-hover:scale-110 duration-300 overflow-hidden"
                         style={{ backgroundColor: workspace.primaryColor }}
                       >
-                        {workspace.logo}
+                        {workspace.logoUrl ? (
+                          <img
+                            src={workspace.logoUrl}
+                            alt={workspace.name}
+                            className="size-full object-cover"
+                          />
+                        ) : (
+                          workspace.logo
+                        )}
                       </div>
                       <div className="flex-1 min-w-0 md:w-full">
                         <p className="font-bold text-xl truncate group-hover:text-primary transition-colors">
@@ -122,7 +150,7 @@ export default function SelectWorkspaceClient({ workspaces, user }: SelectWorksp
                       <ChevronRight className="md:hidden size-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
                     </CardContent>
                   </Card>
-                </Link>
+                </div>
               </motion.div>
             ))}
 

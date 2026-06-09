@@ -5,14 +5,14 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import * as LucideIcons from "lucide-react";
-import { 
-  Settings, 
-  ShieldAlert, 
-  Globe, 
-  Database, 
-  Mail, 
-  Bell, 
-  Key, 
+import {
+  Settings,
+  ShieldAlert,
+  Globe,
+  Database,
+  Mail,
+  Bell,
+  Key,
   Server,
   Zap,
   Lock,
@@ -150,7 +150,7 @@ export default function SuperAdminSettingsPage() {
 
   const handleToggleMaintenance = async () => {
     const isMaintenance = formData.maintenance_mode === "true";
-    
+
     try {
       await superAdminActions.toggleMaintenanceMode();
       toast.success(`Modo de manutenção ${isMaintenance ? "desativado" : "ativado"} com sucesso!`);
@@ -162,7 +162,7 @@ export default function SuperAdminSettingsPage() {
   const handleToggleBoolean = async (key: string) => {
     const currentValue = formData[key] === "true";
     const newValue = !currentValue;
-    
+
     try {
       await superAdminActions.updateSettings([{ key, value: String(newValue) }]);
       toast.success(`Configuração atualizada!`);
@@ -212,8 +212,8 @@ export default function SuperAdminSettingsPage() {
   if (snap.isLoading && (snap.settings || []).length === 0) {
     return (
       <div className="p-6 md:p-8 flex flex-col items-center justify-center min-h-[60vh] space-y-4">
-         <Loader2 className="size-10 animate-spin text-primary" />
-         <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Carregando Configurações...</p>
+        <Loader2 className="size-10 animate-spin text-primary" />
+        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Carregando Configurações...</p>
       </div>
     );
   }
@@ -228,7 +228,7 @@ export default function SuperAdminSettingsPage() {
           <h1 className="text-3xl font-black tracking-tight">Configurações do Sistema</h1>
           <p className="text-muted-foreground text-sm font-medium">Controle global de infraestrutura, segurança e variáveis de ambiente.</p>
         </div>
-        
+
         {isMaintenance && (
           <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-500 animate-pulse">
             <ShieldAlert className="size-4" />
@@ -240,96 +240,96 @@ export default function SuperAdminSettingsPage() {
       <div className="grid grid-cols-1 gap-12">
         {/* 1. General Settings */}
         <SettingsSection title="Geral & Branding" icon={Globe} description="Identidade visual e domínios da plataforma">
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-2">
-                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nome da Plataforma</label>
-                 <Input 
-                  value={getSetting("platform_name", "AtlasFit")} 
-                  onChange={(e) => handleInputChange("platform_name", e.target.value)}
-                  className="h-11 rounded-xl border-border/60 bg-background" 
-                 />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Nome da Plataforma</label>
+              <Input
+                value={getSetting("platform_name", "AtlasFit")}
+                onChange={(e) => handleInputChange("platform_name", e.target.value)}
+                className="h-11 rounded-xl border-border/60 bg-background"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Domínio Principal</label>
+              <Input
+                value={getSetting("primary_domain", "atlasfit.app")}
+                onChange={(e) => handleInputChange("primary_domain", e.target.value)}
+                className="h-11 rounded-xl border-border/60 bg-background"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Email de Suporte Sistema</label>
+              <Input
+                value={getSetting("support_email", "noreply@atlasfit.app")}
+                onChange={(e) => handleInputChange("support_email", e.target.value)}
+                className="h-11 rounded-xl border-border/60 bg-background"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Língua Padrão</label>
+              <div className="h-11 rounded-xl border border-border/60 bg-background flex items-center px-4 text-sm font-medium opacity-60 cursor-not-allowed">
+                Português (Brasil)
               </div>
-              <div className="space-y-2">
-                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Domínio Principal</label>
-                 <Input 
-                  value={getSetting("primary_domain", "atlasfit.app")} 
-                  onChange={(e) => handleInputChange("primary_domain", e.target.value)}
-                  className="h-11 rounded-xl border-border/60 bg-background" 
-                 />
-              </div>
-              <div className="space-y-2">
-                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Email de Suporte Sistema</label>
-                 <Input 
-                  value={getSetting("support_email", "noreply@atlasfit.app")} 
-                  onChange={(e) => handleInputChange("support_email", e.target.value)}
-                  className="h-11 rounded-xl border-border/60 bg-background" 
-                 />
-              </div>
-              <div className="space-y-2">
-                 <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">Língua Padrão</label>
-                 <div className="h-11 rounded-xl border border-border/60 bg-background flex items-center px-4 text-sm font-medium opacity-60 cursor-not-allowed">
-                    Português (Brasil)
-                 </div>
-              </div>
-           </div>
-           <div className="mt-8 flex justify-end">
-              <Button 
-                onClick={handleSaveGeneral}
-                disabled={isSaving}
-                className="h-11 rounded-xl px-8 font-black uppercase tracking-widest text-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 transition-all active:scale-95 disabled:opacity-50"
-              >
-                {isSaving ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
-                Salvar Alterações
-              </Button>
-           </div>
+            </div>
+          </div>
+          <div className="mt-8 flex justify-end">
+            <Button
+              onClick={handleSaveGeneral}
+              disabled={isSaving}
+              className="h-11 rounded-xl px-8 font-black uppercase tracking-widest text-xs bg-primary text-primary-foreground shadow-lg shadow-primary/20 transition-all active:scale-95 disabled:opacity-50"
+            >
+              {isSaving ? <Loader2 className="size-4 animate-spin mr-2" /> : null}
+              Salvar Alterações
+            </Button>
+          </div>
         </SettingsSection>
 
         {/* 2. Security */}
         <SettingsSection title="Segurança & Acesso" icon={ShieldAlert} description="Políticas de autenticação e proteção de dados">
-           <div className="space-y-6">
-              {[
-                { key: "require_2fa", title: "Autenticação em Duas Etapas (2FA)", desc: "Obrigatório para todos os administradores e trainers." },
-                { key: "session_expiration", title: "Expiração de Sessão", desc: "Forçar logout após 24h de inatividade." },
-                { key: "api_white_label", title: "White-label API Access", desc: "Permitir que parceiros usem a API com seus próprios tokens." },
-              ].map((item, idx) => {
-                const enabled = formData[item.key] === "true";
-                return (
-                  <div 
-                    key={idx} 
-                    onClick={() => handleToggleBoolean(item.key)}
-                    className="flex items-center justify-between p-4 rounded-2xl bg-secondary/20 border border-border/40 hover:bg-secondary/40 transition-all cursor-pointer group"
-                  >
-                    <div className="flex items-center gap-4">
-                        <div className={cn(
-                          "size-10 rounded-xl flex items-center justify-center border border-border/40",
-                          enabled ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
-                        )}>
-                          <Lock className="size-4" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-bold tracking-tight">{item.title}</p>
-                          <p className="text-[10px] text-muted-foreground font-medium">{item.desc}</p>
-                        </div>
-                    </div>
+          <div className="space-y-6">
+            {[
+              { key: "require_2fa", title: "Autenticação em Duas Etapas (2FA)", desc: "Obrigatório para todos os administradores e trainers." },
+              { key: "session_expiration", title: "Expiração de Sessão", desc: "Forçar logout após 24h de inatividade." },
+              { key: "api_white_label", title: "White-label API Access", desc: "Permitir que parceiros usem a API com seus próprios tokens." },
+            ].map((item, idx) => {
+              const enabled = formData[item.key] === "true";
+              return (
+                <div
+                  key={idx}
+                  onClick={() => handleToggleBoolean(item.key)}
+                  className="flex items-center justify-between p-4 rounded-2xl bg-secondary/20 border border-border/40 hover:bg-secondary/40 transition-all cursor-pointer group"
+                >
+                  <div className="flex items-center gap-4">
                     <div className={cn(
-                      "w-12 h-6 rounded-full p-1 transition-colors duration-300",
-                      enabled ? "bg-primary" : "bg-muted"
+                      "size-10 rounded-xl flex items-center justify-center border border-border/40",
+                      enabled ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                     )}>
-                        <div className={cn(
-                          "size-4 bg-white rounded-full transition-transform duration-300",
-                          enabled ? "translate-x-6" : "translate-x-0"
-                        )} />
+                      <Lock className="size-4" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold tracking-tight">{item.title}</p>
+                      <p className="text-[10px] text-muted-foreground font-medium">{item.desc}</p>
                     </div>
                   </div>
-                );
-              })}
-           </div>
+                  <div className={cn(
+                    "w-12 h-6 rounded-full p-1 transition-colors duration-300",
+                    enabled ? "bg-primary" : "bg-muted"
+                  )}>
+                    <div className={cn(
+                      "size-4 bg-white rounded-full transition-transform duration-300",
+                      enabled ? "translate-x-6" : "translate-x-0"
+                    )} />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
         </SettingsSection>
 
         {/* 3. Integrations & Latency */}
-        <SettingsSection 
-          title="Integrações & Performance" 
-          icon={Zap} 
+        <SettingsSection
+          title="Integrações & Performance"
+          icon={Zap}
           description="Status em tempo real das APIs e serviços externos"
           action={
             <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
@@ -374,7 +374,7 @@ export default function SuperAdminSettingsPage() {
                         value={newIntegration.icon}
                         onValueChange={(val) => setNewIntegration({ ...newIntegration, icon: val })}
                       >
-                        <SelectTrigger className="rounded-xl border-border/60">
+                        <SelectTrigger className="rounded-xl border-border/60 w-full">
                           <SelectValue placeholder="Selecione um ícone" />
                         </SelectTrigger>
                         <SelectContent>
@@ -396,7 +396,7 @@ export default function SuperAdminSettingsPage() {
                         value={newIntegration.category}
                         onValueChange={(val) => setNewIntegration({ ...newIntegration, category: val })}
                       >
-                        <SelectTrigger className="rounded-xl border-border/60">
+                        <SelectTrigger className="rounded-xl border-border/60 w-full">
                           <SelectValue placeholder="Categoria" />
                         </SelectTrigger>
                         <SelectContent>
@@ -434,138 +434,138 @@ export default function SuperAdminSettingsPage() {
             </Dialog>
           }
         >
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-              {(snap.integrations || []).length === 0 ? (
-                <div className="col-span-full py-12 text-center text-muted-foreground">
-                   <LinkIcon className="size-8 mx-auto mb-2 opacity-40 animate-pulse" />
-                   <p className="text-xs font-bold uppercase tracking-widest">Nenhuma integração ativa encontrada.</p>
-                </div>
-              ) : (
-                (snap.integrations || []).map((serv: any, idx: number) => {
-                  const isDegraded = serv.status === "Degraded" || (serv.latency && parseInt(serv.latency) > 250);
-                  const isOffline = serv.status === "Offline" || serv.status === "Disabled" || !serv.isActive;
-                  
-                  return (
-                    <div 
-                      key={serv.id || idx} 
-                      className={cn(
-                        "p-5 rounded-2xl border flex flex-col gap-3 group transition-all relative overflow-hidden",
-                        !serv.isActive ? "bg-secondary/5 border-border/20 opacity-60" : "bg-secondary/10 border-border/40 hover:border-primary/20"
-                      )}
-                    >
-                       <div className="flex items-center justify-between">
-                          <div className={cn(
-                            "p-2 rounded-lg bg-background border border-border/40 text-primary transition-colors",
-                            serv.isActive && "group-hover:bg-primary group-hover:text-primary-foreground"
-                          )}>
-                             <DynamicIcon name={serv.icon} className="size-4" />
-                          </div>
-                          
-                          <div className="flex items-center gap-1.5">
-                            <span className={cn(
-                              "text-[9px] font-black uppercase tracking-widest",
-                              !serv.isActive ? "text-muted-foreground" : isOffline ? "text-rose-500" : isDegraded ? "text-amber-500" : "text-emerald-500"
-                            )}>
-                               {!serv.isActive ? "Inativo" : serv.status}
-                            </span>
-                          </div>
-                       </div>
-                       
-                       <div className="space-y-1">
-                          <p className="text-[11px] font-bold tracking-tight truncate pr-8">{serv.name}</p>
-                          {serv.isActive ? (
-                            <div className="flex items-center gap-1.5 mt-1">
-                               <div className="h-1 flex-1 bg-secondary rounded-full overflow-hidden">
-                                  <div 
-                                    className={cn(
-                                      "h-full rounded-full transition-all duration-500",
-                                      isOffline ? "bg-rose-500 w-[10%]" : isDegraded ? "bg-amber-500 w-[50%]" : "bg-emerald-500 w-full"
-                                    )} 
-                                  />
-                               </div>
-                               <span className="text-[9px] font-mono text-muted-foreground whitespace-nowrap">{serv.latency || "Offline"}</span>
-                            </div>
-                          ) : (
-                            <div className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest mt-1">
-                              Serviço Desativado
-                            </div>
-                          )}
-                       </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {(snap.integrations || []).length === 0 ? (
+              <div className="col-span-full py-12 text-center text-muted-foreground">
+                <LinkIcon className="size-8 mx-auto mb-2 opacity-40 animate-pulse" />
+                <p className="text-xs font-bold uppercase tracking-widest">Nenhuma integração ativa encontrada.</p>
+              </div>
+            ) : (
+              (snap.integrations || []).map((serv: any, idx: number) => {
+                const isDegraded = serv.status === "Degraded" || (serv.latency && parseInt(serv.latency) > 250);
+                const isOffline = serv.status === "Offline" || serv.status === "Disabled" || !serv.isActive;
 
-                       {/* Hover Actions Bar */}
-                       <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                         <Button
+                return (
+                  <div
+                    key={serv.id || idx}
+                    className={cn(
+                      "p-5 rounded-2xl border flex flex-col gap-3 group transition-all relative overflow-hidden",
+                      !serv.isActive ? "bg-secondary/5 border-border/20 opacity-60" : "bg-secondary/10 border-border/40 hover:border-primary/20"
+                    )}
+                  >
+                    <div className="flex items-center justify-between">
+                      <div className={cn(
+                        "p-2 rounded-lg bg-background border border-border/40 text-primary transition-colors",
+                        serv.isActive && "group-hover:bg-primary group-hover:text-primary-foreground"
+                      )}>
+                        <DynamicIcon name={serv.icon} className="size-4" />
+                      </div>
+
+                      <div className="flex items-center gap-1.5">
+                        <span className={cn(
+                          "text-[9px] font-black uppercase tracking-widest",
+                          !serv.isActive ? "text-muted-foreground" : isOffline ? "text-rose-500" : isDegraded ? "text-amber-500" : "text-emerald-500"
+                        )}>
+                          {!serv.isActive ? "Inativo" : serv.status}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1">
+                      <p className="text-[11px] font-bold tracking-tight truncate pr-8">{serv.name}</p>
+                      {serv.isActive ? (
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <div className="h-1 flex-1 bg-secondary rounded-full overflow-hidden">
+                            <div
+                              className={cn(
+                                "h-full rounded-full transition-all duration-500",
+                                isOffline ? "bg-rose-500 w-[10%]" : isDegraded ? "bg-amber-500 w-[50%]" : "bg-emerald-500 w-full"
+                              )}
+                            />
+                          </div>
+                          <span className="text-[9px] font-mono text-muted-foreground whitespace-nowrap">{serv.latency || "Offline"}</span>
+                        </div>
+                      ) : (
+                        <div className="text-[9px] font-bold text-muted-foreground/60 uppercase tracking-widest mt-1">
+                          Serviço Desativado
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Hover Actions Bar */}
+                    <div className="absolute top-2 right-2 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleToggleIntegration(serv.id, !serv.isActive)}
+                        title={serv.isActive ? "Desativar" : "Ativar"}
+                        className="size-7 rounded-lg hover:bg-background border border-border/20 text-muted-foreground"
+                      >
+                        {serv.isActive ? <ToggleRight className="size-4 text-emerald-500" /> : <ToggleLeft className="size-4" />}
+                      </Button>
+                      {/* Allow deletion of custom integrations */}
+                      {!["postgres", "aws_s3", "vercel", "stripe", "sendgrid", "pusher", "redis", "authjs"].includes(serv.key) && (
+                        <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleToggleIntegration(serv.id, !serv.isActive)}
-                          title={serv.isActive ? "Desativar" : "Ativar"}
-                          className="size-7 rounded-lg hover:bg-background border border-border/20 text-muted-foreground"
-                         >
-                           {serv.isActive ? <ToggleRight className="size-4 text-emerald-500" /> : <ToggleLeft className="size-4" />}
-                         </Button>
-                         {/* Allow deletion of custom integrations */}
-                         {!["postgres", "aws_s3", "vercel", "stripe", "sendgrid", "pusher", "redis", "authjs"].includes(serv.key) && (
-                           <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleDeleteIntegration(serv.id)}
-                            className="size-7 rounded-lg hover:bg-rose-500/10 text-rose-500"
-                           >
-                             <Trash className="size-3.5" />
-                           </Button>
-                         )}
-                       </div>
+                          onClick={() => handleDeleteIntegration(serv.id)}
+                          className="size-7 rounded-lg hover:bg-rose-500/10 text-rose-500"
+                        >
+                          <Trash className="size-3.5" />
+                        </Button>
+                      )}
                     </div>
-                  );
-                })
-              )}
-           </div>
+                  </div>
+                );
+              })
+            )}
+          </div>
         </SettingsSection>
 
         {/* 4. Advanced Operations */}
         <SettingsSection title="Operações Avançadas" icon={Server} description="Controles críticos e manutenção do sistema">
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              <div className="p-6 rounded-2xl bg-rose-500/5 border border-rose-500/10 flex flex-col justify-between gap-6">
-                 <div>
-                    <h3 className="text-sm font-bold flex items-center gap-2 text-rose-600">
-                       <Power className="size-4" />
-                       Modo de Manutenção
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                       Ativar o modo de manutenção bloqueará o acesso de todos os usuários (exceto SuperAdmins) à plataforma. Útil para atualizações críticas de banco de dados.
-                    </p>
-                 </div>
-                 <Button 
-                  variant="outline" 
-                  onClick={handleToggleMaintenance}
-                  className={cn(
-                    "h-11 rounded-xl font-bold text-xs border-rose-500/20 shadow-sm",
-                    isMaintenance ? "bg-rose-600 text-white hover:bg-rose-700" : "text-rose-600 hover:bg-rose-500/10"
-                  )}
-                 >
-                    {isMaintenance ? "DESATIVAR MANUTENÇÃO" : "ATIVAR MANUTENÇÃO"}
-                 </Button>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="p-6 rounded-2xl bg-rose-500/5 border border-rose-500/10 flex flex-col justify-between gap-6">
+              <div>
+                <h3 className="text-sm font-bold flex items-center gap-2 text-rose-600">
+                  <Power className="size-4" />
+                  Modo de Manutenção
+                </h3>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  Ativar o modo de manutenção bloqueará o acesso de todos os usuários (exceto SuperAdmins) à plataforma. Útil para atualizações críticas de banco de dados.
+                </p>
               </div>
+              <Button
+                variant="outline"
+                onClick={handleToggleMaintenance}
+                className={cn(
+                  "h-11 rounded-xl font-bold text-xs border-rose-500/20 shadow-sm",
+                  isMaintenance ? "bg-rose-600 text-white hover:bg-rose-700" : "text-rose-600 hover:bg-rose-500/10"
+                )}
+              >
+                {isMaintenance ? "DESATIVAR MANUTENÇÃO" : "ATIVAR MANUTENÇÃO"}
+              </Button>
+            </div>
 
-              <div className="p-6 rounded-2xl bg-primary/5 border border-primary/10 flex flex-col justify-between gap-6">
-                 <div>
-                    <h3 className="text-sm font-bold flex items-center gap-2 text-primary">
-                       <Trash2 className="size-4" />
-                       Limpar Cache Global
-                    </h3>
-                    <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
-                       Invalida todas as tags de cache do sistema, forçando a re-geração de estatísticas, dashboards e listagens. Pode causar lentidão temporária.
-                    </p>
-                 </div>
-                 <Button 
-                  variant="outline" 
-                  onClick={handleClearCache}
-                  className="h-11 rounded-xl font-bold text-xs border-primary/20 text-primary hover:bg-primary/10 shadow-sm"
-                 >
-                    LIMPAR CACHE AGORA
-                 </Button>
+            <div className="p-6 rounded-2xl bg-primary/5 border border-primary/10 flex flex-col justify-between gap-6">
+              <div>
+                <h3 className="text-sm font-bold flex items-center gap-2 text-primary">
+                  <Trash2 className="size-4" />
+                  Limpar Cache Global
+                </h3>
+                <p className="text-xs text-muted-foreground mt-1 leading-relaxed">
+                  Invalida todas as tags de cache do sistema, forçando a re-geração de estatísticas, dashboards e listagens. Pode causar lentidão temporária.
+                </p>
               </div>
-           </div>
+              <Button
+                variant="outline"
+                onClick={handleClearCache}
+                className="h-11 rounded-xl font-bold text-xs border-primary/20 text-primary hover:bg-primary/10 shadow-sm"
+              >
+                LIMPAR CACHE AGORA
+              </Button>
+            </div>
+          </div>
         </SettingsSection>
       </div>
     </div>

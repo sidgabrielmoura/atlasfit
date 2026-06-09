@@ -47,7 +47,7 @@ function slugify(text: string) {
 export function WorkspaceSwitcher() {
   const { isMobile } = useSidebar();
   const snap = useSnapshot(workspaceStore);
-  
+
   const [plansList, setPlansList] = React.useState<any[]>([]);
   const [limitData, setLimitData] = React.useState<{ current: number; limit: number; planName: string } | null>(null);
 
@@ -170,10 +170,18 @@ export function WorkspaceSwitcher() {
                 {snap.activeWorkspace ? (
                   <>
                     <div
-                      className="flex aspect-square size-8 items-center justify-center rounded-lg text-sidebar-primary-foreground font-bold text-sm shrink-0"
+                      className="flex aspect-square size-8 items-center justify-center rounded-lg text-sidebar-primary-foreground font-bold text-sm shrink-0 overflow-hidden"
                       style={{ backgroundColor: snap.activeWorkspace.primaryColor }}
                     >
-                      <span>{snap.activeWorkspace.logo}</span>
+                      {snap.activeWorkspace.logoUrl ? (
+                        <img
+                          src={snap.activeWorkspace.logoUrl}
+                          alt={snap.activeWorkspace.name}
+                          className="size-full object-cover"
+                        />
+                      ) : (
+                        <span>{snap.activeWorkspace.logo}</span>
+                      )}
                     </div>
                     <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden min-w-0">
                       <span className="truncate font-semibold">
@@ -218,10 +226,18 @@ export function WorkspaceSwitcher() {
                   className="gap-2 p-2 rounded-xl cursor-pointer"
                 >
                   <div
-                    className="flex size-6 items-center justify-center rounded-md border text-[10px] font-bold text-white shrink-0"
+                    className="flex size-6 items-center justify-center rounded-md border text-[10px] font-bold text-white shrink-0 overflow-hidden"
                     style={{ backgroundColor: workspace.primaryColor, borderColor: workspace.primaryColor }}
                   >
-                    {workspace.logo}
+                    {workspace.logoUrl ? (
+                      <img
+                        src={workspace.logoUrl}
+                        alt={workspace.name}
+                        className="size-full object-cover"
+                      />
+                    ) : (
+                      workspace.logo
+                    )}
                   </div>
                   <span className="flex-1 truncate">{workspace.name}</span>
                   {snap.activeWorkspace?.id === workspace.id && (
@@ -253,10 +269,9 @@ export function WorkspaceSwitcher() {
 
       {/* Premium Create Workspace Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="sm:max-w-[500px] rounded-3xl border-border/50 bg-background/95 backdrop-blur-xl shadow-2xl p-6 overflow-hidden">
+        <DialogContent className="sm:max-w-125 rounded-3xl border-border/50 bg-background/95 backdrop-blur-xl shadow-2xl p-6 overflow-hidden">
           <DialogHeader className="space-y-2">
             <DialogTitle className="text-2xl font-black tracking-tight flex items-center gap-2">
-              <Sparkles className="size-5 text-primary animate-pulse" />
               Criar Novo Workspace
             </DialogTitle>
             <DialogDescription className="text-muted-foreground text-sm leading-relaxed">
@@ -330,13 +345,9 @@ export function WorkspaceSwitcher() {
         </DialogContent>
       </Dialog>
 
-      {/* Premium Upgrade Warning Dialog */}
       <Dialog open={isUpgradeWarningOpen} onOpenChange={setIsUpgradeWarningOpen}>
-        <DialogContent className="sm:max-w-[450px] rounded-3xl border-border/50 bg-background/95 backdrop-blur-xl shadow-2xl p-6 overflow-hidden">
+        <DialogContent className="sm:max-w-112.5 rounded-3xl border-border/50 bg-background/95 backdrop-blur-xl shadow-2xl p-6 overflow-hidden">
           <DialogHeader className="space-y-2 text-center flex flex-col items-center">
-            <div className="size-12 rounded-2xl bg-primary/10 flex items-center justify-center text-primary mb-2">
-              <Sparkles className="size-6 animate-pulse" />
-            </div>
             <DialogTitle className="text-2xl font-black tracking-tight">
               Limite de Workspaces Atingido
             </DialogTitle>

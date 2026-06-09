@@ -41,7 +41,10 @@ export async function POST(
         goal: originalWorkout.goal,
         difficulty: originalWorkout.difficulty,
         duration: originalWorkout.duration,
+        muscleGroupLabel: originalWorkout.muscleGroupLabel,
+        restBetweenExercises: originalWorkout.restBetweenExercises,
         creatorId: session.user.id,
+        workspaceId: originalWorkout.workspaceId,
         exercises: {
           create: originalWorkout.exercises.map((ex) => ({
             exerciseId: ex.exerciseId,

@@ -5,6 +5,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 
 import { AuthProvider } from "./providers/auth-provider";
 import { Toaster } from "@/components/ui/sonner";
+import { DynamicBranding } from "@/components/application/dynamic-branding";
 
 export function Providers({ children }: { children: React.ReactNode }) {
   // Workaround para erro do next-themes no React 19 / Next.js 15
@@ -27,6 +28,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         enableColorScheme={false}
       >
         <TooltipProvider delayDuration={0}>
+          <DynamicBranding />
           {children}
           <Toaster position="top-right" richColors />
         </TooltipProvider>

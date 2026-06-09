@@ -8,6 +8,7 @@ interface SuperAdminState {
   logs: any[];
   exercises: any[];
   subscriptions: any[];
+  subscriptionMetrics: any;
   settings: any[];
   integrations: any[];
   plans: any[];
@@ -33,6 +34,7 @@ const initialState: SuperAdminState = {
   logs: [],
   exercises: [],
   subscriptions: [],
+  subscriptionMetrics: null,
   settings: [],
   integrations: [],
   plans: [],
@@ -140,7 +142,13 @@ export const superAdminActions = {
     superAdminStore.isLoading = true;
     try {
       const { data } = await api.get("/superadmin/subscriptions");
-      superAdminStore.subscriptions = data;
+      if (data && data.activities) {
+        superAdminStore.subscriptions = data.activities;
+        superAdminStore.subscriptionMetrics = data;
+      } else {
+        superAdminStore.subscriptions = Array.isArray(data) ? data : [];
+        superAdminStore.subscriptionMetrics = null;
+      }
     } catch (err: any) {
       superAdminStore.error = err.message;
     } finally {

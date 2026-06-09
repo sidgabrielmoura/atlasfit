@@ -9,25 +9,26 @@ import {
   CreditCard,
   AlertCircle,
   Plus,
-  Link as LinkIcon,
   Copy,
   CheckCircle2,
   Clock,
-  Download,
-  Users,
   Trash2,
   Edit,
-  Loader2
+  Loader2,
+  Search,
+  MessageCircle,
+  Calendar,
+  Filter
 } from "lucide-react";
 import { workspaceStore } from "@/stores/workspace.store";
 import { toast } from "sonner";
+import { Skeleton } from "@/components/ui/skeleton";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Switch } from "@/components/ui/switch";
 import {
   Dialog,
   DialogContent,
@@ -64,6 +65,94 @@ const item = {
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } },
 };
 
+function FinanceSkeleton() {
+  return (
+    <div className="space-y-6">
+      {/* Metric Cards */}
+      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+        {[1, 2, 3, 4].map((i) => (
+          <Card key={i} className="border-border/50 bg-neutral-950/40">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <Skeleton className="h-4 w-32 bg-neutral-800" />
+              <Skeleton className="size-8 rounded-full bg-neutral-800" />
+            </CardHeader>
+            <CardContent className="space-y-2">
+              <Skeleton className="h-7 w-24 bg-neutral-800" />
+              <Skeleton className="h-3 w-36 bg-neutral-800" />
+            </CardContent>
+          </Card>
+        ))}
+      </div>
+
+      {/* Main Grid */}
+      <div className="grid gap-6 lg:grid-cols-3">
+        <div className="space-y-6 lg:col-span-2">
+          {/* Revenue Chart Skeleton */}
+          <Card className="border-border/50 bg-neutral-950/40">
+            <CardHeader className="space-y-2">
+              <Skeleton className="h-5 w-48 bg-neutral-800" />
+              <Skeleton className="h-4 w-72 bg-neutral-800" />
+            </CardHeader>
+            <CardContent>
+              <Skeleton className="h-[300px] w-full rounded-xl bg-neutral-800" />
+            </CardContent>
+          </Card>
+
+          {/* Recent Payments Skeleton */}
+          <Card className="border-border/50 bg-neutral-950/40">
+            <CardHeader className="space-y-2">
+              <Skeleton className="h-5 w-48 bg-neutral-800" />
+              <Skeleton className="h-4 w-72 bg-neutral-800" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-secondary/10">
+                  <div className="flex items-center gap-4">
+                    <Skeleton className="size-10 rounded-full bg-neutral-800" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-4 w-32 bg-neutral-800" />
+                      <Skeleton className="h-3 w-20 bg-neutral-800" />
+                    </div>
+                  </div>
+                  <div className="space-y-2 flex flex-col items-end">
+                    <Skeleton className="h-4 w-20 bg-neutral-800" />
+                    <Skeleton className="h-4 w-12 bg-neutral-800" />
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Right Side: Alerts Widget Skeleton */}
+        <div className="space-y-6">
+          <Card className="border-border/50 bg-neutral-950/40 h-full">
+            <CardHeader className="space-y-2">
+              <Skeleton className="h-5 w-32 bg-neutral-800" />
+              <Skeleton className="h-4 w-48 bg-neutral-800" />
+            </CardHeader>
+            <CardContent className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="p-4 rounded-xl border border-border/50 space-y-3">
+                  <div className="flex justify-between items-center">
+                    <Skeleton className="h-4 w-24 bg-neutral-800" />
+                    <Skeleton className="h-4 w-16 bg-neutral-800" />
+                  </div>
+                  <Skeleton className="h-3 w-32 bg-neutral-800" />
+                  <div className="flex gap-2 pt-2">
+                    <Skeleton className="h-8 flex-1 rounded-lg bg-neutral-800" />
+                    <Skeleton className="h-8 w-8 rounded-lg bg-neutral-800" />
+                  </div>
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function FinancePage() {
   const workspaceSnap = useSnapshot(workspaceStore);
   const activeWorkspaceId = workspaceSnap.activeWorkspaceId;
@@ -72,9 +161,9 @@ export default function FinancePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [metrics, setMetrics] = useState({
     mrr: 0,
-    mrrChange: 0,
+    mrrChange: 12.4,
     avgTicket: 0,
-    ticketChange: 0,
+    ticketChange: 4.2,
     activePlans: 0,
     plansChange: 0,
     financialChurn: 0,
@@ -82,32 +171,34 @@ export default function FinancePage() {
   });
   const [chartData, setChartData] = useState<any[]>([]);
   const [recentPayments, setRecentPayments] = useState<any[]>([]);
-  const [plans, setPlans] = useState<any[]>([]);
+  const [students, setStudents] = useState<any[]>([]);
 
-  // Modal states
-  const [isPlanModalOpen, setIsPlanModalOpen] = useState(false);
-  const [editingPlan, setEditingPlan] = useState<any | null>(null);
+  // Search and Filter states
+  const [searchQuery, setSearchQuery] = useState("");
+  const [activeTabFilter, setActiveTabFilter] = useState<"todos" | "pago" | "pendente" | "atrasado">("todos");
 
-  // Plan form states
-  const [planName, setPlanName] = useState("");
-  const [planPrice, setPlanPrice] = useState("");
-  const [planInterval, setPlanInterval] = useState("mensal");
-  const [planLink, setPlanLink] = useState("");
-  const [planIsActive, setPlanIsActive] = useState(true);
-  const [isSavingPlan, setIsSavingPlan] = useState(false);
+  // Payment creation/edit modal states
+  const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
+  const [editingPayment, setEditingPayment] = useState<any | null>(null);
+  const [isSavingPayment, setIsSavingPayment] = useState(false);
 
-  // Delete confirmation states
+  // Payment form states
+  const [studentType, setStudentType] = useState<"registered" | "manual">("registered");
+  const [selectedStudentId, setSelectedStudentId] = useState("");
+  const [manualStudentName, setManualStudentName] = useState("");
+  const [paymentDescription, setPaymentDescription] = useState("");
+  const [paymentAmount, setPaymentAmount] = useState("");
+  const [paymentStatus, setPaymentStatus] = useState("pendente");
+  const [paymentMethod, setPaymentMethod] = useState("PIX");
+  const [paymentDate, setPaymentDate] = useState("");
+
+  // Deletion confirmation states
   const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
-  const [planToDelete, setPlanToDelete] = useState<any | null>(null);
+  const [paymentToDelete, setPaymentToDelete] = useState<any | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Toggle status confirmation states
-  const [isConfirmToggleOpen, setIsConfirmToggleOpen] = useState(false);
-  const [planToToggle, setPlanToToggle] = useState<any | null>(null);
-  const [isToggling, setIsToggling] = useState(false);
-
-  // Copy button feedback state
-  const [copiedPlanId, setCopiedPlanId] = useState<string | null>(null);
+  // Quick action states
+  const [isUpdatingStatusId, setIsUpdatingStatusId] = useState<string | null>(null);
 
   // Fetch all finance details from API
   const fetchFinanceData = async () => {
@@ -125,13 +216,11 @@ export default function FinancePage() {
         toast.error("Erro ao carregar dados do financeiro.");
       }
 
-      // 2. Fetch subscription plans
-      const plansRes = await fetch(`/api/personal/finance/plans?workspaceId=${activeWorkspaceId}`);
-      if (plansRes.ok) {
-        const plansData = await plansRes.json();
-        setPlans(plansData);
-      } else {
-        toast.error("Erro ao carregar os planos.");
+      // 2. Fetch students list for dropdown association
+      const studentsRes = await fetch(`/api/personal/clients?workspaceId=${activeWorkspaceId}`);
+      if (studentsRes.ok) {
+        const studentsData = await studentsRes.json();
+        setStudents(studentsData);
       }
     } catch (err) {
       console.error("Fetch finance error:", err);
@@ -147,169 +236,210 @@ export default function FinancePage() {
 
   // Open creation modal
   const handleOpenCreateModal = () => {
-    setEditingPlan(null);
-    setPlanName("");
-    setPlanPrice("");
-    setPlanInterval("mensal");
-    setPlanLink("");
-    setPlanIsActive(true);
-    setIsPlanModalOpen(true);
+    setEditingPayment(null);
+    setStudentType("registered");
+    setSelectedStudentId(students[0]?.id || "");
+    setManualStudentName("");
+    setPaymentDescription("Mensalidade de Assessoria");
+    setPaymentAmount("150.00");
+    setPaymentStatus("pendente");
+    setPaymentMethod("PIX");
+    
+    // Set current local date as default in YYYY-MM-DD
+    const localDate = new Date();
+    const formatted = localDate.toISOString().split("T")[0];
+    setPaymentDate(formatted);
+    
+    setIsPaymentModalOpen(true);
   };
 
   // Open editing modal
-  const handleOpenEditModal = (plan: any) => {
-    setEditingPlan(plan);
-    setPlanName(plan.name);
-    setPlanPrice(plan.price.toString());
-    setPlanInterval(plan.interval);
-    setPlanLink(plan.link || "");
-    setPlanIsActive(plan.active !== undefined ? plan.active : true);
-    setIsPlanModalOpen(true);
+  const handleOpenEditModal = (payment: any) => {
+    setEditingPayment(payment);
+    
+    // Check if the student matches a registered one
+    const matchingStudent = students.find((s) => s.name === payment.student);
+    if (matchingStudent) {
+      setStudentType("registered");
+      setSelectedStudentId(matchingStudent.id);
+    } else {
+      setStudentType("manual");
+      setManualStudentName(payment.student);
+    }
+
+    setPaymentDescription(payment.plan);
+    setPaymentAmount(payment.amount.toString());
+    setPaymentStatus(payment.status);
+    setPaymentMethod(payment.method);
+    setPaymentDate(payment.date.split("T")[0]);
+    setIsPaymentModalOpen(true);
   };
 
-  // Save Plan (Create or Update)
-  const handleSavePlan = async (e: React.FormEvent) => {
+  // Save manual receipt
+  const handleSavePayment = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeWorkspaceId) return;
-    if (!planName || !planPrice) {
+
+    const finalStudentName = studentType === "registered"
+      ? students.find((s) => s.id === selectedStudentId)?.name || "Aluno Registrado"
+      : manualStudentName;
+
+    if (!finalStudentName) {
+      toast.error("Preencha o nome do aluno.");
+      return;
+    }
+
+    if (!paymentDescription || !paymentAmount || !paymentDate) {
       toast.error("Preencha todos os campos obrigatórios.");
       return;
     }
 
-    setIsSavingPlan(true);
+    setIsSavingPayment(true);
     try {
-      if (editingPlan) {
-        // Edit existing plan
-        const res = await fetch(`/api/personal/finance/plans/${editingPlan.id}`, {
+      if (editingPayment) {
+        // Edit existing payment
+        const res = await fetch(`/api/personal/finance/payments/${editingPayment.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            name: planName,
-            price: parseFloat(planPrice),
-            interval: planInterval,
-            isActive: planIsActive,
+            studentName: finalStudentName,
+            planName: paymentDescription,
+            amount: parseFloat(paymentAmount),
+            status: paymentStatus,
+            method: paymentMethod,
+            createdAt: new Date(`${paymentDate}T12:00:00`), // avoid timezone shifting
           }),
         });
 
         if (res.ok) {
-          toast.success("Plano atualizado com sucesso!");
-          setIsPlanModalOpen(false);
+          toast.success("Receita atualizada com sucesso! 💾");
+          setIsPaymentModalOpen(false);
           fetchFinanceData();
         } else {
           const errMsg = await res.text();
-          toast.error(errMsg || "Erro ao atualizar plano.");
+          toast.error(errMsg || "Erro ao atualizar receita.");
         }
       } else {
-        // Create new plan
-        const res = await fetch(`/api/personal/finance/plans`, {
+        // Create new payment
+        const res = await fetch(`/api/personal/finance/payments`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             workspaceId: activeWorkspaceId,
-            name: planName,
-            price: parseFloat(planPrice),
-            interval: planInterval,
-            isActive: planIsActive,
+            studentName: finalStudentName,
+            planName: paymentDescription,
+            amount: parseFloat(paymentAmount),
+            status: paymentStatus,
+            method: paymentMethod,
+            createdAt: new Date(`${paymentDate}T12:00:00`),
           }),
         });
 
         if (res.ok) {
-          toast.success("Plano criado com sucesso!");
-          setIsPlanModalOpen(false);
+          toast.success("Receita registrada com sucesso! 💸");
+          setIsPaymentModalOpen(false);
           fetchFinanceData();
         } else {
           const errMsg = await res.text();
-          toast.error(errMsg || "Erro ao criar plano.");
+          toast.error(errMsg || "Erro ao registrar receita.");
         }
       }
     } catch (err) {
-      console.error("Save plan error:", err);
-      toast.error("Erro ao salvar o plano.");
+      console.error("Save payment error:", err);
+      toast.error("Erro de conexão ao salvar a receita.");
     } finally {
-      setIsSavingPlan(false);
+      setIsSavingPayment(false);
     }
   };
 
-  // Delete Plan Confirmation Open
-  const handleOpenDeleteConfirm = (plan: any) => {
-    setPlanToDelete(plan);
+  // Open Delete confirmation
+  const handleOpenDeleteConfirm = (payment: any) => {
+    setPaymentToDelete(payment);
     setIsConfirmDeleteOpen(true);
   };
 
-  // Delete Plan Execution
-  const handleDeletePlan = async () => {
-    if (!planToDelete) return;
+  // Execute Delete
+  const handleDeletePayment = async () => {
+    if (!paymentToDelete) return;
     setIsDeleting(true);
     try {
-      const res = await fetch(`/api/personal/finance/plans/${planToDelete.id}`, {
+      const res = await fetch(`/api/personal/finance/payments/${paymentToDelete.id}`, {
         method: "DELETE",
       });
 
       if (res.ok) {
-        toast.success("Plano excluído com sucesso!");
+        toast.success("Receita excluída do histórico! 🗑️");
         setIsConfirmDeleteOpen(false);
-        setPlanToDelete(null);
+        setPaymentToDelete(null);
         fetchFinanceData();
       } else {
         const errMsg = await res.text();
-        toast.error(errMsg || "Erro ao excluir plano.");
+        toast.error(errMsg || "Erro ao excluir receita.");
       }
     } catch (err) {
-      console.error("Delete plan error:", err);
-      toast.error("Erro ao conectar ao servidor para excluir plano.");
+      console.error("Delete payment error:", err);
+      toast.error("Erro ao conectar com o servidor para exclusão.");
     } finally {
       setIsDeleting(false);
     }
   };
 
-  // Toggle Plan Active Confirmation Open
-  const handleOpenToggleConfirm = (plan: any) => {
-    setPlanToToggle(plan);
-    setIsConfirmToggleOpen(true);
-  };
-
-  // Toggle Plan Active Execution
-  const handleTogglePlanActive = async () => {
-    if (!planToToggle) return;
-    setIsToggling(true);
+  // Quick mark payment as paid
+  const handleQuickMarkAsPaid = async (paymentId: string) => {
+    setIsUpdatingStatusId(paymentId);
     try {
-      const nextState = !planToToggle.active;
-      const res = await fetch(`/api/personal/finance/plans/${planToToggle.id}`, {
+      const res = await fetch(`/api/personal/finance/payments/${paymentId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          isActive: nextState,
+          status: "pago",
         }),
       });
 
       if (res.ok) {
-        toast.success(`Plano ${nextState ? "ativado" : "inativado"} com sucesso!`);
-        setIsConfirmToggleOpen(false);
-        setPlanToToggle(null);
+        toast.success("Pagamento confirmado com sucesso! 🎉");
         fetchFinanceData();
       } else {
-        toast.error("Erro ao alterar estado do plano.");
+        toast.error("Não foi possível atualizar o status.");
       }
     } catch (err) {
-      console.error("Toggle plan active error:", err);
-      toast.error("Erro ao alterar estado do plano.");
+      console.error(err);
+      toast.error("Erro de conexão.");
     } finally {
-      setIsToggling(false);
+      setIsUpdatingStatusId(null);
     }
   };
 
-  // Copy Link Base
-  const handleCopyLink = (planId: string, link: string) => {
-    if (!link) {
-      toast.error("Este plano não possui link de checkout cadastrado.");
-      return;
+  // Launch WhatsApp prefilled reminder
+  const handleSendWhatsAppReminder = (payment: any) => {
+    // Attempt to lookup student phone number
+    const matchingStudent = students.find((s) => s.name === payment.student);
+    const phone = matchingStudent?.whatsapp || "";
+    
+    const formattedDate = new Date(payment.date).toLocaleDateString("pt-BR", {
+      day: "2-digit",
+      month: "2-digit",
+    });
+
+    const isOverdue = payment.status === "atrasado";
+    const amountStr = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(payment.amount);
+
+    const message = isOverdue
+      ? `Olá, ${payment.student}! Tudo bem? Passando para te lembrar de forma amigável sobre o vencimento da sua mensalidade da assessoria esportiva no valor de ${amountStr}, que venceu no dia ${formattedDate}. Ficaria muito grato se pudesse verificar. Qualquer dúvida ou se precisar do PIX, me avise! Abração!`
+      : `Olá, ${payment.student}! Tudo bem? Passando para lembrar que a mensalidade da sua assessoria esportiva no valor de ${amountStr} vence em ${formattedDate}. Qualquer dúvida estou à disposição. Tenha um ótimo treino!`;
+
+    const cleanedPhone = phone.replace(/\D/g, "");
+    
+    // Fallback if no phone registered
+    if (!cleanedPhone) {
+      toast.info("Este aluno não possui WhatsApp cadastrado. O link foi copiado e abrirá o WhatsApp Geral.");
     }
-    navigator.clipboard.writeText(link);
-    setCopiedPlanId(planId);
-    toast.success("Link de checkout copiado!");
-    setTimeout(() => {
-      setCopiedPlanId(null);
-    }, 2000);
+
+    const whatsappUrl = cleanedPhone
+      ? `https://api.whatsapp.com/send?phone=55${cleanedPhone}&text=${encodeURIComponent(message)}`
+      : `https://api.whatsapp.com/send?text=${encodeURIComponent(message)}`;
+
+    window.open(whatsappUrl, "_blank");
   };
 
   const getStatusBadge = (status: string) => {
@@ -325,45 +455,57 @@ export default function FinancePage() {
     }
   };
 
+  // Filter payments list
+  const filteredPayments = recentPayments.filter((p) => {
+    const matchesSearch =
+      p.student.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      p.plan.toLowerCase().includes(searchQuery.toLowerCase());
+    
+    if (activeTabFilter === "todos") return matchesSearch;
+    return matchesSearch && p.status === activeTabFilter;
+  });
+
+  // Extract critical payment alerts (overdue first, then pending)
+  const billingAlerts = recentPayments.filter((p) => p.status === "atrasado" || p.status === "pendente");
+
   if (!activeWorkspaceId) {
     return (
-      <div className="flex flex-1 items-center justify-center p-8 min-h-[400px]">
-        <div className="text-center space-y-3">
-          <Loader2 className="size-8 animate-spin text-primary mx-auto" />
-          <h2 className="text-xl font-semibold">Carregando workspaces...</h2>
-          <p className="text-muted-foreground text-sm">Por favor, selecione um workspace para visualizar o financeiro.</p>
+      <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 bg-background">
+        <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+          <div className="space-y-2">
+            <h2 className="text-3xl font-bold tracking-tight text-white">Financeiro</h2>
+            <Skeleton className="h-4 w-48 bg-neutral-800" />
+          </div>
         </div>
+        <FinanceSkeleton />
       </div>
     );
   }
 
   return (
-    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
+    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 bg-background text-foreground">
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Financeiro</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-white">Financeiro</h2>
           <p className="text-muted-foreground mt-1">
-            Visualizando finanças de <strong className="text-foreground">{workspaceSnap.activeWorkspace?.name}</strong>.
+            Gestão manual de receitas e mensalidades de <strong className="text-foreground">{workspaceSnap.activeWorkspace?.name}</strong>.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" className="gap-2" onClick={() => fetchFinanceData()}>
+          <Button variant="outline" className="gap-2 border-neutral-800 hover:bg-neutral-900 text-neutral-300 hover:text-white" onClick={() => fetchFinanceData()}>
             <Loader2 className={cn("size-4", isLoading && "animate-spin")} />
             <span>Atualizar</span>
           </Button>
-          <Button className="gap-2" onClick={handleOpenCreateModal}>
+          <Button className="gap-2 bg-primary hover:bg-primary/90 text-white font-semibold" onClick={handleOpenCreateModal}>
             <Plus className="size-4" />
-            <span>Novo Plano</span>
+            <span>Registrar Receita</span>
           </Button>
         </div>
       </div>
 
-      {isLoading && plans.length === 0 ? (
-        <div className="flex flex-col items-center justify-center min-h-[300px] gap-3">
-          <Loader2 className="size-8 animate-spin text-primary" />
-          <p className="text-muted-foreground text-sm font-medium">Buscando dados financeiros do banco de dados...</p>
-        </div>
+      {isLoading && recentPayments.length === 0 ? (
+        <FinanceSkeleton />
       ) : (
         <motion.div
           variants={container}
@@ -385,11 +527,8 @@ export default function FinancePage() {
                   <div className="text-2xl font-bold">
                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.mrr)}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                    <span className={metrics.mrrChange >= 0 ? "text-success" : "text-destructive"}>
-                      {metrics.mrrChange >= 0 ? "+" : ""}{metrics.mrrChange}%
-                    </span>
-                    vs mês anterior
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Faturamento confirmado no mês atual
                   </p>
                 </CardContent>
               </Card>
@@ -407,11 +546,8 @@ export default function FinancePage() {
                   <div className="text-2xl font-bold">
                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.avgTicket)}
                   </div>
-                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                    <span className={metrics.ticketChange >= 0 ? "text-success" : "text-destructive"}>
-                      {metrics.ticketChange >= 0 ? "+" : ""}{metrics.ticketChange}%
-                    </span>
-                    vs mês anterior
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Média por pagamento confirmado
                   </p>
                 </CardContent>
               </Card>
@@ -427,11 +563,8 @@ export default function FinancePage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{metrics.activePlans}</div>
-                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                    <span className={metrics.plansChange >= 0 ? "text-success" : "text-destructive"}>
-                      {metrics.plansChange >= 0 ? "+" : ""}{metrics.plansChange} alunos
-                    </span>
-                    neste mês
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Alunos ativos na assessoria
                   </p>
                 </CardContent>
               </Card>
@@ -447,26 +580,23 @@ export default function FinancePage() {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{metrics.financialChurn}%</div>
-                  <p className="text-xs text-muted-foreground mt-1 flex items-center gap-1">
-                    <span className={metrics.churnChange <= 0 ? "text-success" : "text-destructive"}>
-                      {metrics.churnChange > 0 ? "+" : ""}{metrics.churnChange}%
-                    </span>
-                    vs mês anterior
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Taxa de pagamentos atrasados
                   </p>
                 </CardContent>
               </Card>
             </motion.div>
           </div>
 
-          {/* Main Grid: Chart & Transactions vs Plans */}
+          {/* Main Grid: Chart & Table vs Alerts Sidebar */}
           <div className="grid gap-6 lg:grid-cols-3">
             <div className="space-y-6 lg:col-span-2">
               {/* Revenue Chart */}
               <motion.div variants={item as any}>
                 <Card>
                   <CardHeader>
-                    <CardTitle>Evolução da Receita</CardTitle>
-                    <CardDescription>Acompanhe o crescimento do seu faturamento nos últimos meses.</CardDescription>
+                    <CardTitle>Histórico de Arrecadação</CardTitle>
+                    <CardDescription>Visualização dos pagamentos manuais marcados como pagos nos últimos 6 meses.</CardDescription>
                   </CardHeader>
                   <CardContent>
                     <div className="h-[300px] w-full">
@@ -496,7 +626,7 @@ export default function FinancePage() {
                           <Tooltip
                             contentStyle={{ backgroundColor: "var(--card)", borderColor: "var(--border)", borderRadius: "8px" }}
                             itemStyle={{ color: "var(--foreground)" }}
-                            formatter={(value: number | any) => [new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value), "Receita"]}
+                            formatter={(value: number | any) => [new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value), "Faturamento"]}
                           />
                           <Area
                             type="monotone"
@@ -513,23 +643,58 @@ export default function FinancePage() {
                 </Card>
               </motion.div>
 
-              {/* Recent Payments */}
+              {/* Comprehensive Controle de Mensalidades List */}
               <motion.div variants={item as any}>
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Últimos Pagamentos</CardTitle>
-                    <CardDescription>Acompanhe os recebimentos e cobranças recentes cadastrados no banco de dados.</CardDescription>
+                  <CardHeader className="pb-4">
+                    <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                      <div>
+                        <CardTitle>Histórico Geral de Receitas</CardTitle>
+                        <CardDescription>Gerencie todos os lançamentos de mensalidades cadastrados.</CardDescription>
+                      </div>
+                    </div>
                   </CardHeader>
-                  <CardContent>
-                    <div className="space-y-4 max-h-[310px] overflow-y-auto pr-2 custom-scrollbar">
-                      {recentPayments.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center p-8 border border-dashed rounded-xl bg-secondary/10">
-                          <CheckCircle2 className="size-8 text-muted-foreground mb-2" />
-                          <p className="text-sm font-medium text-muted-foreground">Nenhum pagamento registrado.</p>
+                  <CardContent className="space-y-4">
+                    {/* Filter and Search Bar */}
+                    <div className="flex flex-col sm:flex-row gap-3">
+                      <div className="relative flex-1">
+                        <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+                        <Input
+                          placeholder="Buscar por aluno ou serviço..."
+                          className="pl-9 bg-neutral-900/50 border-neutral-800"
+                          value={searchQuery}
+                          onChange={(e) => setSearchQuery(e.target.value)}
+                        />
+                      </div>
+                      <div className="flex gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                        {(["todos", "pago", "pendente", "atrasado"] as const).map((tab) => (
+                          <Button
+                            key={tab}
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => setActiveTabFilter(tab)}
+                            className={cn(
+                              "text-xs capitalize font-medium px-3 h-9 rounded-lg transition-colors border",
+                              activeTabFilter === tab
+                                ? "bg-primary text-white border-primary"
+                                : "text-muted-foreground border-neutral-800 hover:text-white hover:bg-neutral-900"
+                            )}
+                          >
+                            {tab === "todos" ? "Todos" : tab}
+                          </Button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar">
+                      {filteredPayments.length === 0 ? (
+                        <div className="flex flex-col items-center justify-center p-12 border border-dashed rounded-xl bg-secondary/10">
+                          <Filter className="size-8 text-muted-foreground mb-2" />
+                          <p className="text-sm font-medium text-muted-foreground">Nenhuma receita encontrada para os filtros atuais.</p>
                         </div>
                       ) : (
-                        recentPayments.map((tx) => (
-                          <div key={tx.id} className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-secondary/20 hover:bg-secondary/40 transition-colors">
+                        filteredPayments.map((tx) => (
+                          <div key={tx.id} className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-secondary/20 hover:bg-secondary/40 transition-all group relative">
                             <div className="flex items-center gap-4">
                               <div className={cn(
                                 "size-10 rounded-full flex items-center justify-center shrink-0",
@@ -542,17 +707,65 @@ export default function FinancePage() {
                                     <Clock className="size-5" />}
                               </div>
                               <div>
-                                <p className="font-medium text-sm leading-tight">{tx.student}</p>
-                                <p className="text-xs text-muted-foreground mt-0.5">{tx.plan}</p>
+                                <p className="font-semibold text-sm leading-tight text-white">{tx.student}</p>
+                                <div className="flex items-center gap-2 mt-1">
+                                  <p className="text-xs text-muted-foreground">{tx.plan}</p>
+                                  <span className="text-[10px] text-neutral-600">•</span>
+                                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                                    <Calendar className="size-3" />
+                                    {new Date(tx.date).toLocaleDateString("pt-BR")}
+                                  </p>
+                                </div>
                               </div>
                             </div>
-                            <div className="text-right">
-                              <p className="font-semibold text-sm">
-                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.amount)}
-                              </p>
-                              <div className="flex items-center justify-end gap-2 mt-1">
-                                <span className="text-[10px] text-muted-foreground uppercase">{tx.method}</span>
-                                {getStatusBadge(tx.status)}
+
+                            <div className="flex items-center gap-4">
+                              <div className="text-right">
+                                <p className="font-bold text-sm text-white">
+                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.amount)}
+                                </p>
+                                <div className="flex items-center justify-end gap-2 mt-1">
+                                  <span className="text-[10px] text-muted-foreground uppercase">{tx.method}</span>
+                                  {getStatusBadge(tx.status)}
+                                </div>
+                              </div>
+
+                              {/* Hover Quick Actions */}
+                              <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-neutral-900 p-1 rounded-lg border border-neutral-800 shadow-md">
+                                {tx.status !== "pago" && (
+                                  <Button
+                                    size="icon"
+                                    variant="ghost"
+                                    title="Marcar como Pago"
+                                    className="size-8 hover:bg-success/15 hover:text-success rounded-md text-muted-foreground"
+                                    onClick={() => handleQuickMarkAsPaid(tx.id)}
+                                    disabled={isUpdatingStatusId === tx.id}
+                                  >
+                                    {isUpdatingStatusId === tx.id ? (
+                                      <Loader2 className="size-4 animate-spin" />
+                                    ) : (
+                                      <CheckCircle2 className="size-4" />
+                                    )}
+                                  </Button>
+                                )}
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  title="Editar Lançamento"
+                                  className="size-8 hover:bg-neutral-800 text-muted-foreground hover:text-white rounded-md"
+                                  onClick={() => handleOpenEditModal(tx)}
+                                >
+                                  <Edit className="size-4" />
+                                </Button>
+                                <Button
+                                  size="icon"
+                                  variant="ghost"
+                                  title="Excluir Lançamento"
+                                  className="size-8 hover:bg-destructive/15 hover:text-destructive text-muted-foreground rounded-md"
+                                  onClick={() => handleOpenDeleteConfirm(tx)}
+                                >
+                                  <Trash2 className="size-4" />
+                                </Button>
                               </div>
                             </div>
                           </div>
@@ -564,95 +777,87 @@ export default function FinancePage() {
               </motion.div>
             </div>
 
-            {/* Right Side: Subscription Plans */}
+            {/* Right Side: Alerts Widget */}
             <div className="space-y-6">
               <motion.div variants={item as any}>
-                <Card className="h-full">
+                <Card className="border-border/50 bg-neutral-950/40">
                   <CardHeader>
-                    <CardTitle>Planos e Links</CardTitle>
-                    <CardDescription>Links rápidos para enviar cobranças aos alunos de {workspaceSnap.activeWorkspace?.name}.</CardDescription>
+                    <div className="flex items-center gap-2">
+                      <AlertCircle className="size-5 text-destructive animate-pulse" />
+                      <CardTitle>Alertas de Pagamento</CardTitle>
+                    </div>
+                    <CardDescription>Clientes com pendências financeiras ou mensalidades em atraso.</CardDescription>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {plans.map((plan) => (
-                      <div key={plan.id} className={cn("p-4 rounded-xl border relative group transition-all", plan.active ? "bg-card border-border" : "bg-secondary/10 border-border/50 opacity-70")}>
-                        
-                        {/* Quick action overlay buttons on hover */}
-                        <div className="absolute top-3 right-3 flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity bg-card rounded-md shadow-xs p-1 border border-border">
-                          <button
-                            onClick={() => handleOpenToggleConfirm(plan)}
-                            title={plan.active ? "Inativar Plano" : "Ativar Plano"}
-                            className="p-1.5 hover:bg-secondary rounded-md text-muted-foreground hover:text-foreground transition-colors"
-                          >
-                            <Switch checked={plan.active} onCheckedChange={() => {}} className="scale-75 origin-right pointer-events-none" />
-                          </button>
-                          <button
-                            onClick={() => handleOpenEditModal(plan)}
-                            title="Editar Plano"
-                            className="p-1.5 hover:bg-secondary rounded-md text-primary hover:text-primary-foreground transition-colors"
-                          >
-                            <Edit className="size-3.5 text-muted-foreground hover:text-foreground" />
-                          </button>
-                          <button
-                            onClick={() => handleOpenDeleteConfirm(plan)}
-                            title="Excluir Plano"
-                            className="p-1.5 hover:bg-secondary rounded-md text-destructive hover:text-destructive-foreground transition-colors"
-                          >
-                            <Trash2 className="size-3.5 text-muted-foreground hover:text-destructive" />
-                          </button>
-                        </div>
-
-                        <div className="flex justify-between items-start mb-3">
-                          <div>
-                            <h4 className="font-semibold text-sm pr-16">{plan.name}</h4>
-                            <p className="text-xl font-bold mt-1">
-                              {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(plan.price)}
-                              <span className="text-xs text-muted-foreground font-normal">/{plan.interval}</span>
-                            </p>
-                          </div>
-                          {!plan.active && <Badge variant="secondary" className="text-[10px]">Inativo</Badge>}
-                        </div>
-
-                        <div className="flex items-center gap-2 mb-4 text-xs text-muted-foreground">
-                          <Users className="size-3.5" />
-                          <span>{plan.subscribers} assinantes ativos</span>
-                        </div>
-
-                        <div className="flex gap-2">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 text-xs gap-2 h-8"
-                            disabled={!plan.active || !plan.link}
-                            onClick={() => handleCopyLink(plan.id, plan.link)}
-                          >
-                            <LinkIcon className="size-3" />
-                            <span>Link Base</span>
-                          </Button>
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            className="w-10 px-0 shrink-0 h-8"
-                            disabled={!plan.active || !plan.link}
-                            onClick={() => handleCopyLink(plan.id, plan.link)}
-                          >
-                            {copiedPlanId === plan.id ? (
-                              <CheckCircle2 className="size-3.5 text-success" />
-                            ) : (
-                              <Copy className="size-3" />
-                            )}
-                          </Button>
-                        </div>
+                    {billingAlerts.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center p-8 border border-dashed rounded-xl bg-success/5 border-success/20">
+                        <CheckCircle2 className="size-8 text-success mb-2" />
+                        <p className="text-sm font-semibold text-success">Tudo em dia!</p>
+                        <p className="text-xs text-muted-foreground text-center mt-1">Nenhum pagamento atrasado ou pendente registrado.</p>
                       </div>
-                    ))}
+                    ) : (
+                      billingAlerts.map((alert) => {
+                        const isOverdue = alert.status === "atrasado";
+                        return (
+                          <div
+                            key={alert.id}
+                            className={cn(
+                              "p-4 rounded-xl border space-y-3 bg-neutral-900/60 transition-all hover:bg-neutral-900",
+                              isOverdue ? "border-destructive/30 hover:border-destructive/50" : "border-warning/30 hover:border-warning/50"
+                            )}
+                          >
+                            <div className="flex justify-between items-start">
+                              <div>
+                                <h4 className="font-bold text-sm text-white">{alert.student}</h4>
+                                <p className="text-xs text-muted-foreground mt-0.5">{alert.plan}</p>
+                              </div>
+                              {getStatusBadge(alert.status)}
+                            </div>
 
-                    <Button
-                      variant="ghost"
-                      onClick={handleOpenCreateModal}
-                      className="w-full mt-2 text-primary hover:text-primary/80 gap-2 border border-dashed border-primary/20 hover:border-primary/50 hover:bg-primary/5 h-10"
-                    >
-                      <Plus className="size-4" />
-                      Criar Novo Plano
-                    </Button>
+                            <div className="flex items-center justify-between text-xs">
+                              <span className="text-muted-foreground">Vencimento:</span>
+                              <span className={cn("font-semibold flex items-center gap-1", isOverdue ? "text-destructive" : "text-warning")}>
+                                <Calendar className="size-3" />
+                                {new Date(alert.date).toLocaleDateString("pt-BR")}
+                              </span>
+                            </div>
+
+                            <div className="flex items-center justify-between text-xs border-t border-neutral-800/80 pt-2">
+                              <span className="text-muted-foreground">Valor total:</span>
+                              <span className="font-bold text-white">
+                                {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(alert.amount)}
+                              </span>
+                            </div>
+
+                            <div className="flex gap-2 pt-1.5">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1 text-xs gap-1.5 h-8 border-neutral-800 hover:bg-neutral-800 hover:text-white"
+                                onClick={() => handleQuickMarkAsPaid(alert.id)}
+                                disabled={isUpdatingStatusId === alert.id}
+                              >
+                                {isUpdatingStatusId === alert.id ? (
+                                  <Loader2 className="size-3 animate-spin" />
+                                ) : (
+                                  <CheckCircle2 className="size-3 text-success" />
+                                )}
+                                <span>Confirmar Pago</span>
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                className="px-2.5 h-8 hover:bg-success/10 text-success hover:text-success-foreground border border-success/20 hover:border-success/40"
+                                onClick={() => handleSendWhatsAppReminder(alert)}
+                              >
+                                <MessageCircle className="size-3.5 fill-success/10 text-success" />
+                                <span className="sr-only">Enviar WhatsApp</span>
+                              </Button>
+                            </div>
+                          </div>
+                        );
+                      })
+                    )}
                   </CardContent>
                 </Card>
               </motion.div>
@@ -661,108 +866,180 @@ export default function FinancePage() {
         </motion.div>
       )}
 
-      {/* Plan Create/Edit Dialog */}
-      <Dialog open={isPlanModalOpen} onOpenChange={setIsPlanModalOpen}>
-        <DialogContent className="sm:max-w-[480px]">
-          <form onSubmit={handleSavePlan}>
+      {/* Payment Create/Edit Dialog */}
+      <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
+        <DialogContent className="sm:max-w-[480px] bg-neutral-950 border-neutral-800 text-white">
+          <form onSubmit={handleSavePayment}>
             <DialogHeader>
-              <DialogTitle>{editingPlan ? "Editar Plano de Assinatura" : "Criar Novo Plano"}</DialogTitle>
-              <DialogDescription>
-                Configure os detalhes do plano que ficará disponível para os alunos de {workspaceSnap.activeWorkspace?.name}.
+              <DialogTitle className="text-white text-lg font-bold">
+                {editingPayment ? "Editar Lançamento Financeiro" : "Registrar Nova Receita"}
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                Informe os detalhes do recebimento da assessoria esportiva.
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 py-4">
+              {/* Selector to type or choose student */}
+              {!editingPayment && (
+                <div className="space-y-2">
+                  <Label className="text-xs text-neutral-400">Origem do Aluno</Label>
+                  <div className="grid grid-cols-2 gap-2 bg-neutral-900 p-1 rounded-lg border border-neutral-800">
+                    <button
+                      type="button"
+                      className={cn("py-1 text-xs font-semibold rounded-md transition-colors", studentType === "registered" ? "bg-primary text-white" : "text-muted-foreground hover:text-white")}
+                      onClick={() => setStudentType("registered")}
+                    >
+                      Aluno do Sistema
+                    </button>
+                    <button
+                      type="button"
+                      className={cn("py-1 text-xs font-semibold rounded-md transition-colors", studentType === "manual" ? "bg-primary text-white" : "text-muted-foreground hover:text-white")}
+                      onClick={() => setStudentType("manual")}
+                    >
+                      Preenchimento Manual
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {studentType === "registered" && students.length > 0 && !editingPayment ? (
+                <div className="space-y-2">
+                  <Label htmlFor="studentSelect" className="text-xs text-neutral-300">Aluno Cadastrado *</Label>
+                  <Select value={selectedStudentId} onValueChange={setSelectedStudentId}>
+                    <SelectTrigger id="studentSelect" className="w-full bg-neutral-900 border-neutral-800 text-white">
+                      <SelectValue placeholder="Selecione o aluno..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                      {students.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name} ({s.email || "Sem e-mail"})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label htmlFor="manualName" className="text-xs text-neutral-300">Nome Completo do Aluno *</Label>
+                  <Input
+                    id="manualName"
+                    placeholder="Ex: Gabriel Moura"
+                    className="bg-neutral-900 border-neutral-800 text-white"
+                    value={manualStudentName}
+                    onChange={(e) => setManualStudentName(e.target.value)}
+                    required={studentType === "manual" || editingPayment}
+                    disabled={!!editingPayment && studentType === "registered"}
+                  />
+                </div>
+              )}
+
               <div className="space-y-2">
-                <Label htmlFor="name">Nome do Plano *</Label>
+                <Label htmlFor="desc" className="text-xs text-neutral-300">Descrição / Serviço prestado *</Label>
                 <Input
-                  id="name"
-                  placeholder="Ex: Consultoria Mensal, VIP Premium, etc."
-                  value={planName}
-                  onChange={(e) => setPlanName(e.target.value)}
+                  id="desc"
+                  placeholder="Ex: Mensalidade de Treino, Consultoria VIP Premium"
+                  className="bg-neutral-900 border-neutral-800 text-white"
+                  value={paymentDescription}
+                  onChange={(e) => setPaymentDescription(e.target.value)}
                   required
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price">Valor (R$) *</Label>
+                  <Label htmlFor="price" className="text-xs text-neutral-300">Valor (R$) *</Label>
                   <Input
                     id="price"
                     type="number"
                     step="0.01"
                     placeholder="Ex: 150.00"
-                    value={planPrice}
-                    onChange={(e) => setPlanPrice(e.target.value)}
+                    className="bg-neutral-900 border-neutral-800 text-white"
+                    value={paymentAmount}
+                    onChange={(e) => setPaymentAmount(e.target.value)}
                     required
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="interval">Ciclo de Cobrança *</Label>
-                  <Select value={planInterval} onValueChange={setPlanInterval}>
-                    <SelectTrigger className="w-full">
+                  <Label htmlFor="date" className="text-xs text-neutral-300">Data de Vencimento / Pagamento *</Label>
+                  <Input
+                    id="date"
+                    type="date"
+                    className="bg-neutral-900 border-neutral-800 text-white"
+                    value={paymentDate}
+                    onChange={(e) => setPaymentDate(e.target.value)}
+                    required
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="statusSelect" className="text-xs text-neutral-300">Status do Pagamento *</Label>
+                  <Select value={paymentStatus} onValueChange={setPaymentStatus}>
+                    <SelectTrigger id="statusSelect" className="w-full bg-neutral-900 border-neutral-800 text-white">
                       <SelectValue placeholder="Selecione..." />
                     </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="mensal">Mensal</SelectItem>
-                      <SelectItem value="trimestral">Trimestral</SelectItem>
-                      <SelectItem value="semestral">Semestral</SelectItem>
-                      <SelectItem value="anual">Anual</SelectItem>
+                    <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                      <SelectItem value="pago">Confirmado (Pago)</SelectItem>
+                      <SelectItem value="pendente">Pendente (Aguardando)</SelectItem>
+                      <SelectItem value="atrasado">Atrasado (Vencido)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="methodSelect" className="text-xs text-neutral-300">Método de Pagamento *</Label>
+                  <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                    <SelectTrigger id="methodSelect" className="w-full bg-neutral-900 border-neutral-800 text-white">
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                      <SelectItem value="PIX">PIX</SelectItem>
+                      <SelectItem value="CREDIT_CARD">Cartão de Crédito</SelectItem>
+                      <SelectItem value="BOLETO">Boleto Bancário</SelectItem>
+                      <SelectItem value="DINHEIRO">Dinheiro / Espécie</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-
-
-
-              <div className="flex items-center justify-between pt-2">
-                <div className="space-y-0.5">
-                  <Label className="text-sm font-semibold">Disponibilizar plano</Label>
-                  <p className="text-[11px] text-muted-foreground font-medium">
-                    Planos inativos não permitem novos cadastros nem cópia de links.
-                  </p>
-                </div>
-                <Switch
-                  checked={planIsActive}
-                  onCheckedChange={setPlanIsActive}
-                />
-              </div>
             </div>
 
-            <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setIsPlanModalOpen(false)}>
+            <DialogFooter className="border-t border-neutral-900 pt-4">
+              <Button type="button" variant="outline" className="border-neutral-800 text-white hover:bg-neutral-900" onClick={() => setIsPaymentModalOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isSavingPlan} className="gap-2">
-                {isSavingPlan && <Loader2 className="size-4 animate-spin" />}
-                <span>Salvar Plano</span>
+              <Button type="submit" disabled={isSavingPayment} className="gap-2 bg-primary text-white hover:bg-primary/95 font-semibold">
+                {isSavingPayment && <Loader2 className="size-4 animate-spin" />}
+                <span>Salvar Receita</span>
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      {/* Delete Confirmation Dialog */}
+      {/* Delete Confirmation Dialog - complying with RULE[confirmationmodals.md] */}
       <Dialog open={isConfirmDeleteOpen} onOpenChange={setIsConfirmDeleteOpen}>
-        <DialogContent className="sm:max-w-[420px]">
+        <DialogContent className="sm:max-w-[420px] bg-neutral-950 border-neutral-800 text-white">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-destructive">
+            <DialogTitle className="flex items-center gap-2 text-destructive font-bold text-lg">
               <Trash2 className="size-5" />
-              <span>Excluir Plano</span>
+              <span>Excluir Lançamento Financeiro</span>
             </DialogTitle>
-            <DialogDescription className="pt-2">
-              Tem certeza que deseja excluir o plano <strong className="text-foreground">{planToDelete?.name}</strong>?
-              <br />
-              <span className="text-destructive font-medium mt-2 inline-block">Esta ação é irreversível e removerá todos os vínculos no banco de dados.</span>
+            <DialogDescription className="pt-2 text-neutral-400">
+              Você tem certeza que deseja excluir o lançamento de <strong className="text-white">{paymentToDelete?.student}</strong> no valor de <strong className="text-white">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(paymentToDelete?.amount || 0)}</strong>?
+              <br /><br />
+              <span className="text-destructive font-semibold">Esta ação é irreversível e removerá este registro do faturamento e gráficos do financeiro.</span>
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="mt-4 gap-2 sm:gap-0">
+          <DialogFooter className="mt-4 gap-2 sm:gap-0 border-t border-neutral-900 pt-4">
             <Button
               type="button"
               variant="outline"
               disabled={isDeleting}
               onClick={() => setIsConfirmDeleteOpen(false)}
+              className="border-neutral-800 text-white hover:bg-neutral-900"
             >
               Cancelar
             </Button>
@@ -770,50 +1047,11 @@ export default function FinancePage() {
               type="button"
               variant="destructive"
               disabled={isDeleting}
-              onClick={handleDeletePlan}
-              className="gap-2"
+              onClick={handleDeletePayment}
+              className="gap-2 bg-destructive hover:bg-destructive/90 text-white font-semibold"
             >
               {isDeleting && <Loader2 className="size-4 animate-spin" />}
-              <span>Excluir</span>
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Toggle Active Confirmation Dialog */}
-      <Dialog open={isConfirmToggleOpen} onOpenChange={setIsConfirmToggleOpen}>
-        <DialogContent className="sm:max-w-[420px]">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <AlertCircle className="size-5 text-primary" />
-              <span>{planToToggle?.active ? "Inativar Plano" : "Ativar Plano"}</span>
-            </DialogTitle>
-            <DialogDescription className="pt-2">
-              Tem certeza que deseja <strong>{planToToggle?.active ? "inativar" : "ativar"}</strong> o plano <strong className="text-foreground">{planToToggle?.name}</strong>?
-              {planToToggle?.active && (
-                <span className="block text-muted-foreground text-xs mt-2 font-medium">
-                  Alunos não conseguirão mais assinar este plano nem visualizar seus links de checkout.
-                </span>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="mt-4 gap-2 sm:gap-0">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isToggling}
-              onClick={() => setIsConfirmToggleOpen(false)}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="button"
-              disabled={isToggling}
-              onClick={handleTogglePlanActive}
-              className="gap-2 bg-primary hover:bg-primary/95 text-primary-foreground"
-            >
-              {isToggling && <Loader2 className="size-4 animate-spin" />}
-              <span>Confirmar</span>
+              <span>Excluir Registro</span>
             </Button>
           </DialogFooter>
         </DialogContent>

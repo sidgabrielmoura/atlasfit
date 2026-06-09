@@ -1,10 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { format, isSameDay } from "date-fns";
+import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-import { calendarEvents } from "@/lib/mock-data";
+import { useSnapshot } from "valtio";
+import { workspaceStore } from "@/stores/workspace.store";
+import { toast } from "sonner";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -12,6 +14,8 @@ import { Calendar } from "@/components/ui/calendar";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
   DialogContent,
@@ -19,6 +23,7 @@ import {
   DialogTitle,
   DialogTrigger,
   DialogFooter,
+  DialogDescription,
 } from "@/components/ui/dialog";
 import {
   Select,
@@ -27,116 +32,355 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Clock, MapPin, AlignLeft, CalendarDays } from "lucide-react";
+import { Plus, Clock, CalendarDays, Pencil, Trash2, Loader2, AlertCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const typeConfig: Record<string, { color: string; label: string }> = {
-  avaliação: { color: "bg-purple-500/10 text-purple-500 border-purple-500/20", label: "Avaliação" },
-  financeiro: { color: "bg-green-500/10 text-green-500 border-green-500/20", label: "Financeiro" },
-  aula: { color: "bg-blue-500/10 text-blue-500 border-blue-500/20", label: "Aula" },
-  lembrete: { color: "bg-zinc-500/10 text-zinc-500 border-zinc-500/20", label: "Lembrete" },
+  avaliação: { color: "bg-purple-500/10 text-purple-400 border-purple-500/20", label: "Avaliação" },
+  financeiro: { color: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", label: "Financeiro" },
+  aula: { color: "bg-blue-500/10 text-blue-400 border-blue-500/20", label: "Aula" },
+  "check-in": { color: "bg-amber-500/10 text-amber-400 border-amber-500/20", label: "Check-in" },
+  lembrete: { color: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20", label: "Lembrete" },
 };
 
+interface TaskItem {
+  id: string;
+  title: string;
+  time: string;
+  type: string;
+  completed: boolean;
+  createdAt: string;
+  studentId?: string | null;
+  student?: {
+    id: string;
+    name: string;
+  } | null;
+}
+
 export default function CalendarPage() {
+  const workspaceSnap = useSnapshot(workspaceStore);
+  const activeWorkspaceId = workspaceSnap.activeWorkspaceId;
+
   const [date, setDate] = useState<Date | undefined>(new Date());
-  const [events, setEvents] = useState(calendarEvents);
-  
-  // Form state
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newEvent, setNewEvent] = useState({
+  const [tasks, setTasks] = useState<TaskItem[]>([]);
+  const [students, setStudents] = useState<{ id: string; name: string }[]>([]);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+
+  // Creation State
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const [isSubmittingCreate, setIsSubmittingCreate] = useState(false);
+  const [newTask, setNewTask] = useState({
     title: "",
     time: "09:00",
-    type: "aula",
+    type: "lembrete",
+    studentId: "none",
   });
 
+  // Edit State
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isSubmittingEdit, setIsSubmittingEdit] = useState(false);
+  const [taskToEdit, setTaskToEdit] = useState<TaskItem | null>(null);
+  const [editTaskData, setEditTaskData] = useState({
+    title: "",
+    time: "09:00",
+    type: "lembrete",
+    studentId: "none",
+  });
+
+  // Delete State
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [isSubmittingDelete, setIsSubmittingDelete] = useState(false);
+  const [taskToDelete, setTaskToDelete] = useState<TaskItem | null>(null);
+
   const selectedDateStr = date ? format(date, "yyyy-MM-dd") : "";
-  const selectedEvents = events
-    .filter((e) => e.date === selectedDateStr)
-    .sort((a, b) => a.time.localeCompare(b.time));
 
-  const handleAddEvent = () => {
-    if (!date || !newEvent.title) return;
+  const fetchTasks = async () => {
+    if (!activeWorkspaceId || !selectedDateStr) {
+      setIsLoading(false);
+      return;
+    }
 
-    const event = {
-      id: `cev_${Date.now()}`,
-      date: selectedDateStr,
-      time: newEvent.time,
-      title: newEvent.title,
-      type: newEvent.type,
-    };
+    setIsLoading(true);
+    setError(null);
 
-    setEvents((prev) => [...prev, event]);
-    setIsModalOpen(false);
-    setNewEvent({ title: "", time: "09:00", type: "aula" });
+    try {
+      const response = await fetch(
+        `/api/personal/organization?workspaceId=${activeWorkspaceId}&date=${selectedDateStr}`
+      );
+      if (!response.ok) {
+        throw new Error("Não foi possível buscar as tarefas diárias.");
+      }
+      const data = await response.json();
+      setTasks(data.dailyAgenda || []);
+      if (data.intelligentStudentsList) {
+        setStudents(data.intelligentStudentsList.map((s: any) => ({ id: s.id, name: s.name })));
+      }
+    } catch (err: any) {
+      console.error("Error fetching tasks for date:", err);
+      setError(err.message || "Erro de conexão ao buscar tarefas.");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchTasks();
+  }, [activeWorkspaceId, selectedDateStr]);
+
+  const handleToggleTask = async (taskId: string, currentCompleted: boolean) => {
+    try {
+      const response = await fetch("/api/personal/organization", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          taskId,
+          completed: !currentCompleted,
+          workspaceId: activeWorkspaceId,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Falha ao sincronizar a tarefa.");
+      }
+
+      setTasks((prev) =>
+        prev.map((t) => (t.id === taskId ? { ...t, completed: !currentCompleted } : t))
+      );
+
+      toast.success(currentCompleted ? "Lembrete pendente!" : "Lembrete concluído!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao atualizar status do lembrete.");
+    }
+  };
+
+  const handleCreateTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newTask.title.trim() || !newTask.time.trim() || !activeWorkspaceId) return;
+
+    setIsSubmittingCreate(true);
+    try {
+      const response = await fetch("/api/personal/organization", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          workspaceId: activeWorkspaceId,
+          title: newTask.title,
+          time: newTask.time,
+          type: newTask.type,
+          date: selectedDateStr,
+          studentId: newTask.studentId && newTask.studentId !== "none" ? newTask.studentId : null,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Não foi possível salvar a tarefa diária.");
+      }
+
+      await fetchTasks();
+      setIsCreateModalOpen(false);
+      setNewTask({ title: "", time: "09:00", type: "lembrete", studentId: "none" });
+      toast.success("Tarefa diária criada com sucesso!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao criar tarefa diária.");
+    } finally {
+      setIsSubmittingCreate(false);
+    }
+  };
+
+  const handleEditClick = (task: TaskItem) => {
+    setTaskToEdit(task);
+    setEditTaskData({
+      title: task.title,
+      time: task.time,
+      type: task.type,
+      studentId: task.studentId || "none",
+    });
+    setIsEditModalOpen(true);
+  };
+
+  const handleEditTask = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!taskToEdit || !editTaskData.title.trim() || !editTaskData.time.trim() || !activeWorkspaceId) return;
+
+    setIsSubmittingEdit(true);
+    try {
+      const response = await fetch("/api/personal/organization", {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          taskId: taskToEdit.id,
+          workspaceId: activeWorkspaceId,
+          title: editTaskData.title,
+          time: editTaskData.time,
+          type: editTaskData.type,
+          studentId: editTaskData.studentId && editTaskData.studentId !== "none" ? editTaskData.studentId : null,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Não foi possível atualizar a tarefa.");
+      }
+
+      setTasks((prev) =>
+        prev.map((t) =>
+          t.id === taskToEdit.id
+            ? { ...t, title: editTaskData.title, time: editTaskData.time, type: editTaskData.type, studentId: editTaskData.studentId }
+            : t
+        )
+      );
+
+      setIsEditModalOpen(false);
+      toast.success("Tarefa atualizada com sucesso!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao atualizar a tarefa.");
+    } finally {
+      setIsSubmittingEdit(false);
+    }
+  };
+
+  const handleDeleteClick = (task: TaskItem) => {
+    setTaskToDelete(task);
+    setIsDeleteModalOpen(true);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!taskToDelete || !activeWorkspaceId) return;
+
+    setIsSubmittingDelete(true);
+    try {
+      const response = await fetch(
+        `/api/personal/organization?taskId=${taskToDelete.id}&workspaceId=${activeWorkspaceId}`,
+        {
+          method: "DELETE",
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Não foi possível excluir a tarefa.");
+      }
+
+      setTasks((prev) => prev.filter((t) => t.id !== taskToDelete.id));
+      setIsDeleteModalOpen(false);
+      toast.success("Tarefa removida com sucesso!");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao excluir tarefa diária.");
+    } finally {
+      setIsSubmittingDelete(false);
+    }
   };
 
   return (
-    <div className="flex-1 flex flex-col space-y-8 p-4 md:p-8 pt-6 overflow-hidden w-full h-full min-h-[calc(100vh-2rem)]">
+    <div className="flex-1 flex flex-col space-y-8 p-4 md:p-8 pt-6 overflow-hidden w-full h-full min-h-[calc(100vh-2rem)] bg-background">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight">Agenda</h2>
-          <p className="text-muted-foreground mt-1">Gerencie seus horários, aulas e lembretes.</p>
+          <h2 className="text-3xl font-bold tracking-tight text-white">Tarefas Diárias & Lembretes</h2>
+          <p className="text-neutral-400 mt-1 text-sm">Gerencie sua rotina operacional, atendimentos e lembretes importantes.</p>
         </div>
-        <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+
+        <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-primary text-primary-foreground hover:bg-primary/90">
+            <Button className="bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer rounded-xl font-semibold">
               <Plus className="mr-2 size-4" />
-              Novo Evento
+              Nova Tarefa
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md bg-card border-border/50 shadow-2xl">
+          <DialogContent className="sm:max-w-md bg-neutral-950 border border-neutral-800 text-white rounded-3xl shadow-2xl">
             <DialogHeader>
-              <DialogTitle>Criar Novo Evento</DialogTitle>
+              <DialogTitle className="text-lg font-bold text-white">Nova Tarefa Diária</DialogTitle>
+              <DialogDescription className="text-neutral-400 text-xs">
+                Crie um compromisso ou lembrete importante para {date ? format(date, "dd/MM/yyyy") : "a data selecionada"}.
+              </DialogDescription>
             </DialogHeader>
-            <div className="grid gap-4 py-4">
+            <form onSubmit={handleCreateTask} className="space-y-4 pt-2">
               <div className="space-y-2">
-                <Label htmlFor="title">Título do Evento</Label>
-                <Input 
-                  id="title" 
-                  placeholder="Ex: Aula de Hipertrofia com Marcos" 
-                  value={newEvent.title}
-                  onChange={(e) => setNewEvent({ ...newEvent, title: e.target.value })}
-                  className="bg-secondary/30"
+                <Label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Título da Tarefa</Label>
+                <Input
+                  type="text"
+                  required
+                  value={newTask.title}
+                  onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
+                  placeholder="Ex: Avaliação Física - João Silva"
+                  className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-xl placeholder-neutral-500 focus-visible:ring-primary/50"
                 />
               </div>
+
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Data</Label>
-                  <div className="p-2.5 bg-secondary/30 rounded-md border border-border/50 text-sm text-muted-foreground flex items-center gap-2">
-                    <CalendarDays className="size-4" />
-                    {date ? format(date, "dd/MM/yyyy") : "Selecione uma data"}
-                  </div>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="time">Horário</Label>
-                  <Input 
-                    id="time" 
-                    type="time" 
-                    value={newEvent.time}
-                    onChange={(e) => setNewEvent({ ...newEvent, time: e.target.value })}
-                    className="bg-secondary/30"
+                  <Label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Horário</Label>
+                  <Input
+                    type="time"
+                    required
+                    value={newTask.time}
+                    onChange={(e) => setNewTask({ ...newTask, time: e.target.value })}
+                    className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-xl focus-visible:ring-primary/50"
                   />
                 </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Categoria</Label>
+                  <Select
+                    value={newTask.type}
+                    onValueChange={(val) => setNewTask({ ...newTask, type: val })}
+                  >
+                    <SelectTrigger className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-xl h-10 focus:ring-primary/50">
+                      <SelectValue placeholder="Selecione a categoria" />
+                    </SelectTrigger>
+                    <SelectContent className="bg-neutral-950 border border-neutral-800 text-white rounded-xl">
+                      <SelectItem value="aula">Aula</SelectItem>
+                      <SelectItem value="avaliação">Avaliação</SelectItem>
+                      <SelectItem value="financeiro">Financeiro</SelectItem>
+                      <SelectItem value="check-in">Check-in</SelectItem>
+                      <SelectItem value="lembrete">Lembrete</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+
               <div className="space-y-2">
-                <Label>Tipo de Evento</Label>
-                <Select value={newEvent.type} onValueChange={(val) => setNewEvent({ ...newEvent, type: val })}>
-                  <SelectTrigger className="bg-secondary/30">
-                    <SelectValue placeholder="Selecione o tipo" />
+                <Label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Aluno Relacionado (Opcional)</Label>
+                <Select
+                  value={newTask.studentId}
+                  onValueChange={(val) => setNewTask({ ...newTask, studentId: val })}
+                >
+                  <SelectTrigger className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-xl h-10 focus:ring-primary/50">
+                    <SelectValue placeholder="Selecione um aluno (Opcional)" />
                   </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="aula">Aula</SelectItem>
-                    <SelectItem value="avaliação">Avaliação</SelectItem>
-                    <SelectItem value="financeiro">Financeiro</SelectItem>
-                    <SelectItem value="lembrete">Lembrete</SelectItem>
+                  <SelectContent className="bg-neutral-950 border border-neutral-800 text-white rounded-xl">
+                    <SelectItem value="none">Nenhum (Geral / Lembrete)</SelectItem>
+                    {students.map((student) => (
+                      <SelectItem key={student.id} value={student.id}>
+                        {student.name}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
-            </div>
-            <DialogFooter>
-              <Button variant="outline" onClick={() => setIsModalOpen(false)}>Cancelar</Button>
-              <Button onClick={handleAddEvent}>Salvar Evento</Button>
-            </DialogFooter>
+
+              <DialogFooter className="pt-4 flex sm:justify-end gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => setIsCreateModalOpen(false)}
+                  className="h-10 px-4 bg-transparent border-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-900 cursor-pointer rounded-xl transition-all"
+                >
+                  Cancelar
+                </Button>
+                <Button
+                  type="submit"
+                  disabled={isSubmittingCreate}
+                  className="h-10 px-4 bg-primary hover:bg-primary/90 text-white cursor-pointer rounded-xl transition-all flex items-center gap-1.5 font-semibold"
+                >
+                  {isSubmittingCreate ? "Salvando..." : "Criar Tarefa"}
+                </Button>
+              </DialogFooter>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
@@ -144,75 +388,139 @@ export default function CalendarPage() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8 flex-1 w-full"
+        className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-8 flex-1 w-full"
       >
         {/* Calendário */}
-        <div className="flex flex-col h-full">
-          <Card className="flex-1 border-border/50 bg-card shadow-sm flex flex-col">
+        <div className="lg:col-span-5 flex flex-col h-full">
+          <Card className="flex-1 border-neutral-800 bg-neutral-950 shadow-sm flex flex-col rounded-2xl overflow-hidden">
             <CardContent className="p-6 flex flex-1 items-center justify-center">
               <Calendar
                 mode="single"
                 selected={date}
                 onSelect={setDate}
                 locale={ptBR}
-                className="w-full flex justify-center scale-110 sm:scale-125 lg:scale-110 xl:scale-125 origin-center"
+                className="w-full flex justify-center scale-100 sm:scale-110 lg:scale-100 xl:scale-110 origin-center text-white"
                 classNames={{
                   day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-                  day_today: "bg-secondary text-foreground",
-                  head_cell: "text-muted-foreground font-medium text-[0.8rem] w-12",
-                  cell: "h-12 w-12 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent/50 [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-                  day: cn("h-12 w-12 p-0 font-normal aria-selected:opacity-100"),
-                }}
-                modifiers={{
-                  hasEvent: (d) => {
-                    const dStr = format(d, "yyyy-MM-dd");
-                    return events.some(e => e.date === dStr);
-                  }
-                }}
-                modifiersStyles={{
-                  hasEvent: { fontWeight: "bold", textDecoration: "underline", textUnderlineOffset: "4px", textDecorationColor: "currentColor" }
+                  day_today: "bg-neutral-800 text-foreground font-semibold rounded-md",
+                  head_cell: "text-neutral-500 font-medium text-[0.8rem] w-12",
+                  cell: "h-12 w-12 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-neutral-900 [&:has([aria-selected])]:bg-neutral-900 first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+                  day: cn("h-12 w-12 p-0 font-normal aria-selected:opacity-100 hover:bg-neutral-800 rounded-md cursor-pointer transition-colors"),
                 }}
               />
             </CardContent>
           </Card>
         </div>
 
-        {/* Lista de Eventos */}
-        <div className="flex flex-col h-full">
-          <Card className="flex-1 border-border/50 shadow-sm flex flex-col">
-            <CardHeader className="pb-4 border-b">
+        {/* Lista de Tarefas / Lembretes */}
+        <div className="lg:col-span-7 flex flex-col h-full">
+          <Card className="flex-1 border-neutral-800 bg-neutral-950 shadow-sm flex flex-col rounded-2xl overflow-hidden">
+            <CardHeader className="pb-4 border-b border-neutral-900">
               <CardTitle className="flex items-center justify-between">
-                <span>
+                <span className="text-white text-lg">
                   {date ? format(date, "EEEE, d 'de' MMMM", { locale: ptBR }) : "Selecione uma data"}
                 </span>
-                <Badge variant="secondary" className="font-normal text-xs bg-primary/10 text-primary">
-                  {selectedEvents.length} {selectedEvents.length === 1 ? "evento" : "eventos"}
+                <Badge variant="secondary" className="font-semibold text-xs bg-primary/10 text-primary border border-primary/20">
+                  {tasks.length} {tasks.length === 1 ? "tarefa" : "tarefas"}
                 </Badge>
               </CardTitle>
             </CardHeader>
             <CardContent className="flex-1 p-0 flex flex-col">
               <ScrollArea className="flex-1 h-[450px] lg:h-auto">
-                {selectedEvents.length > 0 ? (
+                {isLoading ? (
                   <div className="divide-y divide-border/50">
-                    {selectedEvents.map((event) => (
-                      <div key={event.id} className="p-6 flex items-start gap-6 hover:bg-secondary/20 transition-colors">
-                        <div className="flex flex-col items-center mt-1">
-                          <span className="text-lg font-bold text-foreground">{event.time}</span>
-                          <span className="text-xs text-muted-foreground uppercase mt-1">Horário</span>
+                    {[1, 2, 3].map((n) => (
+                      <div key={n} className="p-6 flex items-start gap-6 animate-pulse">
+                        <div className="flex flex-col items-center mt-1 space-y-2">
+                          <Skeleton className="h-6 w-12 rounded bg-neutral-900" />
+                          <Skeleton className="h-3 w-8 rounded bg-neutral-900" />
                         </div>
-                        
-                        <div className="w-px h-12 bg-border/50 mx-2 hidden sm:block"></div>
-                        
-                        <div className="flex-1 space-y-2">
+                        <div className="w-px h-12 bg-neutral-900 mx-2 hidden sm:block"></div>
+                        <div className="flex-1 space-y-3">
                           <div className="flex items-center justify-between">
-                            <h4 className="text-base font-semibold">{event.title}</h4>
-                            <Badge variant="outline" className={cn("text-[10px] uppercase tracking-wider", typeConfig[event.type]?.color)}>
-                              {typeConfig[event.type]?.label || event.type}
-                            </Badge>
+                            <Skeleton className="h-5 w-2/3 rounded bg-neutral-900" />
+                            <Skeleton className="h-4 w-16 rounded-full bg-neutral-900" />
                           </div>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Clock className="size-3" />
+                          <div className="flex items-center gap-4">
+                            <Skeleton className="h-3 w-24 rounded bg-neutral-900" />
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : error ? (
+                  <div className="flex flex-col items-center justify-center p-12 text-center space-y-4">
+                    <div className="p-4 rounded-full bg-red-500/10 text-red-500 border border-red-500/20">
+                      <AlertCircle className="size-8" />
+                    </div>
+                    <div>
+                      <p className="text-base font-semibold text-white">Falha ao carregar as tarefas</p>
+                      <p className="text-sm text-neutral-500 mt-1 max-w-[280px] mx-auto">{error}</p>
+                      <Button variant="outline" size="sm" onClick={fetchTasks} className="mt-4 border-neutral-800 text-neutral-300 hover:text-white rounded-lg cursor-pointer">
+                        Tentar Novamente
+                      </Button>
+                    </div>
+                  </div>
+                ) : tasks.length > 0 ? (
+                  <div className="divide-y divide-neutral-900">
+                    {tasks.map((task) => (
+                      <div key={task.id} className="p-6 flex items-start gap-6 hover:bg-neutral-900/30 transition-colors group/task">
+                        <div className="flex items-center gap-4 shrink-0">
+                          <Checkbox
+                            checked={task.completed}
+                            onCheckedChange={() => handleToggleTask(task.id, task.completed)}
+                            className="size-5 cursor-pointer rounded-md shrink-0"
+                          />
+                          <div className="flex flex-col items-center">
+                            <span className="text-lg font-bold text-white leading-none">{task.time}</span>
+                            <span className="text-[10px] text-neutral-500 uppercase mt-1 tracking-wider font-bold">Horário</span>
+                          </div>
+                        </div>
+
+                        <div className="w-px h-12 bg-neutral-900 mx-2 hidden sm:block"></div>
+
+                        <div className="flex-1 min-w-0 space-y-2">
+                          <div className="flex items-start justify-between gap-4">
+                            <div className="min-w-0">
+                              <h4 className={cn(
+                                "text-base font-semibold leading-tight truncate transition-colors",
+                                task.completed ? "text-neutral-500 line-through font-medium" : "text-neutral-200"
+                              )}>
+                                {task.title}
+                              </h4>
+                              <Badge variant="outline" className={cn("text-[9px] uppercase tracking-wider font-bold mt-1.5 px-2 py-0.5", typeConfig[task.type]?.color)}>
+                                {typeConfig[task.type]?.label || task.type}
+                              </Badge>
+                              {task.student?.name && (
+                                <Badge variant="outline" className="text-[9px] uppercase tracking-wider font-bold mt-1.5 px-2 py-0.5 bg-neutral-900 border-neutral-800 text-neutral-400 ml-1.5">
+                                  Aluno: {task.student.name}
+                                </Badge>
+                              )}
+                            </div>
+
+                            {/* Ações Rápidas Inline */}
+                            <div className="flex items-center gap-1 opacity-0 group-hover/task:opacity-100 transition-opacity duration-200 shrink-0">
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleEditClick(task)}
+                                className="size-8 text-neutral-500 hover:text-white hover:bg-neutral-800 rounded-lg cursor-pointer transition-all"
+                              >
+                                <Pencil className="size-4" />
+                              </Button>
+                              <Button
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => handleDeleteClick(task)}
+                                className="size-8 text-neutral-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg cursor-pointer transition-all"
+                              >
+                                <Trash2 className="size-4" />
+                              </Button>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-4 text-xs text-neutral-500 font-medium">
+                            <span className="flex items-center gap-1.5">
+                              <Clock className="size-3.5" />
                               Duração est.: 1h
                             </span>
                           </div>
@@ -221,14 +529,14 @@ export default function CalendarPage() {
                     ))}
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-center p-8 space-y-4">
-                    <div className="p-4 rounded-full bg-secondary/50 text-muted-foreground">
-                      <CalendarDays className="size-8 opacity-50" />
+                  <div className="flex flex-col items-center justify-center h-full text-center p-12 space-y-4">
+                    <div className="p-4 rounded-full bg-neutral-900 text-neutral-500 border border-neutral-800">
+                      <CalendarDays className="size-8 opacity-60" />
                     </div>
                     <div>
-                      <p className="text-base font-medium text-foreground">Nenhum evento agendado</p>
-                      <p className="text-sm text-muted-foreground mt-1 max-w-[250px] mx-auto">
-                        Você tem o dia livre. Clique no botão "Novo Evento" para agendar algo.
+                      <p className="text-base font-semibold text-white">Nenhum compromisso agendado</p>
+                      <p className="text-sm text-neutral-500 mt-1 max-w-[280px] mx-auto">
+                        Você tem o dia livre. Clique em "Nova Tarefa" para adicionar um compromisso ou lembrete.
                       </p>
                     </div>
                   </div>
@@ -238,6 +546,129 @@ export default function CalendarPage() {
           </Card>
         </div>
       </motion.div>
+
+      {/* Modal de Edição de Tarefa */}
+      <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
+        <DialogContent className="sm:max-w-md bg-neutral-950 border border-neutral-800 text-white rounded-3xl shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-white">Editar Tarefa Diária</DialogTitle>
+            <DialogDescription className="text-neutral-400 text-xs">
+              Atualize as informações operacionais desta tarefa.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditTask} className="space-y-4 pt-2">
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Título da Tarefa</Label>
+              <Input
+                type="text"
+                required
+                value={editTaskData.title}
+                onChange={(e) => setEditTaskData({ ...editTaskData, title: e.target.value })}
+                className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-xl placeholder-neutral-500 focus-visible:ring-primary/50"
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Horário</Label>
+                <Input
+                  type="time"
+                  required
+                  value={editTaskData.time}
+                  onChange={(e) => setEditTaskData({ ...editTaskData, time: e.target.value })}
+                  className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-xl focus-visible:ring-primary/50"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Categoria</Label>
+                <Select
+                  value={editTaskData.type}
+                  onValueChange={(val) => setEditTaskData({ ...editTaskData, type: val })}
+                >
+                  <SelectTrigger className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-xl h-10 focus:ring-primary/50">
+                    <SelectValue placeholder="Selecione a categoria" />
+                  </SelectTrigger>
+                  <SelectContent className="bg-neutral-950 border border-neutral-800 text-white rounded-xl">
+                    <SelectItem value="aula">Aula</SelectItem>
+                    <SelectItem value="avaliação">Avaliação</SelectItem>
+                    <SelectItem value="financeiro">Financeiro</SelectItem>
+                    <SelectItem value="check-in">Check-in</SelectItem>
+                    <SelectItem value="lembrete">Lembrete</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Aluno Relacionado (Opcional)</Label>
+              <Select
+                value={editTaskData.studentId}
+                onValueChange={(val) => setEditTaskData({ ...editTaskData, studentId: val })}
+              >
+                <SelectTrigger className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-xl h-10 focus:ring-primary/50">
+                  <SelectValue placeholder="Selecione um aluno (Opcional)" />
+                </SelectTrigger>
+                <SelectContent className="bg-neutral-950 border border-neutral-800 text-white rounded-xl">
+                  <SelectItem value="none">Nenhum (Geral / Lembrete)</SelectItem>
+                  {students.map((student) => (
+                    <SelectItem key={student.id} value={student.id}>
+                      {student.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <DialogFooter className="pt-4 flex sm:justify-end gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setIsEditModalOpen(false)}
+                className="h-10 px-4 bg-transparent border-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-900 cursor-pointer rounded-xl transition-all"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmittingEdit}
+                className="h-10 px-4 bg-primary hover:bg-primary/90 text-white cursor-pointer rounded-xl transition-all flex items-center gap-1.5 font-semibold"
+              >
+                {isSubmittingEdit ? "Salvando..." : "Salvar Alterações"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Confirmação de Exclusão */}
+      <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+        <DialogContent className="sm:max-w-md bg-neutral-950 border border-neutral-800 text-white rounded-3xl shadow-2xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-bold text-white">Tem certeza?</DialogTitle>
+            <DialogDescription className="text-neutral-400 text-xs">
+              Esta ação não poderá ser desfeita. A tarefa diária <strong>"{taskToDelete?.title}"</strong> será excluída definitivamente de seus compromissos.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="pt-4 flex sm:justify-end gap-2">
+            <Button
+              variant="outline"
+              onClick={() => setIsDeleteModalOpen(false)}
+              className="h-10 px-4 bg-transparent border-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-900 cursor-pointer rounded-xl transition-all"
+            >
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmDelete}
+              disabled={isSubmittingDelete}
+              className="h-10 px-4 bg-red-600 hover:bg-red-700 text-white cursor-pointer rounded-xl transition-all flex items-center gap-1.5 font-semibold"
+            >
+              {isSubmittingDelete ? "Excluindo..." : "Confirmar Exclusão"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -193,8 +193,8 @@ export function CommandMenu() {
                       }
                       className="group flex items-center gap-3 rounded-xl px-3 py-2.5 cursor-pointer"
                     >
-                      <div className="size-8 rounded-lg bg-blue-500/10 flex items-center justify-center shrink-0">
-                        <Dumbbell className="size-4 text-blue-600" />
+                      <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center shrink-0">
+                        <Dumbbell className="size-4 text-primary" />
                       </div>
                       <div className="flex flex-col min-w-0">
                         <span className="text-sm font-semibold leading-none truncate">{exercise.name}</span>
@@ -205,7 +205,7 @@ export function CommandMenu() {
                           </span>
                         )}
                       </div>
-                      <ArrowRight className="size-3.5 ml-auto text-muted-foreground/40 group-data-selected:text-blue-500 group-data-selected:translate-x-0.5 transition-all" />
+                      <ArrowRight className="size-3.5 ml-auto text-muted-foreground/40 group-data-selected:text-primary group-data-selected:translate-x-0.5 transition-all" />
                     </CommandItem>
                   ))}
                 </CommandGroup>

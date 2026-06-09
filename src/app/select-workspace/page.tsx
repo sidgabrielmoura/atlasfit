@@ -10,6 +10,13 @@ export default async function SelectWorkspacePage() {
     redirect("/auth/student");
   }
 
+  const role = (session.user as any).role as string | undefined;
+  if (role === "TRAINER") {
+    redirect("/personal/dashboard");
+  } else if (role === "SUPERADMIN") {
+    redirect("/superadmin/dashboard");
+  }
+
   // Busca as associações de workspaces do usuário autenticado no banco
   const members = await prisma.workspaceMember.findMany({
     where: { userId: session.user.id },
@@ -23,7 +30,7 @@ export default async function SelectWorkspacePage() {
   const userWorkspaces = await Promise.all(
     members.map(async (member, index) => {
       const ws = member.workspace;
-      
+
       // Find the owner of the workspace and their active subscription
       const owner = await prisma.user.findUnique({
         where: { id: ws.ownerId },
@@ -49,16 +56,17 @@ export default async function SelectWorkspacePage() {
         name: ws.name,
         slug: ws.slug,
         logo,
-        primaryColor: colors[index % colors.length],
+        logoUrl: ws.logoUrl,
+        primaryColor: ws.primaryColor || "#0ea5e9",
         plan: owner?.subscription?.plan?.name || "Starter",
       };
     })
   );
 
   return (
-    <SelectWorkspaceClient 
-      workspaces={userWorkspaces} 
-      user={session.user} 
+    <SelectWorkspaceClient
+      workspaces={userWorkspaces}
+      user={session.user}
     />
   );
 }

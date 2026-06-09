@@ -8,6 +8,7 @@
     "start": "next start"
   },
   "dependencies": {
+    "@abacatepay/sdk": "^1.2.0",
     "@auth/prisma-adapter": "^2.11.2",
     "@base-ui/react": "^1.4.1",
     "@hugeicons/core-free-icons": "^4.1.2",

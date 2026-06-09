@@ -25,6 +25,7 @@ model User {
   name             String?
   email            String?           @unique
   password         String?
+  setupToken       String?           @unique
   emailVerified    DateTime?
   image            String?
   role             GlobalRole        @default(USER)
@@ -38,33 +39,53 @@ model User {
   updatedAt        DateTime          @updatedAt
 
   // Personal Trainer profile fields
-  bio              String?
-  specialty        String?
-  whatsapp         String?
-  instagram        String?
-  linkedin         String?
-  city             String?
-  experience       String?
-  cref             String?
+  bio        String?
+  specialty  String?
+  whatsapp   String?
+  instagram  String?
+  linkedin   String?
+  city       String?
+  experience String?
+  cref       String?
 
-  subscription     Subscription?
-  transactions     Transaction[]
+  subscription           Subscription?
+  freeTrial              FreeTrial?
+  transactions           Transaction[]
   subscriptionActivities SubscriptionActivity[]
-  adjustmentRequests ExerciseAdjustmentRequest[]
-  adjustmentMessages AdjustmentMessage[]
+  adjustmentRequests     ExerciseAdjustmentRequest[]
+  adjustmentMessages     AdjustmentMessage[]
+  studentWorkouts        Workout[]                   @relation("StudentWorkouts")
+  progressHistory        StudentProgress[]
+  progressPhotos         StudentProgressPhoto[]
+  physicalEvaluations    PhysicalEvaluation[]
+  studentFiles           StudentFile[]
+  workoutLogs            WorkoutLog[]
+  studentTasks           TrainerTask[]               @relation("StudentTasks")
+  dailyFeedbacks         DailyFeedback[]
 }
 
 model Workspace {
-  id                     String                 @id @default(cuid())
-  name                   String
-  slug                   String                 @unique
-  ownerId                String
-  isActive               Boolean                @default(true)
-  members                WorkspaceMember[]
-  plans                  WorkspacePlan[]
-  payments               WorkspacePayment[]
-  createdAt              DateTime               @default(now())
-  updatedAt              DateTime               @updatedAt
+  id              String             @id @default(cuid())
+  name            String
+  slug            String             @unique
+  ownerId         String
+  isActive        Boolean            @default(true)
+  slogan          String?
+  logoUrl         String?
+  primaryColor    String?            @default("#ea580c")
+  watermarkUrl    String?
+  workoutCoverUrl String?
+  members         WorkspaceMember[]
+  plans           WorkspacePlan[]
+  payments        WorkspacePayment[]
+  pendingStudents PendingStudent[]
+  trainerTasks    TrainerTask[]
+  workouts        Workout[]
+  progressHistory StudentProgress[]
+  progressPhotos  StudentProgressPhoto[]
+  dailyFeedbacks  DailyFeedback[]
+  createdAt       DateTime           @default(now())
+  updatedAt       DateTime           @updatedAt
 }
 
 model WorkspaceMember {
@@ -75,6 +96,7 @@ model WorkspaceMember {
   isActive    Boolean       @default(true)
   plan        String        @default("Mensal")
   streak      Int           @default(0)
+  bestStreak  Int           @default(0)
   progress    Int           @default(0)
   lastActive  DateTime?     @default(now())
   user        User          @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -97,26 +119,38 @@ model Plan {
 }
 
 model Subscription {
-  id          String    @id @default(cuid())
-  userId      String    @unique
-  planId      String
-  status      String
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan        Plan      @relation(fields: [planId], references: [id])
-  startDate   DateTime  @default(now())
-  endDate     DateTime?
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  planId            String
+  status            String
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan              Plan      @relation(fields: [planId], references: [id])
+  startDate         DateTime  @default(now())
+  endDate           DateTime?
+  isPreSubscription Boolean   @default(false)
+}
+
+model FreeTrial {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  startDate DateTime @default(now())
+  endDate   DateTime
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 model Transaction {
-  id            String    @id @default(cuid())
+  id            String   @id @default(cuid())
   userId        String
   amount        Float
   status        String // "APPROVED", "PENDING", "FAILED", "REFUNDED"
   paymentMethod String? // "CREDIT_CARD", "PIX", "BOLETO"
   description   String?
-  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 }
 
 model Coupon {
@@ -196,9 +230,9 @@ model Exercise {
   status        String  @default("PENDING") // PENDING, APPROVED, REJECTED
   muscleGroupId String
 
-  muscleGroup MuscleGroup @relation(fields: [muscleGroupId], references: [id], onDelete: Cascade)
-  creator     User?       @relation("CreatedExercises", fields: [creatorId], references: [id], onDelete: SetNull)
-  workoutExercises WorkoutExercise[]
+  muscleGroup        MuscleGroup                 @relation(fields: [muscleGroupId], references: [id], onDelete: Cascade)
+  creator            User?                       @relation("CreatedExercises", fields: [creatorId], references: [id], onDelete: SetNull)
+  workoutExercises   WorkoutExercise[]
   adjustmentRequests ExerciseAdjustmentRequest[]
 
   createdAt DateTime @default(now())
@@ -206,33 +240,45 @@ model Exercise {
 }
 
 model Workout {
-  id          String            @id @default(cuid())
-  name        String
-  goal        String            // "Hipertrofia", "Emagrecimento", "Força", "Resistência", etc. (pra que serve)
-  difficulty  String            // "Iniciante", "Intermediário", "Avançado"
-  duration    String            // "60 min", "45 min" (tempo de treino)
+  id         String            @id @default(cuid())
+  name       String
+  goal       String // "Hipertrofia", "Emagrecimento", "Força", "Resistência", etc. (pra que serve)
+  difficulty String // "Iniciante", "Intermediário", "Avançado"
+  duration   String // "60 min", "45 min" (tempo de treino)
   creatorId   String?
   creator     User?             @relation("CreatedWorkouts", fields: [creatorId], references: [id], onDelete: SetNull)
+  workspaceId String?
+  workspace   Workspace?        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   exercises   WorkoutExercise[]
 
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  // Aluno a quem o treino pertence (se for exclusivo/atribuído individualmente)
+  studentId            String?
+  student              User?             @relation("StudentWorkouts", fields: [studentId], references: [id], onDelete: Cascade)
+  dayOfWeek            Int?              // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
+  muscleGroupLabel     String?      // Ex: "Peito e Tríceps", "Membros Inferiores"
+  restBetweenExercises String?      @default("2 min")
+  isActive             Boolean      @default(true)
+  workoutLogs          WorkoutLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model WorkoutExercise {
-  id          String   @id @default(cuid())
-  workoutId   String
-  exerciseId  String
-  sets        Int      // séries
-  reps        String   // repetições
-  rest        String   // descanso
-  order       Int      @default(0) // ordem
+  id         String @id @default(cuid())
+  workoutId  String
+  exerciseId String
+  sets       Int // séries
+  reps       String // repetições
+  rest       String // descanso
+  load       String? // carga (peso) prescrita
+  order      Int    @default(0) // ordem
 
-  workout     Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
-  exercise    Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  workout  Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
 
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model SystemSetting {
@@ -256,18 +302,19 @@ model SubscriptionActivity {
   plan      Plan     @relation(fields: [planId], references: [id])
   createdAt DateTime @default(now())
 }
+
 model SystemIntegration {
-  id          String   @id @default(cuid())
-  name        String
-  key         String   @unique
-  url         String?
-  icon        String   @default("Zap") // Lucide icon name
-  status      String   @default("Operational")
-  latency     String?
-  category    String?
-  isActive    Boolean  @default(true)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id        String   @id @default(cuid())
+  name      String
+  key       String   @unique
+  url       String?
+  icon      String   @default("Zap") // Lucide icon name
+  status    String   @default("Operational")
+  latency   String?
+  category  String?
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model ExerciseAdjustmentRequest {
@@ -279,9 +326,9 @@ model ExerciseAdjustmentRequest {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  exercise    Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
-  requester   User     @relation(fields: [requesterId], references: [id], onDelete: Cascade)
-  messages    AdjustmentMessage[]
+  exercise  Exercise            @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  requester User                @relation(fields: [requesterId], references: [id], onDelete: Cascade)
+  messages  AdjustmentMessage[]
 
   @@index([exerciseId])
   @@index([requesterId])
@@ -296,8 +343,8 @@ model AdjustmentMessage {
   isReadByAdmin   Boolean  @default(true)
   createdAt       DateTime @default(now())
 
-  request         ExerciseAdjustmentRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
-  sender          User                      @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  request ExerciseAdjustmentRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  sender  User                      @relation(fields: [senderId], references: [id], onDelete: Cascade)
 
   @@index([requestId])
   @@index([senderId])
@@ -309,24 +356,198 @@ model WorkspacePlan {
   name        String
   price       Float
   interval    String   @default("mensal") // "mensal", "trimestral", "semestral", "anual"
-  link        String?  // link base de checkout / pagamento
+  link        String? // link base de checkout / pagamento
   isActive    Boolean  @default(true)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }
 
 model WorkspacePayment {
-  id            String   @id @default(cuid())
-  workspaceId   String
-  studentName   String
-  planName      String
-  amount        Float
-  status        String   // "pago", "pendente", "atrasado"
-  method        String   // "PIX", "BOLETO", "CREDIT_CARD"
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  id          String   @id @default(cuid())
+  workspaceId String
+  studentName String
+  planName    String
+  amount      Float
+  status      String // "pago", "pendente", "atrasado"
+  method      String // "PIX", "BOLETO", "CREDIT_CARD"
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
-  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }
+
+model PendingStudent {
+  id          String    @id @default(cuid())
+  name        String
+  email       String    @unique
+  password    String?
+  whatsapp    String?
+  plan        String    @default("Mensal")
+  workspaceId String
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([workspaceId])
+}
+
+model TrainerTask {
+  id             String   @id @default(cuid())
+  workspaceId    String
+  title          String
+  time           String // "10:00" etc.
+  type           String // "avaliação", "financeiro", "check-in", "lembrete"
+  completed      Boolean  @default(false)
+  scheduledDate  String?  // "yyyy-MM-dd" armazenado como string local (sem conversão UTC)
+  studentId      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  student   User?     @relation("StudentTasks", fields: [studentId], references: [id], onDelete: Cascade)
+
+  @@index([workspaceId])
+  @@index([scheduledDate])
+  @@index([studentId])
+}
+
+model StudentProgress {
+  id              String   @id @default(cuid())
+  studentId       String
+  workspaceId     String
+  date            DateTime @default(now())
+  
+  // Composição Corporal
+  weight          Float?   // Peso em kg
+  height          Float?   // Altura em cm
+  bodyFat         Float?   // Percentual de Gordura %
+  muscleMass      Float?   // Percentual de Massa Magra %
+  
+  // Medidas de Circunferência (em cm)
+  chest           Float?   // Peito
+  waist           Float?   // Cintura
+  abdomen         Float?   // Abdômen
+  hips            Float?   // Quadril
+  rightArm        Float?   // Braço Direito
+  leftArm         Float?   // Braço Esquerdo
+  rightForearm    Float?   // Antebraço Direito
+  leftForearm     Float?   // Antebraço Esquerdo
+  rightThigh      Float?   // Coxa Direita
+  leftThigh       Float?   // Coxa Esquerda
+  rightCalf       Float?   // Panturrilha Direita
+  leftCalf        Float?   // Panturrilha Esquerda
+  
+  notes           String?  // Observações gerais
+  
+  // Relações
+  student         User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([workspaceId])
+}
+
+model StudentProgressPhoto {
+  id              String   @id @default(cuid())
+  studentId       String
+  workspaceId     String
+  photoUrl        String
+  date            DateTime @default(now())
+  
+  trainerLiked    Boolean  @default(false)
+  comment         String?  @db.Text
+  
+  student         User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([workspaceId])
+}
+
+model PhysicalEvaluation {
+  id          String   @id @default(cuid())
+  studentId   String
+  workspaceId String
+  date        DateTime @default(now())
+  type        String   // "Dobra Cutânea (Pollock 7 Dobras)", "Bioimpedância", etc.
+  weight      Float
+  height      Float
+  bodyFat     Float?
+  muscleMass  Float?
+  dobras      Json?    // Armazena as dobras (triceps, peitoral, abdominal, coxa, suprailiaca, etc.)
+  notes       String?  @db.Text
+
+  student     User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([workspaceId])
+}
+
+model StudentFile {
+  id          String   @id @default(cuid())
+  studentId   String
+  workspaceId String
+  name        String   // Descrição visual / Nome amigável do arquivo
+  category    String   // "exames" | "dieta_treino" | "outros"
+  type        String   // "file" | "link"
+  fileName    String?  // Nome físico do arquivo se for upload
+  fileSize    String?  // Tamanho formatado (ex: "2.4 MB") ou "Link"
+  url         String   // URL do arquivo em nuvem ou URL externa
+  notes       String?  @db.Text
+
+  student     User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([studentId])
+  @@index([workspaceId])
+}
+
+model WorkoutLog {
+  id          String   @id @default(cuid())
+  studentId   String
+  workoutId   String
+  workspaceId String
+  completedAt DateTime @default(now())
+  feedback    String?  // Ex: "Treino top", "Fadiguei no supino"
+  effortScore Int?     // 1 (Muito Fácil) a 5 (Muito Difícil)
+  loads       Json?    // Cargas logadas por exercício/série
+  reps        Json?    // Repetições reais por exercício/série
+
+  student     User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  workout     Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+
+  @@index([studentId])
+  @@index([workoutId])
+  @@index([workspaceId])
+}
+
+model DailyFeedback {
+  id          String    @id @default(cuid())
+  studentId   String
+  workspaceId String
+  energy      Int
+  fatigue     Int
+  humor       Int
+  date        DateTime  @default(now())
+
+  student     User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([studentId])
+  @@index([workspaceId])
+}
+

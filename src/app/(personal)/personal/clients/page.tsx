@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   MoreVertical,
@@ -19,11 +20,15 @@ import {
   Trash2,
   Flame,
   Loader2,
+  Calendar,
+  Smartphone,
+  Sparkles,
+  UserPlus,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -65,13 +70,27 @@ interface Student {
   whatsapp: string;
   isActive: boolean;
   plan: string;
+  image: string;
   streak: number;
   progress: number;
   avatarFallback: string;
   lastActive: string;
+  setupToken?: string | null;
+  hasPassword?: boolean;
+}
+
+interface PendingStudent {
+  id: string;
+  name: string;
+  email: string;
+  whatsapp: string;
+  plan: string;
+  avatarFallback: string;
+  createdAt: string;
 }
 
 export default function ClientsPage() {
+  const router = useRouter();
   const workspaceSnap = useSnapshot(workspaceStore);
   const activeWorkspaceId = workspaceSnap.activeWorkspaceId;
 
@@ -83,6 +102,13 @@ export default function ClientsPage() {
   const [students, setStudents] = useState<Student[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Pending Students Data
+  const [pendingStudents, setPendingStudents] = useState<PendingStudent[]>([]);
+  const workspacePlans = ["Mensal", "Trimestral", "Semestral", "Anual", "Outro"];
+  const [pendingLoading, setPendingLoading] = useState(false);
+  const [approvingIds, setApprovingIds] = useState<string[]>([]);
+  const [selectedPending, setSelectedPending] = useState<PendingStudent | null>(null);
+
   // Dialog Visibility & Loaders
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [createLoading, setCreateLoading] = useState(false);
@@ -90,14 +116,17 @@ export default function ClientsPage() {
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [editLoading, setEditLoading] = useState(false);
 
-  const [isPasswordOpen, setIsPasswordOpen] = useState(false);
-  const [passwordLoading, setPasswordLoading] = useState(false);
-
   const [isToggleActiveOpen, setIsToggleActiveOpen] = useState(false);
   const [toggleActiveLoading, setToggleActiveLoading] = useState(false);
 
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [deleteLoading, setDeleteLoading] = useState(false);
+
+  // Dialogs for Pending Students
+  const [isEditPendingOpen, setIsEditPendingOpen] = useState(false);
+  const [editPendingLoading, setEditPendingLoading] = useState(false);
+  const [isRejectPendingOpen, setIsRejectPendingOpen] = useState(false);
+  const [rejectPendingLoading, setRejectPendingLoading] = useState(false);
 
   // Selected Target Student for CRUD
   const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
@@ -105,11 +134,8 @@ export default function ClientsPage() {
   // Form States
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [plan, setPlan] = useState("Mensal");
-  const [newPassword, setNewPassword] = useState("");
-  const [confirmPassword, setConfirmPassword] = useState("");
 
   // Helper to format WhatsApp phone masking
   const handleWhatsAppChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -144,9 +170,139 @@ export default function ClientsPage() {
     }
   };
 
+  // Fetch pending students
+  const fetchPendingStudents = async () => {
+    if (!activeWorkspaceId) return;
+    setPendingLoading(true);
+    try {
+      const res = await fetch(`/api/personal/clients/pending?workspaceId=${activeWorkspaceId}`);
+      if (!res.ok) {
+        throw new Error(await res.text());
+      }
+      const data = await res.json();
+      setPendingStudents(data);
+    } catch (err: any) {
+      console.error(err);
+      toast.error("Não foi possível carregar os pré-cadastros.");
+    } finally {
+      setPendingLoading(false);
+    }
+  };
+
+  // Approve Pending Student (Convert to Official)
+  const handleApprovePending = async (pendingId: string) => {
+    if (!activeWorkspaceId) return;
+    setApprovingIds(prev => [...prev, pendingId]);
+    try {
+      const res = await fetch("/api/personal/clients/pending", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: pendingId,
+          workspaceId: activeWorkspaceId,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(await res.text());
+      }
+
+      toast.success("Aluno aprovado e ativado com sucesso! 🎓");
+      fetchStudents();
+      fetchPendingStudents();
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao aprovar aluno.");
+    } finally {
+      setApprovingIds(prev => prev.filter(id => id !== pendingId));
+    }
+  };
+
+  // Reject/Remove Pending Student
+  const handleRejectPending = async () => {
+    if (!activeWorkspaceId || !selectedPending) return;
+    setRejectPendingLoading(true);
+    try {
+      const res = await fetch(
+        `/api/personal/clients/pending?id=${selectedPending.id}&workspaceId=${activeWorkspaceId}`,
+        { method: "DELETE" }
+      );
+
+      if (!res.ok) {
+        throw new Error(await res.text());
+      }
+
+      toast.success("Pré-cadastro recusado/removido com sucesso.");
+      setIsRejectPendingOpen(false);
+      fetchPendingStudents();
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao recusar pré-cadastro.");
+    } finally {
+      setRejectPendingLoading(false);
+    }
+  };
+
+  // Edit Pending Student
+  const handleEditPending = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeWorkspaceId || !selectedPending) return;
+    setEditPendingLoading(true);
+
+    try {
+      const res = await fetch("/api/personal/clients/pending", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: selectedPending.id,
+          workspaceId: activeWorkspaceId,
+          name,
+          email,
+          whatsapp,
+          plan,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(await res.text());
+      }
+
+      toast.success("Pré-cadastro atualizado! 💾");
+      setIsEditPendingOpen(false);
+      fetchPendingStudents();
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao atualizar pré-cadastro.");
+    } finally {
+      setEditPendingLoading(false);
+    }
+  };
+
+  const triggerEditPending = (ps: PendingStudent) => {
+    setSelectedPending(ps);
+    setName(ps.name);
+    setEmail(ps.email);
+    setWhatsapp(ps.whatsapp || "");
+    setPlan(ps.plan);
+    setIsEditPendingOpen(true);
+  };
+
   useEffect(() => {
     fetchStudents();
+    fetchPendingStudents();
   }, [activeWorkspaceId]);
+
+  // Combine dynamic workspace plans and the active plan if any
+  const getPlanOptions = (currentPlanValue?: string) => {
+    const plansSet = new Set<string>();
+
+    // 1. Add workspace plans if fetched
+    workspacePlans.forEach((p) => plansSet.add(p));
+
+    // 2. Add the currently selected/saved plan value so it's guaranteed to be listed and selected
+    if (currentPlanValue) {
+      plansSet.add(currentPlanValue);
+    }
+
+    return Array.from(plansSet);
+  };
 
   // Create Student Handler
   const handleCreateStudent = async (e: React.FormEvent) => {
@@ -162,7 +318,6 @@ export default function ClientsPage() {
           workspaceId: activeWorkspaceId,
           name,
           email,
-          password,
           whatsapp,
           plan,
         }),
@@ -177,9 +332,8 @@ export default function ClientsPage() {
       // Reset form
       setName("");
       setEmail("");
-      setPassword("");
       setWhatsapp("");
-      setPlan("Mensal");
+      setPlan(workspacePlans.length > 0 ? workspacePlans[0] : "Mensal");
 
       fetchStudents();
     } catch (err: any) {
@@ -223,41 +377,7 @@ export default function ClientsPage() {
     }
   };
 
-  // Update Password Handler
-  const handleUpdatePassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!activeWorkspaceId || !selectedStudent) return;
-    if (newPassword !== confirmPassword) {
-      toast.error("As senhas não coincidem.");
-      return;
-    }
-    setPasswordLoading(true);
 
-    try {
-      const res = await fetch("/api/personal/clients", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          userId: selectedStudent.id,
-          workspaceId: activeWorkspaceId,
-          password: newPassword,
-        }),
-      });
-
-      if (!res.ok) {
-        throw new Error(await res.text());
-      }
-
-      toast.success("Senha atualizada com sucesso! 🔑");
-      setIsPasswordOpen(false);
-      setNewPassword("");
-      setConfirmPassword("");
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao atualizar senha.");
-    } finally {
-      setPasswordLoading(false);
-    }
-  };
 
   // Toggle Active Status Handler
   const handleToggleActive = async () => {
@@ -328,13 +448,7 @@ export default function ClientsPage() {
     setIsEditOpen(true);
   };
 
-  // Trigger Password Modal Setup
-  const triggerPassword = (student: Student) => {
-    setSelectedStudent(student);
-    setNewPassword("");
-    setConfirmPassword("");
-    setIsPasswordOpen(true);
-  };
+
 
   // Trigger Toggle Active Modal Setup
   const triggerToggleActive = (student: Student) => {
@@ -363,7 +477,6 @@ export default function ClientsPage() {
 
   return (
     <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
-      {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Alunos</h2>
@@ -411,9 +524,8 @@ export default function ClientsPage() {
             onClick={() => {
               setName("");
               setEmail("");
-              setPassword("");
               setWhatsapp("");
-              setPlan("Mensal");
+              setPlan(workspacePlans.length > 0 ? workspacePlans[0] : "Mensal");
               setIsCreateOpen(true);
             }}
           >
@@ -422,6 +534,110 @@ export default function ClientsPage() {
           </Button>
         </div>
       </div>
+
+      {/* Seção de Alunos Pendentes */}
+      {pendingStudents.length > 0 && (
+        <div className="space-y-5 bg-neutral-900 border border-neutral-800 rounded-xl p-6">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/40 pb-4">
+            <div className="flex items-center gap-2">
+              <UserPlus className="size-5 text-blue-500 dark:text-blue-400 shrink-0" />
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-base font-bold tracking-tight text-foreground">
+                  Solicitações de Pré-cadastro
+                </h3>
+                <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-bold px-2 py-0.5 rounded-full text-[11px]">
+                  {pendingStudents.length} {pendingStudents.length === 1 ? "pendente" : "pendentes"}
+                </Badge>
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">Aprove ou gerencie os pré-cadastros públicos recebidos.</p>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {pendingStudents.map((ps) => (
+              <Card
+                key={ps.id}
+                className="overflow-hidden bg-neutral-950 border border-neutral-800 rounded-xl flex flex-col justify-between"
+              >
+                <CardContent className="p-5 flex flex-col h-full justify-between gap-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <Avatar className="size-10 border border-neutral-800 shrink-0">
+                        <AvatarImage />
+                        <AvatarFallback className="bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold text-xs">
+                          {ps.avatarFallback}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="min-w-0">
+                        <h4 className="font-semibold text-sm leading-none text-foreground truncate">{ps.name}</h4>
+                        <span className="text-xs text-muted-foreground block truncate mt-1">{ps.email}</span>
+                      </div>
+                    </div>
+                    <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/15 font-bold text-[9px] uppercase tracking-wider shrink-0 px-2 py-0.5 rounded">
+                      {ps.plan}
+                    </Badge>
+                  </div>
+
+                  <div className="space-y-2 text-xs text-muted-foreground border-y border-neutral-800 py-2.5 my-0.5">
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-1.5 text-muted-foreground/80">
+                        <Smartphone className="size-3.5 text-blue-500/70 shrink-0" />
+                        WhatsApp:
+                      </span>
+                      <span className="text-foreground font-medium truncate">
+                        {ps.whatsapp || "Não preenchido"}
+                      </span>
+                    </div>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="flex items-center gap-1.5 text-muted-foreground/80">
+                        <Calendar className="size-3.5 text-blue-500/70 shrink-0" />
+                        Cadastrado em:
+                      </span>
+                      <span className="text-foreground font-medium shrink-0">{ps.createdAt}</span>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2 pt-0.5">
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-destructive hover:bg-destructive/10 hover:text-destructive border-neutral-800 h-8 font-medium transition-colors"
+                        onClick={() => {
+                          setSelectedPending(ps);
+                          setIsRejectPendingOpen(true);
+                        }}
+                      >
+                        <Trash2 className="size-3.5 mr-1.5" /> Recusar
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 text-muted-foreground hover:bg-secondary hover:text-foreground border-neutral-800 h-8 font-medium transition-colors"
+                        onClick={() => triggerEditPending(ps)}
+                      >
+                        <Edit2 className="size-3.5 mr-1.5" /> Editar
+                      </Button>
+                    </div>
+                    <Button
+                      className="w-full gap-2 h-9 font-semibold bg-blue-600 hover:bg-blue-500 text-white border-none shadow-none rounded-lg transition-colors"
+                      onClick={() => handleApprovePending(ps.id)}
+                      disabled={approvingIds.includes(ps.id)}
+                    >
+                      {approvingIds.includes(ps.id) ? (
+                        <Loader2 className="animate-spin size-4" />
+                      ) : (
+                        <CheckCircle2 className="size-4" />
+                      )}
+                      Tornar Aluno Oficial
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* Main Grid/Loading Content */}
       {loading ? (
@@ -466,6 +682,7 @@ export default function ClientsPage() {
                       <div className="flex items-start justify-between">
                         <div className="flex items-center gap-3">
                           <Avatar className="size-12 border-2 border-background shadow-sm">
+                            <AvatarImage src={student?.image} />
                             <AvatarFallback className="bg-primary/10 text-primary font-semibold">
                               {student.avatarFallback}
                             </AvatarFallback>
@@ -484,6 +701,14 @@ export default function ClientsPage() {
                               >
                                 {student.isActive ? "Ativo" : "Inativo"}
                               </Badge>
+                              {!student.hasPassword && (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0 bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400"
+                                >
+                                  Senha Pendente
+                                </Badge>
+                              )}
                               <span className="text-xs text-muted-foreground">{student.plan}</span>
                               {student.streak > 0 && (
                                 <div className="flex items-center gap-0.5 text-xs font-medium text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-md">
@@ -503,9 +728,6 @@ export default function ClientsPage() {
                           <DropdownMenuContent align="end" className="w-52">
                             <DropdownMenuItem className="cursor-pointer" onClick={() => triggerEdit(student)}>
                               <Edit2 className="mr-2 size-4" /> Editar informações
-                            </DropdownMenuItem>
-                            <DropdownMenuItem className="cursor-pointer" onClick={() => triggerPassword(student)}>
-                              <KeyRound className="mr-2 size-4" /> Atualizar senha
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
                             <DropdownMenuItem
@@ -527,48 +749,94 @@ export default function ClientsPage() {
                         <span className="flex items-center gap-1">Último acesso: <strong className="text-foreground font-medium">{student.lastActive}</strong></span>
                         <span className="flex items-center gap-1">Progresso: <strong className="text-foreground font-medium">{student.progress}%</strong></span>
                       </div>
+
+                      {/* Setup password token link sharing */}
+                      {!student.hasPassword && student.setupToken && (
+                        <div className="mt-3">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full text-xs font-semibold gap-2 border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 text-amber-600 dark:text-amber-400 h-9 transition-colors cursor-pointer"
+                            onClick={() => {
+                              const link = `${window.location.origin}/auth/setup-password?token=${student.setupToken}`;
+                              navigator.clipboard.writeText(link);
+                              toast.success("Link de acesso copiado com sucesso!");
+                            }}
+                          >
+                            <KeyRound className="size-4 shrink-0 text-amber-500" />
+                            <span>Copiar Link de Acesso</span>
+                          </Button>
+                        </div>
+                      )}
                     </div>
 
                     {/* Actions Footer */}
-                    <div className="bg-secondary/20 border-t border-border/50 p-3">
-                      <div className="grid grid-cols-2 gap-2">
-                        <Button variant="outline" size="sm" className="h-9 justify-start px-3 hover:bg-primary/10 hover:text-primary hover:border-primary/30">
-                          <Dumbbell className="mr-2 size-4" />
-                          Treino
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-9 justify-start px-3 hover:bg-primary/10 hover:text-primary hover:border-primary/30">
-                          <LineChart className="mr-2 size-4" />
-                          Progresso
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-9 justify-start px-3 hover:bg-primary/10 hover:text-primary hover:border-primary/30">
-                          <ClipboardCheck className="mr-2 size-4" />
-                          Avaliações
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-9 justify-start px-3 hover:bg-primary/10 hover:text-primary hover:border-primary/30">
-                          <DollarSign className="mr-2 size-4" />
-                          Financeiro
-                        </Button>
-                        <Button variant="outline" size="sm" className="h-9 justify-start px-3 hover:bg-primary/10 hover:text-primary hover:border-primary/30">
-                          <Folder className="mr-2 size-4" />
-                          Arquivos
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="h-9 justify-start px-3 hover:bg-emerald-500/10 hover:text-emerald-500 hover:border-emerald-500/30"
-                          onClick={() => {
-                            if (student.whatsapp) {
-                              const cleanPhone = student.whatsapp.replace(/\D/g, "");
-                              window.open(`https://wa.me/55${cleanPhone}`, "_blank");
-                            } else {
-                              toast.error("Este aluno não possui WhatsApp cadastrado.");
-                            }
-                          }}
-                        >
-                          <MessageCircle className="mr-2 size-4 text-emerald-500" />
-                          WhatsApp
-                        </Button>
-                      </div>
+                    <div className="bg-secondary/15 border-t border-border/50 p-3 flex gap-2">
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="flex-1 h-9 font-bold bg-background text-foreground hover:bg-secondary border-border/60 justify-center gap-1.5 cursor-pointer"
+                          >
+                            <span>Ações</span>
+                          </Button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="center" className="w-48">
+                          <DropdownMenuItem
+                            className="cursor-pointer"
+                            onClick={() => router.push(`/personal/clients/${student.id}?tab=treinos`)}
+                          >
+                            <Dumbbell className="mr-2 size-4 text-muted-foreground" />
+                            <span>Treino</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="cursor-pointer"
+                            onClick={() => router.push(`/personal/clients/${student.id}?tab=progresso`)}
+                          >
+                            <LineChart className="mr-2 size-4 text-muted-foreground" />
+                            <span>Progresso</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="cursor-pointer"
+                            onClick={() => router.push(`/personal/clients/${student.id}?tab=avaliacoes`)}
+                          >
+                            <ClipboardCheck className="mr-2 size-4 text-muted-foreground" />
+                            <span>Avaliações</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="cursor-pointer"
+                            onClick={() => router.push(`/personal/clients/${student.id}?tab=financeiro`)}
+                          >
+                            <DollarSign className="mr-2 size-4 text-muted-foreground" />
+                            <span>Financeiro</span>
+                          </DropdownMenuItem>
+                          <DropdownMenuItem
+                            className="cursor-pointer"
+                            onClick={() => router.push(`/personal/clients/${student.id}?tab=arquivos`)}
+                          >
+                            <Folder className="mr-2 size-4 text-muted-foreground" />
+                            <span>Arquivos</span>
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="flex-1 h-9 font-bold bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white border-emerald-500/20 hover:border-emerald-500 justify-center gap-1.5 cursor-pointer transition-colors"
+                        onClick={() => {
+                          if (student.whatsapp) {
+                            const cleanPhone = student.whatsapp.replace(/\D/g, "");
+                            window.open(`https://wa.me/55${cleanPhone}`, "_blank");
+                          } else {
+                            toast.error("Este aluno não possui WhatsApp cadastrado.");
+                          }
+                        }}
+                      >
+                        <MessageCircle className="size-4 shrink-0" />
+                        <span>WhatsApp</span>
+                      </Button>
                     </div>
                   </CardContent>
                 </Card>
@@ -612,18 +880,7 @@ export default function ClientsPage() {
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="create-password">Senha de Acesso</Label>
-              <Input
-                id="create-password"
-                type="password"
-                required
-                placeholder="Defina uma senha provisória"
-                className="bg-background border-border"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
+
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
                 <Label htmlFor="create-whatsapp">WhatsApp</Label>
@@ -643,9 +900,11 @@ export default function ClientsPage() {
                   </SelectTrigger>
 
                   <SelectContent>
-                    <SelectItem value="Mensal">Mensal</SelectItem>
-                    <SelectItem value="Semestral">Semestral</SelectItem>
-                    <SelectItem value="Anual">Anual</SelectItem>
+                    {getPlanOptions(plan).map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -715,9 +974,11 @@ export default function ClientsPage() {
                   </SelectTrigger>
 
                   <SelectContent>
-                    <SelectItem value="Mensal">Mensal</SelectItem>
-                    <SelectItem value="Semestral">Semestral</SelectItem>
-                    <SelectItem value="Anual">Anual</SelectItem>
+                    {getPlanOptions(plan).map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
@@ -735,54 +996,7 @@ export default function ClientsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* DIALOG 3: Atualizar Senha (PUT) */}
-      <Dialog open={isPasswordOpen} onOpenChange={setIsPasswordOpen}>
-        <DialogContent className="max-w-sm bg-popover border border-border">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold flex items-center gap-2">
-              <KeyRound className="size-5 text-primary" /> Atualizar Senha
-            </DialogTitle>
-            <DialogDescription>
-              Defina uma nova credencial de acesso para {selectedStudent?.name}.
-            </DialogDescription>
-          </DialogHeader>
-          <form onSubmit={handleUpdatePassword} className="space-y-4">
-            <div className="space-y-1.5">
-              <Label htmlFor="new-password">Nova Senha</Label>
-              <Input
-                id="new-password"
-                type="password"
-                required
-                placeholder="No mínimo 6 caracteres"
-                className="bg-background border-border"
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label htmlFor="confirm-password">Confirmar Nova Senha</Label>
-              <Input
-                id="confirm-password"
-                type="password"
-                required
-                placeholder="Repita a nova senha"
-                className="bg-background border-border"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-              />
-            </div>
-            <DialogFooter className="pt-2">
-              <Button type="button" variant="outline" onClick={() => setIsPasswordOpen(false)} disabled={passwordLoading}>
-                Cancelar
-              </Button>
-              <Button type="submit" className="gap-2 font-medium" disabled={passwordLoading}>
-                {passwordLoading ? <Loader2 className="animate-spin size-4" /> : <KeyRound className="size-4" />}
-                Redefinir Senha
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+
 
       {/* DIALOG 4: Inativar / Ativar Acesso (PUT) */}
       <Dialog open={isToggleActiveOpen} onOpenChange={setIsToggleActiveOpen}>
@@ -835,6 +1049,108 @@ export default function ClientsPage() {
             >
               {deleteLoading && <Loader2 className="animate-spin size-4" />}
               Excluir Permanentemente
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIALOG 6: Editar Pré-Cadastro Pendente */}
+      <Dialog open={isEditPendingOpen} onOpenChange={setIsEditPendingOpen}>
+        <DialogContent className="max-w-md bg-popover border border-border">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <Edit2 className="size-5 text-blue-500" /> Editar Pré-Cadastro
+            </DialogTitle>
+            <DialogDescription>
+              Modifique as informações recebidas no link de captação.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleEditPending} className="space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-pending-name">Nome Completo</Label>
+              <Input
+                id="edit-pending-name"
+                required
+                className="bg-background border-border"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-pending-email">E-mail</Label>
+              <Input
+                id="edit-pending-email"
+                type="email"
+                required
+                className="bg-background border-border"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1.5">
+                <Label htmlFor="edit-pending-whatsapp">WhatsApp</Label>
+                <Input
+                  id="edit-pending-whatsapp"
+                  placeholder="(11) 99999-9999"
+                  className="bg-background border-border"
+                  value={whatsapp}
+                  onChange={handleWhatsAppChange}
+                />
+              </div>
+              <div className="space-y-1.5 flex flex-col">
+                <Label htmlFor="edit-pending-plan" className="mb-1.5">Plano</Label>
+                <Select value={plan} onValueChange={setPlan}>
+                  <SelectTrigger className="w-full h-9!">
+                    <SelectValue placeholder="Selecione um plano" />
+                  </SelectTrigger>
+
+                  <SelectContent>
+                    {getPlanOptions(plan).map((option) => (
+                      <SelectItem key={option} value={option}>
+                        {option}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+            <DialogFooter className="pt-2">
+              <Button type="button" variant="outline" onClick={() => setIsEditPendingOpen(false)} disabled={editPendingLoading}>
+                Cancelar
+              </Button>
+              <Button type="submit" className="gap-2 font-semibold bg-blue-600 hover:bg-blue-500 text-white border-none transition-colors" disabled={editPendingLoading}>
+                {editPendingLoading ? <Loader2 className="animate-spin size-4" /> : <CheckCircle2 className="size-4" />}
+                Salvar Alterações
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      {/* DIALOG 7: Recusar Pré-Cadastro (DELETE) */}
+      <Dialog open={isRejectPendingOpen} onOpenChange={setIsRejectPendingOpen}>
+        <DialogContent className="max-w-sm bg-popover border border-border">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2 text-destructive">
+              <Trash2 className="size-5 text-destructive" /> Recusar Pré-Cadastro
+            </DialogTitle>
+            <DialogDescription className="text-sm">
+              Tem certeza que deseja recusar e excluir o pré-cadastro de <strong>{selectedPending?.name}</strong>? Esta ação é irreversível.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="pt-2">
+            <Button variant="outline" onClick={() => setIsRejectPendingOpen(false)} disabled={rejectPendingLoading}>
+              Cancelar
+            </Button>
+            <Button
+              variant="destructive"
+              className="gap-2 font-medium"
+              disabled={rejectPendingLoading}
+              onClick={handleRejectPending}
+            >
+              {rejectPendingLoading && <Loader2 className="animate-spin size-4" />}
+              Recusar Matrícula
             </Button>
           </DialogFooter>
         </DialogContent>

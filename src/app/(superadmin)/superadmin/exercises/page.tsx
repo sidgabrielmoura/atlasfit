@@ -36,6 +36,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, Suspense } from "react";
+import { ExerciseThumbnail, ExercisePreviewModal } from "@/components/application/exercise-preview-modal";
 import { useSearchParams } from "next/navigation";
 import { useSnapshot } from "valtio";
 import { superAdminStore, superAdminActions } from "@/stores/superadmin.store";
@@ -49,6 +50,8 @@ function ExercisesContent() {
   const [isConfigModalOpen, setIsConfigModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [processingId, setProcessingId] = useState<string | null>(null);
+  const [previewExercise, setPreviewExercise] = useState<any>(null);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
   const [searchPending, setSearchPending] = useState(initialSearch);
   const [searchConfig, setSearchConfig] = useState(initialSearch);
@@ -310,7 +313,7 @@ function ExercisesContent() {
                 <Card className="border-border/40 bg-card/50">
                   <CardContent className="p-4 md:p-6 space-y-2">
                     <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Pendentes de Config.</p>
-                    <p className="text-xl md:text-2xl font-black text-blue-600">{needsConfigExercisesRaw.length}</p>
+                    <p className="text-xl md:text-2xl font-black text-primary">{needsConfigExercisesRaw.length}</p>
                   </CardContent>
                 </Card>
                 <Card className="col-span-2 md:col-span-1 border-border/40 bg-card/50">
@@ -379,10 +382,24 @@ function ExercisesContent() {
                           <tr key={ex.id} className="hover:bg-secondary/20 transition-colors">
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-3">
-                                <div className="size-8 rounded-lg bg-primary/5 text-primary flex items-center justify-center">
-                                  <Dumbbell className="size-4" />
+                                <div 
+                                  className="cursor-pointer shrink-0"
+                                  onClick={() => {
+                                    setPreviewExercise(ex);
+                                    setIsPreviewModalOpen(true);
+                                  }}
+                                >
+                                  <ExerciseThumbnail videoUrl={ex.videoUrl} className="size-9 rounded-lg" />
                                 </div>
-                                <span className="text-sm font-bold tracking-tight">{ex.name}</span>
+                                <span 
+                                  className="text-sm font-bold tracking-tight cursor-pointer hover:text-primary transition-colors"
+                                  onClick={() => {
+                                    setPreviewExercise(ex);
+                                    setIsPreviewModalOpen(true);
+                                  }}
+                                >
+                                  {ex.name}
+                                </span>
                               </div>
                             </td>
                             <td className="px-6 py-4">
@@ -523,13 +540,32 @@ function ExercisesContent() {
               ) : pendingExercises.map((ex: any) => (
                 <Card key={ex.id} className="border-border/40 bg-card/50 overflow-hidden group">
                   <CardContent className="p-5 space-y-4">
-                    <div className="flex justify-between items-start">
-                      <div className="space-y-1">
-                        <h3 className="text-sm font-bold tracking-tight group-hover:text-primary transition-colors">{ex.name}</h3>
-                        <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest">Criado por: {ex.creator?.name || "Desconhecido"}</p>
+                    <div className="flex justify-between items-start gap-3">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
+                        <div 
+                          className="cursor-pointer shrink-0"
+                          onClick={() => {
+                            setPreviewExercise(ex);
+                            setIsPreviewModalOpen(true);
+                          }}
+                        >
+                          <ExerciseThumbnail videoUrl={ex.videoUrl} className="size-10 rounded-lg" />
+                        </div>
+                        <div className="space-y-1 min-w-0">
+                          <h3 
+                            className="text-sm font-bold tracking-tight group-hover:text-primary transition-colors cursor-pointer truncate"
+                            onClick={() => {
+                              setPreviewExercise(ex);
+                              setIsPreviewModalOpen(true);
+                            }}
+                          >
+                            {ex.name}
+                          </h3>
+                          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest truncate">Criado por: {ex.creator?.name || "Desconhecido"}</p>
+                        </div>
                       </div>
                       <div className={cn(
-                        "p-1.5 rounded-lg border border-border/40 bg-secondary/50",
+                        "p-1.5 rounded-lg border border-border/40 bg-secondary/50 shrink-0",
                         ex.videoUrl ? "text-primary" : "text-muted-foreground/40"
                       )}>
                         <Video className="size-3.5" />
@@ -562,7 +598,16 @@ function ExercisesContent() {
                         {processingId === ex.id ? <Loader2 className="size-3.5 animate-spin" /> : <XCircle className="size-3.5" />}
                         RECUSAR
                       </Button>
-                      <Button variant="secondary" size="icon" className="size-9 rounded-lg shrink-0" disabled={!ex.videoUrl}>
+                      <Button 
+                        variant="secondary" 
+                        size="icon" 
+                        className="size-9 rounded-lg shrink-0" 
+                        disabled={!ex.videoUrl}
+                        onClick={() => {
+                          setPreviewExercise(ex);
+                          setIsPreviewModalOpen(true);
+                        }}
+                      >
                         <Play className="size-3.5" />
                       </Button>
                     </div>
@@ -574,7 +619,7 @@ function ExercisesContent() {
                 <>
                   <div className="flex items-center justify-between px-1 pt-6 pb-2 border-t border-border/20">
                     <div className="flex items-center gap-3">
-                      <div className="p-2 rounded-xl bg-blue-500/10 text-blue-600 border border-blue-500/20">
+                      <div className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20">
                         <Settings2 className="size-4" />
                       </div>
                       <h2 className="text-lg font-bold tracking-tight leading-none">Aguardando Configuração</h2>
@@ -599,20 +644,39 @@ function ExercisesContent() {
                   )}
 
                   {needsConfigExercises.map((ex: any) => (
-                    <Card key={ex.id} className="border-blue-500/20 bg-blue-500/5 overflow-hidden group">
+                    <Card key={ex.id} className="border-primary/20 bg-primary/5 overflow-hidden group">
                       <CardContent className="p-5 space-y-4">
-                        <div className="flex justify-between items-start">
-                          <div className="space-y-1">
-                            <h3 className="text-sm font-bold tracking-tight text-blue-700">{ex.name}</h3>
-                            <p className="text-[10px] text-blue-600 font-bold uppercase tracking-widest">Status: Aprovado (Falta Vídeo)</p>
+                        <div className="flex justify-between items-start gap-3">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div 
+                              className="cursor-pointer shrink-0"
+                              onClick={() => {
+                                setPreviewExercise(ex);
+                                setIsPreviewModalOpen(true);
+                              }}
+                            >
+                              <ExerciseThumbnail videoUrl={ex.videoUrl} className="size-10 rounded-lg" />
+                            </div>
+                            <div className="space-y-1 min-w-0">
+                              <h3 
+                                className="text-sm font-bold tracking-tight text-primary cursor-pointer hover:underline truncate"
+                                onClick={() => {
+                                  setPreviewExercise(ex);
+                                  setIsPreviewModalOpen(true);
+                                }}
+                              >
+                                {ex.name}
+                              </h3>
+                              <p className="text-[10px] text-primary/80 font-bold uppercase tracking-widest truncate">Status: Aprovado (Falta Vídeo)</p>
+                            </div>
                           </div>
-                          <Button onClick={() => openConfigModal(ex)} size="icon" variant="ghost" className="size-8 rounded-lg text-blue-600">
+                          <Button onClick={() => openConfigModal(ex)} size="icon" variant="ghost" className="text-primary hover:bg-primary/10 shrink-0">
                             <Settings2 className="size-4" />
                           </Button>
                         </div>
                         <Button
                           onClick={() => openConfigModal(ex)}
-                          className="w-full h-9 rounded-lg bg-blue-600 hover:bg-blue-700 text-white font-bold text-[10px] gap-1.5 shadow-lg shadow-blue-500/20"
+                          className="w-full h-9 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-[10px] gap-1.5 shadow-lg shadow-primary/20"
                         >
                           <Video className="size-3.5" /> CONFIGURAR
                         </Button>
@@ -871,6 +935,12 @@ function ExercisesContent() {
           )}
         </DialogContent>
       </Dialog>
+
+      <ExercisePreviewModal
+        exercise={previewExercise}
+        open={isPreviewModalOpen}
+        onOpenChange={setIsPreviewModalOpen}
+      />
     </>
   );
 }

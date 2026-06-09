@@ -3,6 +3,7 @@ import { Geist, Geist_Mono, Figtree } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Providers } from "@/components/providers";
+import { ImpersonationBanner } from "@/components/application/impersonation-banner";
 
 const figtree = Figtree({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -33,7 +34,10 @@ export default function RootLayout({
       suppressHydrationWarning
     >
       <body className="min-h-full flex flex-col transition-colors duration-500 ease-in-out">
-        <Providers>{children}</Providers>
+        <Providers>
+          <ImpersonationBanner />
+          {children}
+        </Providers>
       </body>
     </html>
   );

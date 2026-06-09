@@ -5,6 +5,7 @@ import { Search, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
 import { CommandMenu } from "@/components/application/command-menu";
+import { SuperAdminBreadcrumbs } from "@/components/application/superadmin-breadcrumbs";
 
 export default function SuperAdminLayout({
   children,
@@ -19,11 +20,7 @@ export default function SuperAdminLayout({
           <div className="flex items-center gap-4">
             <SidebarTrigger className="size-9 rounded-lg hover:bg-secondary transition-all" />
             <Separator orientation="vertical" className="h-6 opacity-50" />
-            <div className="hidden md:flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted-foreground/60">
-              <span className="text-primary font-black">SuperAdmin</span>
-              <span className="opacity-50">/</span>
-              <span>AtlasFit Platform</span>
-            </div>
+            <SuperAdminBreadcrumbs />
           </div>
 
           <div className="flex items-center gap-4">

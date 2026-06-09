@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 
-// GET /api/admin/exercises/adjustments
 export async function GET(req: Request) {
   try {
     const session = await auth();
@@ -39,7 +38,7 @@ export async function GET(req: Request) {
       },
       orderBy: [
         {
-          status: "asc", // PENDING before RESOLVED
+          status: "asc",
         },
         {
           createdAt: "desc",
@@ -47,7 +46,6 @@ export async function GET(req: Request) {
       ],
     });
 
-    // Count unread messages for admin
     const adjustmentsWithUnread = adjustments.map((adj) => {
       const unreadCount = adj.messages.filter(
         (m) => m.senderId !== session.user.id && !m.isReadByAdmin

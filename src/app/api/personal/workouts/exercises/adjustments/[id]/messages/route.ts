@@ -92,8 +92,16 @@ export async function GET(
       return new NextResponse("Solicitação não encontrada.", { status: 404 });
     }
 
+    // Only the requester or a SuperAdmin can read this conversation
+    const isOwner = request.requesterId === session.user.id;
+    const isAdmin = session.user.role === "SUPERADMIN";
+
+    if (!isOwner && !isAdmin) {
+      return new NextResponse("Você não tem permissão para acessar esta solicitação.", { status: 403 });
+    }
+
     // Mark as read by trainer if trainer fetches
-    if (request.requesterId === session.user.id) {
+    if (isOwner) {
       await prisma.adjustmentMessage.updateMany({
         where: {
           requestId,
@@ -107,7 +115,7 @@ export async function GET(
     }
 
     // Mark as read by admin if admin fetches
-    if (session.user.role === "SUPERADMIN") {
+    if (isAdmin) {
       await prisma.adjustmentMessage.updateMany({
         where: {
           requestId,

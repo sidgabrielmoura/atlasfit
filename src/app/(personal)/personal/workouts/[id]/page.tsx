@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
   ChevronLeft,
+  ChevronDown,
+  ChevronUp,
   Edit2,
   Dumbbell,
   Clock,
@@ -13,12 +15,42 @@ import {
   Gauge,
   Loader2,
   Copy,
-  Trash2
+  Trash2,
+  Play,
+  Search,
+  Award,
+  Sparkles,
+  TrendingUp,
+  Compass,
+  ArrowRight,
+  HelpCircle,
+  X,
+  Target,
+  FileText
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { ExerciseThumbnail, ExercisePreviewModal } from "@/components/application/exercise-preview-modal";
 
 interface WorkoutDetailsPageProps {
   params: Promise<{ id: string }>;
@@ -31,6 +63,12 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
 
   const [workout, setWorkout] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [isDuplicating, setIsDuplicating] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+  const [previewExercise, setPreviewExercise] = useState<any>(null);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [expandedExercises, setExpandedExercises] = useState<Record<string, boolean>>({});
 
   const fetchWorkoutDetails = async () => {
     try {
@@ -55,26 +93,29 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
   }, [id]);
 
   const handleDuplicate = async () => {
+    if (isDuplicating || isDeleting) return;
     try {
+      setIsDuplicating(true);
       const res = await fetch(`/api/personal/workouts/${id}/duplicate`, {
         method: "POST",
       });
       if (!res.ok) {
         throw new Error("Erro ao duplicar.");
       }
-      toast.success("Treino duplicado com sucesso!");
+      toast.success("Modelo de treino duplicado com sucesso!");
       router.push("/personal/workouts");
     } catch (error) {
       console.error(error);
-      toast.error("Falha ao duplicar treino.");
+      toast.error("Falha ao duplicar o treino.");
+    } finally {
+      setIsDuplicating(false);
     }
   };
 
-  const handleDelete = async () => {
-    if (!confirm("Tem certeza que deseja excluir este modelo de treino?")) {
-      return;
-    }
+  const handleConfirmDelete = async () => {
+    if (isDeleting || isDuplicating) return;
     try {
+      setIsDeleting(true);
       const res = await fetch(`/api/personal/workouts/${id}`, {
         method: "DELETE",
       });
@@ -82,18 +123,139 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
         throw new Error("Erro ao excluir.");
       }
       toast.success("Modelo de treino excluído!");
+      setIsDeleteAlertOpen(false);
       router.push("/personal/workouts");
     } catch (error) {
       console.error(error);
-      toast.error("Falha ao excluir treino.");
+      toast.error("Falha ao excluir o treino.");
+    } finally {
+      setIsDeleting(false);
     }
   };
 
+
+  // Automated search fallback if no direct URL is configured in exercise
+  const getYoutubeSearchLink = (exerciseName: string) => {
+    return `https://www.youtube.com/results?search_query=${encodeURIComponent(exerciseName + " execução correta")}`;
+  };
+
+  // Dynamic calculations for volume analysis
+  const totalSets = workout?.exercises?.reduce((acc: number, we: any) => acc + we.sets, 0) || 0;
+  const totalExercises = workout?.exercises?.length || 0;
+
+  // Real-time dynamic analysis of muscle group target percentages
+  const getMuscleGroupCoverage = (exercises: any[]) => {
+    const counts: { [key: string]: number } = {};
+    exercises.forEach((we) => {
+      const muscle = we.exercise.muscleGroup?.name || "Geral";
+      counts[muscle] = (counts[muscle] || 0) + 1;
+    });
+    const total = exercises.length || 1;
+    return Object.keys(counts).map((muscle) => ({
+      name: muscle,
+      count: counts[muscle],
+      percentage: Math.round((counts[muscle] / total) * 100),
+    })).sort((a, b) => b.count - a.count);
+  };
+
+  const muscleCoverage = workout ? getMuscleGroupCoverage(workout.exercises || []) : [];
+
   if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-40 gap-3">
-        <Loader2 className="size-10 text-primary animate-spin" />
-        <p className="text-sm text-muted-foreground">Carregando detalhes do treino...</p>
+      <div className="flex-1 space-y-8 p-4 md:p-8 pt-6 max-w-7xl mx-auto relative overflow-hidden">
+        {/* Glow ambient skeletons */}
+        <div className="absolute top-0 left-1/4 w-80 h-80 bg-neutral-900/10 rounded-full blur-3xl -z-10" />
+
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between w-full">
+          <Skeleton className="h-10 w-full sm:w-44 bg-zinc-900 border border-white/[0.04] rounded-xl" />
+          <div className="grid grid-cols-3 gap-2 w-full sm:flex sm:w-auto sm:items-center">
+            <Skeleton className="h-10 w-full sm:w-28 bg-zinc-900 border border-white/[0.04] rounded-xl" />
+            <Skeleton className="h-10 w-full sm:w-20 bg-zinc-900 border border-white/[0.04] rounded-xl" />
+            <Skeleton className="h-10 w-full sm:w-20 bg-zinc-900 border border-white/[0.04] rounded-xl" />
+          </div>
+        </div>
+
+        {/* 2-Column Responsive Dashboard Skeleton */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+          <div className="lg:col-span-2 space-y-6">
+            {/* Hero card skeleton */}
+            <Card className="border border-white/[0.04] bg-zinc-950/20 backdrop-blur-md overflow-hidden rounded-3xl p-6 md:p-8">
+              <div className="space-y-4">
+                <Skeleton className="h-10 w-2/3 bg-zinc-900 rounded-xl" />
+                <div className="flex gap-2">
+                  <Skeleton className="h-6 w-24 bg-zinc-900 rounded-lg" />
+                  <Skeleton className="h-6 w-28 bg-zinc-900 rounded-lg" />
+                  <Skeleton className="h-6 w-20 bg-zinc-900 rounded-lg" />
+                </div>
+              </div>
+            </Card>
+
+            {/* Stats card skeleton inside left col (mobile layout) */}
+            <div className="block lg:hidden">
+              <Card className="border border-white/[0.04] bg-zinc-950/20 backdrop-blur-md rounded-3xl p-6">
+                <Skeleton className="h-6 w-32 bg-zinc-900 rounded mb-4" />
+                <div className="grid grid-cols-2 gap-4">
+                  <Skeleton className="h-20 bg-zinc-900/50 rounded-2xl col-span-1" />
+                  <Skeleton className="h-20 bg-zinc-900/50 rounded-2xl col-span-1" />
+                  <Skeleton className="h-20 bg-zinc-900/50 rounded-2xl col-span-2" />
+                  <Skeleton className="h-20 bg-zinc-900/50 rounded-2xl col-span-1" />
+                  <Skeleton className="h-20 bg-zinc-900/50 rounded-2xl col-span-1" />
+                </div>
+              </Card>
+            </div>
+
+            {/* List header skeleton */}
+            <div className="space-y-4 pt-2">
+              <Skeleton className="h-6 w-48 bg-zinc-900 rounded" />
+              {[1, 2, 3].map((n) => (
+                <div key={n} className="p-5 md:p-6 rounded-2xl border border-white/[0.04] bg-zinc-900/10 flex flex-col md:flex-row md:items-center justify-between gap-5 relative">
+                  <div className="flex items-center gap-4 min-w-0 w-full md:w-auto">
+                    <Skeleton className="size-11 bg-zinc-900 rounded-xl shrink-0" />
+                    <div className="space-y-2 min-w-0 flex-1">
+                      <Skeleton className="h-5 w-3/4 sm:w-48 bg-zinc-900 rounded" />
+                      <Skeleton className="h-3.5 w-20 bg-zinc-900 rounded-md" />
+                    </div>
+                  </div>
+                  <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto border-t border-white/[0.04] md:border-none pt-4 md:pt-0">
+                    <Skeleton className="h-14 w-full sm:w-56 bg-zinc-900 rounded-xl" />
+                    <Skeleton className="h-10 w-full sm:w-32 bg-zinc-900 rounded-xl" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-6">
+            {/* Stats card skeleton inside right col (desktop layout) */}
+            <div className="hidden lg:block">
+              <Card className="border border-white/[0.04] bg-zinc-950/20 backdrop-blur-md rounded-3xl p-6">
+                <Skeleton className="h-6 w-32 bg-zinc-900 rounded mb-4" />
+                <div className="grid grid-cols-2 gap-4">
+                  <Skeleton className="h-20 bg-zinc-900/50 rounded-2xl col-span-1" />
+                  <Skeleton className="h-20 bg-zinc-900/50 rounded-2xl col-span-1" />
+                  <Skeleton className="h-20 bg-zinc-900/50 rounded-2xl col-span-2" />
+                  <Skeleton className="h-20 bg-zinc-900/50 rounded-2xl col-span-1" />
+                  <Skeleton className="h-20 bg-zinc-900/50 rounded-2xl col-span-1" />
+                </div>
+              </Card>
+            </div>
+            {/* Muscle coverage skeleton */}
+            <Card className="border border-white/[0.04] bg-zinc-950/20 backdrop-blur-md rounded-3xl p-6">
+              <Skeleton className="h-6 w-40 bg-zinc-900 rounded mb-4" />
+              <div className="space-y-3">
+                {[1, 2].map((n) => (
+                  <div key={n} className="space-y-1">
+                    <div className="flex justify-between">
+                      <Skeleton className="h-4 w-20 bg-zinc-900 rounded" />
+                      <Skeleton className="h-4 w-10 bg-zinc-900 rounded" />
+                    </div>
+                    <Skeleton className="h-2.5 w-full bg-zinc-900 rounded-full" />
+                  </div>
+                ))}
+              </div>
+            </Card>
+          </div>
+        </div>
       </div>
     );
   }
@@ -101,125 +263,459 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
   if (!workout) return null;
 
   return (
-    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 max-w-4xl mx-auto">
-      {/* Top Navigation / Actions */}
-      <div className="flex items-center justify-between">
-        <Button variant="ghost" size="sm" className="gap-1.5 text-muted-foreground hover:text-foreground" asChild>
+    <div className="flex-1 space-y-8 p-4 md:p-8 pt-6 max-w-7xl mx-auto relative overflow-hidden">
+      {/* Glow aesthetic overlays */}
+      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-primary/[0.02] rounded-full blur-[120px] -z-10 pointer-events-none" />
+      <div className="absolute bottom-10 right-1/4 w-[500px] h-[500px] bg-purple-500/[0.02] rounded-full blur-[120px] -z-10 pointer-events-none" />
+
+      {/* Top Floating Action Block */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between relative z-10 w-full">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="gap-2 w-full sm:w-auto bg-zinc-950/40 hover:bg-zinc-900/60 text-zinc-400 hover:text-zinc-100 border border-white/[0.06] backdrop-blur-md rounded-xl transition-all h-10 px-4 justify-center"
+          asChild
+        >
           <Link href="/personal/workouts">
-            <ChevronLeft className="size-4.5" /> Voltar para treinos
+            <ChevronLeft className="size-4.5" /> Voltar para modelos
           </Link>
         </Button>
 
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" className="gap-1.5 h-9" onClick={handleDuplicate}>
-            <Copy className="size-4" /> Duplicar
+        <div className="grid grid-cols-3 gap-2 w-full sm:flex sm:w-auto sm:items-center sm:justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 h-10 rounded-xl bg-zinc-950/40 hover:bg-zinc-900/60 border-white/[0.06] hover:text-zinc-100 transition-all font-semibold px-2 sm:px-4 justify-center text-xs sm:text-sm"
+            onClick={handleDuplicate}
+            disabled={isDuplicating || isDeleting}
+          >
+            {isDuplicating ? (
+              <>
+                <Loader2 className="size-4 animate-spin text-primary shrink-0" />
+                <span className="truncate">Duplicando...</span>
+              </>
+            ) : (
+              <>
+                <Copy className="size-4 text-zinc-400 shrink-0" />
+                <span className="truncate">Duplicar<span className="hidden sm:inline"> Modelo</span></span>
+              </>
+            )}
           </Button>
-          <Button variant="outline" size="sm" className="gap-1.5 h-9 text-primary hover:bg-primary/10" asChild>
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 h-10 rounded-xl bg-primary/5 hover:bg-primary/10 border-primary/20 text-primary hover:text-primary transition-all font-bold px-2 sm:px-4 justify-center text-xs sm:text-sm"
+            asChild
+            disabled={isDuplicating || isDeleting}
+          >
             <Link href={`/personal/workouts/${id}/edit`}>
-              <Edit2 className="size-4" /> Editar
+              <Edit2 className="size-4 shrink-0" />
+              <span className="truncate">Editar<span className="hidden sm:inline"> Dados</span></span>
             </Link>
           </Button>
-          <Button variant="outline" size="sm" className="gap-1.5 h-9 text-destructive hover:bg-destructive/10 hover:text-destructive" onClick={handleDelete}>
-            <Trash2 className="size-4" /> Excluir
+
+          <Button
+            variant="outline"
+            size="sm"
+            className="gap-2 h-10 rounded-xl bg-rose-500/5 hover:bg-rose-500/10 border-rose-500/10 text-rose-400 hover:text-rose-400 transition-all font-semibold px-2 sm:px-4 justify-center text-xs sm:text-sm"
+            onClick={() => setIsDeleteAlertOpen(true)}
+            disabled={isDuplicating || isDeleting}
+          >
+            <Trash2 className="size-4 text-rose-500/70 shrink-0" />
+            <span className="truncate">Excluir</span>
           </Button>
         </div>
       </div>
 
-      {/* Main Premium Card */}
-      <Card className="border border-border/80 shadow-md bg-card/60 backdrop-blur-sm overflow-hidden">
-        <div className="h-2 bg-gradient-to-r from-primary via-primary/80 to-purple-600 w-full" />
-        <CardContent className="p-6 md:p-8 space-y-6">
-          {/* Header Info */}
-          <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between border-b border-border/60 pb-6">
-            <div className="space-y-2">
-              <h1 className="text-3xl font-bold tracking-tight leading-tight">{workout.name}</h1>
-              <div className="flex flex-wrap items-center gap-2">
-                <Badge className="bg-primary/15 text-primary hover:bg-primary/20 border-none px-3 py-1 font-semibold">
-                  {workout.goal}
-                </Badge>
-                <Badge variant="outline" className="border-border px-3 py-1 text-muted-foreground">
-                  {workout.difficulty}
-                </Badge>
-              </div>
-            </div>
+      {/* 2-Column Responsive Dashboard Layout */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start relative z-10">
 
-            <div className="flex items-center gap-6 text-sm bg-secondary/20 p-3.5 rounded-xl border border-border/50 shrink-0 self-start md:self-auto">
-              <div className="flex items-center gap-2">
-                <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Clock className="size-4.5 text-primary" />
+        {/* COL 1 & 2: Main Info & Exercise Flow */}
+        <div className="lg:col-span-2 space-y-8">
+
+          {/* Main Glassmorphic Hero Card */}
+          <Card className="border border-white/[0.06] shadow-2xl bg-zinc-950/40 backdrop-blur-xl overflow-hidden rounded-3xl relative">
+            {/* Visual glow ribbon top right */}
+            <div className="absolute right-0 top-0 w-80 h-80 bg-gradient-to-bl from-primary/10 to-transparent blur-3xl pointer-events-none" />
+            <Dumbbell className="absolute -right-12 -bottom-12 size-60 text-zinc-900/15 pointer-events-none rotate-12" />
+
+            <CardContent className="p-6 md:p-8 relative z-10">
+              <div className="space-y-4">
+                <div className="flex items-center gap-2">
+                  <Badge className="bg-primary/10 text-primary border border-primary/20 rounded-lg px-2.5 py-0.5 text-xs font-bold flex items-center gap-1">
+                    Ficha de Modelo
+                  </Badge>
+                  {workout.muscleGroupLabel && (
+                    <Badge variant="outline" className="border-white/[0.06] bg-zinc-900/40 text-zinc-300 font-semibold px-2.5 py-0.5 rounded-lg text-xs">
+                      {workout.muscleGroupLabel}
+                    </Badge>
+                  )}
                 </div>
-                <div>
-                  <span className="text-[10px] text-muted-foreground block uppercase font-bold tracking-wider">Tempo Estimado</span>
-                  <span className="font-semibold text-foreground">{workout.duration}</span>
+
+                <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white leading-tight">
+                  {workout.name}
+                </h1>
+
+                <div className="flex flex-wrap items-center gap-2 pt-1.5">
+                  <Badge className="bg-primary/15 text-primary border border-primary/25 px-3.5 py-1 rounded-full font-semibold text-xs tracking-wide">
+                    Objetivo: {workout.goal}
+                  </Badge>
+
+                  {/* Smart Semantic Difficulty Tags */}
+                  {workout.difficulty === "Iniciante" && (
+                    <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 px-3.5 py-1 rounded-full font-semibold text-xs">
+                      Nível: Iniciante
+                    </Badge>
+                  )}
+                  {workout.difficulty === "Intermediário" && (
+                    <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/25 px-3.5 py-1 rounded-full font-semibold text-xs">
+                      Nível: Intermediário
+                    </Badge>
+                  )}
+                  {workout.difficulty === "Avançado" && (
+                    <Badge className="bg-rose-500/10 text-rose-400 border border-rose-500/25 px-3.5 py-1 rounded-full font-semibold text-xs animate-pulse">
+                      Nível: Avançado 🔥
+                    </Badge>
+                  )}
                 </div>
               </div>
+            </CardContent>
+          </Card>
 
-              <div className="w-px h-8 bg-border/60" />
+          {/* Real consolidated metrics card inside left col (mobile layout) */}
+          <div className="block lg:hidden">
+            <Card className="border border-white/[0.06] bg-zinc-950/40 backdrop-blur-xl rounded-3xl shadow-2xl relative overflow-hidden">
+              <div className="absolute right-0 top-0 w-32 h-32 bg-primary/[0.02] rounded-full blur-2xl pointer-events-none" />
+              <CardContent className="p-6 space-y-5">
+                <h3 className="font-extrabold text-lg text-white flex items-center gap-2">
+                  <Gauge className="size-5 text-primary" /> Painel Consolidado
+                </h3>
 
-              <div className="flex items-center gap-2">
-                <div className="size-8 rounded-lg bg-primary/10 flex items-center justify-center">
-                  <Dumbbell className="size-4.5 text-primary" />
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 rounded-2xl bg-zinc-900/30 border border-white/[0.04] shadow-sm flex flex-col justify-between h-20 relative overflow-hidden group hover:border-white/[0.08] transition-all col-span-1">
+                    <Clock className="size-4 text-primary absolute right-3.5 top-3.5 opacity-40 group-hover:scale-110 transition-transform" />
+                    <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">Duração</span>
+                    <span className="font-black text-lg text-white">{workout.duration}</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-zinc-900/30 border border-white/[0.04] shadow-sm flex flex-col justify-between h-20 relative overflow-hidden group hover:border-white/[0.08] transition-all col-span-1">
+                    <Dumbbell className="size-4 text-primary absolute right-3.5 top-3.5 opacity-40 group-hover:scale-110 transition-transform" />
+                    <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">Exercícios</span>
+                    <span className="font-black text-lg text-white">{totalExercises}</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-zinc-900/30 border border-white/[0.04] shadow-sm flex flex-col justify-between h-20 relative overflow-hidden group hover:border-white/[0.08] transition-all col-span-1">
+                    <Activity className="size-4 text-primary absolute right-3.5 top-3.5 opacity-40 group-hover:scale-110 transition-transform animate-pulse" />
+                    <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">Volume Séries</span>
+                    <span className="font-black text-lg text-white">{totalSets} séries</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-zinc-900/30 border border-white/[0.04] shadow-sm flex flex-col justify-between h-20 relative overflow-hidden group hover:border-white/[0.08] transition-all col-span-1">
+                    <Clock className="size-4 text-primary absolute right-3.5 top-3.5 opacity-40 group-hover:scale-110 transition-transform" />
+                    <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">Desc. Exercícios</span>
+                    <span className="font-black text-lg text-white">{workout.restBetweenExercises || "2 min"}</span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[10px] text-muted-foreground block uppercase font-bold tracking-wider">Exercícios</span>
-                  <span className="font-semibold text-foreground">{workout.exercises?.length || 0}</span>
-                </div>
-              </div>
-            </div>
+              </CardContent>
+            </Card>
           </div>
 
-          {/* Prescribed Exercises List */}
-          <div className="space-y-4">
-            <h3 className="font-bold text-lg flex items-center gap-2">
-              <Flame className="size-5 text-primary" /> Prescrição de Exercícios
-            </h3>
+          {/* Exercise Prescriptions flow */}
+          <div className="space-y-5">
+            <div className="flex items-center justify-between pb-1 border-b border-white/[0.04]">
+              <h3 className="font-extrabold text-xl text-white flex items-center gap-2">
+                <Flame className="size-5.5 text-primary animate-pulse" /> Ficha de Exercícios
+              </h3>
+              <Badge className="bg-zinc-900 border border-white/[0.06] text-zinc-300 font-bold px-2.5 py-1 rounded-lg">
+                {totalExercises} {totalExercises === 1 ? "Exercício" : "Exercícios"}
+              </Badge>
+            </div>
 
-            <div className="grid grid-cols-1 gap-3">
-              {(workout.exercises || []).map((we: any, index: number) => (
-                <div
-                  key={we.id}
-                  className="p-4 rounded-xl border border-border/50 bg-background/40 hover:bg-background/80 hover:border-border transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-4"
-                >
-                  <div className="flex items-center gap-3.5 min-w-0">
-                    <div className="size-10 rounded-lg bg-secondary/80 flex items-center justify-center shrink-0 border border-border font-bold text-sm text-primary">
-                      {index + 1}
-                    </div>
-                    <div className="min-w-0">
-                      <h4 className="font-semibold text-base text-foreground leading-tight truncate">
-                        {we.exercise.name}
-                      </h4>
-                      <div className="flex items-center gap-1.5 mt-1.5">
-                        <Activity className="size-3.5 text-muted-foreground" />
-                        <span className="text-xs text-muted-foreground font-medium">
-                          {we.exercise.muscleGroup?.name || "Geral"}
-                        </span>
+            <div className="grid grid-cols-1 gap-4">
+              {(workout.exercises || []).map((we: any, index: number) => {
+                const hasVideo = !!we.exercise.videoUrl;
+                const repsArr = String(we.reps || "").split(",").map(s => s.trim());
+                const loadArr = String(we.load || "").split(",").map(s => s.trim());
+                const restArr = String(we.rest || "").split(",").map(s => s.trim());
+                const isIndividual = repsArr.length > 1 || loadArr.length > 1 || restArr.length > 1;
+
+                return (
+                  <div
+                    key={we.id}
+                    className="group relative overflow-hidden p-4 md:p-6 rounded-2xl border border-white/[0.04] bg-zinc-900/20 hover:bg-zinc-900/50 hover:border-white/[0.08] hover:shadow-[0_0_30px_-5px_rgba(var(--primary-rgb),0.1)] transition-all duration-300 backdrop-blur-md flex flex-col gap-4"
+                  >
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 w-full">
+                      {/* Visual Watermark number */}
+                      <span className="text-zinc-950/[0.04] md:text-zinc-800/10 group-hover:text-primary/[0.08] md:group-hover:text-primary/10 select-none transition-all duration-500 font-black text-6xl md:text-8xl absolute right-4 top-2 md:right-6 md:top-4 pointer-events-none">
+                        {String(index + 1).padStart(2, "0")}
+                      </span>
+
+                      <div
+                        className="flex items-center gap-4 min-w-0 relative z-10 cursor-pointer"
+                        onClick={() => {
+                          setPreviewExercise(we.exercise);
+                          setIsPreviewModalOpen(true);
+                        }}
+                      >
+                        {/* Step index badge */}
+                        <div className="size-9 md:size-11 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center font-black text-sm md:text-base shrink-0 group-hover:scale-110 transition-transform duration-300 shadow-sm">
+                          {index + 1}
+                        </div>
+
+                        <ExerciseThumbnail videoUrl={we.exercise.videoUrl} className="size-11 rounded-xl" />
+
+                        <div className="min-w-0 space-y-1">
+                          <h4 className="font-bold text-base md:text-lg text-white leading-snug group-hover:text-primary transition-colors break-words">
+                            {we.exercise.name}
+                          </h4>
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="border-white/[0.04] bg-zinc-900/40 text-zinc-400 text-[10px] px-2 py-0.5 rounded-md font-bold tracking-wider uppercase">
+                              {we.exercise.muscleGroup?.name || "Geral"}
+                            </Badge>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Stats pills & execution action triggers */}
+                      <div className="flex flex-col sm:flex-row items-center gap-4 relative z-10 w-full md:w-auto border-t border-white/[0.04] md:border-none pt-4 md:pt-0">
+                        {/* Metric specs dials */}
+                        <div className="w-full md:w-auto grid grid-cols-4 sm:flex sm:items-center gap-1 sm:gap-4 bg-zinc-950/60 p-2 sm:p-2.5 sm:px-4 rounded-xl border border-white/[0.04] shadow-inner">
+                          <div className="text-center sm:min-w-12">
+                            <span className="text-[9px] text-zinc-500 block uppercase font-extrabold tracking-wider">Séries</span>
+                            <span className="font-extrabold text-sm text-white">{we.sets}</span>
+                          </div>
+                          <div className="hidden sm:block w-px h-6 bg-white/[0.08]" />
+                          <div className="text-center sm:min-w-12">
+                            <span className="text-[9px] text-zinc-500 block uppercase font-extrabold tracking-wider">Reps</span>
+                            <span className="font-extrabold text-sm text-white">{repsArr[0] || "10"}</span>
+                          </div>
+                          <div className="hidden sm:block w-px h-6 bg-white/[0.08]" />
+                          <div className="text-center sm:min-w-12">
+                            <span className="text-[9px] text-zinc-500 block uppercase font-extrabold tracking-wider">Carga</span>
+                            <span className="font-extrabold text-sm text-white">{loadArr[0] || "Auto"}</span>
+                          </div>
+                          <div className="hidden sm:block w-px h-6 bg-white/[0.08]" />
+                          <div className="text-center sm:min-w-12">
+                            <span className="text-[9px] text-zinc-500 block uppercase font-extrabold tracking-wider">Descanso</span>
+                            <span className="font-extrabold text-xs text-white whitespace-nowrap">{restArr[0] || "60s"}</span>
+                          </div>
+                        </div>
+
+                        {/* Video Demonstration lightbox trigger */}
+                        {hasVideo ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full sm:w-auto h-10 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 border-primary/20 hover:border-primary/40 font-bold transition-all shadow-md flex items-center gap-2 justify-center"
+                            onClick={() => {
+                              setPreviewExercise(we.exercise);
+                              setIsPreviewModalOpen(true);
+                            }}
+                          >
+                            <Play className="size-4 fill-primary shrink-0" /> Ver Execução
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="w-full sm:w-auto h-10 rounded-xl text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/40 border border-dashed border-white/[0.06] transition-all flex items-center gap-2 justify-center"
+                            asChild
+                          >
+                            <a
+                              href={getYoutubeSearchLink(we.exercise.name)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              <Search className="size-4 shrink-0" /> Buscar Ajuda
+                            </a>
+                          </Button>
+                        )}
                       </div>
                     </div>
-                  </div>
 
-                  {/* Workout Info Badges */}
-                  <div className="flex items-center gap-4 bg-secondary/20 p-2.5 px-4 rounded-xl border border-border/40 shrink-0 self-end sm:self-auto">
-                    <div className="text-center min-w-14">
-                      <span className="text-[9px] text-muted-foreground block uppercase font-bold tracking-wider">Séries</span>
-                      <span className="font-semibold text-sm text-foreground">{we.sets}</span>
-                    </div>
-                    <div className="w-px h-6 bg-border/40" />
-                    <div className="text-center min-w-14">
-                      <span className="text-[9px] text-muted-foreground block uppercase font-bold tracking-wider">Repetições</span>
-                      <span className="font-semibold text-sm text-foreground">{we.reps}</span>
-                    </div>
-                    <div className="w-px h-6 bg-border/40" />
-                    <div className="text-center min-w-14">
-                      <span className="text-[9px] text-muted-foreground block uppercase font-bold tracking-wider">Descanso</span>
-                      <span className="font-semibold text-sm text-foreground">{we.rest}</span>
-                    </div>
+                    {/* Collapsible individual sets section */}
+                    {isIndividual && (
+                      <div className="w-full relative z-20">
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="h-8 text-xs font-bold text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.02] rounded-lg gap-1.5 px-2.5 -ml-2.5"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setExpandedExercises(prev => ({ ...prev, [we.id]: !prev[we.id] }));
+                          }}
+                        >
+                          {expandedExercises[we.id] ? (
+                            <>
+                              Ocultar séries <ChevronUp className="size-3.5" />
+                            </>
+                          ) : (
+                            <>
+                              Ver todas as {we.sets} séries <ChevronDown className="size-3.5" />
+                            </>
+                          )}
+                        </Button>
+
+                        {expandedExercises[we.id] && (
+                          <div className="mt-3 flex flex-col! gap-2.5 p-3 rounded-xl bg-zinc-950/40 border border-white/4">
+                            {Array.from({ length: we.sets }).map((_, si) => (
+                              <div key={si} className="flex items-center justify-between gap-4 p-2 rounded-lg bg-zinc-900/30 border border-white/[0.02] text-xs">
+                                <span className="font-bold text-zinc-500">#{si + 1}</span>
+                                <div className="flex items-center gap-3">
+                                  <div>
+                                    <span className="text-[10px] text-zinc-500 block leading-none font-bold uppercase">Reps</span>
+                                    <span className="font-bold text-white">{repsArr[si] || repsArr[0] || "10"}</span>
+                                  </div>
+                                  <div className="w-px h-5 bg-white/6" />
+                                  <div>
+                                    <span className="text-[10px] text-zinc-500 block leading-none font-bold uppercase">Carga</span>
+                                    <span className="font-bold text-white">{loadArr[si] || loadArr[0] || "Auto"}</span>
+                                  </div>
+                                  <div className="w-px h-5 bg-white/6" />
+                                  <div>
+                                    <span className="text-[10px] text-zinc-500 block leading-none font-bold uppercase">Desc.</span>
+                                    <span className="font-bold text-white">{restArr[si] || restArr[0] || "60s"}</span>
+                                  </div>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
-        </CardContent>
-      </Card>
+        </div>
+
+        {/* COL 3: Quick Stats & Sideboards */}
+        <div className="space-y-6">
+
+          {/* Summary Dashboard widgets inside right col (desktop layout) */}
+          <div className="hidden lg:block">
+            <Card className="border border-white/[0.06] bg-zinc-950/40 backdrop-blur-xl rounded-3xl shadow-2xl relative overflow-hidden">
+              <div className="absolute right-0 top-0 w-32 h-32 bg-primary/[0.02] rounded-full blur-2xl pointer-events-none" />
+              <CardContent className="p-6 space-y-5">
+                <h3 className="font-extrabold text-lg text-white flex items-center gap-2">
+                  <Gauge className="size-5 text-primary" /> Painel Consolidado
+                </h3>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="p-4 rounded-2xl bg-zinc-900/30 border border-white/[0.04] shadow-sm flex flex-col justify-between h-20 relative overflow-hidden group hover:border-white/[0.08] transition-all col-span-1">
+                    <Clock className="size-4 text-primary absolute right-3.5 top-3.5 opacity-40 group-hover:scale-110 transition-transform" />
+                    <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">Duração</span>
+                    <span className="font-black text-lg text-white">{workout.duration}</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-zinc-900/30 border border-white/[0.04] shadow-sm flex flex-col justify-between h-20 relative overflow-hidden group hover:border-white/[0.08] transition-all col-span-1">
+                    <Dumbbell className="size-4 text-primary absolute right-3.5 top-3.5 opacity-40 group-hover:scale-110 transition-transform" />
+                    <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">Exercícios</span>
+                    <span className="font-black text-lg text-white">{totalExercises}</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-zinc-900/30 border border-white/[0.04] shadow-sm flex flex-col justify-between h-20 relative overflow-hidden group hover:border-white/[0.08] transition-all col-span-1">
+                    <Activity className="size-4 text-primary absolute right-3.5 top-3.5 opacity-40 group-hover:scale-110 transition-transform animate-pulse" />
+                    <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">Volume Séries</span>
+                    <span className="font-black text-lg text-white">{totalSets} séries</span>
+                  </div>
+
+                  <div className="p-4 rounded-2xl bg-zinc-900/30 border border-white/[0.04] shadow-sm flex flex-col justify-between h-20 relative overflow-hidden group hover:border-white/[0.08] transition-all col-span-1">
+                    <Clock className="size-4 text-primary absolute right-3.5 top-3.5 opacity-40 group-hover:scale-110 transition-transform" />
+                    <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">Desc. Exercícios</span>
+                    <span className="font-black text-lg text-white">{workout.restBetweenExercises || "2 min"}</span>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Muscle Focus Coverage chart */}
+          <Card className="border border-white/[0.06] bg-zinc-950/40 backdrop-blur-xl rounded-3xl shadow-2xl relative overflow-hidden">
+            <CardContent className="p-6 space-y-4">
+              <h3 className="font-extrabold text-lg text-white flex items-center gap-2">
+                <Target className="size-5 text-primary" /> Foco Muscular Estimado
+              </h3>
+
+              {muscleCoverage.length === 0 ? (
+                <div className="text-center text-xs text-zinc-500 py-6">
+                  Nenhum músculo mapeado ainda.
+                </div>
+              ) : (
+                <div className="space-y-4 pt-1">
+                  {muscleCoverage.map((muscle) => (
+                    <div key={muscle.name} className="space-y-1.5">
+                      <div className="flex justify-between items-center text-xs font-semibold text-zinc-300">
+                        <span className="flex items-center gap-1.5">
+                          <span className="size-1.5 rounded-full bg-primary" /> {muscle.name}
+                        </span>
+                        <span className="text-white text-[11px] bg-zinc-900 px-1.5 py-0.5 rounded border border-white/[0.04]">
+                          {muscle.percentage}% ({muscle.count} {muscle.count === 1 ? "ex" : "exs"})
+                        </span>
+                      </div>
+                      <div className="w-full h-2.5 bg-zinc-950/60 border border-white/[0.04] rounded-full overflow-hidden p-0.5">
+                        <div
+                          className="h-full bg-primary rounded-full transition-all duration-1000 ease-out"
+                          style={{ width: `${muscle.percentage}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+
+      <ExercisePreviewModal
+        exercise={previewExercise}
+        open={isPreviewModalOpen}
+        onOpenChange={setIsPreviewModalOpen}
+      />
+
+      {/* ALERT DIALOG: Permanent deletion confirmation */}
+      <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
+        <AlertDialogContent className="bg-zinc-950 border border-white/[0.08] text-white rounded-3xl max-w-[calc(100%-2rem)] sm:max-w-md relative overflow-hidden">
+          <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-rose-500/20 to-transparent" />
+
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white text-xl font-black flex items-center gap-2">
+              <Trash2 className="size-5 text-rose-500" /> Excluir Modelo de Treino?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-zinc-400 text-xs leading-relaxed pt-1.5">
+              Tem certeza que deseja excluir permanentemente o modelo <strong>&quot;{workout.name}&quot;</strong>?
+              Esta ação é <span className="text-rose-400 font-bold">irreversível</span> e o template não poderá mais ser atribuído aos alunos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+
+          <AlertDialogFooter className="mt-4 gap-2">
+            <AlertDialogCancel
+              className="bg-zinc-900 border-white/[0.04] text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl font-bold h-11"
+              disabled={isDeleting}
+            >
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleConfirmDelete}
+              className="bg-rose-500 hover:bg-rose-600 text-white rounded-xl font-bold h-11 min-w-24 gap-2 border-none"
+              disabled={isDeleting}
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" /> Excluindo...
+                </>
+              ) : (
+                <>
+                  Confirmar Exclusão
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
