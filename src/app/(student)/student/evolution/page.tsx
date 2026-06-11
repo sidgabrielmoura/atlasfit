@@ -13,6 +13,14 @@ import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import {
+  Drawer,
+  DrawerContent,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerDescription,
+  DrawerFooter,
+} from "@/components/ui/drawer";
+import {
   AlertDialog,
   AlertDialogAction,
   AlertDialogCancel,
@@ -80,6 +88,7 @@ export default function StudentEvolutionPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [mounted, setMounted] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
 
   // Modal Control States
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
@@ -145,6 +154,11 @@ export default function StudentEvolutionPage() {
   useEffect(() => {
     setMounted(true);
     loadProgressData();
+
+    const checkIsMobile = () => setIsMobile(window.innerWidth < 640);
+    checkIsMobile();
+    window.addEventListener("resize", checkIsMobile);
+    return () => window.removeEventListener("resize", checkIsMobile);
   }, []);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -389,13 +403,186 @@ export default function StudentEvolutionPage() {
     { key: "leftCalf", label: "Panturrilha Esquerda", muscle: true },
   ];
 
+  const renderLogForm = (isMobileView: boolean) => {
+    const FooterComponent = isMobileView ? DrawerFooter : DialogFooter;
+    return (
+      <form onSubmit={handleProgressSubmit} className="space-y-6 pt-2 text-left">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="space-y-1">
+            <Label htmlFor="weight" className="text-xs font-bold text-muted-foreground">Peso Corporal (kg) *</Label>
+            <Input
+              id="weight"
+              required
+              placeholder="Ex: 75.5"
+              value={weight}
+              onChange={(e) => setWeight(e.target.value)}
+              className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] focus:border-primary/50 text-foreground h-10 rounded-xl"
+              type="number"
+              step="0.01"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="bodyFat" className="text-xs font-bold text-muted-foreground">Gordura Corporal (BF %)</Label>
+            <Input
+              id="bodyFat"
+              placeholder="Ex: 14.5"
+              value={bodyFat}
+              onChange={(e) => setBodyFat(e.target.value)}
+              className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] focus:border-primary/50 text-foreground h-10 rounded-xl"
+              type="number"
+              step="0.1"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label htmlFor="muscleMass" className="text-xs font-bold text-muted-foreground">Massa Muscular (%)</Label>
+            <Input
+              id="muscleMass"
+              placeholder="Ex: 42.8"
+              value={muscleMass}
+              onChange={(e) => setMuscleMass(e.target.value)}
+              className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] focus:border-primary/50 text-foreground h-10 rounded-xl"
+              type="number"
+              step="0.1"
+            />
+          </div>
+        </div>
+
+        <div className="space-y-3">
+          <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block border-b border-border dark:border-white/[0.04] pb-1">
+            Circunferências Corporais (cm)
+          </span>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="space-y-1">
+              <Label htmlFor="chest" className="text-[11px] text-muted-foreground">Tórax / Peito</Label>
+              <Input
+                id="chest" placeholder="Ex: 98" value={chest} onChange={(e) => setChest(e.target.value)}
+                className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] text-xs h-9 rounded-xl" type="number" step="0.1"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="waist" className="text-[11px] text-muted-foreground">Cintura</Label>
+              <Input
+                id="waist" placeholder="Ex: 82" value={waist} onChange={(e) => setWaist(e.target.value)}
+                className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] text-xs h-9 rounded-xl" type="number" step="0.1"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="abdomen" className="text-[11px] text-muted-foreground">Abdômen</Label>
+              <Input
+                id="abdomen" placeholder="Ex: 85" value={abdomen} onChange={(e) => setAbdomen(e.target.value)}
+                className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] text-xs h-9 rounded-xl" type="number" step="0.1"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="hips" className="text-[11px] text-muted-foreground">Quadril</Label>
+              <Input
+                id="hips" placeholder="Ex: 96" value={hips} onChange={(e) => setHips(e.target.value)}
+                className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] text-xs h-9 rounded-xl" type="number" step="0.1"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="rightArm" className="text-[11px] text-muted-foreground">Braço Dir.</Label>
+              <Input
+                id="rightArm" placeholder="Ex: 36" value={rightArm} onChange={(e) => setRightArm(e.target.value)}
+                className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] text-xs h-9 rounded-xl" type="number" step="0.1"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="leftArm" className="text-[11px] text-muted-foreground">Braço Esq.</Label>
+              <Input
+                id="leftArm" placeholder="Ex: 35.8" value={leftArm} onChange={(e) => setLeftArm(e.target.value)}
+                className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] text-xs h-9 rounded-xl" type="number" step="0.1"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="rightForearm" className="text-[11px] text-muted-foreground">Antebraço Dir.</Label>
+              <Input
+                id="rightForearm" placeholder="Ex: 29" value={rightForearm} onChange={(e) => setRightForearm(e.target.value)}
+                className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] text-xs h-9 rounded-xl" type="number" step="0.1"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="leftForearm" className="text-[11px] text-muted-foreground">Antebraço Esq.</Label>
+              <Input
+                id="leftForearm" placeholder="Ex: 28.8" value={leftForearm} onChange={(e) => setLeftForearm(e.target.value)}
+                className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] text-xs h-9 rounded-xl" type="number" step="0.1"
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label htmlFor="rightThigh" className="text-[11px] text-muted-foreground">Coxa Dir.</Label>
+              <Input
+                id="rightThigh" placeholder="Ex: 58" value={rightThigh} onChange={(e) => setRightThigh(e.target.value)}
+                className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] text-xs h-9 rounded-xl" type="number" step="0.1"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="leftThigh" className="text-[11px] text-muted-foreground">Coxa Esq.</Label>
+              <Input
+                id="leftThigh" placeholder="Ex: 57.5" value={leftThigh} onChange={(e) => setLeftThigh(e.target.value)}
+                className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] text-xs h-9 rounded-xl" type="number" step="0.1"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="rightCalf" className="text-[11px] text-muted-foreground">Panturrilha Dir.</Label>
+              <Input
+                id="rightCalf" placeholder="Ex: 38" value={rightCalf} onChange={(e) => setRightCalf(e.target.value)}
+                className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] text-xs h-9 rounded-xl" type="number" step="0.1"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="leftCalf" className="text-[11px] text-muted-foreground">Panturrilha Esq.</Label>
+              <Input
+                id="leftCalf" placeholder="Ex: 37.8" value={leftCalf} onChange={(e) => setLeftCalf(e.target.value)}
+                className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] text-xs h-9 rounded-xl" type="number" step="0.1"
+              />
+            </div>
+          </div>
+        </div>
+
+        <div className="space-y-1">
+          <Label htmlFor="notes" className="text-xs font-bold text-muted-foreground">Notas de Sentimento / Observação</Label>
+          <Textarea
+            id="notes"
+            placeholder="Como se sente hoje? Disposição, sono, dores..."
+            value={notes}
+            onChange={(e) => setNotes(e.target.value)}
+            className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] focus:border-primary/50 text-foreground text-xs rounded-xl min-h-[70px]"
+          />
+        </div>
+
+        <FooterComponent className={cn("gap-2 pt-4 flex flex-row w-full justify-end", isMobileView ? "p-0" : "")}>
+          <Button
+            type="button" variant="outline" onClick={() => setIsLogModalOpen(false)}
+            className={cn("border-border dark:border-white/[0.08] hover:bg-secondary/40 rounded-xl h-11 font-semibold", isMobileView ? "flex-1" : "px-6")}
+          >
+            Cancelar
+          </Button>
+          <Button
+            type="submit" disabled={isSubmittingLog}
+            className={cn("bg-primary text-primary-foreground hover:bg-primary/95 cursor-pointer rounded-xl h-11 font-bold", isMobileView ? "flex-1" : "px-6")}
+          >
+            {isSubmittingLog ? (
+              <>
+                <Loader2 className="size-4 animate-spin mr-2" /> Gravando...
+              </>
+            ) : (
+              "Salvar Registro"
+            )}
+          </Button>
+        </FooterComponent>
+      </form>
+    );
+  };
+
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-8 w-full mx-auto pb-24 animate-in fade-in duration-500">
+    <div className="p-4 md:p-6 lg:p-8 space-y-8 w-full mx-auto animate-in fade-in duration-500">
       {/* Top Banner Actions */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/30 pb-4">
         <div className="space-y-1">
           <h1 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
-            Minha Evolução & Progresso
+            Minha Evolução
           </h1>
           <p className="text-sm text-neutral-400">
             Acompanhe suas pesagens, circunferências corporais e linha do tempo de fotos.
@@ -904,186 +1091,38 @@ export default function StudentEvolutionPage() {
         </TabsContent>
       </Tabs>
 
-      <Dialog open={isLogModalOpen} onOpenChange={setIsLogModalOpen}>
-        <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-2xl bg-background dark:bg-neutral-950 border border-border dark:border-neutral-800 text-foreground max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-bold flex items-center gap-2">
-              <Scale className="size-5 text-primary" /> Registrar Minhas Medidas Corporais
-            </DialogTitle>
-            <DialogDescription className="text-xs text-muted-foreground">
-              Insira seu peso atual, BF% e circunferências corporais para acompanhar sua transformação.
-            </DialogDescription>
-          </DialogHeader>
-
-          <form onSubmit={handleProgressSubmit} className="space-y-6 pt-2">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="space-y-1">
-                <Label htmlFor="weight" className="text-xs font-bold text-muted-foreground">Peso Corporal (kg) *</Label>
-                <Input
-                  id="weight"
-                  required
-                  placeholder="Ex: 75.5"
-                  value={weight}
-                  onChange={(e) => setWeight(e.target.value)}
-                  className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] focus:border-primary/50 text-foreground h-10 rounded-xl"
-                  type="number"
-                  step="0.01"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="bodyFat" className="text-xs font-bold text-muted-foreground">Gordura Corporal (BF %)</Label>
-                <Input
-                  id="bodyFat"
-                  placeholder="Ex: 14.5"
-                  value={bodyFat}
-                  onChange={(e) => setBodyFat(e.target.value)}
-                  className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] focus:border-primary/50 text-foreground h-10 rounded-xl"
-                  type="number"
-                  step="0.1"
-                />
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="muscleMass" className="text-xs font-bold text-muted-foreground">Massa Muscular (%)</Label>
-                <Input
-                  id="muscleMass"
-                  placeholder="Ex: 42.8"
-                  value={muscleMass}
-                  onChange={(e) => setMuscleMass(e.target.value)}
-                  className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] focus:border-primary/50 text-foreground h-10 rounded-xl"
-                  type="number"
-                  step="0.1"
-                />
-              </div>
+      {/* ==================== REGISTRAR MEDIDAS (DIALOG NO DESKTOP, DRAWER NO MOBILE) ==================== */}
+      {isMobile ? (
+        <Drawer open={isLogModalOpen} onOpenChange={setIsLogModalOpen}>
+          <DrawerContent className="bg-background dark:bg-neutral-950 border border-border dark:border-neutral-800 text-foreground max-h-[85vh] flex flex-col p-0 pb-4">
+            <DrawerHeader className="text-left px-6 pt-5 pb-2 shrink-0">
+              <DrawerTitle className="text-lg font-bold flex items-center gap-2">
+                <Scale className="size-5 text-primary" /> Registrar Minhas Medidas Corporais
+              </DrawerTitle>
+              <DrawerDescription className="text-xs text-muted-foreground">
+                Insira seu peso atual, BF% e circunferências corporais para acompanhar sua transformação.
+              </DrawerDescription>
+            </DrawerHeader>
+            <div className="flex-1 overflow-y-auto px-6 pb-4">
+              {renderLogForm(true)}
             </div>
-
-            <div className="space-y-3">
-              <span className="text-xs font-bold text-muted-foreground uppercase tracking-wider block border-b border-border dark:border-white/[0.04] pb-1">
-                Circunferências Corporais (cm)
-              </span>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                <div className="space-y-1">
-                  <Label htmlFor="chest" className="text-[11px] text-muted-foreground">Tórax / Peito</Label>
-                  <Input
-                    id="chest" placeholder="Ex: 98" value={chest} onChange={(e) => setChest(e.target.value)}
-                    className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] text-xs h-9 rounded-xl" type="number" step="0.1"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="waist" className="text-[11px] text-muted-foreground">Cintura</Label>
-                  <Input
-                    id="waist" placeholder="Ex: 82" value={waist} onChange={(e) => setWaist(e.target.value)}
-                    className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] text-xs h-9 rounded-xl" type="number" step="0.1"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="abdomen" className="text-[11px] text-muted-foreground">Abdômen</Label>
-                  <Input
-                    id="abdomen" placeholder="Ex: 85" value={abdomen} onChange={(e) => setAbdomen(e.target.value)}
-                    className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] text-xs h-9 rounded-xl" type="number" step="0.1"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="hips" className="text-[11px] text-muted-foreground">Quadril</Label>
-                  <Input
-                    id="hips" placeholder="Ex: 96" value={hips} onChange={(e) => setHips(e.target.value)}
-                    className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] text-xs h-9 rounded-xl" type="number" step="0.1"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label htmlFor="rightArm" className="text-[11px] text-muted-foreground">Braço Dir.</Label>
-                  <Input
-                    id="rightArm" placeholder="Ex: 36" value={rightArm} onChange={(e) => setRightArm(e.target.value)}
-                    className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] text-xs h-9 rounded-xl" type="number" step="0.1"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="leftArm" className="text-[11px] text-muted-foreground">Braço Esq.</Label>
-                  <Input
-                    id="leftArm" placeholder="Ex: 35.8" value={leftArm} onChange={(e) => setLeftArm(e.target.value)}
-                    className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] text-xs h-9 rounded-xl" type="number" step="0.1"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="rightForearm" className="text-[11px] text-muted-foreground">Antebraço Dir.</Label>
-                  <Input
-                    id="rightForearm" placeholder="Ex: 29" value={rightForearm} onChange={(e) => setRightForearm(e.target.value)}
-                    className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] text-xs h-9 rounded-xl" type="number" step="0.1"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="leftForearm" className="text-[11px] text-muted-foreground">Antebraço Esq.</Label>
-                  <Input
-                    id="leftForearm" placeholder="Ex: 28.8" value={leftForearm} onChange={(e) => setLeftForearm(e.target.value)}
-                    className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] text-xs h-9 rounded-xl" type="number" step="0.1"
-                  />
-                </div>
-
-                <div className="space-y-1">
-                  <Label htmlFor="rightThigh" className="text-[11px] text-muted-foreground">Coxa Dir.</Label>
-                  <Input
-                    id="rightThigh" placeholder="Ex: 58" value={rightThigh} onChange={(e) => setRightThigh(e.target.value)}
-                    className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] text-xs h-9 rounded-xl" type="number" step="0.1"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="leftThigh" className="text-[11px] text-muted-foreground">Coxa Esq.</Label>
-                  <Input
-                    id="leftThigh" placeholder="Ex: 57.5" value={leftThigh} onChange={(e) => setLeftThigh(e.target.value)}
-                    className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] text-xs h-9 rounded-xl" type="number" step="0.1"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="rightCalf" className="text-[11px] text-muted-foreground">Panturrilha Dir.</Label>
-                  <Input
-                    id="rightCalf" placeholder="Ex: 38" value={rightCalf} onChange={(e) => setRightCalf(e.target.value)}
-                    className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] text-xs h-9 rounded-xl" type="number" step="0.1"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="leftCalf" className="text-[11px] text-muted-foreground">Panturrilha Esq.</Label>
-                  <Input
-                    id="leftCalf" placeholder="Ex: 37.8" value={leftCalf} onChange={(e) => setLeftCalf(e.target.value)}
-                    className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] text-xs h-9 rounded-xl" type="number" step="0.1"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <Label htmlFor="notes" className="text-xs font-bold text-muted-foreground">Notas de Sentimento / Observação</Label>
-              <Textarea
-                id="notes"
-                placeholder="Como se sente hoje? Disposição, sono, dores..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                className="bg-background dark:bg-neutral-900 border border-border dark:border-white/[0.08] focus:border-primary/50 text-foreground text-xs rounded-xl min-h-[70px]"
-              />
-            </div>
-
-            <DialogFooter className="gap-2">
-              <Button
-                type="button" variant="outline" onClick={() => setIsLogModalOpen(false)}
-                className="border-border dark:border-white/[0.08] hover:bg-secondary/40 rounded-xl h-11 font-semibold"
-              >
-                Cancelar
-              </Button>
-              <Button
-                type="submit" disabled={isSubmittingLog}
-                className="bg-primary text-primary-foreground hover:bg-primary/95 cursor-pointer rounded-xl h-11 font-bold px-6"
-              >
-                {isSubmittingLog ? (
-                  <>
-                    <Loader2 className="size-4 animate-spin mr-2" /> Gravando...
-                  </>
-                ) : (
-                  "Salvar Registro"
-                )}
-              </Button>
-            </DialogFooter>
-          </form>
-        </DialogContent>
-      </Dialog>
+          </DrawerContent>
+        </Drawer>
+      ) : (
+        <Dialog open={isLogModalOpen} onOpenChange={setIsLogModalOpen}>
+          <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-2xl bg-background dark:bg-neutral-950 border border-border dark:border-neutral-800 text-foreground max-h-[90vh] overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle className="text-lg font-bold flex items-center gap-2">
+                <Scale className="size-5 text-primary" /> Registrar Minhas Medidas Corporais
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Insira seu peso atual, BF% e circunferências corporais para acompanhar sua transformação.
+              </DialogDescription>
+            </DialogHeader>
+            {renderLogForm(false)}
+          </DialogContent>
+        </Dialog>
+      )}
 
       {/* ==================== DIALOG 2: UPLOAD PROGRESS PHOTO ==================== */}
       <Dialog open={isPhotoModalOpen} onOpenChange={setIsPhotoModalOpen}>
@@ -1466,8 +1505,8 @@ function StudentEvolutionSkeleton() {
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-2">
-          <Skeleton className="h-8 w-60 bg-muted/80 dark:bg-neutral-900" />
-          <Skeleton className="h-4 w-96 bg-muted/80 dark:bg-neutral-900" />
+          <Skeleton className="h-8 w-60 max-w-full bg-muted/80 dark:bg-neutral-900" />
+          <Skeleton className="h-4 w-full max-w-md bg-muted/80 dark:bg-neutral-900" />
         </div>
         <div className="flex gap-2">
           <Skeleton className="h-11 w-32 bg-muted/80 dark:bg-neutral-900 rounded-xl" />

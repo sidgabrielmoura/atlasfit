@@ -184,8 +184,7 @@ export default function StudentFilesPage() {
   };
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-8 w-full max-w-7xl mx-auto">
-      {/* Header section */}
+    <div className="p-4 md:p-6 lg:p-8 space-y-5 w-full max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-border dark:border-white/[0.04] pb-6 gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
@@ -207,9 +206,7 @@ export default function StudentFilesPage() {
         </div>
       </div>
 
-      {/* Search and Filters box */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-muted/40 dark:bg-neutral-950/20 p-4 rounded-2xl border border-border dark:border-white/[0.03]">
-        {/* Search bar */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 bg-muted/40 dark:bg-neutral-950/20 p-4 rounded-2xl border border-border dark:border-white/3">
         <div className="relative md:col-span-1">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
@@ -220,7 +217,6 @@ export default function StudentFilesPage() {
           />
         </div>
 
-        {/* Filter Categories pills */}
         <div className="md:col-span-2 flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
           <button
             onClick={() => setSelectedCategory("all")}
@@ -269,16 +265,15 @@ export default function StudentFilesPage() {
         </div>
       </div>
 
-      {/* Grid listing */}
       <AnimatePresence mode="popLayout">
         {filteredFiles.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.98 }}
-            className="py-16 text-center"
+            className="py-1 text-center"
           >
-            <Card className="border border-dashed border-border dark:border-white/[0.06] bg-card dark:bg-neutral-900/10 p-12 text-center rounded-2xl max-w-lg mx-auto space-y-4 shadow-xl">
+            <Card className="border w-full border-dashed border-border dark:border-white/6 bg-card dark:bg-neutral-900/10 p-12 text-center rounded-2xl mx-auto space-y-4 shadow-xl">
               <FolderOpen className="size-12 mx-auto text-muted-foreground animate-pulse" />
               <div className="space-y-1">
                 <h3 className="text-base font-bold text-foreground">Nenhum arquivo encontrado</h3>
@@ -305,7 +300,7 @@ export default function StudentFilesPage() {
               return (
                 <motion.div key={file.id} variants={itemVariants} layout className="h-full">
                   <Card className="relative overflow-hidden bg-card dark:bg-neutral-900/40 border border-border dark:border-white/[0.04] rounded-2xl h-full flex flex-col justify-between group hover:border-border dark:hover:border-white/[0.08] transition-all duration-300 p-4 gap-4">
-                    
+
                     {/* Header info */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-start gap-3 min-w-0">
@@ -333,18 +328,18 @@ export default function StudentFilesPage() {
                       <div className="flex items-center gap-4">
                         {/* Trainer Notes Popover */}
                         {hasNotes && (
-                           <Popover>
-                             <PopoverTrigger asChild>
-                               <button className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5 active:scale-95 duration-100 cursor-pointer">
-                                 <ClipboardList className="size-4 text-primary shrink-0" />
-                                 <span>Notas</span>
-                               </button>
-                             </PopoverTrigger>
-                             <PopoverContent className="w-72 bg-popover dark:bg-neutral-950 border border-border dark:border-white/[0.06] text-xs text-muted-foreground dark:text-neutral-300 p-3.5 rounded-xl shadow-2xl">
-                               <div className="flex items-center gap-1.5 font-black text-foreground dark:text-white mb-2 uppercase tracking-widest text-[9px]">
-                                 <ClipboardList className="size-3.5 text-primary shrink-0" />
-                                 <span>Notas do Treinador</span>
-                               </div>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1.5 active:scale-95 duration-100 cursor-pointer">
+                                <ClipboardList className="size-4 text-primary shrink-0" />
+                                <span>Notas</span>
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-72 bg-popover dark:bg-neutral-950 border border-border dark:border-white/[0.06] text-xs text-muted-foreground dark:text-neutral-300 p-3.5 rounded-xl shadow-2xl">
+                              <div className="flex items-center gap-1.5 font-black text-foreground dark:text-white mb-2 uppercase tracking-widest text-[9px]">
+                                <ClipboardList className="size-3.5 text-primary shrink-0" />
+                                <span>Notas do Treinador</span>
+                              </div>
                               <p className="leading-relaxed font-semibold break-words text-left">{file.notes}</p>
                             </PopoverContent>
                           </Popover>
@@ -489,8 +484,8 @@ function StudentFilesSkeleton() {
       {/* Header Skeleton */}
       <div className="space-y-2 border-b border-border dark:border-white/[0.04] pb-6">
         <Skeleton className="h-4 w-32 bg-muted dark:bg-neutral-900" />
-        <Skeleton className="h-8 w-64 bg-muted dark:bg-neutral-900" />
-        <Skeleton className="h-4 w-96 bg-muted dark:bg-neutral-900" />
+        <Skeleton className="h-8 w-64 max-w-full bg-muted dark:bg-neutral-900" />
+        <Skeleton className="h-4 w-full max-w-md bg-muted dark:bg-neutral-900" />
       </div>
 
       {/* Filter and Search Skeleton */}

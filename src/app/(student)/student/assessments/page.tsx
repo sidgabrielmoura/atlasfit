@@ -131,23 +131,19 @@ export default function StudentAssessmentsPage() {
     }));
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-8 w-full mx-auto pb-24 animate-in fade-in duration-500">
-      {/* Top Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/30 pb-4">
+    <div className="p-4 md:p-6 lg:p-8 space-y-8 w-full mx-auto animate-in fade-in duration-500">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/30">
         <div className="space-y-1">
           <h1 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
             <ClipboardList className="size-6 text-primary animate-pulse" />
-            Avaliações Físicas & Diagnósticos
+            Avaliações Físicas
           </h1>
           <p className="text-sm text-neutral-400">
-            Acompanhe adipometrias Pollock de 7 dobras, bioimpedâncias e diagnósticos compartilhados pelo seu personal.
+            Acompanhe adipometrias compartilhadas pelo seu personal.
           </p>
         </div>
       </div>
-
-      {/* Target registered goals & plan info cards */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {/* Objectives Card */}
         <Card className="border border-border dark:border-white/[0.06] bg-card dark:bg-neutral-950/40 backdrop-blur-md rounded-2xl p-5">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold text-muted-foreground dark:text-neutral-450 uppercase tracking-wider">Objetivos Ativos</span>
@@ -199,9 +195,8 @@ export default function StudentAssessmentsPage() {
         </Card>
       </div>
 
-      {/* Main content tabs */}
       <Tabs defaultValue="history" className="space-y-6">
-        <TabsList className="bg-muted dark:bg-neutral-900/60 p-1 border border-border dark:border-neutral-800 rounded-xl flex overflow-x-auto whitespace-nowrap md:w-fit gap-1 w-full justify-start scrollbar-none">
+        <TabsList className="bg-muted dark:bg-neutral-900/60 p-1 no-scrollbar border border-border dark:border-neutral-800 rounded-xl flex overflow-x-auto whitespace-nowrap md:w-fit gap-1 w-full justify-start scrollbar-none">
           <TabsTrigger
             value="history"
             className="gap-2 font-semibold text-xs sm:text-sm py-2 px-4 rounded-lg shrink-0 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:font-bold"
@@ -651,8 +646,8 @@ function StudentAssessmentsSkeleton() {
     <div className="p-4 md:p-6 lg:p-8 space-y-8 w-full mx-auto animate-pulse">
       {/* Top Header */}
       <div className="space-y-2 border-b border-border dark:border-white/[0.04] pb-4">
-        <Skeleton className="h-8 w-80 bg-muted dark:bg-neutral-900" />
-        <Skeleton className="h-4 w-96 bg-muted dark:bg-neutral-900" />
+        <Skeleton className="h-8 w-80 max-w-full bg-muted dark:bg-neutral-900" />
+        <Skeleton className="h-4 w-full max-w-md bg-muted dark:bg-neutral-900" />
       </div>
 
       {/* Target consolidation grid */}

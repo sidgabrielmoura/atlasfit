@@ -37,6 +37,7 @@ import {
   SidebarMenuButton,
   SidebarMenuItem,
   SidebarSeparator,
+  useSidebar,
 } from "@/components/ui/sidebar";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -49,6 +50,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { useSession, signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
+import { layoutStore } from "@/stores/layout";
 
 const mainNavItems = [
   { title: "Início", href: "/student/dashboard", icon: LayoutDashboard },
@@ -72,10 +74,18 @@ export function StudentSidebar() {
   const [mounted, setMounted] = useState(false);
   const workspaceSnap = useSnapshot(workspaceStore);
   const activeWs = workspaceSnap.activeWorkspace;
+  const sidebarOpen = useSnapshot(layoutStore).isSidebarOpen;
   const { data: session } = useSession();
   const user = session?.user;
+  const { isMobile, setOpenMobile } = useSidebar();
 
   const [workspaces, setWorkspaces] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (isMobile) {
+      setOpenMobile(false);
+    }
+  }, [pathname, isMobile, setOpenMobile]);
 
   useEffect(() => {
     setMounted(true);
@@ -276,11 +286,13 @@ export function StudentSidebar() {
               tooltip="Alternar Tema"
               className="cursor-pointer mb-1 bg-neutral-400/10 hover:bg-primary/5"
             >
-              <div className="relative flex items-center justify-center h-4 w-4 mr-2 overflow-hidden">
+              <div className="relative flex items-center justify-center h-4 w-4 overflow-hidden">
                 <Sun className="absolute size-4 rotate-0 scale-100 transition-all duration-500 ease-in-out dark:-rotate-90 dark:scale-0 text-amber-500" />
                 <Moon className="absolute size-4 rotate-90 scale-0 transition-all duration-500 ease-in-out dark:rotate-0 dark:scale-100 text-slate-300" />
               </div>
-              <span>{mounted ? (theme === "dark" ? "Modo Claro" : "Modo Escuro") : "Tema"}</span>
+              {!sidebarOpen && (
+                <span>{mounted ? (theme === "dark" ? "Modo Claro" : "Modo Escuro") : "Tema"}</span>
+              )}
             </SidebarMenuButton>
           </SidebarMenuItem>
 

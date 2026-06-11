@@ -40,22 +40,7 @@ export async function GET(req: Request) {
       },
     });
 
-    // 3. Fetch workspace plans to find details (price, link) for the student's active plan
-    const workspacePlans = await prisma.workspacePlan.findMany({
-      where: {
-        workspaceId,
-        isActive: true,
-      },
-    });
-
-    const activePlanName = member.plan || "Mensal";
-
-    // Find matching plan in workspace plans configuration
-    const matchedPlan = workspacePlans.find(
-      (p) => p.name.toLowerCase() === activePlanName.toLowerCase()
-    );
-
-    // 4. Consolidate financial status
+    // 3. Consolidate financial status
     // If any payment is "atrasado", overall status is "Expirado"
     // Else if any payment is "pendente", overall status is "Pendente"
     // Otherwise "Em dia"
@@ -69,39 +54,43 @@ export async function GET(req: Request) {
       computedStatus = "Pendente";
     }
 
-    // 5. Calculate next due date / expiration intelligently
-    // Find the latest paid payment
+    // 4. Calculate total pending/overdue amount
+    const unpaidPayments = payments.filter((p) => p.status === "pendente" || p.status === "atrasado");
+    const totalPending = unpaidPayments.reduce((sum, p) => sum + p.amount, 0);
+
+    // 5. Calculate next due date (oldest unpaid invoice createdAt, or null if all paid)
+    // Note: payments are ordered by createdAt desc, so the last unpaid is the oldest.
+    const nextDue = unpaidPayments.length > 0
+      ? unpaidPayments[unpaidPayments.length - 1].createdAt.toISOString()
+      : null;
+
+    // 6. Find latest paid payment details
     const latestPaidPayment = payments.find((p) => p.status === "pago");
-    const baseDate = latestPaidPayment ? new Date(latestPaidPayment.createdAt) : new Date(member.createdAt);
+    const latestPaid = latestPaidPayment
+      ? {
+          amount: latestPaidPayment.amount,
+          createdAt: latestPaidPayment.createdAt.toISOString(),
+          method: latestPaidPayment.method,
+        }
+      : null;
 
-    const nextDue = new Date(baseDate);
-    const interval = matchedPlan?.interval?.toLowerCase() || "mensal";
+    // 7. Get the workspace owner's WhatsApp contact information
+    const owner = await prisma.user.findUnique({
+      where: { id: member.workspace.ownerId },
+      select: { whatsapp: true },
+    });
 
-    if (interval.includes("anual") || interval.includes("year")) {
-      nextDue.setFullYear(nextDue.getFullYear() + 1);
-    } else if (interval.includes("semestral")) {
-      nextDue.setMonth(nextDue.getMonth() + 6);
-    } else if (interval.includes("trimestral")) {
-      nextDue.setMonth(nextDue.getMonth() + 3);
-    } else {
-      // Default monthly
-      nextDue.setMonth(nextDue.getMonth() + 1);
-    }
-
-    // 6. Return response payload
+    // 8. Return response payload
     return NextResponse.json({
       status: computedStatus,
-      nextDue: nextDue.toISOString(),
-      activePlan: {
-        name: activePlanName,
-        price: matchedPlan?.price || 120.0, // fallback standard price
-        interval: interval,
-        checkoutLink: matchedPlan?.link || null,
-      },
+      nextDue,
+      totalPending,
+      latestPaid,
       workspace: {
         name: member.workspace.name,
         logoUrl: member.workspace.logoUrl,
         primaryColor: member.workspace.primaryColor || "#0ea5e9",
+        trainerWhatsapp: owner?.whatsapp || null,
       },
       history: payments.map((p) => ({
         id: p.id,

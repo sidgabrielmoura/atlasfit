@@ -21,6 +21,11 @@ export async function GET(req: Request) {
         whatsapp: true,
         city: true,
         bio: true, // stores objectives/biography
+        objective: true,
+        gender: true,
+        birthDate: true,
+        experienceLevel: true,
+        medicalConditions: true,
       },
     });
 
@@ -100,6 +105,7 @@ export async function PATCH(req: Request) {
       whatsapp,
       city,
       bio,
+      objective,
       image,
       // Password change
       currentPassword,
@@ -120,6 +126,7 @@ export async function PATCH(req: Request) {
           whatsapp: whatsapp ?? null,
           city: city ?? null,
           bio: bio ?? null,
+          objective: objective ?? null,
           image: image ?? undefined,
         },
       });

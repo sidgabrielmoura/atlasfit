@@ -29,6 +29,12 @@ model User {
   emailVerified    DateTime?
   image            String?
   role             GlobalRole        @default(USER)
+  onboarded        Boolean           @default(false)
+  objective        String?
+  gender           String?
+  birthDate        DateTime?
+  experienceLevel  String?
+  medicalConditions String?           @db.Text
   accounts         Account[]
   sessions         Session[]
   workspaces       WorkspaceMember[]

@@ -945,8 +945,8 @@ function TrainerFilesSkeleton() {
       {/* Header Skeleton */}
       <div className="space-y-2 border-b border-white/[0.04] pb-6">
         <Skeleton className="h-4 w-32 bg-neutral-900" />
-        <Skeleton className="h-8 w-64 bg-neutral-900" />
-        <Skeleton className="h-4 w-96 bg-neutral-900" />
+        <Skeleton className="h-8 w-64 max-w-full bg-neutral-900" />
+        <Skeleton className="h-4 w-full max-w-md bg-neutral-900" />
       </div>
 
       {/* KPI Stats cards Skeleton */}

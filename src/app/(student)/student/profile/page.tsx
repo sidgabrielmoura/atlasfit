@@ -16,6 +16,7 @@ import {
   Building2,
   ChevronRight,
   ShieldCheck,
+  ShieldAlert,
   Smartphone,
   Mail,
   Trophy,
@@ -38,6 +39,18 @@ const container = {
 const item = {
   hidden: { opacity: 0, y: 10 },
   show: { opacity: 1, y: 0 },
+};
+
+const getObjectiveLabel = (obj?: string | null) => {
+  if (!obj) return "";
+  const map: Record<string, string> = {
+    hipertrofia: "Hipertrofia 💪",
+    "definição corporal": "Definição corporal ✨",
+    "perda de peso": "Perda de peso 🏃",
+    "condicionamento físico": "Condicionamento físico ⚡",
+    força: "Força 🏋️",
+  };
+  return map[obj.toLowerCase()] || obj;
 };
 
 export default function StudentProfilePage() {
@@ -104,10 +117,10 @@ export default function StudentProfilePage() {
   const progressPercent = profileData.progress || 0;
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-[1400px] mx-auto w-full space-y-10 pb-24 animate-in fade-in duration-500">
+    <div className="p-4 md:p-6 lg:p-8 mx-auto w-full space-y-5 animate-in fade-in duration-500">
       {/* Profile Header Card */}
-      <Card className="border border-border dark:border-white/[0.06] bg-card dark:bg-neutral-950/40 backdrop-blur-md rounded-[2rem] overflow-hidden shadow-xl">
-        <CardContent className="p-8 md:p-10">
+      <Card className="border p-0 border-border dark:border-white/6 bg-card dark:bg-neutral-950/40 backdrop-blur-md rounded-[2rem] overflow-hidden shadow-xl">
+        <CardContent className="p-4">
           <div className="flex flex-col md:flex-row items-center gap-8">
             <div className="relative group">
               <Avatar className="size-28 border-4 border-background dark:border-neutral-900 shadow-xl overflow-hidden">
@@ -141,7 +154,7 @@ export default function StudentProfilePage() {
                 )}
               </div>
 
-              <div className="flex flex-wrap justify-center md:justify-start gap-3 pt-2">
+              <div className="flex justify-center md:justify-start gap-3 pt-2">
                 <Button asChild className="rounded-xl font-black text-xs uppercase tracking-wider h-11 px-6 shadow-md bg-primary text-primary-foreground hover:bg-primary/95 cursor-pointer">
                   <Link href="/student/settings">EDITAR PERFIL</Link>
                 </Button>
@@ -179,7 +192,7 @@ export default function StudentProfilePage() {
           <h3 className="text-xs font-black uppercase tracking-widest text-neutral-400 px-2 flex items-center gap-2">
             <User className="size-4 text-primary" /> Biometria e Foco
           </h3>
-          <motion.div 
+          <motion.div
             variants={container}
             initial="hidden"
             animate="show"
@@ -188,7 +201,7 @@ export default function StudentProfilePage() {
             {[
               { label: "Peso Corporal", value: physical?.weight ? `${physical.weight} kg` : "—", icon: Weight, color: "text-blue-400" },
               { label: "Altura Base", value: physical?.height ? `${physical.height} cm` : "—", icon: Ruler, color: "text-emerald-400" },
-              { label: "Objetivo Principal", value: user?.bio || "Definir nas Configurações", icon: Target, color: "text-primary" },
+              { label: "Objetivo Principal", value: getObjectiveLabel(user?.objective) || "Definir nas Configurações", icon: Target, color: "text-primary" },
             ].map((bioItem, idx) => (
               <motion.div key={idx} variants={item}>
                 <Card className="bg-card dark:bg-neutral-950/40 border border-border dark:border-white/[0.06] shadow-sm hover:border-primary/30 transition-all rounded-2xl overflow-hidden">
@@ -224,7 +237,7 @@ export default function StudentProfilePage() {
                     <CreditCard className="size-5" />
                   </div>
                   <div className="space-y-0.5">
-                    <p className="text-sm font-bold text-foreground">Assinatura Premium</p>
+                    <p className="text-sm font-bold text-foreground">Meu financeiro</p>
                     <p className="text-[10px] text-muted-foreground dark:text-neutral-400 font-semibold tracking-wider uppercase">Histórico e Faturas</p>
                   </div>
                 </div>
@@ -285,6 +298,77 @@ export default function StudentProfilePage() {
             </Card>
           </div>
 
+          {/* Ficha de Integração / Onboarding Section */}
+          <div className="mt-8 space-y-6">
+            <h3 className="text-xs font-black uppercase tracking-widest text-neutral-400 px-2 flex items-center gap-2">
+              <ShieldCheck className="size-4 text-primary" /> Ficha de Integração (Dados de Entrada)
+            </h3>
+
+            <Card className="bg-card dark:bg-neutral-950/40 border border-border dark:border-white/[0.06] shadow-md rounded-[1.5rem] overflow-hidden">
+              <CardContent className="p-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  {/* Gênero */}
+                  <div className="flex items-start gap-3.5">
+                    <div className="p-2.5 bg-muted dark:bg-neutral-900 rounded-xl border border-border dark:border-white/[0.04] text-neutral-400">
+                      <User className="size-4" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-black uppercase text-muted-foreground dark:text-neutral-500 tracking-wider leading-none">Gênero</p>
+                      <p className="text-sm font-extrabold text-foreground">{user?.gender || "Não informado"}</p>
+                    </div>
+                  </div>
+
+                  {/* Data de Nascimento */}
+                  <div className="flex items-start gap-3.5">
+                    <div className="p-2.5 bg-muted dark:bg-neutral-900 rounded-xl border border-border dark:border-white/[0.04] text-neutral-400">
+                      <Calendar className="size-4" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-black uppercase text-muted-foreground dark:text-neutral-500 tracking-wider leading-none">Data de Nascimento</p>
+                      <p className="text-sm font-extrabold text-foreground">
+                        {user?.birthDate ? new Date(user.birthDate).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : "Não informada"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Cidade */}
+                  <div className="flex items-start gap-3.5">
+                    <div className="p-2.5 bg-muted dark:bg-neutral-900 rounded-xl border border-border dark:border-white/[0.04] text-neutral-400">
+                      <MapPin className="size-4" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-black uppercase text-muted-foreground dark:text-neutral-500 tracking-wider leading-none">Cidade</p>
+                      <p className="text-sm font-extrabold text-foreground">{user?.city || "Não informada"}</p>
+                    </div>
+                  </div>
+
+                  {/* Nível de Experiência */}
+                  <div className="flex items-start gap-3.5">
+                    <div className="p-2.5 bg-muted dark:bg-neutral-900 rounded-xl border border-border dark:border-white/[0.04] text-neutral-400">
+                      <Trophy className="size-4" />
+                    </div>
+                    <div className="space-y-0.5">
+                      <p className="text-[10px] font-black uppercase text-muted-foreground dark:text-neutral-500 tracking-wider leading-none">Nível de Experiência</p>
+                      <p className="text-sm font-extrabold text-foreground capitalize">
+                        {user?.experienceLevel || "Não informado"}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Restrições Médicas ou Dores */}
+                  <div className="sm:col-span-2 space-y-2.5 pt-4 border-t border-border dark:border-white/[0.04]">
+                    <p className="text-[10px] font-black uppercase text-muted-foreground dark:text-neutral-500 tracking-wider leading-none flex items-center gap-1.5">
+                      <ShieldAlert className="size-3.5 text-amber-500" /> Restrições Médicas ou Dores Relatadas
+                    </p>
+                    <div className="p-4 rounded-xl bg-muted/40 dark:bg-neutral-900/30 border border-border dark:border-white/[0.04] text-xs font-semibold text-neutral-300 leading-relaxed">
+                      {user?.medicalConditions || "Nenhuma restrição médica ou dor física relatada."}
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
           <Button
             onClick={() => signOut({ callbackUrl: "/" })}
             variant="ghost"
@@ -327,6 +411,27 @@ function StudentProfileSkeleton() {
             {[...Array(4)].map((_, i) => (
               <Skeleton key={i} className="h-20 bg-muted/80 dark:bg-neutral-900 rounded-2xl" />
             ))}
+          </div>
+
+          <div className="mt-8 space-y-4">
+            <Skeleton className="h-4 w-48 bg-muted/80 dark:bg-neutral-900" />
+            <Card className="border border-border dark:border-white/[0.06] bg-card dark:bg-neutral-950/20 rounded-[1.5rem] p-6 space-y-6">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                {[...Array(4)].map((_, i) => (
+                  <div key={i} className="flex gap-3">
+                    <Skeleton className="size-10 rounded-xl bg-muted/80 dark:bg-neutral-900" />
+                    <div className="space-y-2 flex-1">
+                      <Skeleton className="h-3 w-16 bg-muted/80 dark:bg-neutral-900" />
+                      <Skeleton className="h-4 w-28 bg-muted/80 dark:bg-neutral-900" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <div className="pt-4 border-t border-border/50 dark:border-white/[0.04] space-y-2">
+                <Skeleton className="h-3.5 w-40 bg-muted/80 dark:bg-neutral-900" />
+                <Skeleton className="h-14 w-full bg-muted/80 dark:bg-neutral-900 rounded-xl" />
+              </div>
+            </Card>
           </div>
         </div>
       </div>

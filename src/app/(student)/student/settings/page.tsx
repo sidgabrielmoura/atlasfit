@@ -56,7 +56,7 @@ export default function StudentSettingsPage() {
   const [email, setEmail] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [city, setCity] = useState("");
-  const [bio, setBio] = useState(""); // Represents fitness goal / biography
+  const [objective, setObjective] = useState(""); // Represents fitness goal / objective
   const [avatarBase64, setAvatarBase64] = useState("");
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
@@ -93,7 +93,7 @@ export default function StudentSettingsPage() {
         setEmail(rawData.user.email || "");
         setWhatsapp(rawData.user.whatsapp || "");
         setCity(rawData.user.city || "");
-        setBio(rawData.user.bio || "");
+        setObjective(rawData.user.objective || "");
         setAvatarBase64(rawData.user.image || "");
       }
 
@@ -145,7 +145,7 @@ export default function StudentSettingsPage() {
           name,
           whatsapp: whatsapp.trim() || null,
           city: city.trim() || null,
-          bio: bio || null,
+          objective: objective || null,
           image: avatarBase64 || null,
         }),
       });
@@ -267,11 +267,10 @@ export default function StudentSettingsPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 max-w-4xl mx-auto w-full space-y-8 pb-24 animate-in fade-in duration-500">
-      {/* Header Banner */}
+    <div className="p-4 md:p-6 lg:p-8 max-w-4xl mx-auto w-full space-y-4 animate-in fade-in duration-500">
       <div className="space-y-1 border-b border-border/30 pb-4">
         <h1 className="text-2xl md:text-3xl font-black tracking-tight text-foreground flex items-center gap-2">
-          <User className="size-7 text-primary" /> Perfil & Configurações
+          <User className="size-7 text-primary" /> Configurações
         </h1>
         <p className="text-sm text-neutral-400">
           Gerencie seus dados cadastrais, métricas físicas, senha e preferências de visualização.
@@ -382,16 +381,16 @@ export default function StudentSettingsPage() {
                   {/* Objetivos Pessoais Dropdown */}
                   <div className="space-y-2 md:col-span-2">
                     <Label className="text-xs font-bold text-muted-foreground dark:text-neutral-300">Objetivo Principal</Label>
-                    <Select value={bio} onValueChange={setBio}>
+                    <Select value={objective} onValueChange={setObjective}>
                       <SelectTrigger className="bg-background dark:bg-neutral-900/60 border-border w-full dark:border-white/8 h-11 rounded-xl text-sm">
                         <SelectValue placeholder="Selecione seu objetivo" />
                       </SelectTrigger>
                       <SelectContent className="bg-popover dark:bg-neutral-950 border border-border dark:border-white/8">
-                        <SelectItem value="Hipertrofia Muscular">Hipertrofia Muscular (Ganho de Massa)</SelectItem>
-                        <SelectItem value="Definição Corporal">Definição Corporal & Queima Adiposa</SelectItem>
-                        <SelectItem value="Perda de Peso / Emagrecimento">Perda de Peso / Emagrecimento</SelectItem>
-                        <SelectItem value="Condicionamento Físico & Resistência">Condicionamento Físico & Resistência</SelectItem>
-                        <SelectItem value="Força Máxima & Performance">Força Máxima & Performance</SelectItem>
+                        <SelectItem value="hipertrofia">Hipertrofia Muscular (Ganho de Massa) 💪</SelectItem>
+                        <SelectItem value="definição corporal">Definição Corporal & Queima Adiposa ✨</SelectItem>
+                        <SelectItem value="perda de peso">Perda de Peso / Emagrecimento 🏃</SelectItem>
+                        <SelectItem value="condicionamento físico">Condicionamento Físico & Resistência ⚡</SelectItem>
+                        <SelectItem value="força">Força Máxima & Performance 🏋️</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
@@ -625,8 +624,8 @@ function StudentSettingsSkeleton() {
   return (
     <div className="p-4 md:p-6 lg:p-8 max-w-4xl mx-auto w-full space-y-8 animate-pulse">
       <div className="space-y-2 border-b border-border/50 pb-4">
-        <Skeleton className="h-8 w-64 bg-muted/80 dark:bg-neutral-900" />
-        <Skeleton className="h-4 w-96 bg-muted/80 dark:bg-neutral-900" />
+        <Skeleton className="h-8 w-64 max-w-full bg-muted/80 dark:bg-neutral-900" />
+        <Skeleton className="h-4 w-full max-w-md bg-muted/80 dark:bg-neutral-900" />
       </div>
 
       <div className="flex gap-2 max-w-sm">

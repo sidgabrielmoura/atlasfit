@@ -315,11 +315,11 @@ export default function StudentFeedbackPage() {
                   </div>
                 </div>
 
-                <div className="pt-4 flex flex-col sm:flex-row gap-3">
+                <div className="flex flex-col sm:flex-row gap-3">
                   <Button
                     type="submit"
                     disabled={isSubmitting}
-                    className="flex-1 h-10 rounded-xl font-bold bg-primary text-primary-foreground shadow-sm transition-all"
+                    className="flex-1 h-10! py-3 rounded-xl font-bold bg-primary text-primary-foreground shadow-sm transition-all"
                   >
                     {isSubmitting ? (
                       <span className="flex items-center justify-center gap-2">
@@ -335,7 +335,7 @@ export default function StudentFeedbackPage() {
                   <Button
                     type="button"
                     variant="outline"
-                    className="flex-1 h-10 rounded-xl font-bold border-border/60"
+                    className="flex-1 h-10! py-3 rounded-xl font-bold border-border/60"
                     disabled={isSubmitting}
                     asChild
                   >
@@ -502,8 +502,8 @@ function StudentFeedbackSkeleton() {
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-8 w-full mx-auto">
       <div className="space-y-2">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-4 w-96 max-w-full" />
+        <Skeleton className="h-8 w-64 max-w-full" />
+        <Skeleton className="h-4 w-full max-w-md" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">

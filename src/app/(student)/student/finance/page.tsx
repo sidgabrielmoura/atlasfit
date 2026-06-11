@@ -48,17 +48,18 @@ const itemVariants = {
 
 interface FinanceData {
   status: "Em dia" | "Pendente" | "Expirado";
-  nextDue: string;
-  activePlan: {
-    name: string;
-    price: number;
-    interval: string;
-    checkoutLink: string | null;
-  };
+  nextDue: string | null;
+  totalPending: number;
+  latestPaid: {
+    amount: number;
+    createdAt: string;
+    method: "PIX" | "BOLETO" | "CREDIT_CARD";
+  } | null;
   workspace: {
     name: string;
     logoUrl: string | null;
     primaryColor: string;
+    trainerWhatsapp: string | null;
   };
   history: Array<{
     id: string;
@@ -151,23 +152,27 @@ export default function StudentFinancePage() {
   };
 
   // Days remaining calculation
-  const nextDueDate = new Date(data.nextDue);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  nextDueDate.setHours(0, 0, 0, 0);
+  const nextDueDate = data.nextDue ? new Date(data.nextDue) : null;
+  let dueMessage = "Sem faturas em aberto";
+  let diffDays = 0;
 
-  const diffTime = nextDueDate.getTime() - today.getTime();
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+  if (nextDueDate) {
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    nextDueDate.setHours(0, 0, 0, 0);
 
-  let dueMessage = "";
-  if (diffDays > 1) {
-    dueMessage = `Vence em ${diffDays} dias`;
-  } else if (diffDays === 1) {
-    dueMessage = "Vence amanhã";
-  } else if (diffDays === 0) {
-    dueMessage = "Vence hoje!";
-  } else {
-    dueMessage = `Vencido há ${Math.abs(diffDays)} dias`;
+    const diffTime = nextDueDate.getTime() - today.getTime();
+    diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    if (diffDays > 1) {
+      dueMessage = `Vence em ${diffDays} dias`;
+    } else if (diffDays === 1) {
+      dueMessage = "Vence amanhã";
+    } else if (diffDays === 0) {
+      dueMessage = "Vence hoje!";
+    } else {
+      dueMessage = `Vencido há ${Math.abs(diffDays)} dias`;
+    }
   }
 
   // Get status color configs for overall KPI card
@@ -179,7 +184,7 @@ export default function StudentFinancePage() {
           glow: "from-emerald-500/20 to-transparent",
           bg: "bg-emerald-500/10 border-emerald-500/20",
           icon: CheckCircle2,
-          desc: "Sua assinatura está ativa e regularizada."
+          desc: "Todas as suas faturas estão em dia."
         };
       case "Pendente":
         return {
@@ -187,7 +192,7 @@ export default function StudentFinancePage() {
           glow: "from-amber-500/20 to-transparent",
           bg: "bg-amber-500/10 border-amber-500/20",
           icon: Clock,
-          desc: "Há um pagamento pendente aguardando conclusão."
+          desc: "Há uma cobrança pendente aguardando pagamento."
         };
       case "Expirado":
       default:
@@ -196,17 +201,14 @@ export default function StudentFinancePage() {
           glow: "from-rose-500/20 to-transparent",
           bg: "bg-rose-500/10 border-rose-500/20",
           icon: AlertTriangle,
-          desc: "Sua assinatura expirou. Regularize para continuar acessando."
+          desc: "Há cobranças em atraso. Regularize com seu treinador."
         };
     }
   };
 
+  // Status setup
   const statusConfig = getOverallStatusConfig(data.status);
   const StatusIcon = statusConfig.icon;
-
-  // Last payment method
-  const lastPayment = data.history[0];
-  const preferredMethod = lastPayment ? getMethodLabel(lastPayment.method) : null;
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-8 w-full max-w-7xl mx-auto">
@@ -222,7 +224,7 @@ export default function StudentFinancePage() {
             Meu Financeiro
           </h1>
           <p className="text-sm text-neutral-400 font-medium">
-            Gerencie o status da sua assinatura, próximos vencimentos e histórico de mensalidades.
+            Acompanhe o histórico de faturas, status de pagamentos e cobranças em aberto.
           </p>
         </div>
       </div>
@@ -240,7 +242,7 @@ export default function StudentFinancePage() {
             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-bl rounded-bl-full opacity-30 group-hover:opacity-40 transition-opacity blur-md" />
             <CardHeader className="pb-2">
               <span className="text-[10px] font-black uppercase tracking-wider text-neutral-500">
-                Status de Assinatura
+                Status Financeiro
               </span>
             </CardHeader>
             <CardContent className="pt-0 pb-6 space-y-4">
@@ -261,26 +263,23 @@ export default function StudentFinancePage() {
           </Card>
         </motion.div>
 
-        {/* Card 2: Active Plan */}
+        {/* Card 2: Total Pendente */}
         <motion.div variants={itemVariants}>
           <Card className="relative overflow-hidden bg-neutral-900/40 border-white/[0.04] rounded-2xl h-full flex flex-col justify-between group hover:border-white/[0.08] transition-all duration-300">
             <CardHeader className="pb-2">
               <span className="text-[10px] font-black uppercase tracking-wider text-neutral-500">
-                Plano Contratado
+                Total Pendente
               </span>
             </CardHeader>
             <CardContent className="pt-0 pb-6 space-y-2">
               <div className="flex items-baseline gap-2">
                 <span className="text-2xl font-black tracking-tight text-white group-hover:text-primary transition-colors">
-                  {data.activePlan.name}
+                  {formatBRL(data.totalPending)}
                 </span>
               </div>
               <div className="flex items-center gap-2">
-                <span className="text-lg font-bold text-neutral-300">
-                  {formatBRL(data.activePlan.price)}
-                </span>
-                <span className="text-xs text-neutral-500 font-medium lowercase">
-                  / {data.activePlan.interval}
+                <span className="text-xs text-neutral-500 font-medium">
+                  Valor total em aberto
                 </span>
               </div>
             </CardContent>
@@ -299,17 +298,19 @@ export default function StudentFinancePage() {
               <div className="flex items-center gap-2.5">
                 <Calendar className="size-5 text-primary group-hover:scale-110 transition-transform duration-300" />
                 <span className="text-2xl font-black tracking-tight text-white">
-                  {new Date(data.nextDue).toLocaleDateString("pt-BR")}
+                  {data.nextDue ? new Date(data.nextDue).toLocaleDateString("pt-BR") : "--"}
                 </span>
               </div>
               <div>
                 <span className={cn(
                   "px-2 py-0.5 rounded-md text-[10px] font-bold uppercase tracking-wider border",
-                  diffDays < 0
-                    ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
-                    : diffDays <= 3
-                      ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
-                      : "bg-white/[0.04] text-neutral-400 border-white/[0.08]"
+                  !data.nextDue
+                    ? "bg-white/[0.04] text-neutral-400 border-white/[0.08]"
+                    : diffDays < 0
+                      ? "bg-rose-500/10 text-rose-400 border-rose-500/20"
+                      : diffDays <= 3
+                        ? "bg-amber-500/10 text-amber-400 border-amber-500/20"
+                        : "bg-white/[0.04] text-neutral-400 border-white/[0.08]"
                 )}>
                   {dueMessage}
                 </span>
@@ -318,26 +319,29 @@ export default function StudentFinancePage() {
           </Card>
         </motion.div>
 
-        {/* Card 4: Payment Method */}
+        {/* Card 4: Last Payment */}
         <motion.div variants={itemVariants}>
           <Card className="relative overflow-hidden bg-neutral-900/40 border-white/[0.04] rounded-2xl h-full flex flex-col justify-between group hover:border-white/[0.08] transition-all duration-300">
             <CardHeader className="pb-2">
               <span className="text-[10px] font-black uppercase tracking-wider text-neutral-500">
-                Última Forma de Pagamento
+                Último Pagamento
               </span>
             </CardHeader>
             <CardContent className="pt-0 pb-6 space-y-2">
-              {preferredMethod ? (
+              {data.latestPaid ? (
                 <div className="flex items-center gap-3">
-                  <div className={cn("p-2.5 rounded-xl border border-white/[0.05]", preferredMethod.color)}>
-                    <preferredMethod.icon className="size-5" />
+                  <div className={cn("p-2.5 rounded-xl border border-white/[0.05]", getMethodLabel(data.latestPaid.method).color)}>
+                    {(() => {
+                      const MethodIcon = getMethodLabel(data.latestPaid.method).icon;
+                      return <MethodIcon className="size-5" />;
+                    })()}
                   </div>
                   <div>
                     <span className="text-lg font-black tracking-tight text-white block">
-                      {preferredMethod.label}
+                      {formatBRL(data.latestPaid.amount)}
                     </span>
                     <span className="text-xs text-neutral-500 font-medium">
-                      Forma de cobrança registrada
+                      Pago em {new Date(data.latestPaid.createdAt).toLocaleDateString("pt-BR")}
                     </span>
                   </div>
                 </div>
@@ -356,35 +360,45 @@ export default function StudentFinancePage() {
 
       {/* Checkout and Renewal CTA Action Card */}
       <AnimatePresence mode="wait">
-        {data.activePlan.checkoutLink && (
+        {(data.status === "Pendente" || data.status === "Expirado") && (
           <motion.div
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -15 }}
             transition={{ type: "spring", stiffness: 300, damping: 24, delay: 0.1 }}
           >
-            <Card className="relative overflow-hidden border border-primary/20 bg-linear-to-r from-primary/5 via-neutral-900/40 to-neutral-900/40 rounded-2xl p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6 shadow-2xl">
+            <Card className="relative overflow-hidden border border-amber-500/20 bg-linear-to-r from-amber-500/5 via-neutral-900/40 to-neutral-900/40 rounded-2xl p-6 md:p-8 flex flex-col md:flex-row md:items-center md:justify-between gap-6 shadow-2xl">
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-primary">
-                    Renovação Rápida & Pagamento
+                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-400">
+                    Pagamento Pendente
                   </span>
                 </div>
                 <h3 className="text-lg md:text-xl font-black text-white">
-                  Pronto para realizar o seu pagamento ou renovar o plano?
+                  Você possui cobranças em aberto no valor de {formatBRL(data.totalPending)}
                 </h3>
                 <p className="text-xs md:text-sm text-neutral-400 font-medium max-w-2xl leading-relaxed">
-                  Evite suspensões e multas mantendo sua assinatura em dia. Clique abaixo para abrir o canal seguro de checkout de forma imediata e simplificada.
+                  Regularize suas faturas para garantir o fluxo de seus treinos e o acesso completo à plataforma. Entre em contato direto com seu treinador.
                 </p>
               </div>
-              <Button
-                asChild
-                className="w-full md:w-auto h-12 px-6 rounded-xl font-bold bg-primary text-black hover:bg-primary/90 flex items-center justify-center gap-2 group transition-all shrink-0 active:scale-95 duration-200"
-              >
-                <a href={data.activePlan.checkoutLink} target="_blank" rel="noopener noreferrer">
-                  Pagar Assinatura <ExternalLink className="size-4 group-hover:translate-x-0.5 transition-transform" />
-                </a>
-              </Button>
+              {data.workspace.trainerWhatsapp ? (
+                <Button
+                  asChild
+                  className="w-full md:w-auto h-12 px-6 rounded-xl font-bold bg-amber-500 text-black hover:bg-amber-600 flex items-center justify-center gap-2 group transition-all shrink-0 active:scale-95 duration-200"
+                >
+                  <a
+                    href={`https://api.whatsapp.com/send?phone=${data.workspace.trainerWhatsapp.replace(/\D/g, "")}&text=Olá! Gostaria de solicitar o Pix ou link de pagamento para regularizar minhas cobranças em aberto.`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Falar com Personal <ExternalLink className="size-4 group-hover:translate-x-0.5 transition-transform" />
+                  </a>
+                </Button>
+              ) : (
+                <div className="text-xs text-neutral-500 font-medium italic shrink-0 self-center">
+                  Consulte seu treinador para efetuar o pagamento.
+                </div>
+              )}
             </Card>
           </motion.div>
         )}
@@ -419,7 +433,7 @@ export default function StudentFinancePage() {
                 <TableHeader className="bg-neutral-900/40 border-b border-white/[0.04]">
                   <TableRow className="hover:bg-transparent">
                     <TableHead className="font-black text-neutral-400 text-xs uppercase py-4">Data</TableHead>
-                    <TableHead className="font-black text-neutral-400 text-xs uppercase py-4">Serviço / Plano</TableHead>
+                    <TableHead className="font-black text-neutral-400 text-xs uppercase py-4">Descrição / Serviço</TableHead>
                     <TableHead className="font-black text-neutral-400 text-xs uppercase py-4">Valor</TableHead>
                     <TableHead className="font-black text-neutral-400 text-xs uppercase py-4">Forma</TableHead>
                     <TableHead className="font-black text-neutral-400 text-xs uppercase py-4 text-right">Status</TableHead>
@@ -510,7 +524,7 @@ export default function StudentFinancePage() {
           </span>
         </div>
         <p className="text-xs text-neutral-400 leading-relaxed font-semibold">
-          Para realizar alterações no seu plano, solicitar reembolsos, trocar a data de vencimento recorrente ou negociar mensalidades em atraso, entre em contato direto com seu personal trainer ou com a administração da assessoria.
+          Para tirar dúvidas sobre suas faturas, solicitar reembolsos, contestar valores ou negociar cobranças em atraso, entre em contato direto com seu personal trainer ou com a administração da assessoria.
         </p>
       </Card>
     </div>
@@ -524,8 +538,8 @@ function StudentFinanceSkeleton() {
       {/* Header Skeleton */}
       <div className="space-y-2 border-b border-white/[0.04] pb-6">
         <Skeleton className="h-4 w-32 bg-neutral-900" />
-        <Skeleton className="h-8 w-64 bg-neutral-900" />
-        <Skeleton className="h-4 w-96 bg-neutral-900" />
+        <Skeleton className="h-8 w-64 max-w-full bg-neutral-900" />
+        <Skeleton className="h-4 w-full max-w-md bg-neutral-900" />
       </div>
 
       {/* Grid KPI Cards Skeleton */}

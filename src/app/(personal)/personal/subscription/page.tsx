@@ -153,8 +153,8 @@ export default function SubscriptionPage() {
               <CardHeader className="pb-4">
                 <div className="flex items-center justify-between">
                   <div className="space-y-3">
-                    <Skeleton className="h-7 w-64 bg-muted/60" />
-                    <Skeleton className="h-5 w-96 bg-muted/60" />
+                    <Skeleton className="h-7 w-64 max-w-full bg-muted/60" />
+                    <Skeleton className="h-5 w-full max-w-md bg-muted/60" />
                   </div>
                   <Skeleton className="hidden md:block h-12 w-12 rounded-full bg-muted/60" />
                 </div>
@@ -182,8 +182,8 @@ export default function SubscriptionPage() {
 
           <div className="space-y-6">
             <div className="text-center space-y-2 pt-8 flex flex-col items-center">
-              <Skeleton className="h-8 w-64 bg-muted/60" />
-              <Skeleton className="h-5 w-96 bg-muted/60" />
+              <Skeleton className="h-8 w-64 max-w-full bg-muted/60" />
+              <Skeleton className="h-5 w-full max-w-md bg-muted/60" />
             </div>
 
             <div className="grid md:grid-cols-3 gap-8 items-start pt-8 pb-12">

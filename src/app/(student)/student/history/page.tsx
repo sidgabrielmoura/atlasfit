@@ -272,7 +272,7 @@ export default function StudentHistoryPage() {
 
         <div className="lg:col-span-3 space-y-4">
           <h3 className="text-xs font-black uppercase tracking-widest text-neutral-400 px-1 flex items-center gap-1.5">
-            <Flame className="size-4 text-primary" /> Atividades Recentes
+            Atividades Recentes
           </h3>
 
           {logs.length > 0 ? (
@@ -518,8 +518,8 @@ function StudentHistorySkeleton() {
     <div className="p-4 md:p-6 lg:p-8 space-y-8 w-full mx-auto animate-pulse">
       {/* Title skeleton */}
       <div className="space-y-2 border-b border-border dark:border-white/[0.04] pb-4">
-        <Skeleton className="h-9 w-64 bg-muted dark:bg-neutral-900" />
-        <Skeleton className="h-4 w-96 bg-muted dark:bg-neutral-900" />
+        <Skeleton className="h-9 w-64 max-w-full bg-muted dark:bg-neutral-900" />
+        <Skeleton className="h-4 w-full max-w-md bg-muted dark:bg-neutral-900" />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-8">

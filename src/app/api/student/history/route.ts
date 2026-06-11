@@ -3,6 +3,18 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { calculateStreaks } from "@/lib/streak-helper";
 
+function getYearAndMonthInSP(date: Date) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Sao_Paulo",
+    year: "numeric",
+    month: "numeric",
+  });
+  const parts = formatter.formatToParts(date);
+  const year = parseInt(parts.find(p => p.type === "year")!.value);
+  const month = parseInt(parts.find(p => p.type === "month")!.value) - 1;
+  return { year, month };
+}
+
 export async function GET(req: Request) {
   const session = await auth();
   if (!session?.user) {
@@ -55,17 +67,20 @@ export async function GET(req: Request) {
       },
     });
 
-    // 3. Compute stats
+    // 3. Compute stats using Brazil timezone
     const now = new Date();
-    const currentYear = now.getFullYear();
-    const currentMonth = now.getMonth();
-
-    const startOfYear = new Date(currentYear, 0, 1);
-    const startOfMonth = new Date(currentYear, currentMonth, 1);
+    const { year: currentYear, month: currentMonth } = getYearAndMonthInSP(now);
 
     // Filter logs for stats
-    const logsThisYear = logs.filter((log) => new Date(log.completedAt) >= startOfYear);
-    const logsThisMonth = logs.filter((log) => new Date(log.completedAt) >= startOfMonth);
+    const logsThisYear = logs.filter((log) => {
+      const { year: logYear } = getYearAndMonthInSP(new Date(log.completedAt));
+      return logYear === currentYear;
+    });
+
+    const logsThisMonth = logs.filter((log) => {
+      const { year: logYear, month: logMonth } = getYearAndMonthInSP(new Date(log.completedAt));
+      return logYear === currentYear && logMonth === currentMonth;
+    });
 
     const totalWorkoutsYear = logsThisYear.length;
     const totalWorkoutsMonth = logsThisMonth.length;
@@ -111,6 +126,14 @@ export async function GET(req: Request) {
       },
     });
     const monthlyTarget = (weeklyWorkoutsCount || 4) * 4;
+
+    console.log("Computed stats:", {
+      totalWorkoutsYear,
+      totalWorkoutsMonth,
+      monthlyTarget,
+      totalHoursMonth,
+      totalVolumeMonth,
+    });
 
     return NextResponse.json({
       logs,

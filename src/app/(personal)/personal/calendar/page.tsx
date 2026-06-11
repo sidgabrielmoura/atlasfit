@@ -280,7 +280,7 @@ export default function CalendarPage() {
     <div className="flex-1 flex flex-col space-y-8 p-4 md:p-8 pt-6 overflow-hidden w-full h-full min-h-[calc(100vh-2rem)] bg-background">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-white">Tarefas Diárias & Lembretes</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-white">Tarefas Diárias</h2>
           <p className="text-neutral-400 mt-1 text-sm">Gerencie sua rotina operacional, atendimentos e lembretes importantes.</p>
         </div>
 

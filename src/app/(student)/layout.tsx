@@ -6,6 +6,8 @@ import { Input } from "@/components/ui/input";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
+import { cookies } from "next/headers";
+import { StudentMobileNavbar } from "@/components/application/student-mobile-navbar";
 
 export default async function StudentLayout({
   children,
@@ -35,14 +37,83 @@ export default async function StudentLayout({
     }
   }
 
+  // Guard: if user is not onboarded, redirect to onboarding flow
+  if (session?.user?.role !== "SUPERADMIN" && !(session?.user as any)?.isImpersonated) {
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { onboarded: true }
+    });
+
+    if (user && !user.onboarded) {
+      redirect("/student-onboarding");
+    }
+  }
+
+  // Fetch active workspace details for mobile header branding
+  const cookieStore = await cookies();
+  const activeWorkspaceId = cookieStore.get("student_active_workspace_id")?.value;
+
+  let activeWorkspace = null;
+  if (activeWorkspaceId) {
+    activeWorkspace = await prisma.workspace.findUnique({
+      where: { id: activeWorkspaceId, isActive: true },
+      select: {
+        name: true,
+        logoUrl: true,
+        primaryColor: true,
+        slogan: true,
+      }
+    });
+  } else {
+    const activeMember = await prisma.workspaceMember.findFirst({
+      where: { userId: session.user.id, role: "STUDENT", isActive: true },
+      include: { workspace: true }
+    });
+    if (activeMember?.workspace) {
+      activeWorkspace = activeMember.workspace;
+    }
+  }
+
   return (
     <SidebarProvider>
       <StudentSidebar />
       <SidebarInset className="bg-background">
-        {/* Top Header Barra Superior (Igual ao Personal) */}
         <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border/50 bg-background/80 backdrop-blur-md px-4 md:px-6">
-          <div className="flex items-center gap-2">
-            <SidebarTrigger className="-ml-1" />
+          <div className="flex items-center gap-2 min-w-0">
+            <SidebarTrigger className="-ml-1 hidden md:inline-flex" />
+
+            {activeWorkspace && (
+              <div className="flex items-center gap-2 md:hidden">
+                <div
+                  className="flex aspect-square size-8 items-center justify-center rounded-lg text-white font-bold text-xs shrink-0 overflow-hidden shadow-sm border border-white/[0.06]"
+                  style={{
+                    backgroundColor: activeWorkspace.primaryColor || "#ea580c",
+                  }}
+                >
+                  {activeWorkspace.logoUrl ? (
+                    <img
+                      src={activeWorkspace.logoUrl}
+                      alt={activeWorkspace.name}
+                      className="size-full object-cover"
+                    />
+                  ) : (
+                    <span>{activeWorkspace.name.charAt(0).toUpperCase()}</span>
+                  )}
+                </div>
+                <div className="flex flex-col min-w-0">
+                  <span className="text-xs font-black tracking-tight text-foreground leading-none truncate max-w-[150px]">
+                    {activeWorkspace.name}
+                  </span>
+                  <span
+                    className="text-[8px] font-black uppercase tracking-wider leading-none mt-0.5 truncate max-w-[150px]"
+                    style={{ color: activeWorkspace.primaryColor || "var(--primary)" }}
+                  >
+                    {activeWorkspace.slogan || "Assessoria Esportiva"}
+                  </span>
+                </div>
+              </div>
+            )}
+
             <div className="hidden md:flex relative w-64">
               <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
               <Input
@@ -58,17 +129,13 @@ export default async function StudentLayout({
               <Bell className="size-5 text-muted-foreground" />
               <span className="absolute top-2 right-2 size-2 bg-destructive rounded-full border-2 border-background" />
             </Button>
-            <div className="h-8 w-[1px] bg-border/50 mx-1 hidden sm:block" />
-            <div className="flex flex-col items-end hidden sm:flex">
-              <span className="text-xs font-bold uppercase tracking-widest text-primary">Plano Elite</span>
-              <span className="text-[10px] text-muted-foreground font-medium">Assinatura Ativa</span>
-            </div>
           </div>
         </header>
 
-        <main className="flex flex-col max-w-7xl mx-auto w-full">
+        <main className="flex flex-col max-w-7xl mx-auto w-full pb-24 md:pb-6">
           {children}
         </main>
+        <StudentMobileNavbar />
       </SidebarInset>
     </SidebarProvider>
   );

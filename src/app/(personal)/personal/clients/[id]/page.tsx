@@ -42,7 +42,8 @@ import {
   Image,
   Sparkles,
   Link2,
-  FileText
+  FileText,
+  X
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -223,11 +224,17 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   const [photoToDelete, setPhotoToDelete] = useState<any>(null);
   const [submittingDeletePhoto, setSubmittingDeletePhoto] = useState(false);
 
-  // Form Medidas states
-  const [progressDate, setProgressDate] = useState(() => {
+  // Local Date Helper to avoid timezone shift on GMT-3 etc.
+  const getLocalDateString = () => {
     const today = new Date();
-    return today.toISOString().split("T")[0];
-  });
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, "0");
+    const day = String(today.getDate()).padStart(2, "0");
+    return `${year}-${month}-${day}`;
+  };
+
+  // Form Medidas states
+  const [progressDate, setProgressDate] = useState(getLocalDateString);
   const [progressWeight, setProgressWeight] = useState("");
   const [progressHeight, setProgressHeight] = useState("");
   const [progressBodyFat, setProgressBodyFat] = useState("");
@@ -248,10 +255,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
   // Form Photo states
   const [newPhotoUrl, setNewPhotoUrl] = useState("");
-  const [newPhotoDate, setNewPhotoDate] = useState(() => {
-    const today = new Date();
-    return today.toISOString().split("T")[0];
-  });
+  const [newPhotoDate, setNewPhotoDate] = useState(getLocalDateString);
   const [newPhotoComment, setNewPhotoComment] = useState("");
 
   // ==================== NEW STATES: PHYSICAL EVALUATIONS ====================
@@ -292,10 +296,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("pendente");
   const [paymentMethod, setPaymentMethod] = useState("PIX");
-  const [paymentDate, setPaymentDate] = useState(() => {
-    const today = new Date();
-    return today.toISOString().split("T")[0];
-  });
+  const [paymentDate, setPaymentDate] = useState(getLocalDateString);
 
   // ==================== NEW STATES: INDIVIDUAL CLIENT FILES & DOCUMENTS ====================
   const [files, setFiles] = useState<any[]>([]);
@@ -320,10 +321,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   const [uploadFileSize, setUploadFileSize] = useState("");
 
   // Form states for Evaluations
-  const [evalDate, setEvalDate] = useState(() => {
-    const today = new Date();
-    return today.toISOString().split("T")[0];
-  });
+  const [evalDate, setEvalDate] = useState(getLocalDateString);
   const [evalType, setEvalType] = useState("Dobra Cutânea (Pollock 7 Dobras)");
   const [evalWeight, setEvalWeight] = useState("");
   const [evalHeight, setEvalHeight] = useState("");
@@ -553,7 +551,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
         const repsStr = ex.reps || "10";
         const restStr = ex.rest || "60s";
         const loadStr = ex.load || "";
-        
+
         const repsArr = String(repsStr).split(",").map((s: string) => s.trim());
         const restArr = String(restStr).split(",").map((s: string) => s.trim());
         const loadArr = String(loadStr).split(",").map((s: string) => s.trim());
@@ -728,7 +726,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
             const setsCount = isNaN(parsed) ? 1 : Math.max(1, parsed);
             updated.sets = setsCount;
             const currentSets = ex.individualSets || [];
-            
+
             const repsArr = String(ex.reps).split(",").map(s => s.trim());
             const loadArr = String(ex.load).split(",").map(s => s.trim());
             const restArr = String(ex.rest).split(",").map(s => s.trim());
@@ -1755,8 +1753,8 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                           isSelected
                             ? "bg-primary/10 border-primary text-primary ring-1 ring-primary/20"
                             : hasWorkout
-                            ? "bg-card border-border hover:bg-muted/50 text-foreground"
-                            : "bg-muted/10 border-border/30 text-muted-foreground/60 hover:bg-muted/20"
+                              ? "bg-card border-border hover:bg-muted/50 text-foreground"
+                              : "bg-muted/10 border-border/30 text-muted-foreground/60 hover:bg-muted/20"
                         )}
                       >
                         <span>{day.short}</span>
@@ -1851,7 +1849,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                       {workout.muscleGroupLabel || "Geral"}
                                     </Badge>
                                   </div>
-                                  
+
                                   <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground font-medium">
                                     <span>{workout.goal}</span>
                                     <span className="text-muted-foreground/30">•</span>
@@ -2000,7 +1998,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                           {workout.muscleGroupLabel || "Geral"}
                                         </Badge>
                                       </div>
-                                      
+
                                       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground font-medium">
                                         <span>{workout.goal}</span>
                                         <span className="text-muted-foreground/30">•</span>
@@ -2210,7 +2208,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                         <div className="relative aspect-[3/4] rounded-lg overflow-hidden bg-card dark:bg-neutral-950">
                           <img
                             src={p.photoUrl}
-                            alt={`Evolução ${new Date(p.date).toLocaleDateString()}`}
+                            alt={`Evolução ${new Date(p.date).toLocaleDateString("pt-BR", { timeZone: "UTC" })}`}
                             className="object-cover w-full h-full"
                           />
                           {/* Trash Delete Overlay */}
@@ -2247,6 +2245,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                               day: "2-digit",
                               month: "2-digit",
                               year: "numeric",
+                              timeZone: "UTC",
                             })}
                           </span>
                         </div>
@@ -3306,7 +3305,6 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
             </div>
           ) : (
             <div className="space-y-6">
-              {/* Category Quick Filter Cards */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
                 <Card
                   onClick={() => setFileFilter("todos")}
@@ -3365,14 +3363,13 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                 </Card>
               </div>
 
-              {/* Search Toolbar */}
               <div className="flex items-center gap-3 bg-muted/20 dark:bg-neutral-950/20 p-3 rounded-xl border border-border/50 dark:border-white/[0.04]">
                 <div className="relative flex-1">
                   <Input
                     placeholder="Buscar arquivos por nome..."
                     value={fileSearch}
                     onChange={(e) => setFileSearch(e.target.value)}
-                    className="w-full bg-muted dark:bg-muted dark:bg-neutral-900/60 border-border dark:border-neutral-800 focus-visible:ring-primary pl-9 text-xs sm:text-sm h-10 rounded-lg text-foreground"
+                    className="w-full bg-muted dark:bg-muted border-border dark:border-neutral-800 focus-visible:ring-primary pl-9 text-xs sm:text-sm h-10 rounded-lg text-foreground"
                   />
                   <div className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none">
                     <svg className="size-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -3382,7 +3379,6 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                 </div>
               </div>
 
-              {/* Records List / Grid */}
               {(() => {
                 const filteredFiles = files.filter((f) => {
                   const matchesSearch = f.name.toLowerCase().includes(fileSearch.toLowerCase()) ||
@@ -3394,7 +3390,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
                 if (filteredFiles.length === 0) {
                   return (
-                    <div className="py-16 text-center border border-border/50 dark:border-white/[0.04] bg-muted/20 dark:bg-neutral-950/20 rounded-2xl flex flex-col items-center justify-center">
+                    <div className="py-16 text-center border border-border/50 dark:border-white/4 bg-muted/20 dark:bg-neutral-950/20 rounded-2xl flex flex-col items-center justify-center">
                       <Folder className="size-12 text-muted-foreground/60 mb-4 animate-pulse" />
                       <h3 className="font-bold text-lg text-foreground mb-1">Nenhum arquivo encontrado</h3>
                       <p className="text-sm text-muted-foreground mb-6 max-w-sm px-4">
@@ -4584,8 +4580,6 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               </div>
             </div>
 
-
-            {/* DYNAMIC EXERCISES BUILDER FOR EDITING */}
             <div className="space-y-3 pt-3 border-t border-border dark:border-neutral-900">
               <div className="flex items-center justify-between">
                 <span className="font-extrabold text-sm uppercase text-muted-foreground tracking-wider">Exercícios Cadastrados</span>
@@ -4606,7 +4600,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                   <span>Sem exercícios listados. Adicione algum exercício acima.</span>
                 </div>
               ) : (
-                <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                <div className="space-y-3 pr-1">
                   {editExercises.map((ex, idx) => (
                     <div
                       key={ex.exerciseId}
@@ -4836,7 +4830,6 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
         </DialogContent>
       </Dialog>
 
-      {/* ==================== DIALOG 3: SUB-EXERCISE PICKER ==================== */}
       <Dialog open={exerciseDialogOpen} onOpenChange={setExerciseDialogOpen}>
         <DialogContent className="max-w-md w-[95%] rounded-xl">
           <DialogHeader>
@@ -4928,8 +4921,8 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                             isAdded
                               ? "bg-muted/20 border-transparent opacity-60 cursor-not-allowed"
                               : isChecked
-                              ? "bg-primary/10 border-primary/50 text-primary"
-                              : "bg-transparent border-transparent hover:bg-secondary/40 text-foreground"
+                                ? "bg-primary/10 border-primary/50 text-primary"
+                                : "bg-transparent border-transparent hover:bg-secondary/40 text-foreground"
                           )}
                         >
                           <span className="font-medium">{exercise.name}</span>
@@ -5340,75 +5333,76 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
       {/* ==================== DIALOG 5: ADICIONAR FOTO DE EVOLUÇÃO ==================== */}
       <Dialog open={isPhotoModalOpen} onOpenChange={setIsPhotoModalOpen}>
-        <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-lg bg-popover border border-border text-foreground max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-lg bg-popover border border-border text-foreground max-h-[90vh] overflow-y-auto rounded-2xl shadow-2xl">
           <DialogHeader>
             <DialogTitle className="text-lg font-extrabold flex items-center gap-2 text-foreground">
               <Camera className="size-5 text-primary" /> Adicionar Foto de Evolução
             </DialogTitle>
-            <DialogDescription className="text-muted-foreground">
-              Preencha os dados ou clique em um dos presets de demonstração abaixo para preencher a URL e testar a linha do tempo instantaneamente.
+            <DialogDescription className="text-muted-foreground text-xs">
+              Selecione uma foto de evolução do seu computador para adicionar ao histórico visual de progresso do aluno.
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handlePhotoSubmit} className="space-y-4 pt-2">
-            {/* Grid de presets para simulação */}
-            <div className="space-y-2.5 p-3 bg-muted dark:bg-neutral-900/30 border border-border dark:border-neutral-900 rounded-xl">
-              <span className="text-[10px] font-bold text-primary uppercase tracking-widest flex items-center gap-1">
-                Presets de Teste Rápido (Unsplash)
-              </span>
-              <div className="grid grid-cols-4 gap-2.5">
-                {[
-                  { label: "Mês 1", url: "https://images.unsplash.com/photo-1517838277536-f5f99be501cd?q=80&w=400&auto=format&fit=crop" },
-                  { label: "Mês 2", url: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?q=80&w=400&auto=format&fit=crop" },
-                  { label: "Mês 3", url: "https://images.unsplash.com/photo-1594381898411-846e7d193883?q=80&w=400&auto=format&fit=crop" },
-                  { label: "Mês 4", url: "https://images.unsplash.com/photo-1518310383802-640c2de311b2?q=80&w=400&auto=format&fit=crop" }
-                ].map((preset, idx) => (
-                  <button
-                    key={idx}
-                    type="button"
-                    onClick={() => {
-                      setNewPhotoUrl(preset.url);
-                      setNewPhotoComment(`Evolução física do ${preset.label} — Excelente consistência!`);
-                      // Configurar data retroativa sequencial baseada no índice do preset
-                      const dateObj = new Date();
-                      dateObj.setMonth(dateObj.getMonth() - (3 - idx));
-                      setNewPhotoDate(dateObj.toISOString().split("T")[0]);
-                      toast.info(`Preset ${preset.label} carregado!`);
+            {/* File Upload / Drag-and-drop Dropzone */}
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold text-neutral-300">Arquivo de Imagem</Label>
+
+              {!newPhotoUrl ? (
+                <div className="flex flex-col items-center justify-center border-2 border-dashed border-border/80 dark:border-neutral-800 rounded-2xl p-6 bg-muted/20 dark:bg-neutral-900/10 hover:bg-muted/40 dark:hover:bg-neutral-900/20 transition-all relative group cursor-pointer min-h-[140px]">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (file) {
+                        if (file.size > 5 * 1024 * 1024) {
+                          toast.error("A imagem deve ter no máximo 5MB.");
+                          return;
+                        }
+                        const reader = new FileReader();
+                        reader.onloadend = () => {
+                          setNewPhotoUrl(reader.result as string);
+                          toast.success("Imagem carregada com sucesso!");
+                        };
+                        reader.readAsDataURL(file);
+                      }
                     }}
-                    className={cn(
-                      "group relative aspect-[3/4] rounded-lg overflow-hidden border transition-all hover:scale-105 active:scale-95",
-                      newPhotoUrl === preset.url ? "border-primary ring-2 ring-primary/20 scale-105 shadow-md shadow-primary/10" : "border-border dark:border-neutral-800"
-                    )}
-                  >
-                    <img
-                      src={preset.url}
-                      alt={preset.label}
-                      className="object-cover w-full h-full brightness-[0.6] group-hover:brightness-90 transition-all"
-                    />
-                    <div className="absolute inset-0 flex items-end justify-center pb-1">
-                      <span className="text-[9px] font-extrabold uppercase bg-card dark:bg-neutral-950/80 px-1.5 py-0.5 rounded leading-none text-foreground border border-border/50 dark:border-neutral-900/50">
-                        {preset.label}
-                      </span>
+                    className="absolute inset-0 opacity-0 cursor-pointer z-10"
+                  />
+                  <div className="flex flex-col items-center text-center space-y-2 pointer-events-none">
+                    <div className="size-10 rounded-xl bg-primary/10 text-primary flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Camera className="size-5" />
                     </div>
-                  </button>
-                ))}
-              </div>
+                    <div>
+                      <p className="text-xs font-bold text-foreground">Selecione uma imagem de evolução</p>
+                      <p className="text-[10px] text-muted-foreground mt-0.5">PNG, JPG ou JPEG de até 5MB</p>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="relative rounded-2xl overflow-hidden border border-border dark:border-neutral-800 bg-muted/40 dark:bg-neutral-900/25 p-3 flex flex-col items-center justify-center gap-3">
+                  <div className="relative aspect-[3/4] w-36 rounded-lg overflow-hidden border border-border dark:border-neutral-800 shadow-md">
+                    <img
+                      src={newPhotoUrl}
+                      alt="Preview da evolução"
+                      className="object-cover w-full h-full"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setNewPhotoUrl("")}
+                      className="absolute top-1.5 right-1.5 p-1 rounded-full bg-neutral-950/80 text-white hover:bg-red-500 transition-colors active:scale-90"
+                      title="Remover imagem"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  </div>
+                  <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Imagem Selecionada</span>
+                </div>
+              )}
             </div>
 
             <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="newPhotoUrl" className="text-xs font-semibold text-neutral-300">URL da Imagem</Label>
-                <Input
-                  id="newPhotoUrl"
-                  placeholder="https://images.unsplash.com/..."
-                  className="bg-popover border-border h-9 text-xs"
-                  value={newPhotoUrl}
-                  onChange={(e) => setNewPhotoUrl(e.target.value)}
-                  disabled={submittingPhoto}
-                  required
-                />
-              </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="space-y-1.5">
                   <Label htmlFor="newPhotoDate" className="text-xs font-semibold text-neutral-300">Data do Registro</Label>
@@ -5450,7 +5444,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               <Button
                 type="submit"
                 className="bg-primary text-neutral-950 hover:bg-primary/90 font-bold text-xs"
-                disabled={submittingPhoto}
+                disabled={submittingPhoto || !newPhotoUrl}
               >
                 {submittingPhoto ? (
                   <>
@@ -5472,7 +5466,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
           <AlertDialogHeader>
             <AlertDialogTitle className="text-lg font-bold text-foreground">Excluir Registro de Medidas?</AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground">
-              Você tem certeza que deseja remover esta avaliação registrada no dia <strong className="text-foreground font-semibold">{progressToDelete ? new Date(progressToDelete.date).toLocaleDateString("pt-BR") : ""}</strong>?
+              Você tem certeza que deseja remover esta avaliação registrada no dia <strong className="text-foreground font-semibold">{progressToDelete ? new Date(progressToDelete.date).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : ""}</strong>?
               Essa ação é irreversível e removerá permanentemente os valores do peso ({progressToDelete?.weight} kg) e circunferências associadas dos históricos e gráficos do aluno.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -5514,7 +5508,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
           <AlertDialogHeader>
             <AlertDialogTitle className="text-lg font-bold text-foreground">Remover Foto da Linha do Tempo?</AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground">
-              Tem certeza absoluta que deseja excluir a foto de evolução física enviada em <strong className="text-foreground font-semibold">{photoToDelete ? new Date(photoToDelete.date).toLocaleDateString("pt-BR") : ""}</strong>?
+              Tem certeza absoluta que deseja excluir a foto de evolução física enviada em <strong className="text-foreground font-semibold">{photoToDelete ? new Date(photoToDelete.date).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : ""}</strong>?
               Essa imagem será apagada permanentemente do banco de dados e sumirá da linha do tempo. Essa ação não poderá ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -5824,7 +5818,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               <ClipboardCheck className="size-5 text-yellow-600 dark:text-yellow-500" /> Ficha de Avaliação Física
             </DialogTitle>
             <DialogDescription className="text-muted-foreground text-xs flex flex-wrap gap-x-3 gap-y-1">
-              <span>Data: <strong className="text-white">{selectedEval ? new Date(selectedEval.date).toLocaleDateString("pt-BR") : ""}</strong></span>
+              <span>Data: <strong className="text-white">{selectedEval ? new Date(selectedEval.date).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : ""}</strong></span>
               <span className="text-zinc-600">|</span>
               <span>Método: <strong className="text-white">{selectedEval?.type}</strong></span>
             </DialogDescription>
@@ -5942,7 +5936,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               <AlertTriangle className="size-5 text-rose-500 shrink-0 animate-bounce" /> Excluir Registro de Avaliação Física?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground text-xs leading-relaxed">
-              Você tem certeza que deseja remover a avaliação física registrada no dia <strong className="text-white font-semibold">{evalToDelete ? new Date(evalToDelete.date).toLocaleDateString("pt-BR") : ""}</strong>?
+              Você tem certeza que deseja remover a avaliação física registrada no dia <strong className="text-white font-semibold">{evalToDelete ? new Date(evalToDelete.date).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : ""}</strong>?
               Esta ação é <span className="text-rose-600 dark:text-rose-600 dark:text-rose-400 font-semibold underline">totalmente irreversível</span> e removerá permanentemente os valores associados de peso ({evalToDelete?.weight} kg), percentual de gordura ({evalToDelete?.bodyFat}%) e todos os históricos e dados antropométricos.
             </AlertDialogDescription>
           </AlertDialogHeader>

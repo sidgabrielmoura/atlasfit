@@ -4,6 +4,8 @@ import { Separator } from "@/components/ui/separator";
 import { auth } from "@/auth";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
+import { PersonalMobileNavbar } from "@/components/application/personal-mobile-navbar";
+import { PersonalHeaderWorkspace } from "@/components/application/personal-header-workspace";
 
 export default async function PersonalLayout({
   children,
@@ -44,11 +46,17 @@ export default async function PersonalLayout({
     <SidebarProvider>
       <PersonalSidebar />
       <SidebarInset>
-        <header className="flex h-18 shrink-0 items-center gap-2 border-b px-4">
-          <SidebarTrigger className="px-4 mx-4" />
-          <Separator orientation="vertical" />
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>Personal Trainer</span>
+        <header className="flex h-18 shrink-0 items-center justify-between border-b px-4 w-full">
+          <div className="flex items-center gap-2 min-w-0">
+            <SidebarTrigger className="px-4 mx-4 hidden md:inline-flex" />
+            <Separator orientation="vertical" className="hidden md:block" />
+            <div className="flex items-center gap-3">
+              <div className="hidden md:flex items-center gap-2 text-sm text-muted-foreground mr-1">
+                <span>Personal Trainer</span>
+                <span className="text-muted-foreground/30">|</span>
+              </div>
+              <PersonalHeaderWorkspace />
+            </div>
           </div>
         </header>
 
@@ -69,9 +77,10 @@ export default async function PersonalLayout({
           </div>
         )}
 
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto pb-24 md:pb-6">
           {children}
         </div>
+        <PersonalMobileNavbar />
       </SidebarInset>
     </SidebarProvider>
   );

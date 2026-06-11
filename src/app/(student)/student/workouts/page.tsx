@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSnapshot } from "valtio";
 import { workspaceStore } from "@/stores/workspace.store";
@@ -137,6 +138,13 @@ export default function StudentWorkoutsPage() {
   // Active workout for the selected day of the week
   const selectedWorkout = workouts.find((w) => w.dayOfWeek === selectedDay);
 
+  const isCompletedToday = selectedWorkout
+    ? historyLogs.some((log) =>
+      log.workoutId === selectedWorkout.id &&
+      new Date(log.completedAt).toLocaleDateString("pt-BR") === new Date().toLocaleDateString("pt-BR")
+    )
+    : false;
+
   const currentExecExercise = activeExecutionWorkout?.exercises[currentExecExerciseIdx];
   const currentExecExerciseDone = currentExecExercise ? allWorkoutSetsDone[currentExecExercise.id] : null;
   const allSetsCompleted = currentExecExerciseDone ? currentExecExerciseDone.every((done: boolean) => done) : false;
@@ -183,6 +191,17 @@ export default function StudentWorkoutsPage() {
       toast.error("Este treino está suspenso no momento pelo seu personal trainer.");
       return;
     }
+
+    const isDoneToday = historyLogs.some((log) => {
+      return log.workoutId === workout.id &&
+        new Date(log.completedAt).toLocaleDateString("pt-BR") === new Date().toLocaleDateString("pt-BR");
+    });
+
+    if (isDoneToday) {
+      toast.error("Você já concluiu este treino hoje! Não é possível realizar o mesmo treino duas vezes no mesmo dia.");
+      return;
+    }
+
     setActiveExecutionWorkout(workout);
     setCurrentExecExerciseIdx(0);
     setTotalTimer(0);
@@ -213,6 +232,21 @@ export default function StudentWorkoutsPage() {
       setSetsDone(new Array(firstEx.sets).fill(false));
     }
   };
+
+  const searchParams = useSearchParams();
+  const startWorkoutId = searchParams.get("startWorkoutId");
+  const autoStartedRef = useRef(false);
+
+  useEffect(() => {
+    if (workouts.length > 0 && startWorkoutId && !autoStartedRef.current) {
+      const targetWorkout = workouts.find((w) => w.id === startWorkoutId);
+      if (targetWorkout) {
+        autoStartedRef.current = true;
+        setSelectedDay(targetWorkout.dayOfWeek ?? new Date().getDay());
+        handleStartWorkout(targetWorkout);
+      }
+    }
+  }, [workouts, startWorkoutId, historyLogs]);
 
   // Toggle set status
   const handleToggleSet = (idx: number, exercise: any) => {
@@ -329,7 +363,7 @@ export default function StudentWorkoutsPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-8 w-full mx-auto pb-24 animate-in fade-in duration-500">
+    <div className="p-4 md:p-6 lg:p-8 space-y-8 w-full mx-auto animate-in fade-in duration-500">
 
       {/* Top Banner Actions */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -403,6 +437,13 @@ export default function StudentWorkoutsPage() {
               const isSelected = selectedDay === idx;
               const isToday = new Date().getDay() === idx;
 
+              const isDayCompletedToday = dayWorkouts.some((w) =>
+                historyLogs.some((log) =>
+                  log.workoutId === w.id &&
+                  new Date(log.completedAt).toLocaleDateString("pt-BR") === new Date().toLocaleDateString("pt-BR")
+                )
+              );
+
               return (
                 <button
                   key={idx}
@@ -419,9 +460,12 @@ export default function StudentWorkoutsPage() {
                   </span>
                   {hasWorkout ? (
                     <Badge variant="secondary" className={cn(
-                      "text-[8px] font-black tracking-tighter px-1.5 py-0 border-none",
-                      isSelected ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary"
+                      "text-[8px] font-black tracking-tighter px-1.5 py-0 border-none flex items-center justify-center gap-0.5",
+                      isDayCompletedToday
+                        ? "bg-emerald-500/10 text-emerald-500"
+                        : (isSelected ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary")
                     )}>
+                      {isDayCompletedToday && <Check className="size-2 shrink-0" />}
                       {dayWorkouts[0].muscleGroupLabel?.split(" ")[0] || "TREINO"}
                     </Badge>
                   ) : (
@@ -468,6 +512,11 @@ export default function StudentWorkoutsPage() {
                         <Badge variant="secondary" className="bg-primary/10 text-primary border-none text-[9px] font-bold uppercase">
                           {selectedWorkout.goal}
                         </Badge>
+                        {isCompletedToday && (
+                          <Badge variant="outline" className="rounded-full px-2.5 py-0.5 text-[9px] font-extrabold uppercase gap-1.5 ring-1 bg-emerald-500/10 text-emerald-500 border-emerald-500/20 ring-emerald-500/10">
+                            <Check className="size-3 text-emerald-500 animate-bounce" /> Concluído Hoje
+                          </Badge>
+                        )}
                       </div>
                       <h2 className="text-xl md:text-2xl font-black tracking-tight">{selectedWorkout.name}</h2>
                       <p className="text-xs text-muted-foreground font-medium">
@@ -476,12 +525,21 @@ export default function StudentWorkoutsPage() {
                     </div>
 
                     {selectedWorkout.isActive && (
-                      <Button
-                        onClick={() => handleStartWorkout(selectedWorkout)}
-                        className="w-full sm:w-auto h-12 rounded-xl font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/10 gap-2 transition-all cursor-pointer active:scale-95 shrink-0"
-                      >
-                        <Play className="size-4.5 fill-current" /> INICIAR PLANILHA
-                      </Button>
+                      isCompletedToday ? (
+                        <Button
+                          disabled
+                          className="w-full sm:w-auto h-12 rounded-xl font-bold text-sm bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 gap-2 shrink-0 opacity-100 cursor-not-allowed"
+                        >
+                          <CheckCircle2 className="size-4.5 text-emerald-500" /> TREINO CONCLUÍDO HOJE
+                        </Button>
+                      ) : (
+                        <Button
+                          onClick={() => handleStartWorkout(selectedWorkout)}
+                          className="w-full sm:w-auto h-12 rounded-xl font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/10 gap-2 transition-all cursor-pointer active:scale-95 shrink-0"
+                        >
+                          <Play className="size-4.5 fill-current" /> INICIAR PLANILHA
+                        </Button>
+                      )
                     )}
                   </CardContent>
                 </Card>
@@ -1032,8 +1090,8 @@ function StudentWorkoutsSkeleton() {
       {/* Top Header */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-2">
-          <Skeleton className="h-8 w-60 bg-muted" />
-          <Skeleton className="h-4 w-96 bg-muted" />
+          <Skeleton className="h-8 w-60 max-w-full bg-muted" />
+          <Skeleton className="h-4 w-full max-w-md bg-muted" />
         </div>
         <Skeleton className="h-11 w-48 bg-muted rounded-xl" />
       </div>

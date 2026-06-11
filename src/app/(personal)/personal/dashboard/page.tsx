@@ -86,8 +86,8 @@ function DashboardSkeleton() {
     <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto animate-pulse">
       <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div className="space-y-2">
-          <div className="h-8 w-64 bg-muted rounded-lg" />
-          <div className="h-4 w-96 bg-muted rounded" />
+          <div className="h-8 w-64 max-w-full bg-muted rounded-lg" />
+          <div className="h-4 w-full max-w-md bg-muted rounded" />
         </div>
         <div className="h-8 w-32 bg-muted rounded-full" />
       </div>

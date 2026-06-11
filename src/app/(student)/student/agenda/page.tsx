@@ -293,12 +293,11 @@ export default function StudentAgendaPage() {
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-8 w-full mx-auto pb-24 animate-in fade-in duration-500">
-      {/* Top Banner Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/30 pb-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/30">
         <div className="space-y-1">
           <h1 className="text-2xl font-black tracking-tight text-foreground flex items-center gap-2">
             <CalendarDays className="size-6 text-primary animate-pulse" />
-            Minha Agenda & Compromissos
+            Minha Agenda
           </h1>
           <p className="text-sm text-neutral-400">
             Gerencie sua rotina semanal de treinos, check-ins, tarefas atribuídas e avaliações físicas.
@@ -306,9 +305,8 @@ export default function StudentAgendaPage() {
         </div>
       </div>
 
-      {/* Tabs Container */}
-      <Tabs defaultValue="agenda" className="space-y-6">
-        <TabsList className="bg-neutral-900/60 p-1 border border-neutral-800 rounded-xl flex overflow-x-auto whitespace-nowrap md:w-fit gap-1 w-full justify-start scrollbar-none">
+      <Tabs defaultValue="agenda" className="space-y-3">
+        <TabsList className="bg-neutral-900/60 p-1 border no-scrollbar border-neutral-800 rounded-xl flex overflow-x-auto whitespace-nowrap md:w-fit gap-1 w-full justify-start scrollbar-none">
           <TabsTrigger
             value="agenda"
             className="gap-2 font-semibold text-xs sm:text-sm py-2 px-4 rounded-lg shrink-0 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:font-bold"
@@ -931,8 +929,8 @@ function StudentAgendaSkeleton() {
     <div className="p-4 md:p-6 lg:p-8 space-y-8 w-full mx-auto animate-pulse">
       {/* Header Skeleton */}
       <div className="space-y-2 border-b border-white/[0.04] pb-4">
-        <Skeleton className="h-8 w-64 bg-neutral-900" />
-        <Skeleton className="h-4 w-96 bg-neutral-900" />
+        <Skeleton className="h-8 w-64 max-w-full bg-neutral-900" />
+        <Skeleton className="h-4 w-full max-w-md bg-neutral-900" />
       </div>
 
       {/* Tabs list Skeleton */}

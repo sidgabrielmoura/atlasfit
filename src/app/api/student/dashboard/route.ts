@@ -18,6 +18,7 @@ export async function GET(req: Request) {
       },
       include: {
         workspace: true,
+        user: true,
       },
     });
 
@@ -124,23 +125,41 @@ export async function GET(req: Request) {
       take: 5,
     });
 
-    // 7. Check if there are pending payments
-    const pendingPayments = await prisma.workspacePayment.findMany({
+    // 7. Check if there are pending or overdue payments
+    const studentName = member.user.name || session.user.name || "Aluno";
+    const studentPayments = await prisma.workspacePayment.findMany({
       where: {
         workspaceId,
-        studentName: session.user.name || "",
-        status: "pendente",
+        studentName,
       },
       orderBy: { createdAt: "desc" },
     });
+
+    const hasOverdue = studentPayments.some((p) => p.status === "atrasado");
+    const hasPending = studentPayments.some((p) => p.status === "pendente");
+    
+    let paymentStatus = "Em dia";
+    if (hasOverdue) {
+      paymentStatus = "Atrasado";
+    } else if (hasPending) {
+      paymentStatus = "Pendente";
+    }
+
+    const pendingPaymentAmount = studentPayments
+      .filter((p) => p.status === "pendente" || p.status === "atrasado")
+      .reduce((sum, p) => sum + p.amount, 0);
 
     // 8. Calculations and formatting
     const streak = member.streak || 0;
     const adherence = member.progress || 0; // standard progress value acts as adherence
 
-    // Determine current/next workout
-    const todayWorkout = workouts.find(w => w.dayOfWeek === currentDayOfWeek);
+    // Determine current/next workout and today's workouts
+    const todayWorkouts = workouts.filter(w => w.dayOfWeek === currentDayOfWeek);
+    const todayWorkout = todayWorkouts[0] || null;
     const nextWorkout = todayWorkout || workouts.find(w => w.dayOfWeek !== null && w.dayOfWeek > currentDayOfWeek) || workouts[0] || null;
+    const completedWorkoutIdsToday = workoutLogs
+      .filter(log => log.completedAt >= new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0) && log.completedAt <= new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999))
+      .map(log => log.workoutId);
 
     // Weight and body fat evolution chart data
     const weightHistory = progressHistory.map((ph) => ({
@@ -236,15 +255,18 @@ export async function GET(req: Request) {
       });
     }
 
-    // Today's workout checkin task
-    const completedWorkoutToday = workoutLogs.some(log => log.completedAt >= todayStart && log.completedAt <= todayEnd);
-    if (todayWorkout && !completedWorkoutToday) {
-      pendingTasks.push({
-        id: "task-workout",
-        title: `Realizar ${todayWorkout.name}`,
-        description: `${todayWorkout.muscleGroupLabel || "Foco do dia"} • Estimado: ${todayWorkout.duration}`,
-        icon: "Dumbbell",
-      });
+    // Today's workouts checkin tasks
+    for (const w of todayWorkouts) {
+      const isCompletedToday = completedWorkoutIdsToday.includes(w.id);
+      if (!isCompletedToday) {
+        pendingTasks.push({
+          id: `task-workout-${w.id}`,
+          title: `Realizar ${w.name}`,
+          description: `${w.muscleGroupLabel || "Foco do dia"} • Estimado: ${w.duration}`,
+          icon: "Dumbbell",
+          workoutId: w.id,
+        });
+      }
     }
 
     // Dynamic PRs (Recordes Pessoais) from WorkoutLog load history
@@ -344,10 +366,7 @@ export async function GET(req: Request) {
     // Sort all messages by date descending
     recentMessages.sort((a, b) => b.rawDate.getTime() - a.rawDate.getTime());
 
-    // Finance status
-    const activePlan = member.plan || "Mensal";
-    const paymentStatus = pendingPayments.length > 0 ? "Pendente" : "Em dia";
-    const pendingPaymentAmount = pendingPayments.reduce((sum, p) => sum + p.amount, 0);
+    // Finance status variables are already computed in step 7
 
     // Days frequency in the current week (from Monday to Sunday)
     const startOfWeek = new Date(now);
@@ -365,6 +384,7 @@ export async function GET(req: Request) {
         primaryColor: member.workspace.primaryColor,
         slogan: member.workspace.slogan,
       },
+      studentName: session.user.name || "Aluno",
       streak,
       bestStreak: member.bestStreak || 0,
       adherence,
@@ -379,13 +399,21 @@ export async function GET(req: Request) {
         duration: nextWorkout.duration,
         exercisesCount: nextWorkout.exercises.length,
       } : null,
+      todayWorkouts: todayWorkouts.map(w => ({
+        id: w.id,
+        name: w.name,
+        muscleGroupLabel: w.muscleGroupLabel || "Geral",
+        duration: w.duration,
+        exercisesCount: w.exercises.length,
+        isActive: w.isActive,
+        isCompletedToday: completedWorkoutIdsToday.includes(w.id),
+      })),
       weightHistory,
       prs,
       alerts,
       pendingTasks,
       recentMessages: recentMessages.slice(0, 3),
       finance: {
-        plan: activePlan,
         status: paymentStatus,
         pendingAmount: pendingPaymentAmount,
       },
@@ -394,6 +422,7 @@ export async function GET(req: Request) {
         name: w.name,
         dayOfWeek: w.dayOfWeek,
         muscleGroupLabel: w.muscleGroupLabel,
+        isCompletedToday: completedWorkoutIdsToday.includes(w.id),
       }))
     };
 
