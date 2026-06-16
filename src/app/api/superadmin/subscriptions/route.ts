@@ -22,6 +22,7 @@ export async function GET() {
     
     let formattedActivities: any[] = activities.map(act => ({
       ...act,
+      status: act.status.toLowerCase(),
       workspace: {
         name: act.user?.name || "Conta de Personal",
         logo: act.user?.name?.slice(0, 2).toUpperCase() || "CP"
@@ -40,6 +41,7 @@ export async function GET() {
       formattedActivities = subscriptions.map(sub => ({
         ...sub,
         id: sub.id,
+        status: sub.status.toLowerCase(),
         createdAt: sub.startDate, // Map for UI consistency
         type: "NEW_SUBSCRIPTION",
         workspace: {
@@ -99,7 +101,7 @@ export async function GET() {
           }
         } else {
           // Trial expired and no active paid subscription -> Delinquent
-          if (!sub || (sub.status !== "active" && sub.status !== "ACTIVE")) {
+          if (!sub || sub.status.toLowerCase() !== "active") {
             delinquentList.push({
               id: trainer.id,
               name: trainer.name || "Personal Trainer",
@@ -127,7 +129,7 @@ export async function GET() {
       }
       
       // 2.3 Segment Delinquent / Expired regular subscriptions
-      if (sub && (sub.status === "past_due" || sub.status === "PAST_DUE" || sub.status === "expired" || sub.status === "EXPIRED")) {
+      if (sub && ["past_due", "expired"].includes(sub.status.toLowerCase())) {
         delinquentList.push({
           id: trainer.id,
           name: trainer.name || "Personal Trainer",
@@ -160,6 +162,59 @@ export async function GET() {
       userEmail: tx.user?.email || "sem-email@atlasfit.com"
     }));
 
+    // Calculate average LTV = total approved revenue / unique paying users
+    const approvedTransactions = await prisma.transaction.findMany({
+      where: { status: { in: ["APPROVED", "approved"] } }
+    });
+    const totalApprovedRevenue = approvedTransactions.reduce((acc, t) => acc + t.amount, 0);
+    const uniqueUsersCount = new Set(approvedTransactions.map(t => t.userId)).size;
+    const avgLtv = uniqueUsersCount > 0 ? totalApprovedRevenue / uniqueUsersCount : 0;
+
+    // Calculate trial conversion rate
+    const totalTrials = await prisma.freeTrial.count();
+    const convertedTrials = await prisma.freeTrial.count({
+      where: {
+        user: {
+          subscription: {
+            status: { in: ["ACTIVE", "active", "CANCELED", "canceled", "past_due", "expired"] }
+          }
+        }
+      }
+    });
+    const trialConversionRate = totalTrials > 0 ? (convertedTrials / totalTrials) * 100 : 0;
+
+    // Calculate actual historical active subscriptions (last 6 months)
+    const now = new Date();
+    const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({
+        name: monthNames[d.getMonth()],
+        year: d.getFullYear(),
+        month: d.getMonth(),
+      });
+    }
+
+    const activeSubsHistory = [];
+    for (const m of months) {
+      const endOfMonth = new Date(m.year, m.month + 1, 0, 23, 59, 59, 999);
+      const total = await prisma.subscription.count({
+        where: {
+          startDate: { lte: endOfMonth },
+          OR: [
+            { endDate: null },
+            { endDate: { gt: endOfMonth } }
+          ],
+          status: { in: ["ACTIVE", "active"] }
+        }
+      });
+      activeSubsHistory.push({
+        month: m.name,
+        total
+      });
+    }
+
     return NextResponse.json({
       activities: formattedActivities,
       freeTrials: {
@@ -178,7 +233,10 @@ export async function GET() {
         count: impendingTrialList.length,
         list: impendingTrialList
       },
-      transactionsHistory: formattedTransactions
+      transactionsHistory: formattedTransactions,
+      activeSubsHistory,
+      avgLtv,
+      trialConversionRate
     });
 
   } catch (error) {

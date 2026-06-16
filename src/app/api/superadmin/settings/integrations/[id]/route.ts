@@ -47,6 +47,16 @@ export async function DELETE(
 
   try {
     const { id } = await params;
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: "DELETION",
+        entity: "INTEGRATION",
+        entityId: id,
+        severity: "warning"
+      }
+    });
+
     await prisma.systemIntegration.delete({
       where: { id },
     });

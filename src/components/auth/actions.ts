@@ -6,12 +6,25 @@ import prisma from "@/lib/prisma";
 import bcryptjs from "bcryptjs";
 import { redirect } from "next/navigation";
 
+import { headers } from "next/headers";
+import { rateLimit } from "@/lib/rate-limit";
+import crypto from "crypto";
+import { resend } from "@/lib/resend";
+import { getResetPasswordEmailHtml, getResetPasswordEmailText } from "@/lib/email-templates";
+
 export async function login(formData: {
   email: string;
   password: string;
   redirectTo: string;
 }) {
   try {
+    const ipHeaders = await headers();
+    const ip = ipHeaders.get("x-forwarded-for") || ipHeaders.get("x-real-ip") || "127.0.0.1";
+    const limiter = await rateLimit(`login:${ip}`, 5, 60000);
+
+    if (!limiter.success) {
+      return { error: "Muitas tentativas de login. Tente novamente mais tarde." };
+    }
     const user = await prisma.user.findUnique({
       where: { email: formData.email }
     });
@@ -43,7 +56,6 @@ export async function login(formData: {
           return { error: "Ocorreu um erro ao entrar. Tente novamente." };
       }
     }
-    // Re-throw redirect errors so Next.js handles navigation successfully
     throw error;
   }
 }
@@ -71,7 +83,7 @@ export async function setupPassword(token: string, passwordStr: string) {
       where: { id: user.id },
       data: {
         password: hashedPassword,
-        setupToken: null, // token becomes single-use
+        setupToken: null,
       }
     });
 
@@ -79,5 +91,135 @@ export async function setupPassword(token: string, passwordStr: string) {
   } catch (error) {
     console.error("Setup password error:", error);
     return { error: "Erro interno ao definir a senha. Tente novamente." };
+  }
+}
+
+export async function requestPasswordReset(email: string) {
+
+  if (!email || !email.includes("@")) {
+    return { error: "E-mail inválido." };
+  }
+
+  try {
+    const ipHeaders = await headers();
+    const ip = ipHeaders.get("x-forwarded-for") || ipHeaders.get("x-real-ip") || "127.0.0.1";
+
+    const ipLimiter = await rateLimit(`reset-request-ip:${ip}`, 5, 600000);
+    if (!ipLimiter.success) {
+      return { error: "Muitas solicitações a partir deste endereço IP. Tente novamente mais tarde." };
+    }
+
+    const normalizedEmail = email.trim().toLowerCase();
+    const emailLimiter = await rateLimit(`reset-request-email:${normalizedEmail}`, 3, 600000);
+    if (!emailLimiter.success) {
+      return { error: "Muitas solicitações para este e-mail. Aguarde alguns minutos antes de tentar novamente." };
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: normalizedEmail }
+    });
+    if (!user) {
+      return { success: true, message: "Se o e-mail estiver cadastrado, você receberá um link de recuperação." };
+    }
+
+    const deleted = await prisma.passwordResetToken.deleteMany({
+      where: { email: normalizedEmail }
+    });
+
+    const token = crypto.randomBytes(32).toString("hex");
+    const expires = new Date(Date.now() + 3600000);
+
+    await prisma.passwordResetToken.create({
+      data: {
+        email: normalizedEmail,
+        token,
+        expires
+      }
+    });
+    const host = ipHeaders.get("host") || "localhost:3000";
+    const protocol = host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https";
+    const resetLink = `${protocol}://${host}/auth/reset-password?token=${token}`;
+
+    const fromEmail = process.env.EMAIL_FROM || "AtlasFit <noreply@resend.dev>";
+
+    const { data, error } = await resend.emails.send({
+      from: fromEmail,
+      to: normalizedEmail,
+      subject: "Redefinição de Senha - AtlasFit",
+      html: getResetPasswordEmailHtml(resetLink),
+      text: getResetPasswordEmailText(resetLink),
+    });
+
+    if (error) {
+      throw new Error(`Resend email dispatch failed: ${error.message}`);
+    }
+
+    return { success: true, message: "Se o e-mail estiver cadastrado, você receberá um link de recuperação." };
+  } catch (error) {
+    return { error: "Ocorreu um erro interno ao enviar o link de redefinição." };
+  }
+}
+
+export async function resetPassword(token: string, passwordStr: string) {
+  if (!token) {
+    return { error: "Token inválido ou expirado." };
+  }
+  if (!passwordStr || passwordStr.length < 6) {
+    return { error: "A nova senha deve ter pelo menos 6 caracteres." };
+  }
+
+  try {
+    const ipHeaders = await headers();
+    const ip = ipHeaders.get("x-forwarded-for") || ipHeaders.get("x-real-ip") || "127.0.0.1";
+    const limiter = await rateLimit(`reset-execute-ip:${ip}`, 5, 600000);
+    if (!limiter.success) {
+      return { error: "Muitas tentativas de redefinição. Tente novamente mais tarde." };
+    }
+
+    const resetToken = await prisma.passwordResetToken.findUnique({
+      where: { token }
+    });
+
+    if (!resetToken || resetToken.expires < new Date()) {
+      return { error: "Token inválido, expirado ou já utilizado." };
+    }
+
+    const user = await prisma.user.findUnique({
+      where: { email: resetToken.email }
+    });
+
+    if (!user) {
+      return { error: "Usuário não encontrado." };
+    }
+
+    const hashedPassword = await bcryptjs.hash(passwordStr, 10);
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          password: hashedPassword,
+          setupToken: null
+        }
+      });
+
+      await tx.passwordResetToken.delete({
+        where: { id: resetToken.id }
+      });
+
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "PASSWORD_RESET",
+          entity: "USER",
+          entityId: user.id,
+          severity: "success",
+          ip
+        }
+      });
+    });
+
+    return { success: true, role: user.role };
+  } catch (error) {
+    return { error: "Erro interno ao redefinir a senha. Tente novamente." };
   }
 }

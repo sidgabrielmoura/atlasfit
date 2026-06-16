@@ -1,14 +1,33 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import bcryptjs from "bcryptjs";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
+  const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "127.0.0.1";
+  const limiter = await rateLimit(`capture:${ip}`, 5, 60000);
+
+  if (!limiter.success) {
+    return new NextResponse("Muitas requisições. Tente novamente mais tarde.", {
+      status: 429,
+      headers: {
+        "X-RateLimit-Limit": String(limiter.limit),
+        "X-RateLimit-Remaining": String(limiter.remaining),
+        "X-RateLimit-Reset": String(limiter.reset),
+      },
+    });
+  }
+
   try {
     const body = await req.json();
     const { workspaceSlug, name, email, whatsapp, plan } = body;
 
     if (!workspaceSlug || !name || !email || !plan) {
       return new NextResponse("Campos obrigatórios ausentes.", { status: 400 });
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return new NextResponse("Formato de e-mail inválido.", { status: 400 });
     }
 
     // 1. Find the workspace

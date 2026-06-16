@@ -27,6 +27,16 @@ export async function DELETE(
       return new NextResponse("File not found", { status: 404 });
     }
 
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: "DELETION",
+        entity: "FILE",
+        entityId: id,
+        severity: "warning"
+      }
+    });
+
     await prisma.studentFile.delete({
       where: { id }
     });

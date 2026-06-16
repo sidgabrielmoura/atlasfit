@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
-import { calculateStreaks } from "@/lib/streak-helper";
+import { calculateStreaks, verifyAndDecayWorkspaceMemberStreak } from "@/lib/streak-helper";
 
 function getYearAndMonthInSP(date: Date) {
   const formatter = new Intl.DateTimeFormat("en-US", {
@@ -135,6 +135,11 @@ export async function GET(req: Request) {
       totalVolumeMonth,
     });
 
+    const { streak: activeStreak, bestStreak: activeBestStreak } = await verifyAndDecayWorkspaceMemberStreak(
+      member,
+      logs.map((l: any) => l.completedAt)
+    );
+
     return NextResponse.json({
       logs,
       stats: {
@@ -143,8 +148,8 @@ export async function GET(req: Request) {
         monthlyTarget,
         totalHoursMonth,
         totalVolumeMonth,
-        streak: member.streak || 0,
-        bestStreak: member.bestStreak || 0,
+        streak: activeStreak,
+        bestStreak: activeBestStreak,
         progress: member.progress || 0,
       },
     });

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { verifyAndDecayWorkspaceMemberStreak } from "@/lib/streak-helper";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -150,7 +151,10 @@ export async function GET(req: Request) {
       .reduce((sum, p) => sum + p.amount, 0);
 
     // 8. Calculations and formatting
-    const streak = member.streak || 0;
+    const { streak, bestStreak: calculatedBestStreak } = await verifyAndDecayWorkspaceMemberStreak(
+      member,
+      workoutLogs.map((log) => log.completedAt)
+    );
     const adherence = member.progress || 0; // standard progress value acts as adherence
 
     // Determine current/next workout and today's workouts
@@ -386,7 +390,7 @@ export async function GET(req: Request) {
       },
       studentName: session.user.name || "Aluno",
       streak,
-      bestStreak: member.bestStreak || 0,
+      bestStreak: calculatedBestStreak || 0,
       adherence,
       weeklyFrequency,
       currentWeight,

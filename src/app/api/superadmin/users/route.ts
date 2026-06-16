@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
 import bcryptjs from "bcryptjs";
+import { logSystemError } from "@/lib/logger";
 
 export async function GET() {
   const session = await auth();
@@ -21,8 +22,15 @@ export async function GET() {
       },
       orderBy: { createdAt: "desc" }
     });
-    return NextResponse.json(users);
+
+    const sanitizedUsers = users.map((u) => {
+      const { password, ...userWithoutPassword } = u;
+      return userWithoutPassword;
+    });
+
+    return NextResponse.json(sanitizedUsers);
   } catch (error) {
+    await logSystemError({ action: "GET_USERS", error, entity: "USER" });
     return new NextResponse("Internal Error", { status: 500 });
   }
 }
@@ -66,6 +74,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(userWithoutPassword, { status: 201 });
   } catch (error) {
+    await logSystemError({ action: "POST_USER_CREATE", error, entity: "USER" });
     return new NextResponse("Internal Error", { status: 500 });
   }
 }

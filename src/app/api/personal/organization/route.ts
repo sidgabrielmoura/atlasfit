@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { batchVerifyAndDecayStreaks } from "@/lib/streak-helper";
 
 export async function GET(req: Request) {
   try {
@@ -26,6 +27,9 @@ export async function GET(req: Request) {
     if (!memberCheck) {
       return new NextResponse("Acesso negado a este workspace.", { status: 403 });
     }
+
+    // Verify and decay streaks in batch before loading dashboard stats
+    await batchVerifyAndDecayStreaks(workspaceId);
 
     const pendingStudents = await prisma.pendingStudent.findMany({
       where: { workspaceId },

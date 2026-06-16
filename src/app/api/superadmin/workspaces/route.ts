@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
+import { logSystemError } from "@/lib/logger";
 
 export async function GET() {
   const session = await auth();
@@ -52,7 +53,7 @@ export async function GET() {
 
     return NextResponse.json(formattedWorkspaces);
   } catch (error) {
-    console.error("GET_WORKSPACES_ERROR", error);
+    await logSystemError({ action: "GET_WORKSPACES", error, entity: "WORKSPACE" });
     return new NextResponse("Internal Error", { status: 500 });
   }
 }
@@ -97,12 +98,22 @@ export async function POST(req: Request) {
         }
       });
 
+      await tx.auditLog.create({
+        data: {
+          userId: session.user.id,
+          action: "WORKSPACE_UPDATE",
+          entity: "WORKSPACE",
+          entityId: workspace.id,
+          severity: "success"
+        }
+      });
+
       return workspace;
     });
 
     return NextResponse.json(newWorkspace, { status: 201 });
   } catch (error) {
-    console.error("CREATE_WORKSPACE_ERROR", error);
+    await logSystemError({ action: "POST_WORKSPACE_CREATE", error, entity: "WORKSPACE" });
     return new NextResponse("Internal Error", { status: 500 });
   }
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
 import crypto from "crypto";
+import { logSystemError } from "@/lib/logger";
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -38,7 +39,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ token, email: adminUser.email }, { status: 200 });
   } catch (error) {
-    console.error("UNIMPERSONATE_ERROR", error);
+    await logSystemError({ action: "POST_UNIMPERSONATE", error, entity: "IMPERSONATION" });
     return new NextResponse("Internal Error", { status: 500 });
   }
 }

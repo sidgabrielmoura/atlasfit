@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { logSystemError } from "@/lib/logger";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -52,7 +53,7 @@ export async function PATCH(req: Request, { params }: RouteParams) {
 
     return NextResponse.json(updatedPayment);
   } catch (error) {
-    console.error("PATCH manual payment error:", error);
+    await logSystemError({ action: "PATCH_MANUAL_PAYMENT", error, entity: "PAYMENT", entityId: id });
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }
 }
@@ -94,7 +95,7 @@ export async function DELETE(req: Request, { params }: RouteParams) {
 
     return new NextResponse("Pagamento excluído com sucesso.", { status: 200 });
   } catch (error) {
-    console.error("DELETE manual payment error:", error);
+    await logSystemError({ action: "DELETE_MANUAL_PAYMENT", error, entity: "PAYMENT", entityId: id });
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }
 }

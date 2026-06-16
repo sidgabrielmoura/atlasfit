@@ -956,7 +956,7 @@ export default function StudentEvolutionPage() {
                     initial={{ opacity: 0, y: 50 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 50 }}
-                    className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 bg-popover/95 dark:bg-neutral-900/95 backdrop-blur-xl border border-border dark:border-white/8 p-3 sm:p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-6 shadow-2xl shadow-black/80 max-w-lg w-[calc(100%-2rem)]"
+                    className="fixed bottom-15 left-1/2 -translate-x-1/2 z-40 bg-popover/95 dark:bg-neutral-900/95 backdrop-blur-xl border border-border dark:border-white/8 p-3 sm:p-4 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-6 shadow-2xl shadow-black/80 max-w-lg w-[calc(100%-2rem)]"
                   >
                     <div className="space-y-0.5 text-center sm:text-left w-full sm:w-auto">
                       <h4 className="text-xs sm:text-sm font-black text-foreground flex items-center justify-center sm:justify-start gap-1.5">

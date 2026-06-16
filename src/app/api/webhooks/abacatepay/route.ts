@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
-import { AbacatePay } from "@abacatepay/sdk";
+import { AbacatePay } from "@/lib/abacatepay";
+import { logSystemError } from "@/lib/logger";
 
 export async function POST(req: Request) {
   const signature = req.headers.get("x-webhook-signature");
@@ -12,11 +13,15 @@ export async function POST(req: Request) {
 
   // Validação de assinatura criptográfica HMAC
   if (webhookSecret && webhookSecret !== "whsec_placeholder" && apiKey && apiKey !== "abc_dev_placeholder") {
+    if (!signature) {
+      return new NextResponse("Assinatura ausente.", { status: 401 });
+    }
     try {
       const abacate = AbacatePay({ secret: apiKey });
-      eventPayload = abacate.webhooks.verify(rawBody, signature!);
+      eventPayload = abacate.webhooks.verify(rawBody, signature);
     } catch (err: any) {
       console.error("Webhook signature verification failed:", err);
+      await logSystemError({ action: "WEBHOOK_SIGNATURE_VERIFICATION", error: err, entity: "WEBHOOK" });
       return new NextResponse("Assinatura inválida.", { status: 401 });
     }
   } else {
@@ -26,6 +31,7 @@ export async function POST(req: Request) {
       console.log("Desenvolvimento - Webhook recebido sem verificação de assinatura:", eventPayload);
     } catch (err: any) {
       console.error("Erro ao converter corpo do webhook em desenvolvimento:", err);
+      await logSystemError({ action: "WEBHOOK_PAYLOAD_PARSE", error: err, entity: "WEBHOOK" });
       return new NextResponse("Payload inválido.", { status: 400 });
     }
   }
@@ -40,6 +46,34 @@ export async function POST(req: Request) {
       console.error("Webhook recebido com metadados ou ID de transação ausentes.");
       return new NextResponse("Dados insuficientes no payload.", { status: 400 });
     }
+
+    // Identificar cupons aplicados no webhook de checkout / cobrança
+    let usedCoupons: string[] = [];
+    if (Array.isArray(data.coupons)) {
+      usedCoupons = data.coupons.map((c: any) => typeof c === "string" ? c : c?.code).filter(Boolean);
+    }
+    if (usedCoupons.length === 0 && data.billing && Array.isArray(data.billing.coupons)) {
+      usedCoupons = data.billing.coupons.map((c: any) => typeof c === "string" ? c : c?.code).filter(Boolean);
+    }
+    if (usedCoupons.length === 0 && data.metadata?.coupons) {
+      const metaCoupons = data.metadata.coupons;
+      if (typeof metaCoupons === "string") {
+        try {
+          const parsed = JSON.parse(metaCoupons);
+          if (Array.isArray(parsed)) {
+            usedCoupons = parsed.map((c: any) => typeof c === "string" ? c : c?.code).filter(Boolean);
+          } else {
+            usedCoupons = [metaCoupons];
+          }
+        } catch {
+          usedCoupons = metaCoupons.split(",").map((c: string) => c.trim()).filter(Boolean);
+        }
+      } else if (Array.isArray(metaCoupons)) {
+        usedCoupons = metaCoupons.map((c: any) => typeof c === "string" ? c : c?.code).filter(Boolean);
+      }
+    }
+
+    const deactivatedCoupons: string[] = [];
 
     try {
       await prisma.$transaction(async (tx) => {
@@ -108,12 +142,88 @@ export async function POST(req: Request) {
           }
         });
 
+        await tx.auditLog.create({
+          data: {
+            userId,
+            action: "PAYMENT",
+            entity: "TRANSACTION",
+            entityId: transactionId,
+            severity: "success",
+            ip: "AbacatePay Webhook"
+          }
+        });
+
+        if (!isPreSub) {
+          await tx.auditLog.create({
+            data: {
+              userId,
+              action: "PLAN_CHANGE",
+              entity: "SUBSCRIPTION",
+              entityId: planId,
+              severity: "success",
+              ip: "AbacatePay Webhook Upgrade"
+            }
+          });
+        }
+
+        // Contabilizar uso dos cupons
+        for (const couponCode of usedCoupons) {
+          const coupon = await tx.coupon.findUnique({
+            where: { code: couponCode.toUpperCase() }
+          });
+
+          if (coupon && coupon.isActive) {
+            const newUsedCount = coupon.usedCount + 1;
+            const shouldDeactivate = coupon.maxUses !== null && newUsedCount >= coupon.maxUses;
+
+            await tx.coupon.update({
+              where: { id: coupon.id },
+              data: {
+                usedCount: newUsedCount,
+                isActive: shouldDeactivate ? false : coupon.isActive
+              }
+            });
+
+            console.log(`Cupom ${coupon.code} usado: ${newUsedCount}/${coupon.maxUses ?? 'ilimitado'}`);
+
+            if (shouldDeactivate) {
+              deactivatedCoupons.push(coupon.code);
+            }
+          }
+        }
+
         console.log(`Assinatura ativada com sucesso para o usuário ${userId} no plano ${planId} (Pré-assinatura: ${isPreSub})`);
       });
+
+      // Desativar cupons no AbacatePay fora da transação de forma assíncrona
+      if (deactivatedCoupons.length > 0 && apiKey && apiKey !== "abc_dev_placeholder") {
+        try {
+          const abacate = AbacatePay({ secret: apiKey });
+          for (const code of deactivatedCoupons) {
+            try {
+              const existing = await abacate.coupons.get(code);
+              if (existing) {
+                const abacateActive = existing.status === "ACTIVE" || existing.status === "active";
+                if (abacateActive) {
+                  await abacate.coupons.toggleStatus(existing.id);
+                  console.log(`Cupom ${code} atingiu limite máximo de usos e foi desabilitado no AbacatePay.`);
+                }
+              }
+            } catch (err: any) {
+              console.error(`Erro ao obter/desativar cupom ${code} no AbacatePay:`, err.message);
+              await logSystemError({ action: "WEBHOOK_DEACTIVATE_COUPON_GET_ABACATEPAY", error: err, entity: "WEBHOOK" });
+            }
+          }
+        } catch (abacateError) {
+          console.error("Erro ao desativar cupons no AbacatePay via Webhook:", abacateError);
+          await logSystemError({ action: "WEBHOOK_DEACTIVATE_COUPONS_ABACATEPAY", error: abacateError, entity: "WEBHOOK" });
+        }
+      }
 
       return NextResponse.json({ success: true });
     } catch (error: any) {
       console.error("Erro ao processar ativação de assinatura via Webhook:", error);
+      await logSystemError({ action: "WEBHOOK_BILLING_PAID_PROCESS", error, entity: "WEBHOOK" });
       return new NextResponse("Erro ao processar ativação.", { status: 500 });
     }
   } else if (
@@ -175,6 +285,7 @@ export async function POST(req: Request) {
         console.log(`Webhook - Assinatura do usuário ${userId} marcada como vencida/atrasada devido a falha de cobrança.`);
       } catch (error: any) {
         console.error("Erro ao processar falha de cobrança via Webhook:", error);
+        await logSystemError({ action: "WEBHOOK_BILLING_FAILED_PROCESS", error, entity: "WEBHOOK", userId: userId || null });
         return new NextResponse("Erro ao processar falha de cobrança.", { status: 500 });
       }
     }

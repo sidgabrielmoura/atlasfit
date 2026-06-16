@@ -26,6 +26,8 @@ export async function GET(req: Request) {
         birthDate: true,
         experienceLevel: true,
         medicalConditions: true,
+        weight: true,
+        height: true,
       },
     });
 
@@ -46,8 +48,8 @@ export async function GET(req: Request) {
 
     // 3. Fetch latest physical progress metrics
     let physicalData = {
-      weight: null as number | null,
-      height: null as number | null,
+      weight: user.weight,
+      height: user.height,
       bodyFat: null as number | null,
       muscleMass: null as number | null,
     };
@@ -67,12 +69,15 @@ export async function GET(req: Request) {
       });
 
       if (latestProgress) {
-        physicalData = {
-          weight: latestProgress.weight,
-          height: latestProgress.height,
-          bodyFat: latestProgress.bodyFat,
-          muscleMass: latestProgress.muscleMass,
-        };
+        physicalData.bodyFat = latestProgress.bodyFat;
+        physicalData.muscleMass = latestProgress.muscleMass;
+        // Fallback to latestProgress if User doesn't have weight/height registered yet
+        if (physicalData.weight === null || physicalData.weight === undefined) {
+          physicalData.weight = latestProgress.weight;
+        }
+        if (physicalData.height === null || physicalData.height === undefined) {
+          physicalData.height = latestProgress.height;
+        }
       }
     }
 
@@ -165,18 +170,6 @@ export async function PATCH(req: Request) {
 
     // 3. Action: save physical metrics
     if (action === "updatePhysical") {
-      const member = await prisma.workspaceMember.findFirst({
-        where: {
-          userId: session.user.id,
-          role: "STUDENT",
-          isActive: true,
-        },
-      });
-
-      if (!member) {
-        return new NextResponse("Membro do workspace ativo não encontrado para registrar dados físicos.", { status: 400 });
-      }
-
       const parsedWeight = weight ? parseFloat(weight) : null;
       const parsedHeight = height ? parseFloat(height) : null;
       const parsedBF = bodyFat ? parseFloat(bodyFat) : null;
@@ -186,48 +179,68 @@ export async function PATCH(req: Request) {
         return new NextResponse("O peso corporal é obrigatório para registrar os dados físicos.", { status: 400 });
       }
 
-      // Check if a progress entry was already registered today to avoid duplicate layout clutter
-      const todayStart = new Date();
-      todayStart.setHours(0, 0, 0, 0);
-      const todayEnd = new Date();
-      todayEnd.setHours(23, 59, 59, 999);
-
-      const existingToday = await prisma.studentProgress.findFirst({
-        where: {
-          studentId: session.user.id,
-          workspaceId: member.workspaceId,
-          date: {
-            gte: todayStart,
-            lte: todayEnd,
-          },
+      // 3.1. Save weight and height directly on the User model (global settings)
+      await prisma.user.update({
+        where: { id: session.user.id },
+        data: {
+          weight: parsedWeight,
+          height: parsedHeight,
         },
       });
 
-      let progressRecord;
-      if (existingToday) {
-        // Update today's existing record
-        progressRecord = await prisma.studentProgress.update({
-          where: { id: existingToday.id },
-          data: {
-            weight: parsedWeight,
-            height: parsedHeight,
-            bodyFat: parsedBF,
-            muscleMass: parsedMuscle,
-          },
-        });
-      } else {
-        // Create new progress record
-        progressRecord = await prisma.studentProgress.create({
-          data: {
+      // 3.2. Save to StudentProgress for active workspace if member exists
+      const member = await prisma.workspaceMember.findFirst({
+        where: {
+          userId: session.user.id,
+          role: "STUDENT",
+          isActive: true,
+        },
+      });
+
+      let progressRecord = null;
+      if (member) {
+        // Check if a progress entry was already registered today to avoid duplicate layout clutter
+        const todayStart = new Date();
+        todayStart.setHours(0, 0, 0, 0);
+        const todayEnd = new Date();
+        todayEnd.setHours(23, 59, 59, 999);
+
+        const existingToday = await prisma.studentProgress.findFirst({
+          where: {
             studentId: session.user.id,
             workspaceId: member.workspaceId,
-            weight: parsedWeight,
-            height: parsedHeight,
-            bodyFat: parsedBF,
-            muscleMass: parsedMuscle,
-            date: new Date(),
+            date: {
+              gte: todayStart,
+              lte: todayEnd,
+            },
           },
         });
+
+        if (existingToday) {
+          // Update today's existing record
+          progressRecord = await prisma.studentProgress.update({
+            where: { id: existingToday.id },
+            data: {
+              weight: parsedWeight,
+              height: parsedHeight,
+              bodyFat: parsedBF,
+              muscleMass: parsedMuscle,
+            },
+          });
+        } else {
+          // Create new progress record
+          progressRecord = await prisma.studentProgress.create({
+            data: {
+              studentId: session.user.id,
+              workspaceId: member.workspaceId,
+              weight: parsedWeight,
+              height: parsedHeight,
+              bodyFat: parsedBF,
+              muscleMass: parsedMuscle,
+              date: new Date(),
+            },
+          });
+        }
       }
 
       return NextResponse.json({ success: true, progress: progressRecord });

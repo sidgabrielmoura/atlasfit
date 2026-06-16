@@ -26,9 +26,20 @@ import {
   RefreshCw,
   AlertTriangle,
   Send,
-  MessageSquare
+  MessageSquare,
+  Trash2
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -40,6 +51,50 @@ import { ExerciseThumbnail, ExercisePreviewModal } from "@/components/applicatio
 import { useSearchParams } from "next/navigation";
 import { useSnapshot } from "valtio";
 import { superAdminStore, superAdminActions } from "@/stores/superadmin.store";
+import {
+  Pagination as ShadcnPagination,
+  PaginationContent,
+  PaginationEllipsis,
+  PaginationItem,
+  PaginationLink,
+  PaginationNext,
+  PaginationPrevious,
+} from "@/components/ui/pagination";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+} from "@/components/ui/sheet";
+
+const generatePages = (currentPage: number, totalPages: number) => {
+  const pages: (number | string)[] = [];
+  const maxVisible = 5;
+
+  if (totalPages <= maxVisible) {
+    for (let i = 1; i <= totalPages; i++) pages.push(i);
+  } else {
+    pages.push(1);
+    if (currentPage > 3) {
+      pages.push("ellipsis-1");
+    }
+
+    const start = Math.max(2, currentPage - 1);
+    const end = Math.min(totalPages - 1, currentPage + 1);
+
+    for (let i = start; i <= end; i++) {
+      pages.push(i);
+    }
+
+    if (currentPage < totalPages - 2) {
+      pages.push("ellipsis-2");
+    }
+    pages.push(totalPages);
+  }
+
+  return pages;
+};
 
 function ExercisesContent() {
   const snap = useSnapshot(superAdminStore);
@@ -52,6 +107,8 @@ function ExercisesContent() {
   const [processingId, setProcessingId] = useState<string | null>(null);
   const [previewExercise, setPreviewExercise] = useState<any>(null);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [exerciseToDelete, setExerciseToDelete] = useState<any>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [searchPending, setSearchPending] = useState(initialSearch);
   const [searchConfig, setSearchConfig] = useState(initialSearch);
@@ -72,6 +129,75 @@ function ExercisesContent() {
   const [replyText, setReplyText] = useState("");
   const [sendingReply, setSendingReply] = useState(false);
   const [resolvingRequest, setResolvingRequest] = useState(false);
+  const [isAllResolvedOpen, setIsAllResolvedOpen] = useState(false);
+
+  const getRemainingTime = (updatedAt: string) => {
+    const now = new Date();
+    const resolvedDate = new Date(updatedAt);
+    const diffTime = now.getTime() - resolvedDate.getTime();
+    const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+    const remaining = Math.max(0, 7 - diffDays);
+
+    let badgeColor = "text-emerald-500 bg-emerald-500/10 border-emerald-500/20";
+    if (diffDays > 3 && diffDays <= 5) {
+      badgeColor = "text-amber-500 bg-amber-500/10 border-amber-500/20";
+    } else if (diffDays > 5) {
+      badgeColor = "text-rose-500 bg-rose-500/10 border-rose-500/20";
+    }
+
+    return {
+      remaining,
+      badgeColor
+    };
+  };
+
+  const renderAdjustmentCard = (request: any, isResolved: boolean) => {
+    const unreadMessagesCount = request.messages.filter(
+      (m: any) => m.senderId !== null && m.sender?.role !== "SUPERADMIN" && !m.isReadByAdmin
+    ).length;
+
+    const timeInfo = isResolved ? getRemainingTime(request.updatedAt) : null;
+
+    return (
+      <Card
+        key={request.id}
+        className={cn(
+          "border-border/40 p-0 hover:border-primary/45 bg-card/40 hover:bg-card/75 transition-all cursor-pointer relative group rounded-xl",
+          unreadMessagesCount > 0 && "border-rose-500/30 bg-rose-500/5 hover:bg-rose-500/10"
+        )}
+        onClick={() => handleOpenReplyModal(request)}
+      >
+        <CardContent className="p-3.5 space-y-2">
+          <div className="flex justify-between items-start gap-2">
+            <div className="space-y-0.5 min-w-0">
+              <h4 className="text-xs sm:text-sm font-bold tracking-tight text-foreground truncate">
+                {request.exercise?.name || "Exercício"}
+              </h4>
+              <p className="text-[10px] text-muted-foreground font-semibold">
+                De: {request.requester?.name || "Trainer"} • {new Date(request.createdAt).toLocaleDateString()}
+              </p>
+            </div>
+            <div className="flex items-center gap-1.5 shrink-0">
+              {unreadMessagesCount > 0 && (
+                <span className="flex h-4 px-1.5 items-center justify-center rounded-full bg-rose-500 text-[9px] font-black text-white shrink-0">
+                  {unreadMessagesCount}
+                </span>
+              )}
+              {isResolved && timeInfo && (
+                <span className={cn("text-[9px] px-2 py-0.5 rounded-md font-bold border shrink-0", timeInfo.badgeColor)}>
+                  {timeInfo.remaining}d restante{timeInfo.remaining !== 1 && "s"}
+                </span>
+              )}
+            </div>
+          </div>
+
+          <p className="text-xs text-muted-foreground leading-snug line-clamp-2">
+            {request.description}
+          </p>
+        </CardContent>
+      </Card>
+    );
+  };
 
   const fetchAdjustments = async () => {
     setLoadingAdjustments(true);
@@ -119,11 +245,26 @@ function ExercisesContent() {
     }
   };
 
+  const [selectedMuscleGroup, setSelectedMuscleGroup] = useState<string>("all");
+
   useEffect(() => {
     superAdminActions.fetchExercises();
+    superAdminActions.fetchPendingExercises();
+    superAdminActions.fetchNeedsConfigExercises();
     superAdminActions.fetchMuscleGroups();
     fetchAdjustments();
   }, []);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      superAdminActions.setExerciseFilters({
+        search: searchOfficial,
+        muscleGroupId: selectedMuscleGroup,
+        page: 1
+      });
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [searchOfficial, selectedMuscleGroup]);
 
   // Efeito secundário para atualização do chat ativo
   useEffect(() => {
@@ -255,14 +396,25 @@ function ExercisesContent() {
     }
   };
 
-  const pendingExercisesRaw = (snap.exercises || []).filter((ex: any) => ex.status === "PENDING");
-  const needsConfigExercisesRaw = (snap.exercises || []).filter((ex: any) => ex.status === "NEEDS_CONFIG");
-  const officialExercisesRaw = (snap.exercises || []).filter((ex: any) => 
-    (ex.status === "READY" || ex.status === "APPROVED" || ex.isOfficial) && 
-    ex.status !== "PENDING" && 
-    ex.status !== "NEEDS_CONFIG" && 
-    ex.status !== "REJECTED"
-  );
+  const handleDeleteExercise = async () => {
+    if (!exerciseToDelete) return;
+    setIsDeleting(true);
+    try {
+      await superAdminActions.deleteExercise(exerciseToDelete.id);
+      toast.success("Exercício excluído com sucesso!");
+      setExerciseToDelete(null);
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "Erro ao excluir o exercício.");
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
+  const pendingExercisesRaw = snap.pendingExercises || [];
+  const needsConfigExercisesRaw = snap.needsConfigExercises || [];
+  const officialExercisesRaw = snap.exercises || [];
+  const officialExercises = snap.exercises || [];
 
   const pendingExercises = pendingExercisesRaw.filter((ex: any) =>
     ex.name.toLowerCase().includes(searchPending.toLowerCase()) ||
@@ -271,10 +423,6 @@ function ExercisesContent() {
   const needsConfigExercises = needsConfigExercisesRaw.filter((ex: any) =>
     ex.name.toLowerCase().includes(searchConfig.toLowerCase()) ||
     (ex.muscleGroup?.name && ex.muscleGroup.name.toLowerCase().includes(searchConfig.toLowerCase()))
-  );
-  const officialExercises = officialExercisesRaw.filter((ex: any) =>
-    ex.name.toLowerCase().includes(searchOfficial.toLowerCase()) ||
-    (ex.muscleGroup?.name && ex.muscleGroup.name.toLowerCase().includes(searchOfficial.toLowerCase()))
   );
 
   return (
@@ -320,7 +468,7 @@ function ExercisesContent() {
                   <CardContent className="p-4 md:p-6 space-y-2">
                     <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Uso Global Acumulado</p>
                     <p className="text-xl md:text-2xl font-black text-emerald-600">
-                      {officialExercisesRaw.reduce((acc: number, ex: any) => acc + (ex.usage || 0), 0)}
+                      {snap.exercisePagination.totalUsage}
                     </p>
                   </CardContent>
                 </Card>
@@ -335,7 +483,7 @@ function ExercisesContent() {
                   </div>
                   <h2 className="text-xl font-bold tracking-tight leading-none">Exercícios Oficiais</h2>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   <div className="relative flex-1 sm:flex-none">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
                     <Input
@@ -345,13 +493,26 @@ function ExercisesContent() {
                       className="pl-9 h-9 w-full sm:w-52 md:w-64 rounded-xl border-border/40 bg-secondary/20 text-xs font-medium"
                     />
                   </div>
-                  <Button variant="outline" size="icon" className="size-9 rounded-xl border-border/40 shrink-0">
-                    <Filter className="size-4" />
-                  </Button>
+                  <Select
+                    value={selectedMuscleGroup}
+                    onValueChange={setSelectedMuscleGroup}
+                  >
+                    <SelectTrigger className="w-full sm:w-44 h-9 rounded-xl border-border/40 bg-secondary/20 text-xs font-bold">
+                      <SelectValue placeholder="Grupo Muscular" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl border-border/40">
+                      <SelectItem value="all" className="font-bold text-xs">Todos os grupos</SelectItem>
+                      {snap.muscleGroups.map((group: any) => (
+                        <SelectItem key={group.id} value={group.id} className="font-bold text-xs">
+                          {group.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
-              <Card className="border-border/40 shadow-sm overflow-hidden">
+              <Card className="border-border/40 p-0 shadow-sm overflow-hidden">
                 <CardContent className="p-0">
                   <div className="overflow-x-auto">
                     <table className="w-full text-left border-collapse">
@@ -382,7 +543,7 @@ function ExercisesContent() {
                           <tr key={ex.id} className="hover:bg-secondary/20 transition-colors">
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-3">
-                                <div 
+                                <div
                                   className="cursor-pointer shrink-0"
                                   onClick={() => {
                                     setPreviewExercise(ex);
@@ -391,8 +552,8 @@ function ExercisesContent() {
                                 >
                                   <ExerciseThumbnail videoUrl={ex.videoUrl} className="size-9 rounded-lg" />
                                 </div>
-                                <span 
-                                  className="text-sm font-bold tracking-tight cursor-pointer hover:text-primary transition-colors"
+                                <span
+                                  className="text-sm font-bold truncate tracking-tight cursor-pointer hover:text-primary transition-colors"
                                   onClick={() => {
                                     setPreviewExercise(ex);
                                     setIsPreviewModalOpen(true);
@@ -412,14 +573,24 @@ function ExercisesContent() {
                               <span className="text-xs font-black text-primary">{ex.usage}</span>
                             </td>
                             <td className="px-6 py-4 text-right">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                className="size-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
-                                onClick={() => openConfigModal(ex)}
-                              >
-                                <Settings2 className="size-4 text-muted-foreground" />
-                              </Button>
+                              <div className="flex items-center justify-end gap-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
+                                  onClick={() => openConfigModal(ex)}
+                                >
+                                  <Settings2 className="size-4 text-muted-foreground" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="size-8 rounded-lg hover:bg-rose-500/10 text-rose-500 hover:text-rose-600 transition-colors"
+                                  onClick={() => setExerciseToDelete(ex)}
+                                >
+                                  <Trash2 className="size-4" />
+                                </Button>
+                              </div>
                             </td>
                           </tr>
                         ))}
@@ -428,6 +599,68 @@ function ExercisesContent() {
                   </div>
                 </CardContent>
               </Card>
+              {snap.exercisePagination.total > 0 && (
+                <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-2 py-4">
+                  <p className="text-xs text-muted-foreground font-bold uppercase tracking-widest text-center sm:text-left">
+                    Página {snap.exerciseFilters.page} de {snap.exercisePagination.pages} ({snap.exercisePagination.total} itens)
+                  </p>
+                  <ShadcnPagination className="w-auto mx-0">
+                    <PaginationContent>
+                      <PaginationItem>
+                        <PaginationPrevious
+                          href="#"
+                          text="Anterior"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (snap.exerciseFilters.page > 1) {
+                              superAdminActions.setExerciseFilters({ page: snap.exerciseFilters.page - 1 });
+                            }
+                          }}
+                          className={cn(snap.exerciseFilters.page <= 1 && "pointer-events-none opacity-50")}
+                        />
+                      </PaginationItem>
+
+                      {generatePages(snap.exerciseFilters.page, snap.exercisePagination.pages).map((p, idx) => {
+                        if (typeof p === "string") {
+                          return (
+                            <PaginationItem key={`ellipsis-${idx}`}>
+                              <PaginationEllipsis />
+                            </PaginationItem>
+                          );
+                        }
+                        return (
+                          <PaginationItem key={p}>
+                            <PaginationLink
+                              href="#"
+                              isActive={p === snap.exerciseFilters.page}
+                              onClick={(e) => {
+                                e.preventDefault();
+                                superAdminActions.setExerciseFilters({ page: p });
+                              }}
+                            >
+                              {p}
+                            </PaginationLink>
+                          </PaginationItem>
+                        );
+                      })}
+
+                      <PaginationItem>
+                        <PaginationNext
+                          href="#"
+                          text="Próxima"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            if (snap.exerciseFilters.page < snap.exercisePagination.pages) {
+                              superAdminActions.setExerciseFilters({ page: snap.exerciseFilters.page + 1 });
+                            }
+                          }}
+                          className={cn(snap.exerciseFilters.page >= snap.exercisePagination.pages && "pointer-events-none opacity-50")}
+                        />
+                      </PaginationItem>
+                    </PaginationContent>
+                  </ShadcnPagination>
+                </div>
+              )}
             </div>
           </div>
 
@@ -437,7 +670,18 @@ function ExercisesContent() {
                 <div className="p-2 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/20">
                   <RefreshCw className="size-5" />
                 </div>
-                <h2 className="text-xl font-bold tracking-tight leading-none">Reajustes Solicitados</h2>
+                <div className="flex-1 flex items-center justify-between min-w-0 gap-2">
+                  <h2 className="text-xl font-bold tracking-tight leading-none truncate">Reajustes</h2>
+                  {adjustments.filter((a: any) => a.status === "RESOLVED").length > 0 && (
+                    <Button
+                      variant="ghost"
+                      onClick={() => setIsAllResolvedOpen(true)}
+                      className="h-8 px-2 rounded-lg text-[10px] font-black uppercase tracking-widest text-primary hover:bg-primary/10 hover:text-primary gap-1 shrink-0"
+                    >
+                      Ver Todos ({adjustments.filter((a: any) => a.status === "RESOLVED").length})
+                    </Button>
+                  )}
+                </div>
               </div>
 
               {loadingAdjustments && adjustments.length === 0 ? (
@@ -450,64 +694,27 @@ function ExercisesContent() {
                   <CheckCircle2 className="size-6 text-emerald-500 mb-1" />
                   <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Nenhum reajuste pendente</p>
                 </div>
-              ) : (
-                <div className="space-y-3">
-                  {adjustments.map((request) => {
-                    const unreadMessagesCount = request.messages.filter(
-                      (m: any) => m.senderId !== null && m.sender?.role !== "SUPERADMIN" && !m.isReadByAdmin
-                    ).length;
+              ) : (() => {
+                const pending = adjustments.filter((a: any) => a.status === "PENDING");
+                const resolved = adjustments.filter((a: any) => a.status === "RESOLVED");
+                const latestResolved = resolved[0];
 
-                    return (
-                      <Card
-                        key={request.id}
-                        className={cn(
-                          "border-border/40 hover:border-primary/45 bg-card/40 overflow-hidden cursor-pointer transition-all relative group",
-                          unreadMessagesCount > 0 && "border-rose-500/30 bg-rose-500/5 hover:bg-rose-500/10"
-                        )}
-                        onClick={() => handleOpenReplyModal(request)}
-                      >
-                        <CardContent className="p-4 space-y-3">
-                          <div className="flex justify-between items-start gap-2">
-                            <div className="space-y-1 min-w-0">
-                              <h3 className="text-[9px] font-black uppercase tracking-wider text-muted-foreground">Solicitação de Reajuste</h3>
-                              <h4 className="text-sm font-bold tracking-tight text-foreground truncate">
-                                {request.exercise?.name || "Exercício"}
-                              </h4>
-                            </div>
-                            {unreadMessagesCount > 0 && (
-                              <span className="flex h-5 px-1.5 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white shrink-0 animate-pulse gap-1">
-                                <span className="size-1 rounded-full bg-white animate-ping" />
-                                {unreadMessagesCount} {unreadMessagesCount === 1 ? "nova" : "novas"}
-                              </span>
-                            )}
-                          </div>
+                if (pending.length === 0 && !latestResolved) {
+                  return (
+                    <div className="py-8 flex flex-col items-center justify-center text-center border-2 border-dashed border-border rounded-xl bg-secondary/5 opacity-50">
+                      <CheckCircle2 className="size-6 text-emerald-500 mb-1" />
+                      <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Nenhum reajuste pendente</p>
+                    </div>
+                  );
+                }
 
-                          <p className="text-xs text-muted-foreground bg-secondary/10 p-2.5 rounded-lg leading-relaxed line-clamp-3">
-                            {request.description}
-                          </p>
-
-                          <div className="flex items-center justify-between text-[9px] font-bold text-muted-foreground uppercase tracking-wider pt-1">
-                            <span className="truncate max-w-[120px]">De: {request.requester?.name || "Trainer"}</span>
-                            <span>{new Date(request.createdAt).toLocaleDateString()}</span>
-                          </div>
-
-                          <Button
-                            variant="outline"
-                            className="w-full h-8 rounded-lg text-[10px] font-bold uppercase tracking-wider gap-1 hover:bg-primary hover:text-primary-foreground hover:border-primary mt-1"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleOpenReplyModal(request);
-                            }}
-                          >
-                            <Send className="size-3" />
-                            Responder
-                          </Button>
-                        </CardContent>
-                      </Card>
-                    );
-                  })}
-                </div>
-              )}
+                return (
+                  <div className="space-y-3">
+                    {pending.map((request) => renderAdjustmentCard(request, false))}
+                    {latestResolved && renderAdjustmentCard(latestResolved, true)}
+                  </div>
+                );
+              })()}
             </div>
 
             <hr className="border-border/40" />
@@ -542,7 +749,7 @@ function ExercisesContent() {
                   <CardContent className="p-5 space-y-4">
                     <div className="flex justify-between items-start gap-3">
                       <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div 
+                        <div
                           className="cursor-pointer shrink-0"
                           onClick={() => {
                             setPreviewExercise(ex);
@@ -552,7 +759,7 @@ function ExercisesContent() {
                           <ExerciseThumbnail videoUrl={ex.videoUrl} className="size-10 rounded-lg" />
                         </div>
                         <div className="space-y-1 min-w-0">
-                          <h3 
+                          <h3
                             className="text-sm font-bold tracking-tight group-hover:text-primary transition-colors cursor-pointer truncate"
                             onClick={() => {
                               setPreviewExercise(ex);
@@ -598,10 +805,10 @@ function ExercisesContent() {
                         {processingId === ex.id ? <Loader2 className="size-3.5 animate-spin" /> : <XCircle className="size-3.5" />}
                         RECUSAR
                       </Button>
-                      <Button 
-                        variant="secondary" 
-                        size="icon" 
-                        className="size-9 rounded-lg shrink-0" 
+                      <Button
+                        variant="secondary"
+                        size="icon"
+                        className="size-9 rounded-lg shrink-0"
                         disabled={!ex.videoUrl}
                         onClick={() => {
                           setPreviewExercise(ex);
@@ -648,7 +855,7 @@ function ExercisesContent() {
                       <CardContent className="p-5 space-y-4">
                         <div className="flex justify-between items-start gap-3">
                           <div className="flex items-center gap-3 min-w-0 flex-1">
-                            <div 
+                            <div
                               className="cursor-pointer shrink-0"
                               onClick={() => {
                                 setPreviewExercise(ex);
@@ -658,7 +865,7 @@ function ExercisesContent() {
                               <ExerciseThumbnail videoUrl={ex.videoUrl} className="size-10 rounded-lg" />
                             </div>
                             <div className="space-y-1 min-w-0">
-                              <h3 
+                              <h3
                                 className="text-sm font-bold tracking-tight text-primary cursor-pointer hover:underline truncate"
                                 onClick={() => {
                                   setPreviewExercise(ex);
@@ -670,9 +877,19 @@ function ExercisesContent() {
                               <p className="text-[10px] text-primary/80 font-bold uppercase tracking-widest truncate">Status: Aprovado (Falta Vídeo)</p>
                             </div>
                           </div>
-                          <Button onClick={() => openConfigModal(ex)} size="icon" variant="ghost" className="text-primary hover:bg-primary/10 shrink-0">
-                            <Settings2 className="size-4" />
-                          </Button>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button onClick={() => openConfigModal(ex)} size="icon" variant="ghost" className="text-primary hover:bg-primary/10 size-8 rounded-lg">
+                              <Settings2 className="size-4" />
+                            </Button>
+                            <Button
+                              onClick={() => setExerciseToDelete(ex)}
+                              size="icon"
+                              variant="ghost"
+                              className="text-rose-600 hover:bg-rose-500/10 hover:text-rose-600 size-8 rounded-lg"
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </div>
                         </div>
                         <Button
                           onClick={() => openConfigModal(ex)}
@@ -936,11 +1153,73 @@ function ExercisesContent() {
         </DialogContent>
       </Dialog>
 
+      <AlertDialog open={!!exerciseToDelete} onOpenChange={(open) => !open && setExerciseToDelete(null)}>
+        <AlertDialogContent className="rounded-2xl border-border/40">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-bold tracking-tight">Tem certeza?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2 text-xs font-semibold text-muted-foreground">
+              <span className="block">
+                Esta ação não poderá ser desfeita.
+              </span>
+              <span className="block">
+                O exercício <strong className="text-foreground">"{exerciseToDelete?.name}"</strong> será excluído permanentemente. Isso removerá todos os vínculos com treinos de alunos e treinadores, além de quaisquer solicitações de reajuste associadas.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting} className="rounded-xl font-bold">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteExercise();
+              }}
+              disabled={isDeleting}
+              className="bg-rose-600 hover:bg-rose-700 text-white font-bold rounded-xl gap-2"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="size-3.5" />
+                  Excluir
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       <ExercisePreviewModal
         exercise={previewExercise}
         open={isPreviewModalOpen}
         onOpenChange={setIsPreviewModalOpen}
       />
+
+      <Sheet open={isAllResolvedOpen} onOpenChange={setIsAllResolvedOpen}>
+        <SheetContent className="max-w-md w-[95%] rounded-l-2xl flex flex-col h-full p-0 overflow-hidden">
+          <SheetHeader className="p-5 border-b border-border/60">
+            <SheetTitle className="text-lg font-black tracking-tight">Reajustes Concluídos</SheetTitle>
+            <SheetDescription className="text-xs text-muted-foreground uppercase tracking-widest font-bold">
+              Mostrando as últimas 20 solicitações finalizadas. Elas são apagadas após 7 dias da conclusão.
+            </SheetDescription>
+          </SheetHeader>
+          <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-secondary/5">
+            {adjustments.filter((a: any) => a.status === "RESOLVED").length === 0 ? (
+              <div className="text-center py-12 text-xs text-muted-foreground font-bold uppercase tracking-widest opacity-60">
+                Nenhum reajuste concluído
+              </div>
+            ) : (
+              adjustments
+                .filter((a: any) => a.status === "RESOLVED")
+                .slice(0, 20)
+                .map((request) => renderAdjustmentCard(request, true))
+            )}
+          </div>
+        </SheetContent>
+      </Sheet>
     </>
   );
 }

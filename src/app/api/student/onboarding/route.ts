@@ -45,6 +45,8 @@ export async function POST(req: Request) {
         experienceLevel: experienceLevel || null,
         medicalConditions: medicalConditions || null,
         city: city || null,
+        weight: weight ? parseFloat(weight) : null,
+        height: height ? parseFloat(height) : null,
       },
     });
 

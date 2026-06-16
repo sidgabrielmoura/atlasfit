@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
-import { AbacatePay } from "@abacatepay/sdk";
+import { AbacatePay } from "@/lib/abacatepay";
+import { logSystemError } from "@/lib/logger";
 
 export async function PATCH(
   req: Request,
@@ -17,7 +18,7 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    const { name, price, interval, features, maxWorkspaces } = body;
+    const { name, price, interval, features, maxWorkspaces, maxStudents } = body;
 
     const plan = await prisma.plan.update({
       where: { id },
@@ -26,12 +27,14 @@ export async function PATCH(
         price: price ? parseFloat(price) : undefined,
         interval,
         features,
-        maxWorkspaces: maxWorkspaces !== undefined ? parseInt(maxWorkspaces) : undefined
+        maxWorkspaces: maxWorkspaces !== undefined ? parseInt(maxWorkspaces) : undefined,
+        maxStudents: maxStudents !== undefined ? (maxStudents === "" || maxStudents === null ? null : parseInt(maxStudents)) : undefined
       }
     });
 
     return NextResponse.json(plan);
   } catch (error) {
+    await logSystemError({ action: "PATCH_PLAN", error, entity: "PLAN", entityId: id });
     return new NextResponse("Internal Error", { status: 500 });
   }
 }
@@ -90,8 +93,19 @@ export async function DELETE(
       }
     } catch (abacateError) {
       console.error("Erro ao remover produto do AbacatePay:", abacateError);
+      await logSystemError({ action: "DELETE_PLAN_SYNC_ABACATEPAY", error: abacateError, entity: "PLAN", entityId: id });
       // We don't block DB deletion if AbacatePay fails, but we logged it.
     }
+
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: "DELETION",
+        entity: "PLAN",
+        entityId: id,
+        severity: "warning"
+      }
+    });
 
     await prisma.plan.delete({
       where: { id }
@@ -99,6 +113,7 @@ export async function DELETE(
 
     return new NextResponse(null, { status: 204 });
   } catch (error) {
+    await logSystemError({ action: "DELETE_PLAN", error, entity: "PLAN", entityId: id });
     return new NextResponse("Internal Error", { status: 500 });
   }
 }

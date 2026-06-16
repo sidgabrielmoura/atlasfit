@@ -49,7 +49,7 @@ export function WorkspaceSwitcher() {
   const snap = useSnapshot(workspaceStore);
 
   const [plansList, setPlansList] = React.useState<any[]>([]);
-  const [limitData, setLimitData] = React.useState<{ current: number; limit: number; planName: string } | null>(null);
+  const [limitData, setLimitData] = React.useState<{ current: number; limit: number; planName: string; primaryDomain?: string } | null>(null);
 
   // Modal States
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
@@ -317,7 +317,7 @@ export function WorkspaceSwitcher() {
                 </div>
                 {slug && (
                   <p className="text-[11px] text-muted-foreground px-1">
-                    Link do portal: <span className="text-primary font-semibold">atlasfit.app/t/{slug}</span>
+                    Link do portal: <span className="text-primary font-semibold">{limitData?.primaryDomain || "atlasfit.app"}/t/{slug}</span>
                   </p>
                 )}
               </div>

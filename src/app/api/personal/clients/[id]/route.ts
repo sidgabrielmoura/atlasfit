@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { verifyAndDecayWorkspaceMemberStreak } from "@/lib/streak-helper";
 
 // GET /api/personal/clients/[id]
 // Busca informações de um aluno específico dentro do escopo do workspace ativo.
@@ -49,6 +50,9 @@ export async function GET(
       return new NextResponse("Aluno não encontrado neste workspace.", { status: 404 });
     }
 
+    // Verify and decay client streak dynamically
+    const { streak: freshStreak, bestStreak: freshBestStreak } = await verifyAndDecayWorkspaceMemberStreak(studentMember);
+
     // Formatar fallback do avatar
     const nameParts = studentMember.user.name?.split(" ") || [];
     const avatarFallback = nameParts.length > 1
@@ -62,14 +66,19 @@ export async function GET(
       whatsapp: studentMember.user.whatsapp || "",
       isActive: studentMember.isActive,
       plan: studentMember.plan,
-      streak: studentMember.streak,
-      bestStreak: studentMember.bestStreak,
+      streak: freshStreak,
+      bestStreak: freshBestStreak,
       progress: studentMember.progress,
       avatarFallback,
       image: studentMember.user.image,
       lastActive: studentMember.lastActive
         ? new Date(studentMember.lastActive).toLocaleDateString("pt-BR")
         : "Não acessou",
+      gender: studentMember.user.gender || null,
+      birthDate: studentMember.user.birthDate || null,
+      height: studentMember.user.height || null,
+      weight: studentMember.user.weight || null,
+      objective: studentMember.user.objective || null,
     };
 
     return NextResponse.json(formattedStudent);

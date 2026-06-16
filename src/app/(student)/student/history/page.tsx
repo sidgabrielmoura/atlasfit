@@ -115,7 +115,6 @@ export default function StudentHistoryPage() {
     }
   };
 
-  // Helper: Format weight volume
   const formatVolume = (val?: number | null) => {
     if (!val) return "-";
     if (val >= 1000) {
@@ -124,7 +123,6 @@ export default function StudentHistoryPage() {
     return `${val.toLocaleString("pt-BR")} kg`;
   };
 
-  // Helper: Calculate total volume for a single session log
   const calculateSessionVolume = (log: any) => {
     let vol = 0;
     const loads = log.loads as Record<string, string[]> | null;

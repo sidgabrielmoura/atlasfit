@@ -132,6 +132,7 @@ export default function WorkoutsPage() {
 
   const [dbExercises, setDbExercises] = useState<any[]>([]);
   const [loadingDbExercises, setLoadingDbExercises] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
 
   // Exercise Preview State
   const [previewExercise, setPreviewExercise] = useState<any>(null);
@@ -459,8 +460,8 @@ export default function WorkoutsPage() {
             TAB 1: TREINOS PRONTOS 
             ========================================================================= */}
         <TabsContent value="templates" className="space-y-6">
-          <div className="flex flex-col sm:flex-row items-center gap-3">
-            <div className="flex items-center gap-2 bg-secondary/30 p-1 rounded-lg w-full sm:w-auto overflow-x-auto">
+          <div className="flex flex-col lg:flex-row items-center gap-3 w-full">
+            <div className="flex items-center gap-2 bg-secondary/30 p-1 rounded-lg w-full lg:flex-1 lg:min-w-0 overflow-x-auto no-scrollbar">
               {["all", "Hipertrofia", "Emagrecimento", "Força", "Resistência"].map((focus) => (
                 <Button
                   key={focus}
@@ -473,22 +474,24 @@ export default function WorkoutsPage() {
                 </Button>
               ))}
             </div>
-            <div className="relative w-full sm:w-64 ml-auto">
-              <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Buscar treino..."
-                className="pl-9 bg-card border-border h-10"
-                value={workoutSearch}
-                onChange={(e) => setWorkoutSearch(e.target.value)}
-              />
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto shrink-0 lg:ml-auto">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Buscar treino..."
+                  className="pl-9 bg-card border-border h-10"
+                  value={workoutSearch}
+                  onChange={(e) => setWorkoutSearch(e.target.value)}
+                />
+              </div>
+              <Button className="shrink-0 gap-2 h-10 w-full sm:w-auto" asChild>
+                <Link href="/personal/workouts/new">
+                  <Plus className="size-4" />
+                  <span className="inline">Novo Treino</span>
+                </Link>
+              </Button>
             </div>
-            <Button className="shrink-0 gap-2 h-10 w-full sm:w-auto" asChild>
-              <Link href="/personal/workouts/new">
-                <Plus className="size-4" />
-                <span className="inline">Novo Treino</span>
-              </Link>
-            </Button>
           </div>
 
           {loadingWorkouts ? (
@@ -608,13 +611,10 @@ export default function WorkoutsPage() {
           )}
         </TabsContent>
 
-        {/* =========================================================================
-            TAB 2: BIBLIOTECA DE EXERCÍCIOS
-            ========================================================================= */}
         <TabsContent value="exercises" className="space-y-6">
-          <div className="flex flex-col sm:flex-row items-center gap-3">
-            <div className="flex items-center gap-2 bg-secondary/30 p-1 rounded-lg w-full sm:w-auto overflow-x-auto">
-              {["all", "Peito", "Costas", "Pernas", "Ombros", "Bíceps", "Tríceps", "Core"].map((muscle) => (
+          <div className="flex flex-col lg:flex-row items-center gap-3 w-full max-w-250 min-w-0">
+            <div className="flex items-center gap-2 bg-secondary/30 p-1 rounded-lg max-w-250! w-full min-w-0 overflow-x-auto no-scrollbar">
+              {["all", "Trapézio", "Ombro", "Costas", "Peito", "Tríceps", "Bíceps", "Abdomen", "Antebraço", "Glúteo", "Posterior de perna", "Quadríceps", "Panturrilha"].map((muscle) => (
                 <Button
                   key={muscle}
                   variant={exerciseFilter === muscle ? "secondary" : "ghost"}
@@ -626,43 +626,53 @@ export default function WorkoutsPage() {
                 </Button>
               ))}
             </div>
-            <div className="relative w-full sm:w-64 ml-auto">
-              <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
-              <Input
-                type="search"
-                placeholder="Buscar exercício..."
-                className="pl-9 bg-card border-border h-10"
-                value={exerciseSearch}
-                onChange={(e) => setExerciseSearch(e.target.value)}
-              />
-            </div>
-            <div className="flex gap-2 w-full sm:w-auto">
-              <Button
-                variant="outline"
-                className="shrink-0 gap-2 h-10 flex-1 sm:flex-initial text-muted-foreground border-border/50 hover:bg-secondary/15"
-                onClick={async () => {
-                  await Promise.all([
-                    fetchRequestedExercises(),
-                    fetchAdjustmentRequests()
-                  ]);
-                  toast.success("Solicitações e mensagens atualizadas!");
-                }}
-              >
-                <RefreshCw className="size-4" />
-                <span>Atualizar</span>
-              </Button>
-              <Button
-                variant="outline"
-                className="shrink-0 gap-2 h-10 flex-1 sm:flex-initial text-primary border-primary/20 hover:bg-primary/10"
-                onClick={() => setIsRequestModalOpen(true)}
-              >
-                <MessageSquarePlus className="size-4" />
-                <span className="inline">Solicitar Exercício</span>
-              </Button>
+            <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto shrink-0 lg:ml-auto">
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
+                <Input
+                  type="search"
+                  placeholder="Buscar exercício..."
+                  className="pl-9 bg-card border-border h-10"
+                  value={exerciseSearch}
+                  onChange={(e) => setExerciseSearch(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-2 w-full sm:w-auto">
+                <Button
+                  variant="outline"
+                  className="shrink-0 gap-2 h-10 flex-1 sm:flex-initial text-muted-foreground border-border/50 hover:bg-secondary/15"
+                  disabled={refreshing}
+                  onClick={async () => {
+                    try {
+                      setRefreshing(true);
+                      await Promise.all([
+                        fetchRequestedExercises(),
+                        fetchAdjustmentRequests()
+                      ]);
+                      toast.success("Solicitações e mensagens atualizadas!");
+                    } catch (error) {
+                      console.error("Erro ao atualizar:", error);
+                      toast.error("Erro ao atualizar solicitações.");
+                    } finally {
+                      setRefreshing(false);
+                    }
+                  }}
+                >
+                  <RefreshCw className={cn("size-4", refreshing && "animate-spin")} />
+                  <span>{refreshing ? "Atualizando..." : "Atualizar"}</span>
+                </Button>
+                <Button
+                  variant="outline"
+                  className="shrink-0 gap-2 h-10 flex-1 sm:flex-initial text-primary border-primary/20 hover:bg-primary/10"
+                  onClick={() => setIsRequestModalOpen(true)}
+                >
+                  <MessageSquarePlus className="size-4" />
+                  <span className="inline">Solicitar Exercício</span>
+                </Button>
+              </div>
             </div>
           </div>
 
-          {/* Seção de Solicitações de Reajuste */}
           {adjustmentRequests.length > 0 && (
             <div className="space-y-4 p-5 rounded-xl border border-border/80 bg-card/25 backdrop-blur-md shadow-sm">
               <div className="flex items-center justify-between">
@@ -723,7 +733,6 @@ export default function WorkoutsPage() {
             </div>
           )}
 
-          {/* Seção de Exercícios Solicitados */}
           {requestedExercises.length > 0 && (
             <div className="space-y-4 p-5 rounded-xl border border-border/80 bg-card/25 backdrop-blur-md shadow-sm">
               <div className="flex items-center justify-between">
@@ -791,7 +800,7 @@ export default function WorkoutsPage() {
                 <motion.div key={exercise.id} variants={item as any}>
                   <Card className="hover:bg-card/60 transition-colors duration-200 p-0">
                     <CardContent className="p-4 flex items-center justify-between gap-4">
-                      <div 
+                      <div
                         className="flex items-center gap-4 min-w-0 flex-1 cursor-pointer"
                         onClick={() => {
                           setPreviewExercise(exercise);
@@ -904,7 +913,7 @@ export default function WorkoutsPage() {
               </Button>
               <Button type="submit" className="gap-2 h-11" disabled={requestSubmitting}>
                 {requestSubmitting && <Loader2 className="animate-spin size-4" />}
-                Enviar Solicitação
+                {requestSubmitting ? "Enviando..." : "Enviar Solicitação"}
               </Button>
             </DialogFooter>
           </form>
@@ -957,7 +966,7 @@ export default function WorkoutsPage() {
               </Button>
               <Button type="submit" className="gap-2 h-11" disabled={adjustmentSubmitting}>
                 {adjustmentSubmitting && <Loader2 className="animate-spin size-4" />}
-                Enviar Solicitação
+                {adjustmentSubmitting ? "Enviando..." : "Enviar Solicitação"}
               </Button>
             </DialogFooter>
           </form>

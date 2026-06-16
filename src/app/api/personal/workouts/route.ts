@@ -65,41 +65,65 @@ export async function POST(req: Request) {
       return new NextResponse("Campos obrigatórios ausentes.", { status: 400 });
     }
 
-    const workout = await prisma.workout.create({
-      data: {
-        name,
-        goal,
-        difficulty,
-        duration,
-        muscleGroupLabel: muscleGroupLabel || null,
-        restBetweenExercises: restBetweenExercises || "2 min",
-        creatorId: session.user.id,
-        workspaceId: workspaceId || null,
-        exercises: {
-          create: (exercises || []).map((ex: any, index: number) => ({
-            exerciseId: ex.exerciseId,
-            sets: Number(ex.sets) || 4,
-            reps: String(ex.reps) || "10",
-            rest: String(ex.rest) || "60s",
-            load: ex.load ? String(ex.load) : "",
-            order: index,
-          })),
+    if (workspaceId) {
+      const workspaceMember = await prisma.workspaceMember.findFirst({
+        where: {
+          userId: session.user.id,
+          workspaceId,
         },
-      },
-      include: {
-        exercises: {
-          include: {
-            exercise: {
-              include: {
-                muscleGroup: true,
+      });
+
+      if (!workspaceMember) {
+        return new NextResponse("Acesso negado ao workspace informado.", { status: 403 });
+      }
+    }
+
+    const workout = await prisma.$transaction(async (tx) => {
+      const created = await tx.workout.create({
+        data: {
+          name,
+          goal,
+          difficulty,
+          duration,
+          muscleGroupLabel: muscleGroupLabel || null,
+          restBetweenExercises: restBetweenExercises || "2 min",
+          creatorId: session.user.id,
+          workspaceId: workspaceId || null,
+          exercises: {
+            create: (exercises || []).map((ex: any, index: number) => ({
+              exerciseId: ex.exerciseId,
+              sets: Number(ex.sets) || 4,
+              reps: String(ex.reps) || "10",
+              rest: String(ex.rest) || "60s",
+              load: ex.load ? String(ex.load) : "",
+              order: index,
+            })),
+          },
+        },
+        include: {
+          exercises: {
+            include: {
+              exercise: {
+                include: {
+                  muscleGroup: true,
+                },
               },
             },
-          },
-          orderBy: {
-            order: "asc",
+            orderBy: {
+              order: "asc",
+            },
           },
         },
-      },
+      });
+
+      // Recalcular uso para todos os exercícios associados
+      const exerciseIds = (exercises || []).map((ex: any) => ex.exerciseId).filter(Boolean);
+      for (const id of Array.from(new Set(exerciseIds)) as string[]) {
+        const count = await tx.workoutExercise.count({ where: { exerciseId: id } });
+        await tx.exercise.update({ where: { id }, data: { usage: count } });
+      }
+
+      return created;
     });
 
     return NextResponse.json(workout, { status: 201 });

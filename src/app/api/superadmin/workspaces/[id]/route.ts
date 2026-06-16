@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
+import { logSystemError } from "@/lib/logger";
 
 export async function GET(
   req: Request,
@@ -12,9 +13,9 @@ export async function GET(
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
-  try {
-    const { id } = await params;
+  const { id } = await params;
 
+  try {
     if (!id) {
       return new NextResponse("Missing workspace ID", { status: 400 });
     }
@@ -63,7 +64,7 @@ export async function GET(
       mrr: mrrReal
     }, { status: 200 });
   } catch (error) {
-    console.error("GET_WORKSPACE_ERROR", error);
+    await logSystemError({ action: "GET_WORKSPACE_BY_ID", error, entity: "WORKSPACE", entityId: id });
     return new NextResponse("Internal Error", { status: 500 });
   }
 }
@@ -78,8 +79,9 @@ export async function PATCH(
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
+  const { id } = await params;
+
   try {
-    const { id } = await params;
     const body = await req.json();
     const { name, slug, ownerId, isActive } = body;
 
@@ -154,9 +156,19 @@ export async function PATCH(
       });
     }
 
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: "WORKSPACE_UPDATE",
+        entity: "WORKSPACE",
+        entityId: id,
+        severity: "success"
+      }
+    });
+
     return NextResponse.json(updatedWorkspace, { status: 200 });
   } catch (error) {
-    console.error("UPDATE_WORKSPACE_ERROR", error);
+    await logSystemError({ action: "PATCH_WORKSPACE_BY_ID", error, entity: "WORKSPACE", entityId: id });
     return new NextResponse("Internal Error", { status: 500 });
   }
 }

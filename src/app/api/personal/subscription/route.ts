@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
-import { AbacatePay } from "@abacatepay/sdk";
+import { AbacatePay } from "@/lib/abacatepay";
+import { logSystemError } from "@/lib/logger";
 
 export async function GET(req: Request) {
   try {
@@ -29,6 +30,7 @@ export async function GET(req: Request) {
         plan: {
           name: "Free Trial",
           price: 0,
+          maxStudents: 50,
         },
         status: isTrialActive ? "trial" : "expired",
         startDate: freeTrial.startDate,
@@ -79,8 +81,11 @@ export async function GET(req: Request) {
       }
     });
 
-    const getStudentLimit = (planName: string): number => {
-      const name = planName.toLowerCase();
+    const getStudentLimit = (plan: any): number => {
+      if (plan.maxStudents !== undefined && plan.maxStudents !== null) {
+        return plan.maxStudents;
+      }
+      const name = plan.name.toLowerCase();
       if (name.includes("starter") || name.includes("basic") || name.includes("trial")) {
         return 50;
       }
@@ -101,7 +106,7 @@ export async function GET(req: Request) {
       return { limit: 100, unit: "GB" };
     };
 
-    const studentLimit = getStudentLimit(effectiveSub.plan.name);
+    const studentLimit = getStudentLimit(effectiveSub.plan);
     const storageLimitInfo = getStorageLimit(effectiveSub.plan.name);
 
     const simulatedStorage = Math.min(
@@ -173,18 +178,24 @@ export async function GET(req: Request) {
       description: t.description || "Assinatura Mensal AtlasFit"
     }));
 
+    const domainSetting = await prisma.systemSetting.findUnique({
+      where: { key: "primary_domain" }
+    });
+    const primaryDomain = domainSetting?.value || "atlasfit.app";
+
     const responseData = {
       currentSubscription: {
         id: effectiveSub.id,
         planName: effectiveSub.plan.name,
         planPrice: effectiveSub.plan.price,
-        status: effectiveSub.status,
+        status: effectiveSub.status.toLowerCase(),
         nextBillingDate: nextBillingStr,
         daysRemaining: daysRemaining,
         paymentMethod: effectiveSub.plan.price === 0 ? "Nenhum" : "Pix Automático",
         billingCycle: effectiveSub.plan.price === 0 ? "Nenhum" : "Mensal",
         invoices: mappedInvoices,
         isPreSubscription: effectiveSub.isPreSubscription || false,
+        primaryDomain,
         freeTrial: freeTrial ? {
           startDate: freeTrial.startDate.toISOString().split("T")[0],
           endDate: freeTrial.endDate.toISOString().split("T")[0],
@@ -208,7 +219,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json(responseData);
   } catch (error) {
-    console.error("GET subscription metrics error:", error);
+    await logSystemError({ action: "GET_SUBSCRIPTION_METRICS", error, entity: "SUBSCRIPTION" });
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
 }
@@ -260,22 +271,48 @@ export async function POST(req: Request) {
 
       let abacateProductId = "";
       try {
-        const productsList = await abacate.products.list();
-        const existingProduct = productsList.find((p: any) => p.externalId === plan.id);
+        const response = await abacate.products.list();
+        let products: any[] = [];
+        if (Array.isArray(response)) {
+          products = response;
+        } else if (response && typeof response === "object") {
+          if (Array.isArray((response as any).data)) products = (response as any).data;
+          else if (Array.isArray((response as any).products)) products = (response as any).products;
+        }
+
+        const existingProduct = products.find((p: any) => p.externalId === plan.id);
+        const targetPriceCents = Math.round(plan.price * 100);
+
         if (existingProduct) {
-          abacateProductId = existingProduct.id;
+          if (existingProduct.price !== targetPriceCents || existingProduct.name !== plan.name) {
+            try {
+              await abacate.products.delete({ id: existingProduct.id });
+            } catch (delError) {
+              console.error("Erro ao deletar produto desatualizado no AbacatePay:", delError);
+            }
+            const newProduct = await abacate.products.create({
+              externalId: plan.id,
+              name: plan.name,
+              price: targetPriceCents,
+              currency: "BRL",
+              description: plan.features || `Plano ${plan.name}`
+            });
+            abacateProductId = newProduct.id;
+          } else {
+            abacateProductId = existingProduct.id;
+          }
         } else {
           const newProduct = await abacate.products.create({
             externalId: plan.id,
             name: plan.name,
-            price: Math.round(plan.price * 100),
+            price: targetPriceCents,
             currency: "BRL",
             description: plan.features || `Plano ${plan.name}`
           });
           abacateProductId = newProduct.id;
         }
       } catch (abacateError) {
-        console.error("Erro ao sincronizar produto no AbacatePay:", abacateError);
+        await logSystemError({ action: "POST_SUBSCRIPTION_SYNC_PRODUCT_ABACATEPAY", error: abacateError, entity: "SUBSCRIPTION" });
         try {
           const newProduct = await abacate.products.create({
             externalId: plan.id,
@@ -286,13 +323,20 @@ export async function POST(req: Request) {
           });
           abacateProductId = newProduct.id;
         } catch (innerErr) {
-          console.error("Erro crítico na sincronização do produto:", innerErr);
+          await logSystemError({ action: "POST_SUBSCRIPTION_SYNC_PRODUCT_ABACATEPAY_CRITICAL", error: innerErr, entity: "SUBSCRIPTION" });
         }
       }
 
       const user = await prisma.user.findUnique({
         where: { id: session.user.id }
       });
+
+      // Buscar todos os cupons ativos no banco
+      const activeCoupons = await prisma.coupon.findMany({
+        where: { isActive: true }
+      });
+      const activeCouponCodes = activeCoupons.map(c => c.code);
+
       const checkout = await abacate.checkouts.create({
         items: [
           {
@@ -306,6 +350,8 @@ export async function POST(req: Request) {
           cellphone: user?.whatsapp || "+5511999999999",
           taxId: "12345678909"
         },
+        allowCoupons: true,
+        coupons: activeCouponCodes,
         externalId: transaction.id,
         metadata: {
           planId: plan.id,
@@ -362,7 +408,7 @@ export async function POST(req: Request) {
       });
     }
   } catch (error) {
-    console.error("POST subscription error:", error);
+    await logSystemError({ action: "POST_SUBSCRIPTION_CHECKOUT", error, entity: "SUBSCRIPTION" });
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
 }

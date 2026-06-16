@@ -47,6 +47,16 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
   Select,
   SelectContent,
   SelectItem,
@@ -98,6 +108,8 @@ export default function SuperAdminSettingsPage() {
     icon: "LinkIcon",
     category: "External"
   });
+  const [integrationToDelete, setIntegrationToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     superAdminActions.fetchSettings();
@@ -199,13 +211,21 @@ export default function SuperAdminSettingsPage() {
     }
   };
 
-  const handleDeleteIntegration = async (id: string) => {
-    if (!confirm("Tem certeza que deseja remover esta integração?")) return;
+  const handleDeleteIntegration = (id: string) => {
+    setIntegrationToDelete(id);
+  };
+
+  const confirmDelete = async () => {
+    if (!integrationToDelete) return;
+    setIsDeleting(true);
     try {
-      await superAdminActions.deleteIntegration(id);
+      await superAdminActions.deleteIntegration(integrationToDelete);
       toast.success("Integração removida com sucesso!");
+      setIntegrationToDelete(null);
     } catch (err: any) {
       toast.error("Erro ao remover integração: " + err.message);
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -288,9 +308,7 @@ export default function SuperAdminSettingsPage() {
         <SettingsSection title="Segurança & Acesso" icon={ShieldAlert} description="Políticas de autenticação e proteção de dados">
           <div className="space-y-6">
             {[
-              { key: "require_2fa", title: "Autenticação em Duas Etapas (2FA)", desc: "Obrigatório para todos os administradores e trainers." },
               { key: "session_expiration", title: "Expiração de Sessão", desc: "Forçar logout após 24h de inatividade." },
-              { key: "api_white_label", title: "White-label API Access", desc: "Permitir que parceiros usem a API com seus próprios tokens." },
             ].map((item, idx) => {
               const enabled = formData[item.key] === "true";
               return (
@@ -503,17 +521,15 @@ export default function SuperAdminSettingsPage() {
                       >
                         {serv.isActive ? <ToggleRight className="size-4 text-emerald-500" /> : <ToggleLeft className="size-4" />}
                       </Button>
-                      {/* Allow deletion of custom integrations */}
-                      {!["postgres", "aws_s3", "vercel", "stripe", "sendgrid", "pusher", "redis", "authjs"].includes(serv.key) && (
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteIntegration(serv.id)}
-                          className="size-7 rounded-lg hover:bg-rose-500/10 text-rose-500"
-                        >
-                          <Trash className="size-3.5" />
-                        </Button>
-                      )}
+                      {/* Allow deletion of integrations */}
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => handleDeleteIntegration(serv.id)}
+                        className="size-7 rounded-lg hover:bg-rose-500/10 text-rose-500"
+                      >
+                        <Trash className="size-3.5" />
+                      </Button>
                     </div>
                   </div>
                 );
@@ -568,6 +584,35 @@ export default function SuperAdminSettingsPage() {
           </div>
         </SettingsSection>
       </div>
+
+      <AlertDialog open={!!integrationToDelete} onOpenChange={(open) => !open && setIntegrationToDelete(null)}>
+        <AlertDialogContent className="rounded-3xl border-border/50 bg-background/95 backdrop-blur-xl shadow-2xl p-6">
+          <AlertDialogHeader className="space-y-2">
+            <AlertDialogTitle className="text-xl font-black tracking-tight">
+              Remover Integração?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-muted-foreground leading-relaxed">
+              Essa ação não poderá ser desfeita. O serviço deixará de ser monitorado no painel de performance.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-6 flex gap-2">
+            <AlertDialogCancel className="rounded-xl font-bold h-11 border-border/50 cursor-pointer">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={(e) => {
+                e.preventDefault();
+                confirmDelete();
+              }}
+              disabled={isDeleting}
+              className="rounded-xl font-bold h-11 bg-rose-500 hover:bg-rose-600 text-white cursor-pointer border-none flex gap-2"
+            >
+              {isDeleting && <Loader2 className="size-4 animate-spin" />}
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

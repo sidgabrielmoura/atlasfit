@@ -1,3 +1,5 @@
+import prisma from "@/lib/prisma";
+
 /**
  * Converte um objeto Date para uma string de data local no formato YYYY-MM-DD.
  * Essencial para evitar variações devido ao fuso horário (timezone offset) do servidor.
@@ -95,4 +97,122 @@ export function calculateStreaks(completedDates: Date[]): {
   }
 
   return { streak, bestStreak };
+}
+
+/**
+ * Verifica se a streak do aluno deve ser atualizada/decair por inatividade.
+ * Se o aluno estiver sem treinar por mais de 1 dia, a streak volta para zero.
+ * Se houver diferença com o banco de dados, atualiza e retorna os novos valores.
+ */
+export async function verifyAndDecayWorkspaceMemberStreak(
+  member: { id: string; userId: string; workspaceId: string; streak: number | null; bestStreak: number | null },
+  preloadedDates?: Date[]
+): Promise<{
+  streak: number;
+  bestStreak: number;
+}> {
+  // Buscar datas concluídas dos logs de treino do aluno
+  const completedDates = preloadedDates || (
+    await prisma.workoutLog.findMany({
+      where: {
+        studentId: member.userId,
+        workspaceId: member.workspaceId,
+      },
+      select: {
+        completedAt: true,
+      },
+    })
+  ).map((l: any) => l.completedAt);
+
+  // Recalcular as sequências (streaks) usando as datas locais
+  const { streak: newStreak, bestStreak: newBestStreak } = calculateStreaks(completedDates);
+
+  // Se a streak calculada for diferente da salva no banco, atualiza
+  if (newStreak !== (member.streak || 0) || newBestStreak !== (member.bestStreak || 0)) {
+    await prisma.workspaceMember.update({
+      where: { id: member.id },
+      data: {
+        streak: newStreak,
+        bestStreak: newBestStreak,
+      },
+    });
+    return { streak: newStreak, bestStreak: newBestStreak };
+  }
+
+  return {
+    streak: member.streak || 0,
+    bestStreak: member.bestStreak || 0,
+  };
+}
+
+/**
+ * Verifica e decai em lote as streaks de todos os alunos ativos de um workspace.
+ * Evita o problema de consultas N+1 executando em lote.
+ */
+export async function batchVerifyAndDecayStreaks(workspaceId: string): Promise<void> {
+  // 1. Obter a data máxima de treino concluído de todos os alunos do workspace
+  const lastLogs = await prisma.workoutLog.groupBy({
+    by: ["studentId"],
+    where: {
+      workspaceId,
+    },
+    _max: {
+      completedAt: true,
+    },
+  });
+
+  const lastLogMap = new Map<string, Date>();
+  lastLogs.forEach((log) => {
+    if (log.studentId && log._max.completedAt) {
+      lastLogMap.set(log.studentId, log._max.completedAt);
+    }
+  });
+
+  // 2. Obter todos os membros ativos daquele workspace com cargo STUDENT e streak > 0
+  const activeStreakMembers = await prisma.workspaceMember.findMany({
+    where: {
+      workspaceId,
+      role: "STUDENT",
+      isActive: true,
+      streak: {
+        gt: 0,
+      },
+    },
+    select: {
+      id: true,
+      userId: true,
+      streak: true,
+    },
+  });
+
+  const todayStr = getLocalDateString(new Date());
+  const todayEpoch = dateToEpochDays(todayStr);
+
+  const memberIdsToReset: string[] = [];
+
+  for (const m of activeStreakMembers) {
+    const lastCompleted = lastLogMap.get(m.userId);
+    if (!lastCompleted) {
+      // Sem treinos concluídos -> streak deve ser 0
+      memberIdsToReset.push(m.id);
+    } else {
+      const lastCompletedEpoch = dateToEpochDays(getLocalDateString(lastCompleted));
+      if (lastCompletedEpoch < todayEpoch - 1) {
+        // Último treino foi antes de ontem -> streak expirou
+        memberIdsToReset.push(m.id);
+      }
+    }
+  }
+
+  // 3. Atualizar em lote todos os alunos com streak expirada para 0
+  if (memberIdsToReset.length > 0) {
+    await prisma.workspaceMember.updateMany({
+      where: {
+        id: { in: memberIdsToReset },
+      },
+      data: {
+        streak: 0,
+      },
+    });
+  }
 }

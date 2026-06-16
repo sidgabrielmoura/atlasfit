@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { logSystemError } from "@/lib/logger";
 
 export async function GET(req: Request) {
   try {
@@ -26,7 +27,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({ status: transaction.status });
   } catch (error) {
-    console.error("GET transaction status error:", error);
+    await logSystemError({ action: "GET_TRANSACTION_STATUS", error, entity: "TRANSACTION" });
     return new NextResponse("Erro interno.", { status: 500 });
   }
 }

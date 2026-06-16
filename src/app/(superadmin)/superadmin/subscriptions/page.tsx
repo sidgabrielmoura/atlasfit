@@ -160,6 +160,10 @@ function PlanCarousel({ plans, isLoading, onEdit }: { plans: any[]; isLoading: b
                                     }}
                                  />
                               </div>
+                              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground pt-1">
+                                 <span>Limite Alunos</span>
+                                 <span>{plan.maxStudents !== null && plan.maxStudents !== undefined ? `${plan.maxStudents}` : "Ilimitado"}</span>
+                              </div>
                            </div>
                            <p className="text-[10px] text-muted-foreground font-medium leading-relaxed italic">
                               {plan.features || "Sem descrição"}
@@ -430,8 +434,8 @@ export default function SubscriptionsManagementPage() {
    const [isSubmitting, setIsSubmitting] = useState(false);
    const [isDeleting, setIsDeleting] = useState(false);
    const [selectedPlan, setSelectedPlan] = useState<any>(null);
-   const [formData, setFormData] = useState({ name: "", price: "", interval: "month", features: "", maxWorkspaces: "1" });
-   const [editFormData, setEditFormData] = useState({ name: "", price: "", interval: "month", features: "", maxWorkspaces: "1" });
+   const [formData, setFormData] = useState({ name: "", price: "", interval: "month", features: "", maxWorkspaces: "1", maxStudents: "" });
+   const [editFormData, setEditFormData] = useState({ name: "", price: "", interval: "month", features: "", maxWorkspaces: "1", maxStudents: "" });
    const [mounted, setMounted] = useState(false);
 
    useEffect(() => {
@@ -450,10 +454,11 @@ export default function SubscriptionsManagementPage() {
             interval: formData.interval,
             features: formData.features,
             maxWorkspaces: parseInt(formData.maxWorkspaces) || 1,
+            maxStudents: formData.maxStudents ? parseInt(formData.maxStudents) : null,
          });
          toast.success("Plano criado com sucesso!");
          setIsModalOpen(false);
-         setFormData({ name: "", price: "", interval: "month", features: "", maxWorkspaces: "1" });
+         setFormData({ name: "", price: "", interval: "month", features: "", maxWorkspaces: "1", maxStudents: "" });
       } catch (error: any) {
          toast.error(error.message || "Erro ao criar plano.");
       } finally {
@@ -472,6 +477,7 @@ export default function SubscriptionsManagementPage() {
             interval: editFormData.interval,
             features: editFormData.features,
             maxWorkspaces: parseInt(editFormData.maxWorkspaces) || 1,
+            maxStudents: editFormData.maxStudents ? parseInt(editFormData.maxStudents) : null,
          });
          toast.success("Plano atualizado com sucesso!");
          setIsEditModalOpen(false);
@@ -524,6 +530,7 @@ export default function SubscriptionsManagementPage() {
          interval: plan.interval || "month",
          features: plan.features || "",
          maxWorkspaces: (plan.maxWorkspaces ?? 1).toString(),
+         maxStudents: plan.maxStudents !== null && plan.maxStudents !== undefined ? plan.maxStudents.toString() : "",
       });
       setIsEditModalOpen(true);
    };
@@ -535,14 +542,7 @@ export default function SubscriptionsManagementPage() {
    // Calcular faturamento mensal estimado (MRR) dinamicamente
    const estimatedMrr = dynamicPlans.reduce((acc: number, plan: any) => acc + (plan.price * (plan._count?.subscriptions || 0)), 0);
 
-   const chartData = [
-      { month: "Jan", total: Math.round(activeSubsCount * 0.4) || 12 },
-      { month: "Fev", total: Math.round(activeSubsCount * 0.55) || 18 },
-      { month: "Mar", total: Math.round(activeSubsCount * 0.7) || 26 },
-      { month: "Abr", total: Math.round(activeSubsCount * 0.85) || 35 },
-      { month: "Mai", total: Math.round(activeSubsCount * 0.95) || 48 },
-      { month: "Jun", total: activeSubsCount || 62 },
-   ];
+   const chartData = snap.subscriptionMetrics?.activeSubsHistory || [];
 
    return (
       <div className="p-6 md:p-8 space-y-12 max-w-[1600px] mx-auto animate-in fade-in duration-700">
@@ -650,7 +650,9 @@ export default function SubscriptionsManagementPage() {
                      </div>
                      <div>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">LTV Médio (Global)</p>
-                        <h3 className="text-2xl font-black tracking-tight mt-1">R$ 1.150</h3>
+                        <h3 className="text-2xl font-black tracking-tight mt-1">
+                           {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 }).format(snap.subscriptionMetrics?.avgLtv || 0)}
+                        </h3>
                         <p className="text-[10px] text-muted-foreground mt-1 font-medium">LTV calculado em 12 meses</p>
                      </div>
                   </CardContent>
@@ -669,7 +671,9 @@ export default function SubscriptionsManagementPage() {
                      </div>
                      <div>
                         <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Conversão Trial</p>
-                        <h3 className="text-2xl font-black tracking-tight mt-1">24.5%</h3>
+                        <h3 className="text-2xl font-black tracking-tight mt-1">
+                           {(snap.subscriptionMetrics?.trialConversionRate || 0).toFixed(1)}%
+                        </h3>
                         <p className="text-[10px] text-muted-foreground mt-1 font-medium">Conversão de testes em plano pago</p>
                      </div>
                   </CardContent>
@@ -1158,6 +1162,18 @@ export default function SubscriptionsManagementPage() {
                               className="rounded-xl h-11"
                            />
                         </div>
+                        <div className="space-y-2">
+                           <Label htmlFor="plan-students" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Limite de Alunos</Label>
+                           <Input
+                              id="plan-students"
+                              type="number"
+                              min="1"
+                              placeholder="Ilimitado"
+                              value={formData.maxStudents}
+                              onChange={(e) => setFormData({ ...formData, maxStudents: e.target.value })}
+                              className="rounded-xl h-11"
+                           />
+                        </div>
                      </div>
 
                      <div>
@@ -1241,6 +1257,18 @@ export default function SubscriptionsManagementPage() {
                               placeholder="1"
                               value={editFormData.maxWorkspaces}
                               onChange={(e) => setEditFormData({ ...editFormData, maxWorkspaces: e.target.value })}
+                              className="rounded-xl h-11"
+                           />
+                        </div>
+                        <div className="space-y-2">
+                           <Label htmlFor="edit-plan-students" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Limite de Alunos</Label>
+                           <Input
+                              id="edit-plan-students"
+                              type="number"
+                              min="1"
+                              placeholder="Ilimitado"
+                              value={editFormData.maxStudents}
+                              onChange={(e) => setEditFormData({ ...editFormData, maxStudents: e.target.value })}
                               className="rounded-xl h-11"
                            />
                         </div>

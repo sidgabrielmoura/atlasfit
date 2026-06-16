@@ -9,6 +9,18 @@ export async function GET(req: Request) {
       return new NextResponse("Não autorizado.", { status: 401 });
     }
 
+    // Deletar solicitações de reajuste resolvidas com mais de 7 dias
+    const sevenDaysAgo = new Date();
+    sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+    await prisma.exerciseAdjustmentRequest.deleteMany({
+      where: {
+        status: "RESOLVED",
+        updatedAt: {
+          lt: sevenDaysAgo,
+        },
+      },
+    });
+
     const adjustments = await prisma.exerciseAdjustmentRequest.findMany({
       include: {
         exercise: {

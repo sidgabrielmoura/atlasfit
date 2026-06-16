@@ -214,19 +214,27 @@ async function main() {
   });
 
   // 6. Create Muscle Groups and Exercises
-  const peitoral = await prisma.muscleGroup.create({ data: { name: "Peitoral" } });
-  const pernas = await prisma.muscleGroup.create({ data: { name: "Pernas" } });
+  const trapezio = await prisma.muscleGroup.create({ data: { name: "Trapézio" } });
+  const ombro = await prisma.muscleGroup.create({ data: { name: "Ombro" } });
   const costas = await prisma.muscleGroup.create({ data: { name: "Costas" } });
+  const peito = await prisma.muscleGroup.create({ data: { name: "Peito" } });
+  const triceps = await prisma.muscleGroup.create({ data: { name: "Tríceps" } });
   const biceps = await prisma.muscleGroup.create({ data: { name: "Bíceps" } });
+  const abdomen = await prisma.muscleGroup.create({ data: { name: "Abdomen" } });
+  const antebraco = await prisma.muscleGroup.create({ data: { name: "Antebraço" } });
+  const gluteo = await prisma.muscleGroup.create({ data: { name: "Glúteo" } });
+  const posterior = await prisma.muscleGroup.create({ data: { name: "Posterior de perna" } });
+  const quadriceps = await prisma.muscleGroup.create({ data: { name: "Quadríceps" } });
+  const panturrilha = await prisma.muscleGroup.create({ data: { name: "Panturrilha" } });
 
   await prisma.exercise.createMany({
     data: [
-      { name: "Supino Reto", isOfficial: true, usage: 12500, muscleGroupId: peitoral.id, status: "APPROVED" },
-      { name: "Agachamento Livre", isOfficial: true, usage: 11800, muscleGroupId: pernas.id, status: "APPROVED" },
+      { name: "Supino Reto", isOfficial: true, usage: 12500, muscleGroupId: peito.id, status: "APPROVED" },
+      { name: "Agachamento Livre", isOfficial: true, usage: 11800, muscleGroupId: quadriceps.id, status: "APPROVED" },
       { name: "Levantamento Terra", isOfficial: true, usage: 9200, muscleGroupId: costas.id, status: "APPROVED" },
       { name: "Puxada Frontal", isOfficial: true, usage: 8500, muscleGroupId: costas.id, status: "APPROVED" },
       { name: "Rosca Direta", isOfficial: true, usage: 7100, muscleGroupId: biceps.id, status: "APPROVED" },
-      { name: "Agachamento Búlgaro com Salto", isOfficial: false, creatorId: trainer1.id, muscleGroupId: pernas.id, status: "PENDING", videoUrl: "https://example.com/video.mp4" },
+      { name: "Agachamento Búlgaro com Salto", isOfficial: false, creatorId: trainer1.id, muscleGroupId: quadriceps.id, status: "PENDING", videoUrl: "https://example.com/video.mp4" },
       { name: "Puxada Unilateral na Polia", isOfficial: false, creatorId: trainer2.id, muscleGroupId: costas.id, status: "PENDING" },
     ]
   });
@@ -275,6 +283,47 @@ async function main() {
       },
     ],
   });
+
+  // 9. Create Transactions
+  const oneDay = 24 * 60 * 60 * 1000;
+  
+  // Create Approved Transactions
+  const approvedTxData = [
+    { userId: trainer1.id, amount: 299.0, status: "APPROVED", paymentMethod: "CREDIT_CARD", description: "Assinatura Pro - Ciclo 1", createdAt: new Date() },
+    { userId: trainer2.id, amount: 149.0, status: "APPROVED", paymentMethod: "PIX", description: "Assinatura Starter - Ciclo 1", createdAt: new Date() },
+    { userId: trainer1.id, amount: 299.0, status: "APPROVED", paymentMethod: "CREDIT_CARD", description: "Assinatura Pro - Ciclo 2", createdAt: new Date(now.getTime() - 2 * oneDay) },
+    { userId: trainer2.id, amount: 149.0, status: "APPROVED", paymentMethod: "PIX", description: "Assinatura Starter - Ciclo 2", createdAt: new Date(now.getTime() - 4 * oneDay) },
+    { userId: trainer1.id, amount: 299.0, status: "APPROVED", paymentMethod: "CREDIT_CARD", description: "Assinatura Pro - Ciclo 3", createdAt: new Date(now.getTime() - 8 * oneDay) },
+    { userId: trainer2.id, amount: 149.0, status: "APPROVED", paymentMethod: "PIX", description: "Assinatura Starter - Ciclo 3", createdAt: new Date(now.getTime() - 12 * oneDay) },
+    { userId: trainer1.id, amount: 299.0, status: "APPROVED", paymentMethod: "CREDIT_CARD", description: "Assinatura Pro - Ciclo 4", createdAt: new Date(now.getTime() - 15 * oneDay) },
+    { userId: trainer2.id, amount: 149.0, status: "APPROVED", paymentMethod: "PIX", description: "Assinatura Starter - Ciclo 4", createdAt: new Date(now.getTime() - 20 * oneDay) },
+    { userId: trainer1.id, amount: 299.0, status: "APPROVED", paymentMethod: "CREDIT_CARD", description: "Assinatura Pro - Ciclo 5", createdAt: new Date(now.getTime() - 32 * oneDay) },
+    { userId: trainer2.id, amount: 149.0, status: "APPROVED", paymentMethod: "PIX", description: "Assinatura Starter - Ciclo 5", createdAt: new Date(now.getTime() - 40 * oneDay) },
+    { userId: trainer1.id, amount: 299.0, status: "APPROVED", paymentMethod: "CREDIT_CARD", description: "Assinatura Pro - Ciclo 6", createdAt: new Date(now.getTime() - 60 * oneDay) },
+    { userId: trainer2.id, amount: 149.0, status: "APPROVED", paymentMethod: "PIX", description: "Assinatura Starter - Ciclo 6", createdAt: new Date(now.getTime() - 80 * oneDay) },
+    { userId: trainer1.id, amount: 299.0, status: "APPROVED", paymentMethod: "CREDIT_CARD", description: "Assinatura Pro - Ciclo 7", createdAt: new Date(now.getTime() - 100 * oneDay) },
+    { userId: trainer2.id, amount: 149.0, status: "APPROVED", paymentMethod: "PIX", description: "Assinatura Starter - Ciclo 7", createdAt: new Date(now.getTime() - 120 * oneDay) },
+  ];
+
+  // Create Failed Transactions (Inadimplência)
+  const failedTxData = [
+    { userId: trainer2.id, amount: 149.0, status: "FAILED", paymentMethod: "CREDIT_CARD", description: "Falha no pagamento - Cartão recusado", createdAt: new Date() },
+    { userId: trainer1.id, amount: 299.0, status: "FAILED", paymentMethod: "CREDIT_CARD", description: "Falha no pagamento - Sem saldo", createdAt: new Date(now.getTime() - 1 * oneDay) },
+    { userId: trainer2.id, amount: 149.0, status: "FAILED", paymentMethod: "CREDIT_CARD", description: "Falha no pagamento - Cartão expirado", createdAt: new Date(now.getTime() - 3 * oneDay) },
+    { userId: trainer1.id, amount: 299.0, status: "FAILED", paymentMethod: "CREDIT_CARD", description: "Falha no pagamento - Autenticação 3D falhou", createdAt: new Date(now.getTime() - 6 * oneDay) },
+    { userId: trainer2.id, amount: 149.0, status: "FAILED", paymentMethod: "CREDIT_CARD", description: "Falha no pagamento - Cartão recusado", createdAt: new Date(now.getTime() - 10 * oneDay) },
+    { userId: trainer1.id, amount: 299.0, status: "FAILED", paymentMethod: "CREDIT_CARD", description: "Falha no pagamento - Sem saldo", createdAt: new Date(now.getTime() - 14 * oneDay) },
+    { userId: trainer2.id, amount: 149.0, status: "FAILED", paymentMethod: "CREDIT_CARD", description: "Falha no pagamento - Cartão recusado", createdAt: new Date(now.getTime() - 18 * oneDay) },
+    { userId: trainer1.id, amount: 299.0, status: "FAILED", paymentMethod: "CREDIT_CARD", description: "Falha no pagamento - Sem saldo", createdAt: new Date(now.getTime() - 25 * oneDay) },
+    { userId: trainer2.id, amount: 149.0, status: "FAILED", paymentMethod: "CREDIT_CARD", description: "Falha no pagamento - Cartão expirado", createdAt: new Date(now.getTime() - 35 * oneDay) },
+    { userId: trainer1.id, amount: 299.0, status: "FAILED", paymentMethod: "CREDIT_CARD", description: "Falha no pagamento - Autenticação 3D falhou", createdAt: new Date(now.getTime() - 50 * oneDay) },
+    { userId: trainer2.id, amount: 149.0, status: "FAILED", paymentMethod: "CREDIT_CARD", description: "Falha no pagamento - Cartão recusado", createdAt: new Date(now.getTime() - 70 * oneDay) },
+    { userId: trainer1.id, amount: 299.0, status: "FAILED", paymentMethod: "CREDIT_CARD", description: "Falha no pagamento - Sem saldo", createdAt: new Date(now.getTime() - 90 * oneDay) },
+  ];
+
+  for (const tx of [...approvedTxData, ...failedTxData]) {
+    await prisma.transaction.create({ data: tx });
+  }
 
   console.log("Seed completed successfully! 🚀");
   console.log("\n=== Credentials ===");

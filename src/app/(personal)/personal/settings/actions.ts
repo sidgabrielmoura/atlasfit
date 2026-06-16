@@ -80,6 +80,16 @@ export async function updateBrandSettings(
     },
   });
 
+  await prisma.auditLog.create({
+    data: {
+      userId: session.user.id,
+      action: "WORKSPACE_UPDATE",
+      entity: "WORKSPACE",
+      entityId: workspaceId,
+      severity: "success"
+    }
+  });
+
   const logo = updatedWorkspace.name
     .split(" ")
     .map((w) => w[0])

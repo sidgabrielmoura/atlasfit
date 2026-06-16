@@ -100,8 +100,10 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <Label htmlFor="password">Senha</Label>
-              <Button variant="link" className="h-auto p-0 text-xs text-primary font-semibold">
-                Esqueceu a senha?
+              <Button variant="link" asChild className="h-auto p-0 text-xs text-primary font-semibold">
+                <Link href={`/auth/forgot-password?role=${type}`}>
+                  Esqueceu a senha?
+                </Link>
               </Button>
             </div>
             <div className="relative">

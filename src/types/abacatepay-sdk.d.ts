@@ -9,6 +9,8 @@ declare module "@abacatepay/sdk" {
           cellphone?: string;
           taxId: string;
         };
+        allowCoupons?: boolean;
+        coupons?: string[];
         externalId?: string;
         metadata?: Record<string, any>;
         returnUrl: string;
@@ -37,6 +39,20 @@ declare module "@abacatepay/sdk" {
       list(): Promise<any[]>;
       get(params: { id?: string; externalId?: string }): Promise<any>;
       delete(params: { id: string }): Promise<any>;
+    };
+    coupons: {
+      create(data: {
+        code: string;
+        discount: number;
+        discountKind: "PERCENTAGE" | "FIXED";
+        notes?: string;
+        maxRedeems?: number;
+        metadata?: Record<string, any>;
+      }): Promise<any>;
+      list(query?: { page?: number; limit?: number }): Promise<any>;
+      get(id: string): Promise<any>;
+      delete(id: string): Promise<any>;
+      toggleStatus(id: string): Promise<any>;
     };
     webhooks: {
       verify(rawBody: string, signature: string): {

@@ -173,14 +173,32 @@ export default function WorkspacesManagementPage() {
   }
 
   const totalWorkspaces = (snap.workspaces || []).length;
-  const enterpriseCount = (snap.workspaces || []).filter((ws: any) => ws.subscription?.plan?.name === "Enterprise").length;
-  const freeCount = totalWorkspaces - enterpriseCount;
+  
+  const planCounts: Record<string, number> = {};
+  (snap.workspaces || []).forEach((ws: any) => {
+    const planName = ws.subscription?.plan?.name || "FREE";
+    planCounts[planName] = (planCounts[planName] || 0) + 1;
+  });
 
-  // Distribuição de Planos Dinâmica para Recharts PieChart
-  const planDistributionData = [
-    { name: "Enterprise", value: enterpriseCount || 3, fill: "var(--primary)" },
-    { name: "Gratuito", value: freeCount || 8, fill: "oklch(0.75 0.16 70)" },
-  ];
+  const planColors: Record<string, string> = {
+    FREE: "oklch(0.75 0.16 70)",
+    STARTER: "var(--primary)",
+    PROFESSIONAL: "oklch(0.65 0.24 300)",
+    ENTERPRISE: "oklch(0.55 0.18 140)",
+  };
+
+  const getPlanColor = (planName: string) => {
+    const nameUpper = planName.toUpperCase();
+    return planColors[nameUpper] || "oklch(0.65 0.15 200)";
+  };
+
+  const planDistributionData = Object.entries(planCounts).map(([name, value]) => ({
+    name,
+    value,
+    fill: getPlanColor(name),
+  }));
+
+  const enterpriseCount = planCounts["Enterprise"] || planCounts["ENTERPRISE"] || 0;
 
   return (
     <div className="p-6 md:p-8 space-y-10 max-w-[1600px] mx-auto animate-in fade-in duration-500">

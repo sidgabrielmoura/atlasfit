@@ -102,6 +102,11 @@ export const workspaceActions = {
     workspaceStore.activeWorkspace = workspace;
   },
 
+  setActiveWorkspaceId(id: string) {
+    workspaceStore.activeWorkspaceId = id;
+    workspaceStore.activeWorkspace = null;
+  },
+
   setLoading(loading: boolean) {
     workspaceStore.isLoading = loading;
   }

@@ -122,7 +122,7 @@ export function PersonalSidebar() {
       .toUpperCase();
   };
 
-  const captureLink = `https://atlasfit.app/t/${workspaceSnap.activeWorkspace?.slug || (user?.name || personalInfo.name).toLowerCase()}`;
+  const captureLink = `https://${subInfo?.primaryDomain || "atlasfit.app"}/t/${workspaceSnap.activeWorkspace?.slug || (user?.name || personalInfo.name).toLowerCase()}`;
 
   const handleCopy = () => {
     navigator.clipboard.writeText(captureLink);

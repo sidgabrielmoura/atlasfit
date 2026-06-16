@@ -2,6 +2,21 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
 
+const DEFAULT_MUSCLE_GROUPS = [
+  "Trapézio",
+  "Ombro",
+  "Costas",
+  "Peito",
+  "Tríceps",
+  "Bíceps",
+  "Abdomen",
+  "Antebraço",
+  "Glúteo",
+  "Posterior de perna",
+  "Quadríceps",
+  "Panturrilha"
+];
+
 export async function GET() {
   const session = await auth();
 
@@ -10,11 +25,21 @@ export async function GET() {
   }
 
   try {
+    // Garante que os grupos musculares solicitados existam no banco
+    for (const name of DEFAULT_MUSCLE_GROUPS) {
+      await prisma.muscleGroup.upsert({
+        where: { name },
+        update: {},
+        create: { name }
+      });
+    }
+
     const muscleGroups = await prisma.muscleGroup.findMany({
       orderBy: { name: "asc" }
     });
     return NextResponse.json(muscleGroups);
   } catch (error) {
+    console.error("[MUSCLE_GROUPS_GET]", error);
     return new NextResponse("Internal Error", { status: 500 });
   }
 }

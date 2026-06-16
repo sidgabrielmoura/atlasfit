@@ -91,10 +91,15 @@ export async function getTrainerWorkspaceLimit() {
     where: { ownerId: session.user.id },
   });
 
+  const domainSetting = await prisma.systemSetting.findUnique({
+    where: { key: "primary_domain" }
+  });
+
   return {
     current: count,
     limit: sub?.plan?.maxWorkspaces || 1,
     planName: sub?.plan?.name || "Starter",
+    primaryDomain: domainSetting?.value || "atlasfit.app",
   };
 }
 

@@ -142,43 +142,59 @@ export async function POST(
         return new NextResponse("Treino de modelo não encontrado.", { status: 404 });
       }
 
-      createdWorkout = await prisma.workout.create({
-        data: {
-          name: `${templateWorkout.name}`,
-          goal: templateWorkout.goal,
-          difficulty: templateWorkout.difficulty,
-          duration: templateWorkout.duration,
-          muscleGroupLabel: templateWorkout.muscleGroupLabel || "Geral",
-          restBetweenExercises: templateWorkout.restBetweenExercises,
-          creatorId: session.user.id,
-          workspaceId,
-          studentId,
-          dayOfWeek: Number(dayOfWeek),
-          exercises: {
-            create: templateWorkout.exercises.map((ex, index) => ({
-              exerciseId: ex.exerciseId,
-              sets: ex.sets,
-              reps: ex.reps,
-              rest: ex.rest,
-              load: ex.load || "",
-              order: index,
-            })),
+      // Evitar clonagem cross-tenant de modelos de treino
+      if (templateWorkout.workspaceId !== workspaceId && templateWorkout.creatorId !== session.user.id) {
+        return new NextResponse("Não autorizado a clonar este treino.", { status: 403 });
+      }
+
+      createdWorkout = await prisma.$transaction(async (tx) => {
+        const workout = await tx.workout.create({
+          data: {
+            name: `${templateWorkout.name}`,
+            goal: templateWorkout.goal,
+            difficulty: templateWorkout.difficulty,
+            duration: templateWorkout.duration,
+            muscleGroupLabel: templateWorkout.muscleGroupLabel || "Geral",
+            restBetweenExercises: templateWorkout.restBetweenExercises,
+            creatorId: session.user.id,
+            workspaceId,
+            studentId,
+            dayOfWeek: Number(dayOfWeek),
+            exercises: {
+              create: templateWorkout.exercises.map((ex, index) => ({
+                exerciseId: ex.exerciseId,
+                sets: ex.sets,
+                reps: ex.reps,
+                rest: ex.rest,
+                load: ex.load || "",
+                order: index,
+              })),
+            },
           },
-        },
-        include: {
-          exercises: {
-            include: {
-              exercise: {
-                include: {
-                  muscleGroup: true,
+          include: {
+            exercises: {
+              include: {
+                exercise: {
+                  include: {
+                    muscleGroup: true,
+                  },
                 },
               },
-            },
-            orderBy: {
-              order: "asc",
+              orderBy: {
+                order: "asc",
+              },
             },
           },
-        },
+        });
+
+        // Recalcular uso de todos os exercícios adicionados
+        const exerciseIds = templateWorkout.exercises.map(ex => ex.exerciseId).filter(Boolean);
+        for (const exId of Array.from(new Set(exerciseIds)) as string[]) {
+          const count = await tx.workoutExercise.count({ where: { exerciseId: exId } });
+          await tx.exercise.update({ where: { id: exId }, data: { usage: count } });
+        }
+
+        return workout;
       });
     } else {
       // Caso 2: Criar do zero um treino exclusivo do aluno
@@ -186,43 +202,54 @@ export async function POST(
         return new NextResponse("Dados de treino incompleto para criação do zero.", { status: 400 });
       }
 
-      createdWorkout = await prisma.workout.create({
-        data: {
-          name,
-          goal,
-          difficulty,
-          duration,
-          muscleGroupLabel: muscleGroupLabel || "Geral",
-          restBetweenExercises: restBetweenExercises || "2 min",
-          creatorId: session.user.id,
-          workspaceId,
-          studentId,
-          dayOfWeek: Number(dayOfWeek),
-          exercises: {
-            create: (exercises || []).map((ex: any, index: number) => ({
-              exerciseId: ex.exerciseId,
-              sets: Number(ex.sets) || 4,
-              reps: String(ex.reps) || "10",
-              rest: String(ex.rest) || "60s",
-              load: ex.load ? String(ex.load) : "",
-              order: index,
-            })),
+      createdWorkout = await prisma.$transaction(async (tx) => {
+        const workout = await tx.workout.create({
+          data: {
+            name,
+            goal,
+            difficulty,
+            duration,
+            muscleGroupLabel: muscleGroupLabel || "Geral",
+            restBetweenExercises: restBetweenExercises || "2 min",
+            creatorId: session.user.id,
+            workspaceId,
+            studentId,
+            dayOfWeek: Number(dayOfWeek),
+            exercises: {
+              create: (exercises || []).map((ex: any, index: number) => ({
+                exerciseId: ex.exerciseId,
+                sets: Number(ex.sets) || 4,
+                reps: String(ex.reps) || "10",
+                rest: String(ex.rest) || "60s",
+                load: ex.load ? String(ex.load) : "",
+                order: index,
+              })),
+            },
           },
-        },
-        include: {
-          exercises: {
-            include: {
-              exercise: {
-                include: {
-                  muscleGroup: true,
+          include: {
+            exercises: {
+              include: {
+                exercise: {
+                  include: {
+                    muscleGroup: true,
+                  },
                 },
               },
-            },
-            orderBy: {
-              order: "asc",
+              orderBy: {
+                order: "asc",
+              },
             },
           },
-        },
+        });
+
+        // Recalcular uso de todos os exercícios adicionados
+        const exerciseIds = (exercises || []).map((ex: any) => ex.exerciseId).filter(Boolean);
+        for (const exId of Array.from(new Set(exerciseIds)) as string[]) {
+          const count = await tx.workoutExercise.count({ where: { exerciseId: exId } });
+          await tx.exercise.update({ where: { id: exId }, data: { usage: count } });
+        }
+
+        return workout;
       });
     }
 

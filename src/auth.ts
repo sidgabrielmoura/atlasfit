@@ -56,20 +56,52 @@ export const {
           };
         }
 
-        if (!credentials?.email || !credentials?.password) return null;
+        if (!credentials?.email || !credentials?.password) {
+          await prisma.auditLog.create({
+            data: {
+              action: "LOGIN_FAIL",
+              entity: "USER",
+              severity: "danger",
+              ip: "Credentials missing"
+            }
+          });
+          return null;
+        }
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email as string }
         });
 
-        if (!user || !user.password) return null;
+        if (!user || !user.password) {
+          await prisma.auditLog.create({
+            data: {
+              action: "LOGIN_FAIL",
+              entity: "USER",
+              severity: "danger",
+              ip: `Email not found: ${credentials.email}`
+            }
+          });
+          return null;
+        }
 
         const isPasswordValid = await bcrypt.compare(
           credentials.password as string,
           user.password
         );
 
-        if (!isPasswordValid) return null;
+        if (!isPasswordValid) {
+          await prisma.auditLog.create({
+            data: {
+              userId: user.id,
+              action: "LOGIN_FAIL",
+              entity: "USER",
+              entityId: user.id,
+              severity: "danger",
+              ip: `Invalid password for: ${credentials.email}`
+            }
+          });
+          return null;
+        }
 
         // Verificar modo de manutenção para logins diretos (não impersonados)
         const maintenanceSetting = await prisma.systemSetting.findUnique({
@@ -77,6 +109,16 @@ export const {
         });
 
         if (maintenanceSetting?.value === "true" && user.role !== "SUPERADMIN") {
+          await prisma.auditLog.create({
+            data: {
+              userId: user.id,
+              action: "LOGIN_FAIL",
+              entity: "USER",
+              entityId: user.id,
+              severity: "danger",
+              ip: "Modo de manutenção ativo"
+            }
+          });
           return null;
         }
 
@@ -89,12 +131,43 @@ export const {
       },
     }),
   ],
+  events: {
+    async signIn({ user }) {
+      if (user?.id) {
+        await prisma.auditLog.create({
+          data: {
+            userId: user.id,
+            action: "LOGIN",
+            entity: "USER",
+            entityId: user.id,
+            severity: "success"
+          }
+        });
+      }
+    }
+  },
   callbacks: {
     ...authConfig.callbacks,
     async session({ session, token }) {
       if (token && session.user) {
         session.user.id = token.id as string;
         session.user.role = token.role as string;
+
+        // Verify session expiration setting dynamically
+        try {
+          const sessionExpirationSetting = await prisma.systemSetting.findUnique({
+            where: { key: "session_expiration" }
+          });
+          if (sessionExpirationSetting?.value === "true" && token.iat) {
+            const nowSeconds = Math.floor(Date.now() / 1000);
+            const elapsed = nowSeconds - (token.iat as number);
+            if (elapsed > 24 * 60 * 60) {
+              return null as any; // Invalidate session
+            }
+          }
+        } catch (err) {
+          // Fallback silently if DB is unreachable
+        }
 
         if (token.isImpersonated) {
           (session.user as any).isImpersonated = true;

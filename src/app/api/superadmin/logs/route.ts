@@ -14,6 +14,7 @@ export async function GET(req: Request) {
   const userId = searchParams.get("userId");
   const workspaceId = searchParams.get("workspaceId");
   const action = searchParams.get("action");
+  const severity = searchParams.get("severity");
 
   try {
     const where: any = {};
@@ -29,6 +30,10 @@ export async function GET(req: Request) {
 
     if (action && action !== "all") {
       where.action = action;
+    }
+
+    if (severity && severity !== "all") {
+      where.severity = severity;
     }
 
     if (search) {

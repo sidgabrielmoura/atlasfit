@@ -34,8 +34,19 @@ export async function PATCH(
 
     // Transação atômica para limpar exercícios antigos e registrar os novos
     const updatedWorkout = await prisma.$transaction(async (tx) => {
-      // 1. Limpar relações de exercícios antigas caso o array de exercícios tenha sido fornecido
+      let affectedExerciseIds: string[] = [];
+
       if (exercises) {
+        // Obter os exercícios antigos para poder recalcular seu uso depois
+        const oldExercises = await tx.workoutExercise.findMany({
+          where: { workoutId },
+          select: { exerciseId: true }
+        });
+        const oldIds = oldExercises.map(ex => ex.exerciseId);
+        const newIds = exercises.map((ex: any) => ex.exerciseId).filter(Boolean);
+        affectedExerciseIds = Array.from(new Set([...oldIds, ...newIds])) as string[];
+
+        // 1. Limpar relações de exercícios antigas caso o array de exercícios tenha sido fornecido
         await tx.workoutExercise.deleteMany({
           where: {
             workoutId,
@@ -66,7 +77,7 @@ export async function PATCH(
         };
       }
 
-      return await tx.workout.update({
+      const updated = await tx.workout.update({
         where: {
           id: workoutId,
         },
@@ -86,6 +97,16 @@ export async function PATCH(
           },
         },
       });
+
+      // 3. Recalcular a utilização dos exercícios afetados
+      if (exercises && affectedExerciseIds.length > 0) {
+        for (const exId of affectedExerciseIds) {
+          const count = await tx.workoutExercise.count({ where: { exerciseId: exId } });
+          await tx.exercise.update({ where: { id: exId }, data: { usage: count } });
+        }
+      }
+
+      return updated;
     });
 
     return NextResponse.json(updatedWorkout);
@@ -116,17 +137,33 @@ export async function DELETE(
         studentId,
         creatorId: session.user.id,
       },
+      include: {
+        exercises: {
+          select: {
+            exerciseId: true
+          }
+        }
+      }
     });
 
     if (!existingWorkout) {
       return new NextResponse("Treino não encontrado ou não autorizado.", { status: 404 });
     }
 
-    // Excluir o treino (os exercícios associados em WorkoutExercise serão deletados em cascata pelo banco)
-    await prisma.workout.delete({
-      where: {
-        id: workoutId,
-      },
+    const exerciseIds = existingWorkout.exercises.map(ex => ex.exerciseId);
+
+    // Excluir o treino e recalcular o uso de todos os exercícios que estavam vinculados a ele na mesma transação
+    await prisma.$transaction(async (tx) => {
+      await tx.workout.delete({
+        where: {
+          id: workoutId,
+        },
+      });
+
+      for (const exId of exerciseIds) {
+        const count = await tx.workoutExercise.count({ where: { exerciseId: exId } });
+        await tx.exercise.update({ where: { id: exId }, data: { usage: count } });
+      }
     });
 
     return new NextResponse(null, { status: 204 });

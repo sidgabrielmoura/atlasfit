@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import bcryptjs from "bcryptjs";
 import crypto from "crypto";
+import { batchVerifyAndDecayStreaks } from "@/lib/streak-helper";
 
 // GET: Fetch all students of a given workspace
 export async function GET(req: Request) {
@@ -31,6 +32,9 @@ export async function GET(req: Request) {
       return new NextResponse("Acesso negado a este workspace.", { status: 403 });
     }
 
+    // Verify and decay streaks in batch before loading the list
+    await batchVerifyAndDecayStreaks(workspaceId);
+
     // Fetch all student members
     const members = await prisma.workspaceMember.findMany({
       where: {
@@ -46,7 +50,6 @@ export async function GET(req: Request) {
     });
 
     const students = members.map((m) => {
-      // Create a clean avatar fallback
       const nameParts = m.user.name?.split(" ") || [];
       const fallback = nameParts.length > 1
         ? `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase()

@@ -12,7 +12,7 @@ export async function GET() {
   try {
     // 1. Fetch Subscriptions to calculate MRR and ARR
     const activeSubscriptions = await prisma.subscription.findMany({
-      where: { status: "active" },
+      where: { status: { in: ["active", "ACTIVE"] } },
       include: { plan: true }
     });
 
@@ -24,7 +24,7 @@ export async function GET() {
 
     // 3. Fetch Transactions to calculate Total Revenue and Today's metrics
     const approvedTransactions = await prisma.transaction.findMany({
-      where: { status: "APPROVED" }
+      where: { status: { in: ["APPROVED", "approved"] } }
     });
     
     const totalRevenue = approvedTransactions.reduce((acc, tx) => acc + tx.amount, 0);
@@ -38,7 +38,7 @@ export async function GET() {
 
     // Calcula Inadimplência
     const failedTransactions = await prisma.transaction.findMany({
-      where: { status: "FAILED" }
+      where: { status: { in: ["FAILED", "failed"] } }
     });
     const totalFailedRevenue = failedTransactions.reduce((acc, tx) => acc + tx.amount, 0);
 
@@ -48,7 +48,7 @@ export async function GET() {
     // Churn estimado (Cancelados / Total de Assinaturas)
     const totalSubscriptions = await prisma.subscription.count();
     const canceledSubscriptions = await prisma.subscription.count({
-      where: { status: "canceled" }
+      where: { status: { in: ["canceled", "CANCELED"] } }
     });
     const churn = totalSubscriptions > 0 ? (canceledSubscriptions / totalSubscriptions) * 100 : 0;
 
@@ -68,15 +68,83 @@ export async function GET() {
     });
 
     const formattedTransactions = recentTransactions.map((tx) => {
+      const sub = tx.user?.subscription;
       return {
         ...tx,
         workspace: {
           name: tx.user?.name || "Conta de Personal",
           logo: tx.user?.name?.slice(0, 2).toUpperCase() || "CP",
-          subscription: tx.user?.subscription || null
+          subscription: sub ? { ...sub, status: sub.status.toLowerCase() } : null
         }
       };
     });
+
+    // 4. Fetch Recent Upgrades (SubscriptionActivity where type: "UPGRADE")
+    const recentUpgrades = await prisma.subscriptionActivity.findMany({
+      where: { type: "UPGRADE" },
+      orderBy: { createdAt: "desc" },
+      take: 5,
+      include: {
+        user: true,
+        plan: true
+      }
+    });
+
+    const upgradesWithFrom = await Promise.all(
+      recentUpgrades.map(async (upgrade) => {
+        const prevActivity = await prisma.subscriptionActivity.findFirst({
+          where: {
+            userId: upgrade.userId,
+            createdAt: { lt: upgrade.createdAt },
+            type: { in: ["NEW_SUBSCRIPTION", "RENEWAL", "UPGRADE"] }
+          },
+          orderBy: { createdAt: "desc" },
+          include: { plan: true }
+        });
+
+        return {
+          id: upgrade.id,
+          user: upgrade.user?.name || upgrade.user?.email || "Personal Trainer",
+          to: upgrade.plan?.name || "Premium",
+          from: prevActivity?.plan?.name || "Free Trial",
+          date: upgrade.createdAt
+        };
+      })
+    );
+
+    // Calculate actual historical MRR (last 6 months)
+    const now = new Date();
+    const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+    const months = [];
+    for (let i = 5; i >= 0; i--) {
+      const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+      months.push({
+        name: monthNames[d.getMonth()],
+        year: d.getFullYear(),
+        month: d.getMonth(),
+      });
+    }
+
+    const mrrHistory = [];
+    for (const m of months) {
+      const endOfMonth = new Date(m.year, m.month + 1, 0, 23, 59, 59, 999);
+      const activeSubsAtMonth = await prisma.subscription.findMany({
+        where: {
+          startDate: { lte: endOfMonth },
+          OR: [
+            { endDate: null },
+            { endDate: { gt: endOfMonth } }
+          ],
+          status: { in: ["ACTIVE", "active"] }
+        },
+        include: { plan: true }
+      });
+      const mrrAtMonth = activeSubsAtMonth.reduce((acc, sub) => acc + (sub.plan?.price || 0), 0);
+      mrrHistory.push({
+        month: m.name,
+        mrr: mrrAtMonth
+      });
+    }
 
     return NextResponse.json({
       mrr,
@@ -86,7 +154,9 @@ export async function GET() {
       totalFailedRevenue,
       ltv,
       churn,
-      recentTransactions: formattedTransactions
+      recentTransactions: formattedTransactions,
+      recentUpgrades: upgradesWithFrom,
+      mrrHistory
     });
 
   } catch (error) {

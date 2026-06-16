@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { logSystemError } from "@/lib/logger";
 
 // POST: Create a new manual payment record
 export async function POST(req: Request) {
@@ -47,7 +48,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json(newPayment);
   } catch (error) {
-    console.error("POST manual payment error:", error);
+    await logSystemError({ action: "POST_MANUAL_PAYMENT", error, entity: "PAYMENT" });
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }
 }

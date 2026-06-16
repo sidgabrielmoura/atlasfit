@@ -64,7 +64,7 @@ export default function SubscriptionExpiredPage() {
 
       const freeTrial = result.currentSubscription?.freeTrial;
       const isTrialActive = freeTrial ? new Date() <= new Date(freeTrial.endDate) : false;
-      const isSubscriptionActive = result.currentSubscription?.status === "active";
+      const isSubscriptionActive = result.currentSubscription?.status?.toLowerCase() === "active";
 
       if (isTrialActive || isSubscriptionActive) {
         router.push("/personal/dashboard");

@@ -35,40 +35,51 @@ export async function POST(
     }
 
     // Create a duplicate workout
-    const duplicatedWorkout = await prisma.workout.create({
-      data: {
-        name: `Cópia de ${originalWorkout.name}`,
-        goal: originalWorkout.goal,
-        difficulty: originalWorkout.difficulty,
-        duration: originalWorkout.duration,
-        muscleGroupLabel: originalWorkout.muscleGroupLabel,
-        restBetweenExercises: originalWorkout.restBetweenExercises,
-        creatorId: session.user.id,
-        workspaceId: originalWorkout.workspaceId,
-        exercises: {
-          create: originalWorkout.exercises.map((ex) => ({
-            exerciseId: ex.exerciseId,
-            sets: ex.sets,
-            reps: ex.reps,
-            rest: ex.rest,
-            order: ex.order,
-          })),
+    const duplicatedWorkout = await prisma.$transaction(async (tx) => {
+      const workout = await tx.workout.create({
+        data: {
+          name: `Cópia de ${originalWorkout.name}`,
+          goal: originalWorkout.goal,
+          difficulty: originalWorkout.difficulty,
+          duration: originalWorkout.duration,
+          muscleGroupLabel: originalWorkout.muscleGroupLabel,
+          restBetweenExercises: originalWorkout.restBetweenExercises,
+          creatorId: session.user.id,
+          workspaceId: originalWorkout.workspaceId,
+          exercises: {
+            create: originalWorkout.exercises.map((ex) => ({
+              exerciseId: ex.exerciseId,
+              sets: ex.sets,
+              reps: ex.reps,
+              rest: ex.rest,
+              order: ex.order,
+            })),
+          },
         },
-      },
-      include: {
-        exercises: {
-          include: {
-            exercise: {
-              include: {
-                muscleGroup: true,
+        include: {
+          exercises: {
+            include: {
+              exercise: {
+                include: {
+                  muscleGroup: true,
+                },
               },
             },
-          },
-          orderBy: {
-            order: "asc",
+            orderBy: {
+              order: "asc",
+            },
           },
         },
-      },
+      });
+
+      // Recalcular uso de todos os exercícios copiados
+      const exerciseIds = originalWorkout.exercises.map((ex) => ex.exerciseId).filter(Boolean);
+      for (const exId of Array.from(new Set(exerciseIds)) as string[]) {
+        const count = await tx.workoutExercise.count({ where: { exerciseId: exId } });
+        await tx.exercise.update({ where: { id: exId }, data: { usage: count } });
+      }
+
+      return workout;
     });
 
     return NextResponse.json(duplicatedWorkout, { status: 201 });

@@ -2,12 +2,28 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
 import crypto from "crypto";
+import { logSystemError } from "@/lib/logger";
+import { rateLimit } from "@/lib/rate-limit";
 
 export async function POST(req: Request) {
   const session = await auth();
 
-  if (session?.user?.role !== "SUPERADMIN") {
+  if (session?.user?.role !== "SUPERADMIN" || !session?.user?.id) {
     return new NextResponse("Unauthorized", { status: 401 });
+  }
+
+  const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "127.0.0.1";
+  const limiter = await rateLimit(`impersonate:${session.user.id}:${ip}`, 10, 60000);
+
+  if (!limiter.success) {
+    return new NextResponse("Muitas requisições. Tente novamente mais tarde.", {
+      status: 429,
+      headers: {
+        "X-RateLimit-Limit": String(limiter.limit),
+        "X-RateLimit-Remaining": String(limiter.remaining),
+        "X-RateLimit-Reset": String(limiter.reset),
+      },
+    });
   }
 
   try {
@@ -41,7 +57,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ token, email: targetUser.email }, { status: 200 });
   } catch (error) {
-    console.error("IMPERSONATE_TOKEN_ERROR", error);
+    await logSystemError({ action: "POST_IMPERSONATE_START", error, entity: "IMPERSONATION" });
     return new NextResponse("Internal Error", { status: 500 });
   }
 }

@@ -108,24 +108,9 @@ export default function SuperAdminDashboardPage() {
     financial: { mrr: 0, arr: 0 }
   };
 
-  // Gerar dados históricos realistas a partir dos dados do banco para preencher o gráfico
-  const userGrowthData = [
-    { month: "Jan", total: Math.round(metrics.users.total * 0.45) || 12 },
-    { month: "Fev", total: Math.round(metrics.users.total * 0.6) || 18 },
-    { month: "Mar", total: Math.round(metrics.users.total * 0.72) || 28 },
-    { month: "Abr", total: Math.round(metrics.users.total * 0.85) || 39 },
-    { month: "Mai", total: Math.round(metrics.users.total * 0.95) || 52 },
-    { month: "Jun", total: metrics.users.total || 65 },
-  ];
-
-  const financialGrowthData = [
-    { month: "Jan", mrr: Math.round(metrics.financial.mrr * 0.4) || 2000 },
-    { month: "Fev", mrr: Math.round(metrics.financial.mrr * 0.55) || 2900 },
-    { month: "Mar", mrr: Math.round(metrics.financial.mrr * 0.7) || 4100 },
-    { month: "Abr", mrr: Math.round(metrics.financial.mrr * 0.82) || 6000 },
-    { month: "Mai", mrr: Math.round(metrics.financial.mrr * 0.92) || 8300 },
-    { month: "Jun", mrr: metrics.financial.mrr || 10500 },
-  ];
+  // Histórico real a partir dos dados do banco
+  const userGrowthData = metrics.userGrowthData || [];
+  const financialGrowthData = metrics.financialGrowthData || [];
 
   return (
     <div className="p-6 md:p-8 space-y-10 max-w-[1600px] mx-auto animate-in fade-in duration-700">

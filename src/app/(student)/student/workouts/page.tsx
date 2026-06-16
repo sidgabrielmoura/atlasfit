@@ -19,6 +19,16 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog";
+import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -48,6 +58,7 @@ import {
   HelpCircle,
   PlayCircle,
   ShieldAlert,
+  Printer,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -105,6 +116,9 @@ export default function StudentWorkoutsPage() {
   const [feedbackNotes, setFeedbackNotes] = useState("");
   const [isSubmittingLog, setIsSubmittingLog] = useState(false);
 
+  // Confirmation State for leaving workout (confirmationmodals.md compliance)
+  const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
+
   // Congratulations Modal
   const [showConGrats, setShowConGrats] = useState(false);
 
@@ -134,6 +148,285 @@ export default function StudentWorkoutsPage() {
       setLoading(false);
     }
   }
+
+  const handlePrintWorkout = (workout: any) => {
+    const primaryColor = activeWs?.primaryColor || "#ea580c";
+    const logoUrl = activeWs?.logoUrl || "";
+    const workspaceName = activeWs?.name || "";
+    const watermarkUrl = activeWs?.watermarkUrl || "";
+
+    const printWindow = window.open("", "_blank");
+    if (!printWindow) return;
+
+    const exercisesRows = (workout.exercises || []).map((we: any, idx: number) => {
+      const repsArr = String(we.reps || "").split(",").map(s => s.trim());
+      const restArr = String(we.rest || "").split(",").map(s => s.trim());
+      const instructions = we.notes || we.exercise.instructions || "";
+      
+      return `
+        <tr style="border-bottom: 1px solid #e4e4e7;">
+          <td style="padding: 12px 8px; font-weight: bold; text-align: center; color: ${primaryColor}; width: 40px;">${idx + 1}</td>
+          <td style="padding: 12px 8px;">
+            <div style="font-weight: bold; font-size: 14px; color: #18181b;">${we.exercise.name}</div>
+            ${instructions ? `<div style="font-size: 11px; color: #71717a; margin-top: 4px; font-style: italic;">${instructions}</div>` : ""}
+          </td>
+          <td style="padding: 12px 8px; text-align: center; font-weight: 600; font-size: 13px;">${we.sets}</td>
+          <td style="padding: 12px 8px; text-align: center; font-size: 13px;">${repsArr.join(" / ")}</td>
+          <td style="padding: 12px 8px; text-align: center; font-size: 13px;">${restArr.join(" / ")}</td>
+        </tr>
+      `;
+    }).join("");
+
+    const content = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>${workout.name} - ${workspaceName}</title>
+          <style>
+            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
+            @page {
+              margin: 0;
+              size: A4;
+            }
+            body {
+              font-family: 'Inter', system-ui, -apple-system, sans-serif;
+              margin: 0;
+              padding: 40px 30px;
+              color: #18181b;
+              background-color: #ffffff;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+              box-sizing: border-box;
+              min-height: 100vh;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+            }
+            .top-bar {
+              position: fixed;
+              top: 0;
+              left: 0;
+              right: 0;
+              height: 15px;
+              background-color: ${primaryColor};
+              z-index: 9999;
+            }
+            .bottom-bar {
+              position: fixed;
+              bottom: 0;
+              left: 0;
+              right: 0;
+              height: 15px;
+              background-color: ${primaryColor};
+              z-index: 9999;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              border-bottom: 2px solid #f4f4f5;
+              padding-bottom: 20px;
+              margin-top: 15px;
+              margin-bottom: 25px;
+            }
+            .brand-info {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            }
+            .logo {
+              width: 45px;
+              height: 45px;
+              object-fit: cover;
+              border-radius: 8px;
+            }
+            .logo-fallback {
+              width: 45px;
+              height: 45px;
+              background-color: ${primaryColor};
+              color: white;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              font-weight: 900;
+              font-size: 20px;
+              border-radius: 8px;
+            }
+            .brand-name {
+              font-weight: 900;
+              font-size: 18px;
+              letter-spacing: -0.5px;
+              color: #18181b;
+            }
+            .doc-title {
+              text-align: right;
+            }
+            .doc-title h1 {
+              margin: 0;
+              font-size: 16px;
+              font-weight: 900;
+              text-transform: uppercase;
+              letter-spacing: 1px;
+              color: ${primaryColor};
+            }
+            .doc-title p {
+              margin: 4px 0 0 0;
+              font-size: 11px;
+              color: #71717a;
+              font-weight: 600;
+            }
+            .workout-summary {
+              background-color: #fafafa;
+              border: 1px solid #f4f4f5;
+              border-radius: 12px;
+              padding: 16px 20px;
+              margin-bottom: 30px;
+              display: grid;
+              grid-template-columns: repeat(4, 1fr);
+              gap: 15px;
+            }
+            .summary-item {
+              display: flex;
+              flex-direction: column;
+            }
+            .summary-label {
+              font-size: 9px;
+              text-transform: uppercase;
+              font-weight: 700;
+              color: #71717a;
+              letter-spacing: 0.5px;
+              margin-bottom: 4px;
+            }
+            .summary-val {
+              font-size: 14px;
+              font-weight: 700;
+              color: #18181b;
+            }
+            .section-title {
+              font-size: 13px;
+              font-weight: 900;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              color: #71717a;
+              margin-bottom: 12px;
+              border-left: 3px solid ${primaryColor};
+              padding-left: 8px;
+            }
+            table {
+              width: 100%;
+              border-collapse: collapse;
+              margin-bottom: 30px;
+            }
+            th {
+              background-color: #fafafa;
+              color: #71717a;
+              font-weight: 700;
+              font-size: 10px;
+              text-transform: uppercase;
+              letter-spacing: 0.5px;
+              padding: 10px 8px;
+              border-bottom: 2px solid #f4f4f5;
+            }
+            .footer-note {
+              margin-top: auto;
+              border-top: 1px solid #f4f4f5;
+              padding-top: 15px;
+              font-size: 10px;
+              color: #a1a1aa;
+              text-align: center;
+              margin-bottom: 15px;
+            }
+            ${watermarkUrl ? `
+            .watermark {
+              position: fixed;
+              top: 0;
+              left: 0;
+              width: 100%;
+              height: 100%;
+              background-image: url('${watermarkUrl}');
+              background-position: center;
+              background-repeat: no-repeat;
+              background-size: 60%;
+              opacity: 0.06;
+              z-index: -1000;
+              pointer-events: none;
+            }
+            ` : ""}
+          </style>
+        </head>
+        <body>
+          ${watermarkUrl ? `<div class="watermark"></div>` : ""}
+          <div class="top-bar"></div>
+          
+          <div>
+            <div class="header">
+              <div class="brand-info">
+                ${logoUrl ? `<img class="logo" src="${logoUrl}" alt="${workspaceName}" />` : `<div class="logo-fallback">${workspaceName ? workspaceName.charAt(0).toUpperCase() : "A"}</div>`}
+                <div class="brand-name">${workspaceName}</div>
+              </div>
+              <div class="doc-title">
+                <h1>Ficha de Treino</h1>
+                <p>${workout.name}</p>
+              </div>
+            </div>
+
+            <div class="workout-summary">
+              <div class="summary-item">
+                <span class="summary-label">Objetivo</span>
+                <span class="summary-val">${workout.goal || "Geral"}</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Foco Muscular</span>
+                <span class="summary-val">${workout.muscleGroupLabel || "Geral"}</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Duração</span>
+                <span class="summary-val">${workout.duration || "60 min"}</span>
+              </div>
+              <div class="summary-item">
+                <span class="summary-label">Descanso</span>
+                <span class="summary-val">${workout.restBetweenExercises || "2 min"}</span>
+              </div>
+            </div>
+
+            <div class="section-title">Exercícios Prescritos</div>
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 40px; text-align: center;">#</th>
+                  <th style="text-align: left;">Exercício</th>
+                  <th style="width: 80px; text-align: center;">Séries</th>
+                  <th style="width: 120px; text-align: center;">Repetições</th>
+                  <th style="width: 100px; text-align: center;">Descanso</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${exercisesRows}
+              </tbody>
+            </table>
+          </div>
+
+          <div class="footer-note">
+            Gerado automaticamente por ${workspaceName || "AtlasFit"}. Todos os direitos reservados.
+          </div>
+          
+          <div class="bottom-bar"></div>
+
+          <script>
+            window.onload = function() {
+              setTimeout(function() {
+                window.print();
+                window.close();
+              }, 300);
+            }
+          </script>
+        </body>
+      </html>
+    `;
+
+    printWindow.document.write(content);
+    printWindow.document.close();
+  };
 
   // Active workout for the selected day of the week
   const selectedWorkout = workouts.find((w) => w.dayOfWeek === selectedDay);
@@ -254,6 +547,25 @@ export default function StudentWorkoutsPage() {
     if (!nextDone[exercise.id]) {
       nextDone[exercise.id] = new Array(exercise.sets).fill(false);
     }
+
+    const isCurrentlyDone = nextDone[exercise.id][idx];
+
+    // Se estiver marcando como concluído, valida se a carga é obrigatória e foi registrada
+    if (!isCurrentlyDone) {
+      const predefinedLoad = exercise.load;
+      const isPredefined = typeof predefinedLoad === "string" &&
+                           predefinedLoad.trim() !== "" &&
+                           !predefinedLoad.toLowerCase().includes("auto");
+
+      if (!isPredefined) {
+        const userLoad = allWorkoutLoads[exercise.id]?.[idx];
+        if (!userLoad || userLoad.trim() === "") {
+          toast.warning("Por favor, registre a carga utilizada nesta série antes de marcá-la como concluída. 💪");
+          return;
+        }
+      }
+    }
+
     nextDone[exercise.id][idx] = !nextDone[exercise.id][idx];
     setAllWorkoutSetsDone(nextDone);
 
@@ -524,23 +836,33 @@ export default function StudentWorkoutsPage() {
                       </p>
                     </div>
 
-                    {selectedWorkout.isActive && (
-                      isCompletedToday ? (
-                        <Button
-                          disabled
-                          className="w-full sm:w-auto h-12 rounded-xl font-bold text-sm bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 gap-2 shrink-0 opacity-100 cursor-not-allowed"
-                        >
-                          <CheckCircle2 className="size-4.5 text-emerald-500" /> TREINO CONCLUÍDO HOJE
-                        </Button>
-                      ) : (
-                        <Button
-                          onClick={() => handleStartWorkout(selectedWorkout)}
-                          className="w-full sm:w-auto h-12 rounded-xl font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/10 gap-2 transition-all cursor-pointer active:scale-95 shrink-0"
-                        >
-                          <Play className="size-4.5 fill-current" /> INICIAR PLANILHA
-                        </Button>
-                      )
-                    )}
+                    <div className="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto shrink-0">
+                      <Button
+                        onClick={() => handlePrintWorkout(selectedWorkout)}
+                        variant="outline"
+                        className="w-full sm:w-auto h-12 rounded-xl font-bold text-sm border-border/60 hover:bg-secondary/40 gap-2 transition-all cursor-pointer active:scale-95 shrink-0"
+                      >
+                        <Printer className="size-4.5" /> Exportar PDF
+                      </Button>
+
+                      {selectedWorkout.isActive && (
+                        isCompletedToday ? (
+                          <Button
+                            disabled
+                            className="w-full sm:w-auto h-12 rounded-xl font-bold text-sm bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 gap-2 shrink-0 opacity-100 cursor-not-allowed"
+                          >
+                            <CheckCircle2 className="size-4.5 text-emerald-500" /> TREINO CONCLUÍDO HOJE
+                          </Button>
+                        ) : (
+                          <Button
+                            onClick={() => handleStartWorkout(selectedWorkout)}
+                            className="w-full sm:w-auto h-12 rounded-xl font-bold text-sm bg-primary text-primary-foreground hover:bg-primary/90 shadow-md shadow-primary/10 gap-2 transition-all cursor-pointer active:scale-95 shrink-0"
+                          >
+                            <Play className="size-4.5 fill-current" /> INICIAR PLANILHA
+                          </Button>
+                        )
+                      )}
+                    </div>
                   </CardContent>
                 </Card>
 
@@ -734,6 +1056,34 @@ export default function StudentWorkoutsPage() {
         onOpenChange={setIsPreviewModalOpen}
       />
 
+      {/* Leave Workout Confirmation Dialog (confirmationmodals.md compliance) */}
+      <AlertDialog open={isExitConfirmOpen} onOpenChange={setIsExitConfirmOpen}>
+        <AlertDialogContent className="sm:max-w-md bg-background border border-border text-foreground rounded-2xl shadow-2xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-lg font-bold text-foreground">Sair do Treino?</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground text-sm">
+              Seu progresso atual neste treino não será salvo e o cronômetro será zerado.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="pt-4 flex sm:justify-end gap-2">
+            <AlertDialogCancel className="h-10 px-4 cursor-pointer rounded-xl transition-all border-border hover:bg-secondary/40 font-semibold">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              variant="destructive"
+              onClick={() => {
+                setIsExitConfirmOpen(false);
+                setActiveExecutionWorkout(null);
+                setIsRestTimerActive(false);
+              }}
+              className="h-10 px-4 cursor-pointer rounded-xl transition-all font-bold"
+            >
+              Confirmar e Sair
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* WORKOUT EXECUTION SHEET OVERLAY (TOUCH Gym workspace) */}
       {activeExecutionWorkout && (
         <div className="fixed inset-0 bg-background z-50 overflow-y-auto flex flex-col">
@@ -752,12 +1102,7 @@ export default function StudentWorkoutsPage() {
             </div>
 
             <Button
-              onClick={() => {
-                if (confirm("Tem certeza que deseja sair do treino? Seu progresso atual não será salvo.")) {
-                  setActiveExecutionWorkout(null);
-                  setIsRestTimerActive(false);
-                }
-              }}
+              onClick={() => setIsExitConfirmOpen(true)}
               variant="destructive"
               size="icon"
               className="size-10 rounded-xl cursor-pointer"

@@ -49,9 +49,9 @@ export function StudentMobileNavbar() {
                     transition={{ type: "spring", stiffness: 380, damping: 30 }}
                   />
                 )}
-                <item.icon className="size-4 shrink-0 z-10" />
+                <item.icon className="size-4 shrink-0 z-10 text-white " />
                 {isActive && (
-                  <span className="font-extrabold text-[11px] tracking-tight z-10 ml-1.5 whitespace-nowrap animate-in fade-in duration-200">
+                  <span className="font-extrabold text-[11px] text-white tracking-tight z-10 ml-1.5 whitespace-nowrap animate-in fade-in duration-200">
                     {item.title}
                   </span>
                 )}

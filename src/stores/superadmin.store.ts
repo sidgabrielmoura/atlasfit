@@ -7,6 +7,8 @@ interface SuperAdminState {
   workspaces: any[];
   logs: any[];
   exercises: any[];
+  pendingExercises: any[];
+  needsConfigExercises: any[];
   subscriptions: any[];
   subscriptionMetrics: any;
   settings: any[];
@@ -20,6 +22,18 @@ interface SuperAdminState {
     userId: string;
     workspaceId: string;
     action: string;
+    severity: string;
+  };
+  exerciseFilters: {
+    search: string;
+    muscleGroupId: string;
+    page: number;
+    limit: number;
+  };
+  exercisePagination: {
+    total: number;
+    pages: number;
+    totalUsage: number;
   };
   isLoading: boolean;
   error: string | null;
@@ -33,6 +47,8 @@ const initialState: SuperAdminState = {
   workspaces: [],
   logs: [],
   exercises: [],
+  pendingExercises: [],
+  needsConfigExercises: [],
   subscriptions: [],
   subscriptionMetrics: null,
   settings: [],
@@ -46,6 +62,18 @@ const initialState: SuperAdminState = {
     userId: "all",
     workspaceId: "all",
     action: "all",
+    severity: "danger", // Default focus on critical system errors
+  },
+  exerciseFilters: {
+    search: "",
+    muscleGroupId: "all",
+    page: 1,
+    limit: 5,
+  },
+  exercisePagination: {
+    total: 0,
+    pages: 1,
+    totalUsage: 0,
   },
   isLoading: false,
   error: null,
@@ -105,12 +133,13 @@ export const superAdminActions = {
   async fetchLogs() {
     superAdminStore.isLoading = true;
     try {
-      const { search, userId, workspaceId, action } = superAdminStore.logFilters;
+      const { search, userId, workspaceId, action, severity } = superAdminStore.logFilters;
       const params = new URLSearchParams();
       if (search) params.append("search", search);
       if (userId !== "all") params.append("userId", userId);
       if (workspaceId !== "all") params.append("workspaceId", workspaceId);
       if (action !== "all") params.append("action", action);
+      if (severity !== "all") params.append("severity", severity);
 
       const { data } = await api.get(`/superadmin/logs?${params.toString()}`);
       superAdminStore.logs = data;
@@ -126,15 +155,60 @@ export const superAdminActions = {
     superAdminActions.fetchLogs();
   },
 
+  setExerciseFilters(filters: Partial<SuperAdminState["exerciseFilters"]>) {
+    superAdminStore.exerciseFilters = { ...superAdminStore.exerciseFilters, ...filters };
+    superAdminActions.fetchExercises();
+  },
+
   async fetchExercises() {
     superAdminStore.isLoading = true;
     try {
-      const { data } = await api.get("/superadmin/exercises");
-      superAdminStore.exercises = data;
+      const { search, muscleGroupId, page, limit } = superAdminStore.exerciseFilters;
+      const params = new URLSearchParams();
+      if (search) params.append("search", search);
+      if (muscleGroupId && muscleGroupId !== "all") params.append("muscleGroupId", muscleGroupId);
+      params.append("status", "READY,APPROVED");
+      params.append("page", String(page));
+      params.append("limit", String(limit));
+
+      const { data } = await api.get(`/superadmin/exercises?${params.toString()}`);
+      if (data && data.data) {
+        superAdminStore.exercises = data.data;
+        superAdminStore.exercisePagination = {
+          total: data.total || 0,
+          pages: data.pages || 1,
+          totalUsage: data.totalUsage || 0,
+        };
+      } else {
+        superAdminStore.exercises = Array.isArray(data) ? data : [];
+        superAdminStore.exercisePagination = {
+          total: superAdminStore.exercises.length,
+          pages: 1,
+          totalUsage: 0,
+        };
+      }
     } catch (err: any) {
       superAdminStore.error = err.message;
     } finally {
       superAdminStore.isLoading = false;
+    }
+  },
+
+  async fetchPendingExercises() {
+    try {
+      const { data } = await api.get("/superadmin/exercises?status=PENDING");
+      superAdminStore.pendingExercises = Array.isArray(data) ? data : [];
+    } catch (err: any) {
+      superAdminStore.error = err.message;
+    }
+  },
+
+  async fetchNeedsConfigExercises() {
+    try {
+      const { data } = await api.get("/superadmin/exercises?status=NEEDS_CONFIG");
+      superAdminStore.needsConfigExercises = Array.isArray(data) ? data : [];
+    } catch (err: any) {
+      superAdminStore.error = err.message;
     }
   },
 
@@ -170,6 +244,14 @@ export const superAdminActions = {
   async createUser(data: any) {
     try {
       await api.post("/superadmin/users", data);
+      await superAdminActions.fetchUsers();
+    } catch (err: any) {
+      throw new Error(err.response?.data || err.message);
+    }
+  },
+  async deleteUser(id: string) {
+    try {
+      await api.delete(`/superadmin/users/${id}`);
       await superAdminActions.fetchUsers();
     } catch (err: any) {
       throw new Error(err.response?.data || err.message);
@@ -213,7 +295,7 @@ export const superAdminActions = {
       superAdminStore.isLoading = false;
     }
   },
-  async createPlan(data: { name: string; price: number; interval: string; features: string; maxWorkspaces?: number }) {
+  async createPlan(data: { name: string; price: number; interval: string; features: string; maxWorkspaces?: number; maxStudents?: number | null }) {
     try {
       await api.post("/superadmin/plans", data);
       await superAdminActions.fetchPlans();
@@ -221,7 +303,7 @@ export const superAdminActions = {
       throw new Error(err.response?.data || err.message);
     }
   },
-  async updatePlan(id: string, data: { name?: string; price?: number; interval?: string; features?: string; maxWorkspaces?: number }) {
+  async updatePlan(id: string, data: { name?: string; price?: number; interval?: string; features?: string; maxWorkspaces?: number; maxStudents?: number | null }) {
     try {
       await api.patch(`/superadmin/plans/${id}`, data);
       await superAdminActions.fetchPlans();
@@ -264,10 +346,22 @@ export const superAdminActions = {
       throw new Error(err.response?.data || err.message);
     }
   },
+  async deleteCoupon(id: string) {
+    try {
+      await api.delete(`/superadmin/coupons?id=${id}`);
+      await superAdminActions.fetchCoupons();
+    } catch (err: any) {
+      throw new Error(err.response?.data || err.message);
+    }
+  },
   async updateExerciseStatus(id: string, status: string) {
     try {
       await api.patch(`/superadmin/exercises/${id}`, { status });
-      await superAdminActions.fetchExercises();
+      await Promise.all([
+        superAdminActions.fetchExercises(),
+        superAdminActions.fetchPendingExercises(),
+        superAdminActions.fetchNeedsConfigExercises(),
+      ]);
     } catch (err: any) {
       throw new Error(err.response?.data || err.message);
     }
@@ -275,7 +369,11 @@ export const superAdminActions = {
   async createExercise(data: { name: string; videoUrl: string; muscleGroupId: string; isOfficial: boolean }) {
     try {
       await api.post("/superadmin/exercises", { ...data, status: "READY" });
-      await superAdminActions.fetchExercises();
+      await Promise.all([
+        superAdminActions.fetchExercises(),
+        superAdminActions.fetchPendingExercises(),
+        superAdminActions.fetchNeedsConfigExercises(),
+      ]);
     } catch (err: any) {
       throw new Error(err.response?.data || err.message);
     }
@@ -283,7 +381,23 @@ export const superAdminActions = {
   async configureExercise(id: string, data: { name: string; videoUrl: string; muscleGroupId: string; isOfficial: boolean }) {
     try {
       await api.patch(`/superadmin/exercises/${id}`, { ...data, status: "READY" });
-      await superAdminActions.fetchExercises();
+      await Promise.all([
+        superAdminActions.fetchExercises(),
+        superAdminActions.fetchPendingExercises(),
+        superAdminActions.fetchNeedsConfigExercises(),
+      ]);
+    } catch (err: any) {
+      throw new Error(err.response?.data || err.message);
+    }
+  },
+  async deleteExercise(id: string) {
+    try {
+      await api.delete(`/superadmin/exercises/${id}`);
+      await Promise.all([
+        superAdminActions.fetchExercises(),
+        superAdminActions.fetchPendingExercises(),
+        superAdminActions.fetchNeedsConfigExercises(),
+      ]);
     } catch (err: any) {
       throw new Error(err.response?.data || err.message);
     }

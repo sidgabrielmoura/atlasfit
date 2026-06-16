@@ -17,7 +17,8 @@ import { useSnapshot } from "valtio";
 import { workspaceStore, workspaceActions } from "@/stores/workspace.store";
 
 // Helper component for text URL input with live visual preview
-function UrlInputWithPreview({
+// Helper component for toggleable file upload / text URL input with live preview
+function ImageInputWithToggle({
   id,
   label,
   description,
@@ -34,19 +35,107 @@ function UrlInputWithPreview({
   placeholder?: string;
   isAvatar?: boolean;
 }) {
-  const isValidUrl = value.trim().startsWith("http://") || value.trim().startsWith("https://");
+  const [inputType, setInputType] = useState<"file" | "url">("url");
+  const [urlVal, setUrlVal] = useState("");
+  const [filePreview, setFilePreview] = useState("");
+
+  // Sync state with parent value (e.g., when loaded from database)
+  useEffect(() => {
+    if (value) {
+      if (value.startsWith("data:")) {
+        if (value !== filePreview) {
+          setInputType("file");
+          setFilePreview(value);
+        }
+      } else {
+        if (value !== urlVal) {
+          setInputType("url");
+          setUrlVal(value);
+        }
+      }
+    } else {
+      setUrlVal("");
+      setFilePreview("");
+    }
+  }, [value]);
+
+  // Update parent when URL changes
+  const handleUrlChange = (val: string) => {
+    setUrlVal(val);
+    onChange(val);
+  };
+
+  // Handle file base64 conversion
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        const base64 = reader.result as string;
+        setFilePreview(base64);
+        onChange(base64);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  // When toggled, reset/sync values
+  const toggleInputType = (type: "file" | "url") => {
+    setInputType(type);
+    if (type === "url") {
+      onChange(urlVal);
+    } else {
+      onChange(filePreview);
+    }
+  };
+
+  const previewSrc = inputType === "file" ? filePreview : urlVal;
+  const hasPreview = !!previewSrc && (previewSrc.startsWith("data:") || previewSrc.startsWith("http://") || previewSrc.startsWith("https://"));
 
   return (
     <div className="space-y-3">
       <div className="flex justify-between items-start">
-        <div className="space-y-1">
+        <div className="space-y-1 pr-4">
           <Label htmlFor={id} className="text-sm font-semibold">{label}</Label>
           <p className="text-xs text-muted-foreground">{description}</p>
         </div>
-        {isValidUrl && (
-          <div className={`size-12 border border-border/50 bg-secondary/30 overflow-hidden flex items-center justify-center shrink-0 shadow-sm animate-in fade-in zoom-in-95 duration-200 ${isAvatar ? "rounded-full" : "rounded-lg"}`}>
+        
+        {/* Toggle Button Group */}
+        <div className="flex gap-1 bg-secondary/40 p-0.5 rounded-lg border border-border/30 shrink-0">
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => toggleInputType("file")}
+            className={`h-7 px-2.5 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
+              inputType === "file" 
+                ? "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground shadow-sm" 
+                : "text-muted-foreground hover:bg-transparent"
+            }`}
+          >
+            Arquivo
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            size="sm"
+            onClick={() => toggleInputType("url")}
+            className={`h-7 px-2.5 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
+              inputType === "url" 
+                ? "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground shadow-sm" 
+                : "text-muted-foreground hover:bg-transparent"
+            }`}
+          >
+            Link URL
+          </Button>
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4">
+        {hasPreview && (
+          <div className={`size-14 border border-border/50 bg-secondary/30 overflow-hidden flex items-center justify-center shrink-0 shadow-sm animate-in fade-in zoom-in-95 duration-200 ${isAvatar ? "rounded-full" : "rounded-xl"}`}>
             <img
-              src={value}
+              src={previewSrc}
               alt="Preview"
               className="size-full object-cover"
               onError={(e) => {
@@ -55,15 +144,28 @@ function UrlInputWithPreview({
             />
           </div>
         )}
+        
+        <div className="flex-1">
+          {inputType === "file" ? (
+            <Input
+              id={id}
+              type="file"
+              accept="image/*"
+              onChange={handleFileChange}
+              className="rounded-xl bg-secondary/30 border-border/50 focus:bg-secondary/50 transition-all text-xs font-semibold flex items-center pt-2.5 h-10 cursor-pointer"
+            />
+          ) : (
+            <Input
+              id={id}
+              type="text"
+              value={urlVal}
+              onChange={(e) => handleUrlChange(e.target.value)}
+              placeholder={placeholder || "https://exemplo.com/imagem.png"}
+              className="rounded-xl bg-secondary/30 border-border/50 focus:bg-secondary/50 transition-all text-sm font-medium h-10"
+            />
+          )}
+        </div>
       </div>
-      <Input
-        id={id}
-        type="text"
-        value={value}
-        onChange={(e) => onChange(e.target.value)}
-        placeholder={placeholder || "https://exemplo.com/imagem.png"}
-        className="rounded-xl bg-secondary/30 border-border/50 focus:bg-secondary/50 transition-all text-sm font-medium"
-      />
     </div>
   );
 }
@@ -297,18 +399,18 @@ export default function SettingsPage() {
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-6 pt-4 border-t border-border/50">
-                  <UrlInputWithPreview
+                  <ImageInputWithToggle
                     id="brandLogo"
-                    label="Link do Logotipo"
-                    description="Insira o link URL para a imagem do seu logotipo (SVG, PNG ou JPG)."
+                    label="Logotipo da Assessoria"
+                    description="O logotipo da sua assessoria (PNG, JPG ou SVG)."
                     value={logoUrl}
                     onChange={setLogoUrl}
                     placeholder="https://exemplo.com/logo-assessoria.png"
                   />
-                  <UrlInputWithPreview
+                  <ImageInputWithToggle
                     id="pdfWatermark"
                     label="Marca d'água em PDF"
-                    description="O link da imagem sutil de fundo que será impressa nos PDFs exportados."
+                    description="A imagem sutil de fundo que será impressa nos PDFs exportados."
                     value={watermarkUrl}
                     onChange={setWatermarkUrl}
                     placeholder="https://exemplo.com/marca-dagua.png"
@@ -358,14 +460,14 @@ export default function SettingsPage() {
                 <CardDescription>Defina imagens e coberturas padrão para as suas planilhas de treinos.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                <UrlInputWithPreview
-                  id="workoutCover"
-                  label="Capa Padrão dos Treinos"
-                  description="Capa padrão exibida no app do aluno quando um treino específico não possuir uma capa personalizada."
-                  value={workoutCoverUrl}
-                  onChange={setWorkoutCoverUrl}
-                  placeholder="https://exemplo.com/capa-padrao.jpg"
-                />
+                 <ImageInputWithToggle
+                   id="workoutCover"
+                   label="Capa Padrão dos Treinos"
+                   description="Capa padrão exibida no app do aluno quando um treino específico não possuir uma capa personalizada."
+                   value={workoutCoverUrl}
+                   onChange={setWorkoutCoverUrl}
+                   placeholder="https://exemplo.com/capa-padrao.jpg"
+                 />
               </CardContent>
             </Card>
           </TabsContent>
@@ -381,10 +483,10 @@ export default function SettingsPage() {
               </CardHeader>
               <CardContent className="space-y-6">
                 <div className="pb-4 border-b border-border/50">
-                  <UrlInputWithPreview
+                  <ImageInputWithToggle
                     id="profImage"
-                    label="Foto de Perfil (Link)"
-                    description="Link para a imagem da sua foto de perfil (PNG, JPG ou SVG)."
+                    label="Foto de Perfil"
+                    description="Sua foto de perfil (PNG, JPG ou SVG)."
                     value={image}
                     onChange={setImage}
                     placeholder="https://exemplo.com/sua-foto-de-perfil.jpg"

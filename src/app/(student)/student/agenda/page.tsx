@@ -756,7 +756,6 @@ export default function StudentAgendaPage() {
                       )}
                       onClick={() => handleToggleTask(task.id, task.completed)}
                     >
-                      {/* Check-circle toggle button */}
                       <button
                         disabled={isTaskUpdating}
                         className={cn(
@@ -772,7 +771,6 @@ export default function StudentAgendaPage() {
                           <Check className="size-4 stroke-[3]" />
                         )}
                       </button>
-
                       {/* Task details */}
                       <div className="flex-1 space-y-2">
                         <div className="space-y-1">

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { PhysicalEvaluationDetailModal } from "@/components/application/physical-evaluation-detail-modal";
 import {
   Table,
   TableBody,
@@ -260,7 +261,9 @@ export default function StudentAssessmentsPage() {
                   <TableBody>
                     {evaluations.map((ev: any) => {
                       const skinfoldSum = ev.dobras
-                        ? Object.values(ev.dobras).reduce((acc: number, cur: any) => acc + (parseFloat(cur) || 0), 0)
+                        ? Object.entries(ev.dobras)
+                            .filter(([key]) => !["bodyFat", "fatMass", "leanMass", "classification"].includes(key))
+                            .reduce((acc: number, [_, val]: any) => acc + (parseFloat(val) || 0), 0)
                         : 0;
 
                       return (
@@ -288,11 +291,11 @@ export default function StudentAssessmentsPage() {
                           <TableCell className="text-xs text-muted-foreground dark:text-neutral-400">
                             {ev.dobras ? (
                               <span className="font-bold flex items-center gap-1 text-amber-600 dark:text-amber-455">
-                                <Flame className="size-3.5" /> 7 Dobras ({skinfoldSum.toFixed(1)} mm)
+                                <Flame className="size-3.5" /> Adipometria ({skinfoldSum.toFixed(1)} mm)
                               </span>
                             ) : (
-                              <span className="font-semibold text-sky-650 dark:text-sky-400 flex items-center gap-1">
-                                <Scale className="size-3.5" /> Bioimpedância
+                              <span className="font-semibold text-orange-500 flex items-center gap-1">
+                                <ClipboardList className="size-3.5" /> Anamnese / Geral
                               </span>
                             )}
                           </TableCell>
@@ -320,7 +323,9 @@ export default function StudentAssessmentsPage() {
               <div className="grid grid-cols-1 gap-3 md:hidden">
                 {evaluations.map((ev: any) => {
                   const skinfoldSum = ev.dobras
-                    ? Object.values(ev.dobras).reduce((acc: number, cur: any) => acc + (parseFloat(cur) || 0), 0)
+                    ? Object.entries(ev.dobras)
+                        .filter(([key]) => !["bodyFat", "fatMass", "leanMass", "classification"].includes(key))
+                        .reduce((acc: number, [_, val]: any) => acc + (parseFloat(val) || 0), 0)
                     : 0;
 
                   return (
@@ -344,11 +349,11 @@ export default function StudentAssessmentsPage() {
                           <span className="text-[9px] text-neutral-500 font-bold block uppercase">Método Analítico</span>
                           {ev.dobras ? (
                             <span className="text-xs font-bold text-amber-450 flex items-center gap-0.5">
-                              <Flame className="size-3 text-amber-500 shrink-0" /> {skinfoldSum.toFixed(1)} mm
+                              <Flame className="size-3 text-amber-500 shrink-0" /> Adipometria ({skinfoldSum.toFixed(1)} mm)
                             </span>
                           ) : (
-                            <span className="text-xs font-bold text-sky-400 flex items-center gap-0.5">
-                              <Scale className="size-3 text-sky-400 shrink-0" /> Bioimpedância
+                            <span className="text-xs font-bold text-orange-500 flex items-center gap-0.5">
+                              <ClipboardList className="size-3 text-orange-500 shrink-0" /> Anamnese / Geral
                             </span>
                           )}
                         </div>
@@ -519,123 +524,12 @@ export default function StudentAssessmentsPage() {
           )}
         </TabsContent>
       </Tabs>
-      <Dialog open={isDetailOpen} onOpenChange={setIsDetailOpen}>
-        <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-2xl bg-background dark:bg-neutral-950 border border-border dark:border-neutral-800 text-foreground p-6 rounded-2xl max-h-[90vh] overflow-y-auto">
-          {selectedEval && (() => {
-            const skinfoldSum = selectedEval.dobras
-              ? Object.values(selectedEval.dobras).reduce((acc: number, cur: any) => acc + (parseFloat(cur) || 0), 0)
-              : 0;
 
-            return (
-              <div className="space-y-6">
-                <DialogHeader>
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-border dark:border-white/[0.04] pb-3">
-                    <div>
-                      <span className="text-[10px] text-muted-foreground dark:text-neutral-500 font-black uppercase tracking-wider block">Detalhes da Aferição</span>
-                      <DialogTitle className="text-lg font-black text-foreground flex items-center gap-2">
-                        {selectedEval.dobras ? <Flame className="size-5 text-amber-500 animate-pulse" /> : <Scale className="size-5 text-sky-400 animate-pulse" />}
-                        {formatEvalDate(selectedEval.date)}
-                      </DialogTitle>
-                    </div>
-                    <Badge variant="outline" className="bg-muted dark:bg-neutral-900 border-border dark:border-white/[0.08] text-muted-foreground dark:text-neutral-300 font-bold text-[10px] py-1 px-3 self-start sm:self-center">
-                      {selectedEval.type}
-                    </Badge>
-                  </div>
-                  <DialogDescription className="hidden" />
-                </DialogHeader>
-
-                {/* Anthropometrics Quick Cards */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-                  <Card className="border border-border dark:border-white/[0.04] bg-muted/40 dark:bg-neutral-900/30 p-3 rounded-xl">
-                    <span className="text-[9px] text-muted-foreground dark:text-neutral-500 block uppercase font-bold tracking-wider">Peso</span>
-                    <span className="font-extrabold text-foreground text-sm">{selectedEval.weight} kg</span>
-                  </Card>
-                  <Card className="border border-border dark:border-white/[0.04] bg-muted/40 dark:bg-neutral-900/30 p-3 rounded-xl">
-                    <span className="text-[9px] text-muted-foreground dark:text-neutral-500 block uppercase font-bold tracking-wider">Altura</span>
-                    <span className="font-extrabold text-foreground text-sm">{selectedEval.height} cm</span>
-                  </Card>
-                  <Card className="border border-border dark:border-white/[0.04] bg-muted/40 dark:bg-neutral-900/30 p-3 rounded-xl">
-                    <span className="text-[9px] text-muted-foreground dark:text-neutral-500 block uppercase font-bold tracking-wider">Gordura Corporal</span>
-                    <span className="font-extrabold text-rose-500 dark:text-rose-400 text-sm">{selectedEval.bodyFat ? `${selectedEval.bodyFat}%` : "—"}</span>
-                  </Card>
-                  <Card className="border border-border dark:border-white/[0.04] bg-muted/40 dark:bg-neutral-900/30 p-3 rounded-xl">
-                    <span className="text-[9px] text-muted-foreground dark:text-neutral-500 block uppercase font-bold tracking-wider">Massa Magra</span>
-                    <span className="font-extrabold text-emerald-600 dark:text-emerald-450 text-sm">{selectedEval.muscleMass ? `${selectedEval.muscleMass}%` : "—"}</span>
-                  </Card>
-                </div>
-
-                {/* Tabular/Detailed views Pollock folds */}
-                {selectedEval.dobras && (
-                  <div className="space-y-3">
-                    <div className="flex items-center justify-between border-b border-border dark:border-white/[0.04] pb-2">
-                      <span className="text-xs font-bold text-foreground uppercase tracking-wider flex items-center gap-1.5">
-                        <Flame className="size-4 text-amber-500 shrink-0" /> Dobras Cutâneas Granulares
-                      </span>
-                      <Badge className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20 font-bold px-2 py-0.5 rounded text-[10px]">
-                        Soma das Dobras: {skinfoldSum.toFixed(1)} mm
-                      </Badge>
-                    </div>
-
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                      <div className="bg-muted/40 dark:bg-neutral-900/40 p-2.5 rounded-xl border border-border dark:border-white/[0.04]">
-                        <span className="text-[9px] text-muted-foreground dark:text-neutral-500 block uppercase font-bold tracking-wider mb-0.5">Tríceps</span>
-                        <span className="font-extrabold text-foreground text-xs">{selectedEval.dobras.triceps || 0} mm</span>
-                      </div>
-                      <div className="bg-muted/40 dark:bg-neutral-900/40 p-2.5 rounded-xl border border-border dark:border-white/[0.04]">
-                        <span className="text-[9px] text-muted-foreground dark:text-neutral-500 block uppercase font-bold tracking-wider mb-0.5">Subescapular</span>
-                        <span className="font-extrabold text-foreground text-xs">{selectedEval.dobras.subescapular || 0} mm</span>
-                      </div>
-                      <div className="bg-muted/40 dark:bg-neutral-900/40 p-2.5 rounded-xl border border-border dark:border-white/[0.04]">
-                        <span className="text-[9px] text-muted-foreground dark:text-neutral-500 block uppercase font-bold tracking-wider mb-0.5">Suprailíaca</span>
-                        <span className="font-extrabold text-foreground text-xs">{selectedEval.dobras.suprailiaca || 0} mm</span>
-                      </div>
-                      <div className="bg-muted/40 dark:bg-neutral-900/40 p-2.5 rounded-xl border border-border dark:border-white/[0.04]">
-                        <span className="text-[9px] text-muted-foreground dark:text-neutral-500 block uppercase font-bold tracking-wider mb-0.5">Abdominal</span>
-                        <span className="font-extrabold text-foreground text-xs">{selectedEval.dobras.abdominal || 0} mm</span>
-                      </div>
-                      <div className="bg-muted/40 dark:bg-neutral-900/40 p-2.5 rounded-xl border border-border dark:border-white/[0.04]">
-                        <span className="text-[9px] text-muted-foreground dark:text-neutral-500 block uppercase font-bold tracking-wider mb-0.5">Peitoral</span>
-                        <span className="font-extrabold text-foreground text-xs">{selectedEval.dobras.peitoral || 0} mm</span>
-                      </div>
-                      <div className="bg-muted/40 dark:bg-neutral-900/40 p-2.5 rounded-xl border border-border dark:border-white/[0.04]">
-                        <span className="text-[9px] text-muted-foreground dark:text-neutral-500 block uppercase font-bold tracking-wider mb-0.5">Axilar Média</span>
-                        <span className="font-extrabold text-foreground text-xs">{selectedEval.dobras.axilarmedia || 0} mm</span>
-                      </div>
-                      <div className="bg-muted/40 dark:bg-neutral-900/40 p-2.5 rounded-xl border border-border dark:border-white/[0.04]">
-                        <span className="text-[9px] text-muted-foreground dark:text-neutral-500 block uppercase font-bold tracking-wider mb-0.5">Coxa</span>
-                        <span className="font-extrabold text-foreground text-xs">{selectedEval.dobras.coxa || 0} mm</span>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                {/* Diagnosis and notes from Trainer */}
-                {selectedEval.notes && (
-                  <div className="space-y-2">
-                    <span className="text-xs font-bold text-neutral-450 uppercase tracking-wider block border-b border-white/[0.04] pb-1">
-                      Parecer Clínico & Anamnese do Personal
-                    </span>
-                    <div className="p-4 bg-neutral-900/30 border border-white/[0.04] rounded-xl text-neutral-300 text-xs italic font-medium whitespace-pre-wrap leading-relaxed">
-                      {selectedEval.notes}
-                    </div>
-                  </div>
-                )}
-
-                <DialogFooter className="border-t border-white/[0.04] pt-4">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="border-white/[0.08] hover:bg-neutral-900 text-xs rounded-xl w-full sm:w-auto font-bold h-11"
-                    onClick={() => setIsDetailOpen(false)}
-                  >
-                    Fechar Detalhes
-                  </Button>
-                </DialogFooter>
-              </div>
-            );
-          })()}
-        </DialogContent>
-      </Dialog>
+      <PhysicalEvaluationDetailModal
+        isOpen={isDetailOpen}
+        onClose={() => setIsDetailOpen(false)}
+        evaluation={selectedEval}
+      />
     </div>
   );
 }

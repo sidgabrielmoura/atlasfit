@@ -35,6 +35,8 @@ model User {
   birthDate        DateTime?
   experienceLevel  String?
   medicalConditions String?           @db.Text
+  weight            Float?
+  height            Float?
   accounts         Account[]
   sessions         Session[]
   workspaces       WorkspaceMember[]
@@ -120,6 +122,7 @@ model Plan {
   interval               String                 @default("month") // "month" or "year"
   features               String?
   maxWorkspaces          Int                    @default(1)
+  maxStudents            Int?                   // Limite de alunos (null = ilimitado)
   subscriptions          Subscription[]
   subscriptionActivities SubscriptionActivity[]
 }
@@ -173,13 +176,13 @@ model Coupon {
 
 model AuditLog {
   id        String   @id @default(cuid())
-  userId    String
+  userId    String?
   action    String
   entity    String?
   entityId  String?
   ip        String?
   severity  String   @default("info")
-  user      User     @relation(fields: [userId], references: [id])
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
 }
 
@@ -216,6 +219,16 @@ model VerificationToken {
   expires    DateTime
 
   @@unique([identifier, token])
+}
+
+model PasswordResetToken {
+  id        String   @id @default(cuid())
+  email     String
+  token     String   @unique
+  expires   DateTime
+  createdAt DateTime @default(now())
+
+  @@index([email])
 }
 
 model MuscleGroup {
@@ -489,6 +502,14 @@ model PhysicalEvaluation {
   bodyFat     Float?
   muscleMass  Float?
   dobras      Json?    // Armazena as dobras (triceps, peitoral, abdominal, coxa, suprailiaca, etc.)
+  
+  // Novas seções estruturadas da Avaliação Física
+  anamnese        Json?    // Respostas do questionário de anamnese
+  circunferencias Json?    // Medidas das circunferências corporais
+  postural        Json?    // Avaliação postural (fotos, desvios e laudo)
+  dorMobilidade   Json?    // Mapa de dor e limitações de mobilidade
+  testesFisicos   Json?    // Resultados dos testes de flexibilidade, cardio e força
+
   notes       String?  @db.Text
 
   student     User     @relation(fields: [studentId], references: [id], onDelete: Cascade)

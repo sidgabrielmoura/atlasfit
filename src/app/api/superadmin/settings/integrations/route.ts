@@ -83,12 +83,10 @@ export async function GET() {
               latency: `${latencyMs}ms`,
             };
           } catch (e) {
-            // If fetch fails, we simulate a realistic latency
-            const simulatedLatency = Math.floor(Math.random() * (120 - 5 + 1)) + 5;
             return {
               ...integration,
-              status: "Operational",
-              latency: `${simulatedLatency}ms`,
+              status: "Offline",
+              latency: "Offline",
             };
           }
         } else {

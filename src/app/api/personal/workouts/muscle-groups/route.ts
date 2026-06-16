@@ -2,12 +2,36 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 
+const DEFAULT_MUSCLE_GROUPS = [
+  "Trapézio",
+  "Ombro",
+  "Costas",
+  "Peito",
+  "Tríceps",
+  "Bíceps",
+  "Abdomen",
+  "Antebraço",
+  "Glúteo",
+  "Posterior de perna",
+  "Quadríceps",
+  "Panturrilha"
+];
+
 // GET /api/personal/workouts/muscle-groups
 export async function GET() {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return new NextResponse("Não autorizado.", { status: 401 });
+    }
+
+    // Garante que os grupos musculares solicitados existam no banco
+    for (const name of DEFAULT_MUSCLE_GROUPS) {
+      await prisma.muscleGroup.upsert({
+        where: { name },
+        update: {},
+        create: { name }
+      });
     }
 
     const muscleGroups = await prisma.muscleGroup.findMany({

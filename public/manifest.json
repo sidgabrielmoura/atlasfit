@@ -1,0 +1,25 @@
+{
+  "name": "AtlasFit",
+  "short_name": "AtlasFit",
+  "description": "Plataforma completa para personal trainers gerenciarem alunos, treinos, finanças e performance.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#ea580c",
+  "orientation": "portrait",
+  "scope": "/",
+  "icons": [
+    {
+      "src": "/logos_atlasfit/atlasfit (5).png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/logos_atlasfit/atlasfit (5).png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

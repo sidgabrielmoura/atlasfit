@@ -24,6 +24,16 @@ export default async function PersonalLayout({
     redirect("/auth/trainer");
   }
 
+  // Guard: if trainer is not onboarded, redirect to personal onboarding flow
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { onboarded: true }
+  });
+
+  if (user && !user.onboarded) {
+    redirect("/personal-onboarding");
+  }
+
   // Verificar status de cobrança/assinatura da mensalidade do Personal
   const subscription = await prisma.subscription.findUnique({
     where: { userId: session.user.id }
@@ -34,13 +44,13 @@ export default async function PersonalLayout({
   });
 
   const isTrialActive = freeTrial ? new Date() <= new Date(freeTrial.endDate) : false;
-  const isSubscriptionActive = subscription ? subscription.status === "active" : false;
+  const isSubscriptionActive = subscription ? subscription.status.toLowerCase() === "active" : false;
 
   if (!isTrialActive && !isSubscriptionActive) {
     redirect("/subscription-expired");
   }
 
-  const showBillingWarning = subscription?.status === "past_due" || subscription?.status === "unpaid";
+  const showBillingWarning = subscription?.status.toLowerCase() === "past_due" || subscription?.status.toLowerCase() === "unpaid";
 
   return (
     <SidebarProvider>

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
-import { calculateStreaks } from "@/lib/streak-helper";
+import { calculateStreaks, verifyAndDecayWorkspaceMemberStreak } from "@/lib/streak-helper";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -67,6 +67,9 @@ export async function GET(req: Request) {
         completedAt: "desc",
       },
     });
+
+    // Verify and decay streak in case of inactivity
+    await verifyAndDecayWorkspaceMemberStreak(member, logs.map((l: any) => l.completedAt));
 
     return NextResponse.json({
       workouts,
