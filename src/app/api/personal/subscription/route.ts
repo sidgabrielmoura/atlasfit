@@ -40,35 +40,34 @@ export async function GET(req: Request) {
     }
 
     if (!effectiveSub) {
-      let plan = await prisma.plan.findFirst({
-        where: { name: { contains: "Starter", mode: "insensitive" } }
+      // Trainer has no subscription and no free trial.
+      // Do NOT auto-create a Starter subscription — just return available plans
+      // so the trainer can choose or be redirected to the subscription-expired page.
+      const plansInDb = await prisma.plan.findMany({
+        orderBy: { price: "asc" }
       });
-      if (!plan) {
-        plan = await prisma.plan.findFirst({
-          orderBy: { price: "asc" }
-        });
-      }
-      if (!plan) {
-        plan = await prisma.plan.create({
-          data: {
-            name: "Starter",
-            price: 149.0,
-            features: "Até 50 Alunos ativos, Treinos ilimitados, Suporte por email, App para o aluno",
-            maxWorkspaces: 1,
-          }
-        });
-      }
 
-      subscription = await prisma.subscription.create({
-        data: {
-          userId: session.user.id,
-          planId: plan.id,
-          status: "active",
-          startDate: new Date(),
-        },
-        include: { plan: true }
+      const mappedPlatformPlans = plansInDb.map((p) => ({
+        id: p.id,
+        name: p.name,
+        price: `R$ ${p.price}`,
+        interval: `/${p.interval === "year" ? "ano" : "mês"}`,
+        description: p.name.toLowerCase().includes("starter")
+          ? "Ideal para quem está começando na consultoria online."
+          : "A escolha perfeita para escalar seu negócio.",
+        features: p.features
+          ? p.features.split(",").map(f => f.trim())
+          : ["Funcionalidades incluídas"],
+        highlight: p.name.toLowerCase().includes("pro") || p.name.toLowerCase().includes("professional"),
+        buttonText: "Assinar",
+        disabled: false,
+        isCurrent: false,
+      }));
+
+      return NextResponse.json({
+        currentSubscription: null,
+        platformPlans: mappedPlatformPlans,
       });
-      effectiveSub = subscription;
     }
 
     const studentCount = await prisma.workspaceMember.count({

@@ -46,7 +46,7 @@ export async function getPersonalWorkspaces() {
         logo,
         logoUrl: ws.logoUrl,
         primaryColor: ws.primaryColor || "#0ea5e9",
-        plan: owner?.subscription?.plan?.name || "Starter",
+        plan: owner?.subscription?.plan?.name || "Free Trial",
         slogan: ws.slogan,
         watermarkUrl: ws.watermarkUrl,
         workoutCoverUrl: ws.workoutCoverUrl,
@@ -98,7 +98,7 @@ export async function getTrainerWorkspaceLimit() {
   return {
     current: count,
     limit: sub?.plan?.maxWorkspaces || 1,
-    planName: sub?.plan?.name || "Starter",
+    planName: sub?.plan?.name || "Free Trial",
     primaryDomain: domainSetting?.value || "atlasfit.app",
   };
 }
@@ -193,7 +193,7 @@ export async function createWorkspace(data: {
         logo,
         logoUrl: newWorkspace.logoUrl,
         primaryColor: newWorkspace.primaryColor || "#0ea5e9",
-        plan: sub?.plan?.name || "Starter",
+        plan: sub?.plan?.name || "Free Trial",
         slogan: newWorkspace.slogan,
         watermarkUrl: newWorkspace.watermarkUrl,
         workoutCoverUrl: newWorkspace.workoutCoverUrl,

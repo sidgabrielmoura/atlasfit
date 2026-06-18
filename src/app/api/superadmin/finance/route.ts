@@ -10,7 +10,6 @@ export async function GET() {
   }
 
   try {
-    // 1. Fetch Subscriptions to calculate MRR and ARR
     const activeSubscriptions = await prisma.subscription.findMany({
       where: { status: { in: ["active", "ACTIVE"] } },
       include: { plan: true }
@@ -19,51 +18,43 @@ export async function GET() {
     const mrr = activeSubscriptions.reduce((acc, sub) => acc + (sub.plan?.price || 0), 0);
     const arr = mrr * 12;
 
-    // 2. Fetch all Workspaces to calculate LTV
     const totalWorkspaces = await prisma.workspace.count();
 
-    // 3. Fetch Transactions to calculate Total Revenue and Today's metrics
     const approvedTransactions = await prisma.transaction.findMany({
       where: { status: { in: ["APPROVED", "approved"] } }
     });
-    
+
     const totalRevenue = approvedTransactions.reduce((acc, tx) => acc + tx.amount, 0);
-    
-    // Calcula receita apenas de hoje
+
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const todaysRevenue = approvedTransactions
       .filter(tx => new Date(tx.createdAt) >= today)
       .reduce((acc, tx) => acc + tx.amount, 0);
 
-    // Calcula Inadimplência
     const failedTransactions = await prisma.transaction.findMany({
       where: { status: { in: ["FAILED", "failed"] } }
     });
     const totalFailedRevenue = failedTransactions.reduce((acc, tx) => acc + tx.amount, 0);
-
-    // LTV (Lifetime Value) Estimado = Receita Total / Workspaces Ativos
     const ltv = totalWorkspaces > 0 ? totalRevenue / totalWorkspaces : 0;
 
-    // Churn estimado (Cancelados / Total de Assinaturas)
     const totalSubscriptions = await prisma.subscription.count();
     const canceledSubscriptions = await prisma.subscription.count({
       where: { status: { in: ["canceled", "CANCELED"] } }
     });
     const churn = totalSubscriptions > 0 ? (canceledSubscriptions / totalSubscriptions) * 100 : 0;
 
-    // Últimas 10 transações para a tabela
     const recentTransactions = await prisma.transaction.findMany({
       take: 10,
       orderBy: { createdAt: 'desc' },
-      include: { 
+      include: {
         user: {
           include: {
             subscription: {
               include: { plan: true }
             }
           }
-        } 
+        }
       }
     });
 
@@ -79,7 +70,6 @@ export async function GET() {
       };
     });
 
-    // 4. Fetch Recent Upgrades (SubscriptionActivity where type: "UPGRADE")
     const recentUpgrades = await prisma.subscriptionActivity.findMany({
       where: { type: "UPGRADE" },
       orderBy: { createdAt: "desc" },
@@ -112,7 +102,6 @@ export async function GET() {
       })
     );
 
-    // Calculate actual historical MRR (last 6 months)
     const now = new Date();
     const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
     const months = [];

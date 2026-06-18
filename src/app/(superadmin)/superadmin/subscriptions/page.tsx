@@ -38,8 +38,7 @@ import {
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { cn } from "@/lib/utils";
 import { useEffect, useRef, useState, useCallback } from "react";
-import { useSnapshot } from "valtio";
-import { superAdminStore, superAdminActions } from "@/stores/superadmin.store";
+import { superAdminActions, useSuperAdminSnapshot } from "@/stores/superadmin.store";
 import { toast } from "sonner";
 import {
    Dialog,
@@ -426,7 +425,7 @@ function FeaturesManager({ value, onChange, label }: FeaturesManagerProps) {
 }
 
 export default function SubscriptionsManagementPage() {
-   const snap = useSnapshot(superAdminStore);
+   const snap = useSuperAdminSnapshot();
    const [isModalOpen, setIsModalOpen] = useState(false);
    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
    const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);

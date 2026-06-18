@@ -63,7 +63,7 @@ interface PlatformPlan {
 }
 
 interface ApiResponse {
-  currentSubscription: SubscriptionDetails;
+  currentSubscription: SubscriptionDetails | null;
   platformPlans: PlatformPlan[];
 }
 
@@ -215,6 +215,100 @@ export default function SubscriptionPage() {
   }
 
   const { currentSubscription: subscription, platformPlans } = data;
+
+  // If there's no subscription (no free trial and no paid plan), show only the plans catalog
+  if (!subscription) {
+    return (
+      <div className="flex-1 space-y-8 p-4 md:p-8 pt-6 w-full animate-in fade-in duration-300">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">Assinatura</h2>
+          <p className="text-muted-foreground mt-1">Escolha um plano para começar a usar o AtlasFit.</p>
+        </div>
+
+        <section className="space-y-6">
+          <div className="text-center space-y-2 pt-4">
+            <h3 className="text-2xl font-bold tracking-tight">Escolha o seu Plano</h3>
+            <p className="text-muted-foreground">Selecione o plano ideal para escalar seu negócio com o AtlasFit.</p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 items-start pt-8 pb-12">
+            {platformPlans.map((plan) => {
+              const isPlanProcessing = isProcessing === plan.id;
+              const isAnyProcessing = isProcessing !== null;
+
+              return (
+                <Card
+                  key={plan.id}
+                  className={cn(
+                    "relative flex flex-col h-full transition-all duration-300 overflow-visible",
+                    plan.highlight
+                      ? "border-primary shadow-lg shadow-primary/10 scale-100 md:scale-105 z-10"
+                      : "border-border/50 bg-card/50 hover:bg-card"
+                  )}
+                >
+                  {plan.highlight && (
+                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-20">
+                      <Badge className="bg-primary text-primary-foreground font-bold px-4 py-1.5 shadow-md">
+                        Recomendado
+                      </Badge>
+                    </div>
+                  )}
+
+                  <CardHeader className="text-center pb-8 pt-8">
+                    <CardTitle className="text-xl mb-2">{plan.name}</CardTitle>
+                    <div className="flex items-center justify-center gap-1">
+                      <span className="text-4xl font-extrabold tracking-tight">{plan.price}</span>
+                      <span className="text-muted-foreground font-medium">{plan.interval}</span>
+                    </div>
+                    <CardDescription className="mt-4 text-sm h-10 flex items-center justify-center">
+                      {plan.description}
+                    </CardDescription>
+                  </CardHeader>
+
+                  <CardContent className="flex-1">
+                    <ul className="space-y-4">
+                      {plan.features.map((feature, idx) => (
+                        <li key={idx} className="flex items-start gap-3">
+                          <CheckCircle2 className="size-5 text-primary shrink-0" />
+                          <span className="text-sm font-medium text-foreground/80">{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </CardContent>
+
+                  <CardFooter className="pt-6">
+                    <Button
+                      onClick={() => handlePlanAction(plan.id, plan.name, plan.isCurrent)}
+                      className={cn(
+                        "w-full cursor-pointer transition-all duration-200",
+                        plan.highlight
+                          ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                          : "hover:bg-accent hover:text-accent-foreground"
+                      )}
+                      variant={plan.highlight ? "default" : "outline"}
+                      disabled={plan.isCurrent || isAnyProcessing}
+                    >
+                      {isPlanProcessing ? (
+                        <>
+                          <Loader2 className="mr-2 size-4 animate-spin" />
+                          Processando...
+                        </>
+                      ) : (
+                        <>
+                          {plan.highlight && <Zap className="mr-2 size-4" />}
+                          Assinar
+                        </>
+                      )}
+                    </Button>
+                  </CardFooter>
+                </Card>
+              );
+            })}
+          </div>
+        </section>
+      </div>
+    );
+  }
 
   const usagePercentage = Math.round((subscription.usage.students.current / subscription.usage.students.limit) * 100);
   const isNearLimit = usagePercentage >= 80;

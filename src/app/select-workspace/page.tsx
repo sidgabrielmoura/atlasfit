@@ -58,7 +58,7 @@ export default async function SelectWorkspacePage() {
         logo,
         logoUrl: ws.logoUrl,
         primaryColor: ws.primaryColor || "#0ea5e9",
-        plan: owner?.subscription?.plan?.name || "Starter",
+        plan: owner?.subscription?.plan?.name || "Free Trial",
       };
     })
   );

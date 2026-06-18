@@ -83,6 +83,18 @@ function SectionHeader({ title, icon: Icon, description }: { title: string; icon
   );
 }
 
+// Deep-clone helper: converts Valtio proxy snapshots into plain JS objects
+// so libraries like Recharts that internally mutate/index data won't trigger
+// the "read-only and non-configurable" Proxy invariant violation.
+function deepClone<T>(obj: T): T {
+  if (obj === null || obj === undefined) return obj;
+  try {
+    return JSON.parse(JSON.stringify(obj));
+  } catch {
+    return obj;
+  }
+}
+
 export default function SuperAdminDashboardPage() {
   const snap = useSnapshot(superAdminStore);
   const [mounted, setMounted] = useState(false);
@@ -101,19 +113,19 @@ export default function SuperAdminDashboardPage() {
     );
   }
 
-  const metrics = snap.metrics || {
+  // Deep-clone the entire metrics object to escape Valtio's frozen proxy
+  const metrics = deepClone(snap.metrics) || {
     users: { total: 0, active: 0, growth: 0, newRecent: 0, engagement: 0 },
     workspaces: { total: 0, growth: 0 },
     workouts: { total: 0, avgFrequency: 0 },
     financial: { mrr: 0, arr: 0 }
   };
 
-  // Histórico real a partir dos dados do banco
-  const userGrowthData = metrics.userGrowthData || [];
-  const financialGrowthData = metrics.financialGrowthData || [];
+  const userGrowthData: any[] = deepClone(metrics.userGrowthData) || [];
+  const financialGrowthData: any[] = deepClone(metrics.financialGrowthData) || [];
 
   return (
-    <div className="p-6 md:p-8 space-y-10 max-w-[1600px] mx-auto animate-in fade-in duration-700">
+    <div className="p-6 md:p-8 space-y-10 max-w-400 mx-auto animate-in fade-in duration-700">
       {/* 1. Cabeçalho Principal */}
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-border/40 pb-8">
         <div className="space-y-1">

@@ -60,13 +60,33 @@ export async function POST(req: Request) {
 
     const hashedPassword = await bcryptjs.hash(password, 10);
 
-    const newUser = await prisma.user.create({
-      data: {
-        name,
-        email,
-        password: hashedPassword,
-        role,
+    const newUser = await prisma.$transaction(async (tx) => {
+      const user = await tx.user.create({
+        data: {
+          name,
+          email,
+          password: hashedPassword,
+          role,
+        }
+      });
+
+      // When creating a TRAINER, automatically grant a 10-day free trial
+      // to match the self-registration flow in registerTrainer()
+      if (role === "TRAINER") {
+        const now = new Date();
+        const tenDaysFromNow = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000);
+
+        await tx.freeTrial.create({
+          data: {
+            userId: user.id,
+            startDate: now,
+            endDate: tenDaysFromNow,
+            isActive: true,
+          }
+        });
       }
+
+      return user;
     });
 
     // Remove password from response

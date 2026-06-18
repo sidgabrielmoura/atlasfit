@@ -34,8 +34,8 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
     const callbackUrl = type === "admin"
       ? "/superadmin/dashboard"
       : type === "student"
-      ? "/select-workspace"
-      : "/personal/dashboard";
+        ? "/select-workspace"
+        : "/personal/dashboard";
 
     try {
       const result = await login({
@@ -51,12 +51,12 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
       }
 
       toast.success("Bem-vindo de volta!");
-      
+
       const realCallbackUrl = result.role === "SUPERADMIN"
         ? "/superadmin/dashboard"
         : result.role === "TRAINER"
-        ? "/personal/dashboard"
-        : "/select-workspace";
+          ? "/personal/dashboard"
+          : "/select-workspace";
 
       window.location.href = realCallbackUrl;
     } catch (error) {
@@ -155,12 +155,14 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
         </Button>
       </form>
 
-      <div className="text-center text-sm">
-        <span className="text-muted-foreground">Não tem uma conta? </span>
-        <Link href={type === "trainer" ? "/auth/register" : "#"} className="font-bold text-primary hover:underline">
-          Criar conta grátis
-        </Link>
-      </div>
+      {type === 'trainer' && (
+        <div className="text-center text-sm">
+          <span className="text-muted-foreground">Não tem uma conta? </span>
+          <Link href={"/auth/register"} className="font-bold text-primary hover:underline">
+            Criar uma conta
+          </Link>
+        </div>
+      )}
     </div>
   );
 }

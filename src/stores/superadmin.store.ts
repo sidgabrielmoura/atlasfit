@@ -1,5 +1,28 @@
-import { proxy, subscribe } from "valtio";
+import { proxy, subscribe, useSnapshot } from "valtio";
 import api from "@/lib/axios";
+
+/**
+ * Deep-clone any value to strip Valtio's frozen proxy wrappers.
+ * Required because Recharts (and similar libs) crash when they try to
+ * index or mutate proxy objects returned by useSnapshot().
+ */
+function deepClone<T>(obj: T): T {
+  if (obj === null || obj === undefined) return obj;
+  try {
+    return JSON.parse(JSON.stringify(obj));
+  } catch {
+    return obj;
+  }
+}
+
+/**
+ * Safe snapshot hook that returns plain JS objects instead of Valtio proxies.
+ * Use this instead of `useSnapshot(superAdminStore)` in all components.
+ */
+export function useSuperAdminSnapshot() {
+  const snap = useSnapshot(superAdminStore);
+  return deepClone(snap) as SuperAdminState;
+}
 
 interface SuperAdminState {
   metrics: any;

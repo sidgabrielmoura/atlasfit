@@ -23,8 +23,7 @@ import {
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
-import { useSnapshot } from "valtio";
-import { superAdminStore, superAdminActions } from "@/stores/superadmin.store";
+import { superAdminActions, useSuperAdminSnapshot } from "@/stores/superadmin.store";
 import { toast } from "sonner";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
@@ -80,7 +79,7 @@ function FinanceStatCard({ title, value, change, icon: Icon, description, trend 
 }
 
 export default function FinanceManagementPage() {
-  const snap = useSnapshot(superAdminStore);
+  const snap = useSuperAdminSnapshot();
   const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
   const [isSubmittingCoupon, setIsSubmittingCoupon] = useState(false);
   const [mounted, setMounted] = useState(false);
