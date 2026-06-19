@@ -27,6 +27,7 @@ export async function POST(
             order: "asc",
           },
         },
+        exerciseGroups: true,
       },
     });
 
@@ -46,16 +47,45 @@ export async function POST(
           restBetweenExercises: originalWorkout.restBetweenExercises,
           creatorId: session.user.id,
           workspaceId: originalWorkout.workspaceId,
-          exercises: {
-            create: originalWorkout.exercises.map((ex) => ({
+        },
+      });
+
+      const groupMap: Record<string, string> = {};
+      if (originalWorkout.exerciseGroups && originalWorkout.exerciseGroups.length > 0) {
+        for (const g of originalWorkout.exerciseGroups) {
+          const dbGroup = await tx.workoutExerciseGroup.create({
+            data: {
+              workoutId: workout.id,
+              type: g.type,
+              config: (g.config || undefined) as any,
+            },
+          });
+          groupMap[g.id] = dbGroup.id;
+        }
+      }
+
+      if (originalWorkout.exercises && originalWorkout.exercises.length > 0) {
+        for (const ex of originalWorkout.exercises) {
+          const dbGroupId = ex.groupId ? groupMap[ex.groupId] : null;
+          await tx.workoutExercise.create({
+            data: {
+              workoutId: workout.id,
               exerciseId: ex.exerciseId,
               sets: ex.sets,
               reps: ex.reps,
               rest: ex.rest,
+              load: ex.load || "",
               order: ex.order,
-            })),
-          },
-        },
+              methodType: ex.methodType || "NONE",
+              methodConfig: (ex.methodConfig || undefined) as any,
+              groupId: dbGroupId,
+            },
+          });
+        }
+      }
+
+      const finalWorkout = await tx.workout.findUnique({
+        where: { id: workout.id },
         include: {
           exercises: {
             include: {
@@ -64,11 +94,13 @@ export async function POST(
                   muscleGroup: true,
                 },
               },
+              group: true,
             },
             orderBy: {
               order: "asc",
             },
           },
+          exerciseGroups: true,
         },
       });
 
@@ -79,7 +111,7 @@ export async function POST(
         await tx.exercise.update({ where: { id: exId }, data: { usage: count } });
       }
 
-      return workout;
+      return finalWorkout;
     });
 
     return NextResponse.json(duplicatedWorkout, { status: 201 });

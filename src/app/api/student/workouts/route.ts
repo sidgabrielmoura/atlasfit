@@ -38,11 +38,13 @@ export async function GET(req: Request) {
         exercises: {
           include: {
             exercise: true,
+            group: true,
           },
           orderBy: {
             order: "asc",
           }
-        }
+        },
+        exerciseGroups: true,
       },
       orderBy: {
         dayOfWeek: "asc",

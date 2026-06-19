@@ -131,7 +131,7 @@ export default function PersonalFilesPage() {
   // Modal Upload Form state
   const [isUploadModalOpen, setIsUploadModalOpen] = useState(false);
   const [submittingUpload, setSubmittingUpload] = useState(false);
-  
+
   const [uploadStudentId, setUploadStudentId] = useState("");
   const [uploadName, setUploadName] = useState("");
   const [uploadCategory, setUploadCategory] = useState("exames");
@@ -357,8 +357,7 @@ export default function PersonalFilesPage() {
   const othersFilesCount = files.filter(f => f.category === "outros").length;
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-8 w-full max-w-7xl mx-auto">
-      {/* Header Panel */}
+    <div className="p-4 md:p-6 lg:p-8 space-y-5 w-full max-w-7xl mx-auto">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-white/[0.04] pb-6 gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
@@ -375,7 +374,7 @@ export default function PersonalFilesPage() {
         </div>
         <Button
           onClick={() => setIsUploadModalOpen(true)}
-          className="gap-2 font-bold px-5 h-11 bg-primary text-black hover:bg-primary/90 rounded-xl shrink-0 self-start md:self-center transition-transform active:scale-95 duration-150 shadow-lg shadow-primary/5"
+          className="gap-2 font-bold px-5 max-sm:w-full h-11 bg-primary text-black hover:bg-primary/90 rounded-xl shrink-0 self-start md:self-center transition-transform active:scale-95 duration-150 shadow-lg shadow-primary/5"
         >
           <Plus className="size-4.5" /> Compartilhar Arquivo
         </Button>
@@ -440,7 +439,7 @@ export default function PersonalFilesPage() {
         {/* Student filter */}
         <div className="md:col-span-1">
           <Select value={selectedStudentFilter} onValueChange={setSelectedStudentFilter}>
-            <SelectTrigger className="h-11 bg-neutral-900/60 border-white/[0.05] rounded-xl text-xs text-white focus:ring-0 focus:ring-offset-0">
+            <SelectTrigger className="h-11 max-sm:w-full bg-neutral-900/60 border-white/[0.05] rounded-xl text-xs text-white focus:ring-0 focus:ring-offset-0">
               <SelectValue placeholder="Filtrar por Aluno" />
             </SelectTrigger>
             <SelectContent className="bg-neutral-900 border-white/[0.08]">
@@ -501,16 +500,15 @@ export default function PersonalFilesPage() {
         </div>
       </div>
 
-      {/* Shared Files Grid */}
       <AnimatePresence mode="popLayout">
         {filteredFiles.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.98 }}
-            className="py-16 text-center"
+            className="text-center"
           >
-            <Card className="border border-dashed border-white/[0.06] bg-neutral-900/10 p-12 text-center rounded-2xl max-w-lg mx-auto space-y-4 shadow-xl">
+            <Card className="border border-dashed border-white/6 bg-neutral-900/10 p-12 text-center rounded-2xl max-w-lg mx-auto shadow-xl">
               <FolderOpen className="size-12 mx-auto text-neutral-700 animate-pulse" />
               <div className="space-y-1">
                 <h3 className="text-base font-bold text-white">Nenhum arquivo publicado</h3>
@@ -536,9 +534,7 @@ export default function PersonalFilesPage() {
 
               return (
                 <motion.div key={file.id} variants={itemVariants} layout className="h-full">
-                  <Card className="relative overflow-hidden bg-neutral-900/40 border-white/[0.04] rounded-2xl h-full flex flex-col justify-between group hover:border-white/[0.08] transition-all duration-300 p-4 gap-4">
-                    
-                    {/* Header: File details, Recipient & Category */}
+                  <Card className="relative overflow-hidden bg-neutral-900/40 border-white/4 rounded-2xl h-full flex flex-col justify-between group hover:border-white/8 transition-all duration-300 p-4 gap-4">
                     <div className="space-y-3">
                       <div className="flex items-center justify-between gap-2">
                         <span className={cn("px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border shrink-0", catInfo.class)}>
@@ -549,13 +545,11 @@ export default function PersonalFilesPage() {
                         </span>
                       </div>
 
-                      {/* Recipient student visual bar */}
-                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-neutral-950/40 rounded-xl border border-white/[0.03] text-xs font-semibold text-neutral-300">
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-neutral-950/40 rounded-xl border border-white/3 text-xs font-semibold text-neutral-300">
                         <Users className="size-3.5 text-primary shrink-0" />
                         <span className="truncate">Para: <strong className="text-white font-bold">{file.student?.name || "Aluno sem nome"}</strong></span>
                       </div>
 
-                      {/* File Icon + Title */}
                       <div className="flex items-start gap-3 pt-1">
                         <div className={cn("p-2 rounded-xl border transition-transform duration-300 group-hover:scale-105 shrink-0", iconInfo.color)}>
                           <FileIcon className="size-4.5 shrink-0" />
@@ -573,7 +567,7 @@ export default function PersonalFilesPage() {
                     </div>
 
                     {/* Footer Actions */}
-                    <div className="flex items-center justify-between border-t border-white/[0.03] pt-3.5 text-[10px] text-neutral-400 font-bold">
+                    <div className="flex items-center justify-between border-t border-white/3 pt-3.5 text-[10px] text-neutral-400 font-bold">
                       <button
                         onClick={() => setDeleteTargetFile(file)}
                         className="text-neutral-500 hover:text-rose-400 transition-colors flex items-center gap-1 cursor-pointer active:scale-95 duration-100"
@@ -592,12 +586,12 @@ export default function PersonalFilesPage() {
                                 <span>Notas</span>
                               </button>
                             </PopoverTrigger>
-                            <PopoverContent className="w-72 bg-neutral-950 border border-white/[0.06] text-xs text-neutral-300 p-3.5 rounded-xl shadow-2xl">
+                            <PopoverContent className="w-72 bg-neutral-950 border border-white/6 text-xs text-neutral-300 p-3.5 rounded-xl shadow-2xl">
                               <div className="flex items-center gap-1.5 font-black text-white mb-2 uppercase tracking-widest text-[9px]">
                                 <ClipboardList className="size-3.5 text-primary shrink-0" />
                                 <span>Notas de Upload</span>
                               </div>
-                              <p className="leading-relaxed font-semibold break-words text-left">{file.notes}</p>
+                              <p className="leading-relaxed font-semibold wrap-break-word text-left">{file.notes}</p>
                             </PopoverContent>
                           </Popover>
                         )}

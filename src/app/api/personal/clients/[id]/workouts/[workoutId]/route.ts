@@ -17,7 +17,7 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    const { name, goal, difficulty, duration, muscleGroupLabel, restBetweenExercises, dayOfWeek, exercises } = body;
+    const { name, goal, difficulty, duration, muscleGroupLabel, restBetweenExercises, dayOfWeek, exercises, groups } = body;
 
     // Verificar se o treino existe e pertence ao aluno e foi criado pelo personal trainer
     const existingWorkout = await prisma.workout.findFirst({
@@ -46,15 +46,55 @@ export async function PATCH(
         const newIds = exercises.map((ex: any) => ex.exerciseId).filter(Boolean);
         affectedExerciseIds = Array.from(new Set([...oldIds, ...newIds])) as string[];
 
-        // 1. Limpar relações de exercícios antigas caso o array de exercícios tenha sido fornecido
+        // 1. Limpar relações de exercícios e grupos antigas caso o array de exercícios tenha sido fornecido
         await tx.workoutExercise.deleteMany({
           where: {
             workoutId,
           },
         });
+        await tx.workoutExerciseGroup.deleteMany({
+          where: {
+            workoutId,
+          },
+        });
+
+        // 2. Criar novos grupos
+        const groupMap: Record<string, string> = {};
+        if (groups && groups.length > 0) {
+          for (const g of groups) {
+            const dbGroup = await tx.workoutExerciseGroup.create({
+              data: {
+                workoutId,
+                type: g.type,
+                config: g.config || null,
+              },
+            });
+            groupMap[g.id] = dbGroup.id;
+          }
+        }
+
+        // 3. Criar novos exercícios com IDs de grupo mapeados
+        for (let index = 0; index < exercises.length; index++) {
+          const ex = exercises[index];
+          const dbGroupId = ex.groupId ? groupMap[ex.groupId] : null;
+          await tx.workoutExercise.create({
+            data: {
+              workoutId,
+              exerciseId: ex.exerciseId,
+              sets: Number(ex.sets) || 4,
+              reps: String(ex.reps) || "10",
+              rest: String(ex.rest) || "60s",
+              load: ex.load ? String(ex.load) : "",
+              order: index,
+              methodType: ex.methodType || "NONE",
+              methodConfig: ex.methodConfig || null,
+              groupId: dbGroupId,
+            },
+          });
+        }
       }
 
-      // 2. Atualizar os dados gerais do treino do aluno
+      // 4. Atualizar os dados gerais do treino do aluno
       const dataToUpdate: any = {};
       if (name !== undefined) dataToUpdate.name = name;
       if (goal !== undefined) dataToUpdate.goal = goal;
@@ -63,19 +103,6 @@ export async function PATCH(
       if (muscleGroupLabel !== undefined) dataToUpdate.muscleGroupLabel = muscleGroupLabel;
       if (restBetweenExercises !== undefined) dataToUpdate.restBetweenExercises = restBetweenExercises;
       if (dayOfWeek !== undefined) dataToUpdate.dayOfWeek = Number(dayOfWeek);
-
-      if (exercises) {
-        dataToUpdate.exercises = {
-          create: exercises.map((ex: any, index: number) => ({
-            exerciseId: ex.exerciseId,
-            sets: Number(ex.sets) || 4,
-            reps: String(ex.reps) || "10",
-            rest: String(ex.rest) || "60s",
-            load: ex.load ? String(ex.load) : "",
-            order: index,
-          })),
-        };
-      }
 
       const updated = await tx.workout.update({
         where: {
@@ -90,15 +117,17 @@ export async function PATCH(
                   muscleGroup: true,
                 },
               },
+              group: true,
             },
             orderBy: {
               order: "asc",
             },
           },
+          exerciseGroups: true,
         },
       });
 
-      // 3. Recalcular a utilização dos exercícios afetados
+      // 5. Recalcular a utilização dos exercícios afetados
       if (exercises && affectedExerciseIds.length > 0) {
         for (const exId of affectedExerciseIds) {
           const count = await tx.workoutExercise.count({ where: { exerciseId: exId } });

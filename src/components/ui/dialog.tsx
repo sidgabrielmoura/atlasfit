@@ -48,6 +48,30 @@ function DialogOverlay({
   )
 }
 
+function makeResponsive(className?: string) {
+  if (!className) return className
+  return className
+    .split(/\s+/)
+    .map((cls) => {
+      if (!cls) return cls
+      if (
+        (cls.startsWith("max-w-") ||
+          cls.startsWith("max-h-") ||
+          cls.startsWith("rounded-") ||
+          cls.startsWith("shadow-") ||
+          (cls.startsWith("w-") && cls !== "w-full") ||
+          (cls.startsWith("h-") && cls !== "h-full") ||
+          cls === "border" ||
+          (cls.startsWith("border-") && cls !== "border-0")) &&
+        !cls.includes(":")
+      ) {
+        return `sm:${cls}`
+      }
+      return cls
+    })
+    .join(" ")
+}
+
 function DialogContent({
   className,
   children,
@@ -62,8 +86,12 @@ function DialogContent({
       <DialogPrimitive.Content
         data-slot="dialog-content"
         className={cn(
-          "fixed top-1/2 left-1/2 z-50 grid w-full max-w-[calc(100%-2rem)] -translate-x-1/2 -translate-y-1/2 gap-6 rounded-4xl bg-popover p-6 text-sm text-popover-foreground ring-1 ring-foreground/5 duration-100 outline-none sm:max-w-2xl data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
-          className
+          "fixed z-50 grid w-full gap-6 bg-popover p-6 text-sm text-popover-foreground duration-100 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
+          // Mobile style: fullscreen
+          "inset-0 h-[100dvh] max-w-none max-h-none rounded-none border-0 overflow-y-auto",
+          // Desktop style: centered card
+          "sm:top-1/2 sm:left-1/2 sm:right-auto sm:bottom-auto sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-4xl sm:ring-1 sm:ring-foreground/5 sm:border sm:overflow-visible",
+          makeResponsive(className)
         )}
         {...props}
       >

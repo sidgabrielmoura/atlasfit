@@ -268,7 +268,8 @@ model Workout {
   creator     User?             @relation("CreatedWorkouts", fields: [creatorId], references: [id], onDelete: SetNull)
   workspaceId String?
   workspace   Workspace?        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  exercises   WorkoutExercise[]
+  exercises      WorkoutExercise[]
+  exerciseGroups WorkoutExerciseGroup[]
 
   // Aluno a quem o treino pertence (se for exclusivo/atribuído individualmente)
   studentId            String?
@@ -290,8 +291,12 @@ model WorkoutExercise {
   sets       Int // séries
   reps       String // repetições
   rest       String // descanso
-  load       String? // carga (peso) prescrita
-  order      Int    @default(0) // ordem
+  load         String? // carga (peso) prescrita
+  order        Int                  @default(0) // ordem
+  methodType   MethodType           @default(NONE)
+  methodConfig Json?
+  groupId      String?
+  group        WorkoutExerciseGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
 
   workout  Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
   exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
@@ -576,5 +581,27 @@ model DailyFeedback {
 
   @@index([studentId])
   @@index([workspaceId])
+}
+
+enum MethodType {
+  NONE
+  DROPSET
+  REST_PAUSE
+  BISET
+  TRISET
+  CIRCUIT
+}
+
+model WorkoutExerciseGroup {
+  id         String            @id @default(cuid())
+  workoutId  String
+  type       MethodType
+  config     Json?
+  
+  workout    Workout           @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  exercises  WorkoutExercise[]
+
+  createdAt  DateTime          @default(now())
+  updatedAt  DateTime          @updatedAt
 }
 

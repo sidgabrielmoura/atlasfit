@@ -732,106 +732,168 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
             </div>
 
             <div className="grid grid-cols-1 gap-4">
-              {(workout.exercises || []).map((we: any, index: number) => {
-                const hasVideo = !!we.exercise.videoUrl;
-                const repsArr = String(we.reps || "").split(",").map(s => s.trim());
-                const loadArr = String(we.load || "").split(",").map(s => s.trim());
-                const restArr = String(we.rest || "").split(",").map(s => s.trim());
-                const isIndividual = repsArr.length > 1 || loadArr.length > 1 || restArr.length > 1;
+              {(() => {
+                const groupLetters: Record<string, string> = {};
+                let currentLetterCode = 65;
+                (workout.exercises || []).forEach((we: any) => {
+                  if (we.groupId && !groupLetters[we.groupId]) {
+                    groupLetters[we.groupId] = String.fromCharCode(currentLetterCode++);
+                  }
+                });
 
-                return (
-                  <div
-                    key={we.id}
-                    className="group relative overflow-hidden p-4 md:p-6 rounded-2xl border border-white/[0.04] bg-zinc-900/20 hover:bg-zinc-900/50 hover:border-white/[0.08] hover:shadow-[0_0_30px_-5px_rgba(var(--primary-rgb),0.1)] transition-all duration-300 backdrop-blur-md flex flex-col gap-4"
-                  >
-                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-5 w-full">
-                      {/* Visual Watermark number */}
-                      <span className="text-zinc-950/[0.04] md:text-zinc-800/10 group-hover:text-primary/[0.08] md:group-hover:text-primary/10 select-none transition-all duration-500 font-black text-6xl md:text-8xl absolute right-4 top-2 md:right-6 md:top-4 pointer-events-none">
-                        {String(index + 1).padStart(2, "0")}
-                      </span>
+                return (workout.exercises || []).map((we: any, index: number) => {
+                  const hasVideo = !!we.exercise.videoUrl;
+                  const repsArr = String(we.reps || "").split(",").map(s => s.trim());
+                  const loadArr = String(we.load || "").split(",").map(s => s.trim());
+                  const restArr = String(we.rest || "").split(",").map(s => s.trim());
+                  const isIndividual = repsArr.length > 1 || loadArr.length > 1 || restArr.length > 1;
 
-                      <div
-                        className="flex items-center gap-4 min-w-0 relative z-10 cursor-pointer"
-                        onClick={() => {
-                          setPreviewExercise(we.exercise);
-                          setIsPreviewModalOpen(true);
-                        }}
-                      >
-                        {/* Step index badge */}
-                        <div className="size-9 md:size-11 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center font-black text-sm md:text-base shrink-0 group-hover:scale-110 transition-transform duration-300 shadow-sm">
-                          {index + 1}
-                        </div>
+                  return (
+                    <div
+                      key={we.id}
+                      className="group relative overflow-hidden p-4 md:p-6 rounded-2xl border border-white/[0.04] bg-zinc-900/20 hover:bg-zinc-900/50 hover:border-white/[0.08] hover:shadow-[0_0_30px_-5px_rgba(var(--primary-rgb),0.1)] transition-all duration-300 backdrop-blur-md flex flex-col gap-4"
+                    >
+                      <div className="flex flex-col gap-4 w-full">
+                        {/* Visual Watermark number */}
+                        <span className="text-white/[0.02] group-hover:text-primary/[0.05] select-none transition-all duration-500 font-black text-6xl md:text-8xl absolute right-4 top-2 md:right-6 md:top-4 pointer-events-none">
+                          {String(index + 1).padStart(2, "0")}
+                        </span>
 
-                        <ExerciseThumbnail videoUrl={we.exercise.videoUrl} className="size-11 rounded-xl" />
-
-                        <div className="min-w-0 space-y-1">
-                          <h4 className="font-bold text-base md:text-lg text-white leading-snug group-hover:text-primary transition-colors break-words">
-                            {we.exercise.name}
-                          </h4>
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="border-white/[0.04] bg-zinc-900/40 text-zinc-400 text-[10px] px-2 py-0.5 rounded-md font-bold tracking-wider uppercase">
-                              {we.exercise.muscleGroup?.name || "Geral"}
-                            </Badge>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Stats pills & execution action triggers */}
-                      <div className="flex flex-col sm:flex-row items-center gap-4 relative z-10 w-full md:w-auto border-t border-white/[0.04] md:border-none pt-4 md:pt-0">
-                        {/* Metric specs dials */}
-                        <div className="w-full md:w-auto grid grid-cols-4 sm:flex sm:items-center gap-1 sm:gap-4 bg-zinc-950/60 p-2 sm:p-2.5 sm:px-4 rounded-xl border border-white/[0.04] shadow-inner">
-                          <div className="text-center sm:min-w-12">
-                            <span className="text-[9px] text-zinc-500 block uppercase font-extrabold tracking-wider">Séries</span>
-                            <span className="font-extrabold text-sm text-white">{we.sets}</span>
-                          </div>
-                          <div className="hidden sm:block w-px h-6 bg-white/[0.08]" />
-                          <div className="text-center sm:min-w-12">
-                            <span className="text-[9px] text-zinc-500 block uppercase font-extrabold tracking-wider">Reps</span>
-                            <span className="font-extrabold text-sm text-white">{repsArr[0] || "10"}</span>
-                          </div>
-                          <div className="hidden sm:block w-px h-6 bg-white/[0.08]" />
-                          <div className="text-center sm:min-w-12">
-                            <span className="text-[9px] text-zinc-500 block uppercase font-extrabold tracking-wider">Carga</span>
-                            <span className="font-extrabold text-sm text-white">{loadArr[0] || "Auto"}</span>
-                          </div>
-                          <div className="hidden sm:block w-px h-6 bg-white/[0.08]" />
-                          <div className="text-center sm:min-w-12">
-                            <span className="text-[9px] text-zinc-500 block uppercase font-extrabold tracking-wider">Descanso</span>
-                            <span className="font-extrabold text-xs text-white whitespace-nowrap">{restArr[0] || "60s"}</span>
-                          </div>
-                        </div>
-
-                        {/* Video Demonstration lightbox trigger */}
-                        {hasVideo ? (
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full sm:w-auto h-10 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 border-primary/20 hover:border-primary/40 font-bold transition-all shadow-md flex items-center gap-2 justify-center"
+                        {/* Row 1: Exercise Info & Desktop Video Button */}
+                        <div className="flex items-center justify-between gap-4 w-full relative z-10">
+                          <div
+                            className="flex items-center gap-4 flex-1 min-w-0 cursor-pointer"
                             onClick={() => {
                               setPreviewExercise(we.exercise);
                               setIsPreviewModalOpen(true);
                             }}
                           >
-                            <Play className="size-4 fill-primary shrink-0" /> Ver Execução
-                          </Button>
-                        ) : (
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="w-full sm:w-auto h-10 rounded-xl text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/40 border border-dashed border-white/[0.06] transition-all flex items-center gap-2 justify-center"
-                            asChild
-                          >
-                            <a
-                              href={getYoutubeSearchLink(we.exercise.name)}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                            >
-                              <Search className="size-4 shrink-0" /> Buscar Ajuda
-                            </a>
-                          </Button>
-                        )}
+                            {/* Step index badge */}
+                            <div className="size-9 md:size-11 rounded-xl bg-primary/10 text-primary border border-primary/20 flex items-center justify-center font-black text-sm md:text-base shrink-0 group-hover:scale-110 transition-transform duration-300 shadow-sm">
+                              {index + 1}
+                            </div>
+
+                            <ExerciseThumbnail videoUrl={we.exercise.videoUrl} className="size-11 rounded-xl" />
+
+                            <div className="min-w-0 space-y-1">
+                              <h4 className="font-bold text-base md:text-lg text-white leading-snug group-hover:text-primary transition-colors break-words">
+                                {we.exercise.name}
+                              </h4>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant="outline" className="border-white/[0.04] bg-zinc-900/40 text-zinc-400 text-[10px] px-2 py-0.5 rounded-md font-bold tracking-wider uppercase">
+                                  {we.exercise.muscleGroup?.name || "Geral"}
+                                </Badge>
+
+                                {we.groupId && we.group && (
+                                  <Badge className="bg-primary/10 text-primary border border-primary/20 text-[10px] px-2 py-0.5 rounded-md font-bold">
+                                    🔗 {we.group.type === "BISET" ? "Biset" : we.group.type === "TRISET" ? "Triset" : "Circuito"} {groupLetters[we.groupId]}
+                                  </Badge>
+                                )}
+
+                                {we.methodType === "DROPSET" && (
+                                  <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] px-2 py-0.5 rounded-md font-bold">
+                                    ⚡ Dropset
+                                  </Badge>
+                                )}
+
+                                {we.methodType === "REST_PAUSE" && (
+                                  <Badge className="bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[10px] px-2 py-0.5 rounded-md font-bold">
+                                    ⚡ Rest-Pause
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="hidden sm:block shrink-0">
+                            {hasVideo ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-10 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 border-primary/20 hover:border-primary/40 font-bold transition-all shadow-md flex items-center gap-2"
+                                onClick={() => {
+                                  setPreviewExercise(we.exercise);
+                                  setIsPreviewModalOpen(true);
+                                }}
+                              >
+                                <Play className="size-4 fill-primary shrink-0" /> Ver Execução
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="h-10 rounded-xl text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/40 border border-dashed border-white/[0.06] transition-all flex items-center gap-2"
+                                asChild
+                              >
+                                <a
+                                  href={getYoutubeSearchLink(we.exercise.name)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <Search className="size-4 shrink-0" /> Buscar Ajuda
+                                </a>
+                              </Button>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Row 2: Metrics Specs & Mobile Video Button */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-white/[0.04] w-full relative z-10">
+                          {/* Metric specs dials */}
+                          <div className="w-full sm:w-auto grid grid-cols-4 sm:flex sm:items-center gap-1 sm:gap-6 bg-zinc-950/60 p-2 sm:p-2.5 sm:px-4 rounded-xl border border-white/[0.04] shadow-inner">
+                            <div className="text-center sm:min-w-12">
+                              <span className="text-[9px] text-zinc-500 block uppercase font-extrabold tracking-wider">Séries</span>
+                              <span className="font-extrabold text-sm text-white">{we.sets}</span>
+                            </div>
+                            <div className="hidden sm:block w-px h-6 bg-white/[0.08]" />
+                            <div className="text-center sm:min-w-12">
+                              <span className="text-[9px] text-zinc-500 block uppercase font-extrabold tracking-wider">Reps</span>
+                              <span className="font-extrabold text-sm text-white">{repsArr[0] || "10"}</span>
+                            </div>
+                            <div className="hidden sm:block w-px h-6 bg-white/[0.08]" />
+                            <div className="text-center sm:min-w-12">
+                              <span className="text-[9px] text-zinc-500 block uppercase font-extrabold tracking-wider">Carga</span>
+                              <span className="font-extrabold text-sm text-white">{loadArr[0] || "Auto"}</span>
+                            </div>
+                            <div className="hidden sm:block w-px h-6 bg-white/[0.08]" />
+                            <div className="text-center sm:min-w-12">
+                              <span className="text-[9px] text-zinc-500 block uppercase font-extrabold tracking-wider">Descanso</span>
+                              <span className="font-extrabold text-xs text-white whitespace-nowrap">{restArr[0] || "60s"}</span>
+                            </div>
+                          </div>
+
+                          <div className="block sm:hidden w-full">
+                            {hasVideo ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="w-full h-11 rounded-xl bg-primary/10 text-primary hover:bg-primary/20 border-primary/20 hover:border-primary/40 font-bold transition-all shadow-md flex items-center gap-2 justify-center"
+                                onClick={() => {
+                                  setPreviewExercise(we.exercise);
+                                  setIsPreviewModalOpen(true);
+                                }}
+                              >
+                                <Play className="size-4 fill-primary shrink-0" /> Ver Execução
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                className="w-full h-11 rounded-xl text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/40 border border-dashed border-white/[0.06] transition-all flex items-center gap-2 justify-center"
+                                asChild
+                              >
+                                <a
+                                  href={getYoutubeSearchLink(we.exercise.name)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                >
+                                  <Search className="size-4 shrink-0" /> Buscar Ajuda
+                                </a>
+                              </Button>
+                            )}
+                          </div>
+                        </div>
                       </div>
-                    </div>
 
                     {/* Collapsible individual sets section */}
                     {isIndividual && (
@@ -885,8 +947,8 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
                     )}
                   </div>
                 );
-              })}
-            </div>
+              })
+            })()}</div>
           </div>
         </div>
 

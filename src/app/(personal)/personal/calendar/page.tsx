@@ -278,7 +278,7 @@ export default function CalendarPage() {
 
   return (
     <div className="flex-1 flex flex-col space-y-8 p-4 md:p-8 pt-6 overflow-hidden w-full h-full min-h-[calc(100vh-2rem)] bg-background">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col max-sm:gap-4 sm:flex-row items-start sm:items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-white">Tarefas Diárias</h2>
           <p className="text-neutral-400 mt-1 text-sm">Gerencie sua rotina operacional, atendimentos e lembretes importantes.</p>
@@ -286,7 +286,7 @@ export default function CalendarPage() {
 
         <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
           <DialogTrigger asChild>
-            <Button className="bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer rounded-xl font-semibold">
+            <Button className="bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer rounded-xl font-semibold max-sm:w-full">
               <Plus className="mr-2 size-4" />
               Nova Tarefa
             </Button>

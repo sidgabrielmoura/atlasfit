@@ -48,11 +48,13 @@ export async function GET(
                 muscleGroup: true,
               },
             },
+            group: true,
           },
           orderBy: {
             order: "asc",
           },
         },
+        exerciseGroups: true,
       },
       orderBy: {
         dayOfWeek: "asc",
@@ -91,7 +93,8 @@ export async function POST(
       duration,
       muscleGroupLabel,
       restBetweenExercises,
-      exercises, // Array opcional [{ exerciseId, sets, reps, rest }] para criação do zero
+      exercises, // Array opcional [{ exerciseId, sets, reps, rest, methodType, methodConfig, groupId }] para criação do zero
+      groups, // Array opcional para grupos [{ id, type, config }]
     } = body;
 
     if (!workspaceId || dayOfWeek === undefined) {
@@ -135,6 +138,7 @@ export async function POST(
               order: "asc",
             },
           },
+          exerciseGroups: true,
         },
       });
 
@@ -160,17 +164,47 @@ export async function POST(
             workspaceId,
             studentId,
             dayOfWeek: Number(dayOfWeek),
-            exercises: {
-              create: templateWorkout.exercises.map((ex, index) => ({
+          },
+        });
+
+        // Clonar grupos de exercícios do modelo
+        const groupMap: Record<string, string> = {};
+        if (templateWorkout.exerciseGroups && templateWorkout.exerciseGroups.length > 0) {
+          for (const g of templateWorkout.exerciseGroups) {
+            const dbGroup = await tx.workoutExerciseGroup.create({
+              data: {
+                workoutId: workout.id,
+                type: g.type,
+                config: (g.config || undefined) as any,
+              },
+            });
+            groupMap[g.id] = dbGroup.id;
+          }
+        }
+
+        // Clonar exercícios do modelo
+        if (templateWorkout.exercises && templateWorkout.exercises.length > 0) {
+          for (const ex of templateWorkout.exercises) {
+            const dbGroupId = ex.groupId ? groupMap[ex.groupId] : null;
+            await tx.workoutExercise.create({
+              data: {
+                workoutId: workout.id,
                 exerciseId: ex.exerciseId,
                 sets: ex.sets,
                 reps: ex.reps,
                 rest: ex.rest,
                 load: ex.load || "",
-                order: index,
-              })),
-            },
-          },
+                order: ex.order,
+                methodType: ex.methodType || "NONE",
+                methodConfig: (ex.methodConfig || undefined) as any,
+                groupId: dbGroupId,
+              },
+            });
+          }
+        }
+
+        const finalWorkout = await tx.workout.findUnique({
+          where: { id: workout.id },
           include: {
             exercises: {
               include: {
@@ -179,11 +213,13 @@ export async function POST(
                     muscleGroup: true,
                   },
                 },
+                group: true,
               },
               orderBy: {
                 order: "asc",
               },
             },
+            exerciseGroups: true,
           },
         });
 
@@ -194,7 +230,7 @@ export async function POST(
           await tx.exercise.update({ where: { id: exId }, data: { usage: count } });
         }
 
-        return workout;
+        return finalWorkout;
       });
     } else {
       // Caso 2: Criar do zero um treino exclusivo do aluno
@@ -215,17 +251,48 @@ export async function POST(
             workspaceId,
             studentId,
             dayOfWeek: Number(dayOfWeek),
-            exercises: {
-              create: (exercises || []).map((ex: any, index: number) => ({
+          },
+        });
+
+        // Criar grupos
+        const groupMap: Record<string, string> = {};
+        if (groups && groups.length > 0) {
+          for (const g of groups) {
+            const dbGroup = await tx.workoutExerciseGroup.create({
+              data: {
+                workoutId: workout.id,
+                type: g.type,
+                config: g.config || null,
+              },
+            });
+            groupMap[g.id] = dbGroup.id;
+          }
+        }
+
+        // Criar exercícios
+        if (exercises && exercises.length > 0) {
+          for (let index = 0; index < exercises.length; index++) {
+            const ex = exercises[index];
+            const dbGroupId = ex.groupId ? groupMap[ex.groupId] : null;
+            await tx.workoutExercise.create({
+              data: {
+                workoutId: workout.id,
                 exerciseId: ex.exerciseId,
                 sets: Number(ex.sets) || 4,
                 reps: String(ex.reps) || "10",
                 rest: String(ex.rest) || "60s",
                 load: ex.load ? String(ex.load) : "",
                 order: index,
-              })),
-            },
-          },
+                methodType: ex.methodType || "NONE",
+                methodConfig: ex.methodConfig || null,
+                groupId: dbGroupId,
+              },
+            });
+          }
+        }
+
+        const finalWorkout = await tx.workout.findUnique({
+          where: { id: workout.id },
           include: {
             exercises: {
               include: {
@@ -234,11 +301,13 @@ export async function POST(
                     muscleGroup: true,
                   },
                 },
+                group: true,
               },
               orderBy: {
                 order: "asc",
               },
             },
+            exerciseGroups: true,
           },
         });
 
@@ -249,7 +318,7 @@ export async function POST(
           await tx.exercise.update({ where: { id: exId }, data: { usage: count } });
         }
 
-        return workout;
+        return finalWorkout;
       });
     }
 

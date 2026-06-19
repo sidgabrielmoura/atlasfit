@@ -32,11 +32,13 @@ export async function GET(req: Request) {
                 muscleGroup: true,
               },
             },
+            group: true,
           },
           orderBy: {
             order: "asc",
           },
         },
+        exerciseGroups: true,
       },
       orderBy: {
         createdAt: "desc",
@@ -59,7 +61,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { name, goal, difficulty, duration, muscleGroupLabel, restBetweenExercises, exercises, workspaceId } = body;
+    const { name, goal, difficulty, duration, muscleGroupLabel, restBetweenExercises, exercises, workspaceId, groups } = body;
 
     if (!name || !goal || !difficulty || !duration) {
       return new NextResponse("Campos obrigatórios ausentes.", { status: 400 });
@@ -89,17 +91,46 @@ export async function POST(req: Request) {
           restBetweenExercises: restBetweenExercises || "2 min",
           creatorId: session.user.id,
           workspaceId: workspaceId || null,
-          exercises: {
-            create: (exercises || []).map((ex: any, index: number) => ({
+        },
+      });
+
+      const groupMap: Record<string, string> = {};
+      if (groups && groups.length > 0) {
+        for (const g of groups) {
+          const dbGroup = await tx.workoutExerciseGroup.create({
+            data: {
+              workoutId: created.id,
+              type: g.type,
+              config: g.config || null,
+            },
+          });
+          groupMap[g.id] = dbGroup.id;
+        }
+      }
+
+      if (exercises && exercises.length > 0) {
+        for (let index = 0; index < exercises.length; index++) {
+          const ex = exercises[index];
+          const dbGroupId = ex.groupId ? groupMap[ex.groupId] : null;
+          await tx.workoutExercise.create({
+            data: {
+              workoutId: created.id,
               exerciseId: ex.exerciseId,
               sets: Number(ex.sets) || 4,
               reps: String(ex.reps) || "10",
               rest: String(ex.rest) || "60s",
               load: ex.load ? String(ex.load) : "",
               order: index,
-            })),
-          },
-        },
+              methodType: ex.methodType || "NONE",
+              methodConfig: ex.methodConfig || null,
+              groupId: dbGroupId,
+            },
+          });
+        }
+      }
+
+      const finalWorkout = await tx.workout.findUnique({
+        where: { id: created.id },
         include: {
           exercises: {
             include: {
@@ -108,11 +139,13 @@ export async function POST(req: Request) {
                   muscleGroup: true,
                 },
               },
+              group: true,
             },
             orderBy: {
               order: "asc",
             },
           },
+          exerciseGroups: true,
         },
       });
 
@@ -123,7 +156,7 @@ export async function POST(req: Request) {
         await tx.exercise.update({ where: { id }, data: { usage: count } });
       }
 
-      return created;
+      return finalWorkout;
     });
 
     return NextResponse.json(workout, { status: 201 });

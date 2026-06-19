@@ -59,6 +59,7 @@ import {
   PlayCircle,
   ShieldAlert,
   Printer,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -75,6 +76,84 @@ const itemVariants = {
   hidden: { opacity: 0, y: 15 },
   show: { opacity: 1, y: 0, transition: { type: "spring", stiffness: 300, damping: 24 } },
 } as any;
+
+interface DisplayItem {
+  type: "individual" | "group";
+  exercise?: any; // WorkoutExercise
+  group?: any;    // WorkoutExerciseGroup
+  exercises?: any[]; // WorkoutExercise[]
+}
+
+const getYouTubeSearchUrl = (methodType: string, exerciseName?: string) => {
+  let query = "";
+  const suffix = exerciseName ? ` ${exerciseName}` : " musculacao";
+  if (methodType === "DROPSET") {
+    query = `como fazer dropset${suffix}`;
+  } else if (methodType === "REST_PAUSE") {
+    query = `como fazer rest pause${suffix}`;
+  } else if (methodType === "BISET") {
+    query = `como fazer biset${suffix}`;
+  } else if (methodType === "TRISET") {
+    query = `como fazer triset${suffix}`;
+  } else if (methodType === "CIRCUIT") {
+    query = `treino em circuito${suffix}`;
+  } else {
+    query = exerciseName ? `${exerciseName} execucao correta` : "execucao correta musculacao";
+  }
+  return `https://www.youtube.com/results?search_query=${encodeURIComponent(query)}`;
+};
+
+const getDisplayItems = (exercises: any[], exerciseGroups: any[] = []): DisplayItem[] => {
+  const items: DisplayItem[] = [];
+  let currentGroupItems: any[] = [];
+  let currentGroupId: string | null = null;
+
+  exercises.forEach((ex) => {
+    if (ex.groupId) {
+      if (currentGroupId === ex.groupId) {
+        currentGroupItems.push(ex);
+      } else {
+        if (currentGroupItems.length > 0) {
+          const matchedGroup = exerciseGroups.find(g => g.id === currentGroupId);
+          items.push({
+            type: "group",
+            group: matchedGroup || currentGroupItems[0].group,
+            exercises: [...currentGroupItems]
+          });
+        }
+        currentGroupId = ex.groupId;
+        currentGroupItems = [ex];
+      }
+    } else {
+      if (currentGroupItems.length > 0) {
+        const matchedGroup = exerciseGroups.find(g => g.id === currentGroupId);
+        items.push({
+          type: "group",
+          group: matchedGroup || currentGroupItems[0].group,
+          exercises: [...currentGroupItems]
+        });
+        currentGroupItems = [];
+        currentGroupId = null;
+      }
+      items.push({
+        type: "individual",
+        exercise: ex
+      });
+    }
+  });
+
+  if (currentGroupItems.length > 0) {
+    const matchedGroup = exerciseGroups.find(g => g.id === currentGroupId);
+    items.push({
+      type: "group",
+      group: matchedGroup || currentGroupItems[0].group,
+      exercises: [...currentGroupItems]
+    });
+  }
+
+  return items;
+};
+
 
 export default function StudentWorkoutsPage() {
   const workspaceSnap = useSnapshot(workspaceStore);
@@ -97,12 +176,30 @@ export default function StudentWorkoutsPage() {
   // Workout Execution Modal (Overlay)
   const [activeExecutionWorkout, setActiveExecutionWorkout] = useState<any | null>(null);
   const [currentExecExerciseIdx, setCurrentExecExerciseIdx] = useState(0);
+  const [currentStepIdx, setCurrentStepIdx] = useState(0);
+  const [executionSteps, setExecutionSteps] = useState<any[]>([]);
   const [setsWeights, setSetsWeights] = useState<string[]>([]);
   const [setsReps, setSetsReps] = useState<string[]>([]);
   const [setsDone, setSetsDone] = useState<boolean[]>([]);
   const [allWorkoutLoads, setAllWorkoutLoads] = useState<Record<string, string[]>>({});
   const [allWorkoutReps, setAllWorkoutReps] = useState<Record<string, string[]>>({});
   const [allWorkoutSetsDone, setAllWorkoutSetsDone] = useState<Record<string, boolean[]>>({});
+
+  const isStepCompleted = (step: any) => {
+    if (!step) return false;
+    if (step.type === "individual") {
+      const exId = step.exercise.id;
+      const doneArr = allWorkoutSetsDone[exId];
+      return doneArr ? doneArr.every((d: boolean) => d) : false;
+    } else {
+      // group (Biset, Triset, Circuit)
+      // All exercises in the group must have all their sets completed
+      return step.exercises.every((ex: any) => {
+        const doneArr = allWorkoutSetsDone[ex.id];
+        return doneArr ? doneArr.every((d: boolean) => d) : false;
+      });
+    }
+  };
 
   // Rest Timer States
   const [restTimer, setRestTimer] = useState<number>(0);
@@ -162,7 +259,7 @@ export default function StudentWorkoutsPage() {
       const repsArr = String(we.reps || "").split(",").map(s => s.trim());
       const restArr = String(we.rest || "").split(",").map(s => s.trim());
       const instructions = we.notes || we.exercise.instructions || "";
-      
+
       return `
         <tr style="border-bottom: 1px solid #e4e4e7;">
           <td style="padding: 12px 8px; font-weight: bold; text-align: center; color: ${primaryColor}; width: 40px;">${idx + 1}</td>
@@ -438,9 +535,8 @@ export default function StudentWorkoutsPage() {
     )
     : false;
 
-  const currentExecExercise = activeExecutionWorkout?.exercises[currentExecExerciseIdx];
-  const currentExecExerciseDone = currentExecExercise ? allWorkoutSetsDone[currentExecExercise.id] : null;
-  const allSetsCompleted = currentExecExerciseDone ? currentExecExerciseDone.every((done: boolean) => done) : false;
+  const currentStep = executionSteps[currentStepIdx];
+  const allSetsCompleted = currentStep ? isStepCompleted(currentStep) : false;
 
   // Timer Effect
   useEffect(() => {
@@ -478,6 +574,58 @@ export default function StudentWorkoutsPage() {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
+  const handleToggleGroupSet = (setIdx: number, step: any) => {
+    if (step.type !== "group") return;
+
+    const exercises = step.exercises || [];
+    const nextDone = { ...allWorkoutSetsDone };
+
+    // Determine if it's currently completed (based on first exercise as reference)
+    const isCurrentlyDone = nextDone[exercises[0].id]?.[setIdx];
+
+    if (!isCurrentlyDone) {
+      // Validate loads for all exercises in this set
+      for (const ex of exercises) {
+        const predefinedLoad = ex.load;
+        const isPredefined = typeof predefinedLoad === "string" &&
+          predefinedLoad.trim() !== "" &&
+          !predefinedLoad.toLowerCase().includes("auto");
+        if (!isPredefined) {
+          const userLoad = allWorkoutLoads[ex.id]?.[setIdx];
+          if (!userLoad || userLoad.trim() === "") {
+            toast.warning(`Por favor, registre a carga do exercício "${ex.exercise.name}" na série ${setIdx + 1}. 💪`);
+            return;
+          }
+        }
+      }
+    }
+
+    // Toggle for all exercises in the group
+    exercises.forEach((ex: any) => {
+      if (!nextDone[ex.id]) {
+        nextDone[ex.id] = new Array(ex.sets).fill(false);
+      }
+      nextDone[ex.id][setIdx] = !isCurrentlyDone;
+    });
+
+    setAllWorkoutSetsDone(nextDone);
+
+    // If marked done, trigger rest timer
+    if (!isCurrentlyDone) {
+      const isCircuit = step.group?.type === "CIRCUIT";
+      let restSeconds = 60;
+      if (isCircuit && step.group?.config?.restBetweenRounds) {
+        restSeconds = parseInt(step.group.config.restBetweenRounds) || 60;
+      } else {
+        const restValueStr = exercises[0].rest || "60s";
+        restSeconds = parseInt(restValueStr) || 60;
+      }
+      setRestTimer(restSeconds);
+      setIsRestTimerActive(true);
+      toast.info(`Descanso iniciado: ${restSeconds} segundos.`);
+    }
+  };
+
   // Launch Workout Execution overlay
   const handleStartWorkout = (workout: any) => {
     if (!workout.isActive) {
@@ -497,6 +645,9 @@ export default function StudentWorkoutsPage() {
 
     setActiveExecutionWorkout(workout);
     setCurrentExecExerciseIdx(0);
+    const steps = getDisplayItems(workout.exercises, workout.exerciseGroups);
+    setExecutionSteps(steps);
+    setCurrentStepIdx(0);
     setTotalTimer(0);
     setIsTotalTimerRunning(true);
 
@@ -554,8 +705,8 @@ export default function StudentWorkoutsPage() {
     if (!isCurrentlyDone) {
       const predefinedLoad = exercise.load;
       const isPredefined = typeof predefinedLoad === "string" &&
-                           predefinedLoad.trim() !== "" &&
-                           !predefinedLoad.toLowerCase().includes("auto");
+        predefinedLoad.trim() !== "" &&
+        !predefinedLoad.toLowerCase().includes("auto");
 
       if (!isPredefined) {
         const userLoad = allWorkoutLoads[exercise.id]?.[idx];
@@ -588,15 +739,9 @@ export default function StudentWorkoutsPage() {
   const handleNextExercise = () => {
     if (!activeExecutionWorkout) return;
 
-    const nextIdx = currentExecExerciseIdx + 1;
-    if (nextIdx < activeExecutionWorkout.exercises.length) {
-      setCurrentExecExerciseIdx(nextIdx);
-      const nextEx = activeExecutionWorkout.exercises[nextIdx];
-      const nextRepsArr = String(nextEx.reps || "10").split(",").map(s => s.trim());
-      const nextLoadArr = String(nextEx.load || "").split(",").map(s => s.trim());
-      setSetsWeights(Array.from({ length: nextEx.sets }, (_, si) => nextLoadArr[si] || nextLoadArr[0] || ""));
-      setSetsReps(Array.from({ length: nextEx.sets }, (_, si) => nextRepsArr[si] || nextRepsArr[0] || "10"));
-      setSetsDone(allWorkoutSetsDone[nextEx.id] || new Array(nextEx.sets).fill(false));
+    const nextIdx = currentStepIdx + 1;
+    if (nextIdx < executionSteps.length) {
+      setCurrentStepIdx(nextIdx);
       setIsRestTimerActive(false);
       setRestTimer(0);
     } else {
@@ -607,15 +752,9 @@ export default function StudentWorkoutsPage() {
   };
 
   const handlePrevExercise = () => {
-    const prevIdx = currentExecExerciseIdx - 1;
+    const prevIdx = currentStepIdx - 1;
     if (prevIdx >= 0 && activeExecutionWorkout) {
-      setCurrentExecExerciseIdx(prevIdx);
-      const prevEx = activeExecutionWorkout.exercises[prevIdx];
-      const prevRepsArr = String(prevEx.reps || "10").split(",").map(s => s.trim());
-      const prevLoadArr = String(prevEx.load || "").split(",").map(s => s.trim());
-      setSetsWeights(Array.from({ length: prevEx.sets }, (_, si) => prevLoadArr[si] || prevLoadArr[0] || ""));
-      setSetsReps(Array.from({ length: prevEx.sets }, (_, si) => prevRepsArr[si] || prevRepsArr[0] || "10"));
-      setSetsDone(allWorkoutSetsDone[prevEx.id] || new Array(prevEx.sets).fill(false));
+      setCurrentStepIdx(prevIdx);
       setIsRestTimerActive(false);
       setRestTimer(0);
     }
@@ -645,6 +784,8 @@ export default function StudentWorkoutsPage() {
       toast.success("Treino concluído com sucesso! 🏆");
       setIsEvaluating(false);
       setActiveExecutionWorkout(null);
+      setCurrentStepIdx(0);
+      setExecutionSteps([]);
       setShowConGrats(true);
       loadWorkoutsData(); // refresh logs list
     } catch (err: any) {
@@ -676,8 +817,6 @@ export default function StudentWorkoutsPage() {
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-8 w-full mx-auto animate-in fade-in duration-500">
-
-      {/* Top Banner Actions */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-2xl md:text-3xl font-black tracking-tight">Meus Treinos</h1>
@@ -686,7 +825,6 @@ export default function StudentWorkoutsPage() {
           </p>
         </div>
 
-        {/* History Slide Sheet Trigger */}
         <Sheet>
           <SheetTrigger asChild>
             <Button variant="outline" className="rounded-xl font-bold h-11 gap-2 border-border/60 hover:bg-secondary/40 shadow-sm cursor-pointer w-full md:w-auto justify-center">
@@ -739,9 +877,8 @@ export default function StudentWorkoutsPage() {
         </Sheet>
       </div>
 
-      {/* Touch-Friendly Weekly Calendar Strip */}
-      <Card className="border-border/50">
-        <CardContent className="p-4">
+      <Card className="border-border/50 p-0">
+        <CardContent className="p-2 py-4">
           <div className="flex items-center justify-between overflow-x-auto gap-2 pb-1.5 scrollbar-thin scrollbar-thumb-muted">
             {daysOfWeekLabels.map((dayLabel, idx) => {
               const dayWorkouts = workouts.filter((w) => w.dayOfWeek === idx);
@@ -771,15 +908,22 @@ export default function StudentWorkoutsPage() {
                     {dayLabel}
                   </span>
                   {hasWorkout ? (
-                    <Badge variant="secondary" className={cn(
-                      "text-[8px] font-black tracking-tighter px-1.5 py-0 border-none flex items-center justify-center gap-0.5",
-                      isDayCompletedToday
-                        ? "bg-emerald-500/10 text-emerald-500"
-                        : (isSelected ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary")
-                    )}>
-                      {isDayCompletedToday && <Check className="size-2 shrink-0" />}
-                      {dayWorkouts[0].muscleGroupLabel?.split(" ")[0] || "TREINO"}
-                    </Badge>
+                    <div className="flex flex-col items-center gap-1">
+                      <Badge variant="secondary" className={cn(
+                        "text-[8px] font-black tracking-tighter px-1.5 py-0 border-none flex items-center justify-center gap-0.5",
+                        isDayCompletedToday
+                          ? "bg-emerald-500/10 text-emerald-500"
+                          : (isSelected ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary")
+                      )}>
+                        {isDayCompletedToday && <Check className="size-2 shrink-0" />}
+                        {dayWorkouts[0].muscleGroupLabel?.split(" ")[0] || "TREINO"}
+                      </Badge>
+                      {dayWorkouts[0].exercises?.some((we: any) => (we.methodType && we.methodType !== "NONE") || we.groupId) && (
+                        <span className="text-[8px] font-black text-amber-500 flex items-center justify-center gap-0.5 leading-none select-none">
+                          ⚡ MÉTODO
+                        </span>
+                      )}
+                    </div>
                   ) : (
                     <span className="text-[9px] font-bold text-muted-foreground/60">DESCANSO</span>
                   )}
@@ -834,6 +978,68 @@ export default function StudentWorkoutsPage() {
                       <p className="text-xs text-muted-foreground font-medium">
                         Foco muscular em <span className="text-primary font-semibold">{selectedWorkout.muscleGroupLabel || "Geral"}</span>
                       </p>
+                      {(() => {
+                        const methods = Array.from(new Set(
+                          selectedWorkout.exercises
+                            ?.map((we: any) => {
+                              if (we.groupId) {
+                                const matchedGroup = selectedWorkout.exerciseGroups?.find((g: any) => g.id === we.groupId);
+                                const gType = matchedGroup?.type || we.group?.type;
+                                if (gType) {
+                                  return gType === "BISET" ? "BISET" : gType === "TRISET" ? "TRISET" : "CIRCUIT";
+                                }
+                              }
+                              if (we.methodType !== "NONE" && we.methodType) {
+                                return we.methodType;
+                              }
+                              return null;
+                            })
+                            .filter(Boolean)
+                        ));
+                        if (methods.length === 0) return null;
+                        return (
+                          <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                            {methods.map((method: any) => {
+                              if (method === "BISET") {
+                                return (
+                                  <Badge key={method} className="bg-primary/10 text-primary border border-primary/20 text-[9px] px-1.5 py-0.5 rounded font-bold">
+                                    🔗 Biset
+                                  </Badge>
+                                );
+                              }
+                              if (method === "TRISET") {
+                                return (
+                                  <Badge key={method} className="bg-primary/10 text-primary border border-primary/20 text-[9px] px-1.5 py-0.5 rounded font-bold">
+                                    🔗 Triset
+                                  </Badge>
+                                );
+                              }
+                              if (method === "CIRCUIT") {
+                                return (
+                                  <Badge key={method} className="bg-primary/10 text-primary border border-primary/20 text-[9px] px-1.5 py-0.5 rounded font-bold">
+                                    🔗 Circuito
+                                  </Badge>
+                                );
+                              }
+                              if (method === "DROPSET") {
+                                return (
+                                  <Badge key={method} className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] px-1.5 py-0.5 rounded font-bold">
+                                    ⚡ Dropset
+                                  </Badge>
+                                );
+                              }
+                              if (method === "REST_PAUSE") {
+                                return (
+                                  <Badge key={method} className="bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[9px] px-1.5 py-0.5 rounded font-bold">
+                                    ⚡ Rest-Pause
+                                  </Badge>
+                                );
+                              }
+                              return null;
+                            })}
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     <div className="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto shrink-0">
@@ -870,128 +1076,292 @@ export default function StudentWorkoutsPage() {
                 <section className="space-y-4">
                   <h3 className="text-xs font-bold uppercase tracking-widest text-muted-foreground px-1">Exercícios do Dia</h3>
                   <div className="space-y-4">
-                    {selectedWorkout.exercises.map((we: any, idx: number) => {
-                      const repsArr = String(we.reps || "").split(",").map(s => s.trim());
-                      const loadArr = String(we.load || "").split(",").map(s => s.trim());
-                      const restArr = String(we.rest || "").split(",").map(s => s.trim());
-                      const isIndividual = repsArr.length > 1 || loadArr.length > 1 || restArr.length > 1;
+                    {(() => {
+                      const displayItems = getDisplayItems(selectedWorkout.exercises || [], selectedWorkout.exerciseGroups || []);
+                      const groupLetters: Record<string, string> = {};
+                      let currentLetterCode = 65;
+                      selectedWorkout.exercises?.forEach((we: any) => {
+                        if (we.groupId && !groupLetters[we.groupId]) {
+                          groupLetters[we.groupId] = String.fromCharCode(currentLetterCode++);
+                        }
+                      });
 
-                      return (
-                        <Card key={we.id} className="border-border/50 bg-card hover:border-primary/25 transition-all shadow-sm">
-                          <CardContent className="p-4 md:p-6 flex flex-col gap-4">
-                            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full">
-                              <div className="flex items-start gap-4 min-w-0 flex-1">
-                                {/* Counter Circle Badge */}
-                                <div className="size-9 rounded-xl bg-secondary flex items-center justify-center shrink-0 font-black text-sm text-primary">
-                                  {idx + 1}
-                                </div>
-                                <div
-                                  className="cursor-pointer shrink-0"
-                                  onClick={() => {
-                                    setPreviewExercise(we.exercise);
-                                    setIsPreviewModalOpen(true);
-                                  }}
-                                >
-                                  <ExerciseThumbnail videoUrl={we.exercise.videoUrl} className="size-11 rounded-xl" />
-                                </div>
-                                <div className="space-y-1.5 min-w-0 flex-1">
-                                  <h4
-                                    className="font-bold text-base text-foreground leading-tight cursor-pointer hover:text-primary transition-colors truncate"
-                                    onClick={() => {
-                                      setPreviewExercise(we.exercise);
-                                      setIsPreviewModalOpen(true);
-                                    }}
-                                  >
-                                    {we.exercise.name}
-                                  </h4>
-                                  <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
-                                    <span className="font-semibold text-foreground bg-secondary/50 px-2 py-0.5 rounded-md border border-border/40">
-                                      {we.sets} séries
-                                    </span>
-                                    <span>{repsArr[0] || "10"} reps</span>
-                                    <span>Carga: {loadArr[0] || "Auto"}</span>
-                                    <span>Descanso: {restArr[0] || "60s"}</span>
-                                  </div>
-                                  {/* Exercise instructions / personal comments */}
-                                  {(we.exercise.instructions || we.notes) && (
-                                    <p className="text-xs text-muted-foreground/80 leading-relaxed font-medium bg-secondary/15 p-3 rounded-xl border border-border/30 mt-2.5 max-w-[500px]">
-                                      <Info className="size-3.5 inline mr-1 text-primary align-text-bottom shrink-0" />
-                                      {we.notes || we.exercise.instructions}
-                                    </p>
-                                  )}
-                                </div>
-                              </div>
+                      return displayItems.map((item: any, idx: number) => {
+                        if (item.type === "individual") {
+                          const we = item.exercise;
+                          const repsArr = String(we.reps || "").split(",").map(s => s.trim());
+                          const loadArr = String(we.load || "").split(",").map(s => s.trim());
+                          const restArr = String(we.rest || "").split(",").map(s => s.trim());
+                          const isIndividual = repsArr.length > 1 || loadArr.length > 1 || restArr.length > 1;
 
-                              {/* Exercise video demonstration */}
-                              {we.exercise.videoUrl && (
-                                <Button
-                                  onClick={() => {
-                                    setPreviewExercise(we.exercise);
-                                    setIsPreviewModalOpen(true);
-                                  }}
-                                  variant="outline"
-                                  size="sm"
-                                  className="rounded-xl border-border/60 font-bold h-9 gap-1.5 text-xs w-full sm:w-auto justify-center cursor-pointer hover:bg-secondary/40"
-                                >
-                                  <PlayCircle className="size-4 text-primary" /> Ver Execução
-                                </Button>
-                              )}
-                            </div>
-
-                            {/* Collapsible individual sets section */}
-                            {isIndividual && (
-                              <div className="w-full">
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  className="h-8 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-secondary/20 rounded-lg gap-1.5 px-2.5 -ml-2.5"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    setExpandedExercises(prev => ({ ...prev, [we.id]: !prev[we.id] }));
-                                  }}
-                                >
-                                  {expandedExercises[we.id] ? (
-                                    <>
-                                      Ocultar séries <ChevronUp className="size-3.5" />
-                                    </>
-                                  ) : (
-                                    <>
-                                      Ver todas as {we.sets} séries <ChevronDown className="size-3.5" />
-                                    </>
-                                  )}
-                                </Button>
-
-                                {expandedExercises[we.id] && (
-                                  <div className="mt-3 flex flex-col! gap-2.5 p-3 rounded-xl bg-secondary/15 border border-border/40">
-                                    {Array.from({ length: we.sets }).map((_, si) => (
-                                      <div key={si} className="flex items-center justify-between gap-4 p-2 rounded-lg bg-card border border-border/20 text-xs">
-                                        <span className="font-bold text-muted-foreground">#{si + 1}</span>
-                                        <div className="flex items-center gap-3">
-                                          <div>
-                                            <span className="text-[10px] text-muted-foreground block leading-none font-bold uppercase">Reps</span>
-                                            <span className="font-bold text-foreground">{repsArr[si] || repsArr[0] || "10"}</span>
-                                          </div>
-                                          <div className="w-px h-5 bg-border/40" />
-                                          <div>
-                                            <span className="text-[10px] text-muted-foreground block leading-none font-bold uppercase">Carga</span>
-                                            <span className="font-bold text-foreground">{loadArr[si] || loadArr[0] || "Auto"}</span>
-                                          </div>
-                                          <div className="w-px h-5 bg-border/40" />
-                                          <div>
-                                            <span className="text-[10px] text-muted-foreground block leading-none font-bold uppercase">Desc.</span>
-                                            <span className="font-bold text-foreground">{restArr[si] || restArr[0] || "60s"}</span>
-                                          </div>
+                          return (
+                            <Card key={we.id} className="border-border/50 p-0 bg-card hover:border-primary/25 transition-all shadow-sm">
+                              <CardContent className="p-4 md:p-6 flex flex-col gap-4">
+                                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 w-full">
+                                  <div className="flex flex-col items-start gap-1 min-w-0 flex-1">
+                                    <div className="flex items-start gap-2">
+                                      <div
+                                        className="cursor-pointer shrink-0"
+                                        onClick={() => {
+                                          setPreviewExercise(we.exercise);
+                                          setIsPreviewModalOpen(true);
+                                        }}
+                                      >
+                                        <ExerciseThumbnail videoUrl={we.exercise.videoUrl} className="size-11 rounded-xl" />
+                                      </div>
+                                      <div className="space-y-1.5 min-w-0 flex-1">
+                                        <h4
+                                          className="font-bold text-base text-foreground leading-tight cursor-pointer hover:text-primary transition-colors truncate"
+                                          onClick={() => {
+                                            setPreviewExercise(we.exercise);
+                                            setIsPreviewModalOpen(true);
+                                          }}
+                                        >
+                                          {we.exercise.name}
+                                        </h4>
+                                        <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
+                                          <span className="font-semibold text-foreground bg-secondary/50 px-2 py-0.5 rounded-md border border-border/40">
+                                            {we.sets} séries
+                                          </span>
+                                          <span>{repsArr[0] || "10"} reps</span>
+                                          <span>Carga: {loadArr[0] || "Auto"}</span>
                                         </div>
                                       </div>
-                                    ))}
+                                    </div>
+
+                                    <span>Descanso: {restArr[0] || "60s"}</span>
+
+                                    {we.methodType === "DROPSET" && (
+                                      <div className="flex flex-col gap-2.5 mt-3 p-3.5 bg-amber-500/5 border border-amber-500/10 rounded-xl">
+                                        <div className="flex flex-wrap justify-between items-center gap-2">
+                                          <div className="flex items-center gap-2">
+                                            <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] px-2 py-0.5 rounded-md font-bold">
+                                              Dropset
+                                            </Badge>
+                                          </div>
+                                          <a
+                                            href={getYouTubeSearchUrl("DROPSET", we.exercise.name)}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1 text-[11px] text-amber-400 bg-amber-500/10 hover:bg-amber-500/20 px-2.5 py-1 rounded-lg font-bold border border-amber-500/20 transition-colors"
+                                          >
+                                            Como Executar (YouTube) ↗
+                                          </a>
+                                        </div>
+                                        <p className="text-[11px] text-muted-foreground leading-relaxed mt-0.5">
+                                          <strong>Como fazer:</strong> Faça a série até a falha com a carga padrão. Imediatamente, sem descansar, reduza a carga em {(we.methodConfig as any)?.reduction || 20}% e faça o máximo de repetições possíveis. Repita o processo {(we.methodConfig as any)?.drops || 2} vezes.
+                                        </p>
+                                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                                          {Array.from({ length: (we.methodConfig as any)?.drops || 2 }).map((_, dropIdx) => (
+                                            <div key={dropIdx} className="flex items-center gap-1 bg-amber-500/5 border border-amber-500/10 rounded-lg p-1 px-2 text-[10px] text-amber-400 font-medium">
+                                              <span>Drop {dropIdx + 1}: -{(we.methodConfig as any)?.reduction || 20}%</span>
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {we.methodType === "REST_PAUSE" && (
+                                      <div className="flex flex-col gap-2.5 mt-3 p-3.5 bg-purple-500/5 border border-purple-500/10 rounded-xl">
+                                        <div className="flex flex-wrap justify-between items-center gap-2">
+                                          <div className="flex items-center gap-2">
+                                            <Badge className="bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[10px] px-2 py-0.5 rounded-md font-bold">
+                                              Rest-Pause
+                                            </Badge>
+                                          </div>
+                                          <a
+                                            href={getYouTubeSearchUrl("REST_PAUSE", we.exercise.name)}
+                                            target="_blank"
+                                            rel="noopener noreferrer"
+                                            className="inline-flex items-center gap-1 text-[11px] text-purple-400 bg-purple-500/10 hover:bg-purple-500/20 px-2.5 py-1 rounded-lg font-bold border border-purple-500/20 transition-colors"
+                                          >
+                                            Como Executar (YouTube) ↗
+                                          </a>
+                                        </div>
+                                        <p className="text-[11px] text-muted-foreground leading-relaxed mt-0.5">
+                                          <strong>Como fazer:</strong> Faça a série até a falha. Solte o peso e descanse por apenas {(we.methodConfig as any)?.pause || 15} segundos. Faça outra série até a falha. Repita o intervalo {(we.methodConfig as any)?.rounds || 2} vezes na mesma série.
+                                        </p>
+                                        <div className="flex flex-wrap items-center gap-2 mt-1">
+                                          {Array.from({ length: (we.methodConfig as any)?.rounds || 2 }).map((_, roundIdx) => (
+                                            <div key={roundIdx} className="flex items-center gap-1.5 text-[10px] text-purple-400">
+                                              <span className="bg-purple-500/5 border border-purple-500/10 rounded-lg p-1 px-2 font-medium">Pausa {roundIdx + 1}: {(we.methodConfig as any)?.pause || "15s"}</span>
+                                              {roundIdx < ((we.methodConfig as any)?.rounds || 2) - 1 && <span className="text-muted-foreground">→</span>}
+                                            </div>
+                                          ))}
+                                        </div>
+                                      </div>
+                                    )}
+
+                                    {we.methodType !== "DROPSET" && we.methodType !== "REST_PAUSE" && (we.exercise.instructions || we.notes) && (
+                                      <p className="text-xs text-muted-foreground/80 leading-relaxed font-medium bg-secondary/15 p-3 rounded-xl border border-border/30 mt-2.5 max-w-125">
+                                        <Info className="size-3.5 inline mr-1 text-primary align-text-bottom shrink-0" />
+                                        {we.notes || we.exercise.instructions}
+                                      </p>
+                                    )}
+                                  </div>
+
+                                  {we.exercise.videoUrl && (
+                                    <Button
+                                      onClick={() => {
+                                        setPreviewExercise(we.exercise);
+                                        setIsPreviewModalOpen(true);
+                                      }}
+                                      variant="outline"
+                                      size="sm"
+                                      className="rounded-xl border-border/60 font-bold h-9 gap-1.5 text-xs w-full sm:w-auto justify-center cursor-pointer hover:bg-secondary/40"
+                                    >
+                                      <PlayCircle className="size-4 text-primary" /> Ver Execução
+                                    </Button>
+                                  )}
+                                </div>
+
+                                {isIndividual && (
+                                  <div className="w-full">
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-8 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-secondary/20 rounded-lg gap-1.5 px-2.5 -ml-2.5"
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        setExpandedExercises(prev => ({ ...prev, [we.id]: !prev[we.id] }));
+                                      }}
+                                    >
+                                      {expandedExercises[we.id] ? (
+                                        <>
+                                          Ocultar séries <ChevronUp className="size-3.5" />
+                                        </>
+                                      ) : (
+                                        <>
+                                          Ver todas as {we.sets} séries <ChevronDown className="size-3.5" />
+                                        </>
+                                      )}
+                                    </Button>
+
+                                    {expandedExercises[we.id] && (
+                                      <div className="mt-3 flex flex-col! gap-2.5 p-3 rounded-xl bg-secondary/15 border border-border/40">
+                                        {Array.from({ length: we.sets }).map((_, si) => (
+                                          <div key={si} className="flex items-center justify-between gap-4 p-2 rounded-lg bg-card border border-border/20 text-xs">
+                                            <span className="font-bold text-muted-foreground">#{si + 1}</span>
+                                            <div className="flex items-center gap-3">
+                                              <div>
+                                                <span className="text-[10px] text-muted-foreground block leading-none font-bold uppercase">Reps</span>
+                                                <span className="font-bold text-foreground">{repsArr[si] || repsArr[0] || "10"}</span>
+                                              </div>
+                                              <div className="w-px h-5 bg-border/40" />
+                                              <div>
+                                                <span className="text-[10px] text-muted-foreground block leading-none font-bold uppercase">Carga</span>
+                                                <span className="font-bold text-foreground">{loadArr[si] || loadArr[0] || "Auto"}</span>
+                                              </div>
+                                              <div className="w-px h-5 bg-border/40" />
+                                              <div>
+                                                <span className="text-[10px] text-muted-foreground block leading-none font-bold uppercase">Desc.</span>
+                                                <span className="font-bold text-foreground">{restArr[si] || restArr[0] || "60s"}</span>
+                                              </div>
+                                            </div>
+                                          </div>
+                                        ))}
+                                      </div>
+                                    )}
                                   </div>
                                 )}
-                              </div>
-                            )}
-                          </CardContent>
-                        </Card>
-                      );
-                    })}
+                              </CardContent>
+                            </Card>
+                          );
+                        } else {
+                          // group
+                          const group = item.group;
+                          const exercises = item.exercises || [];
+                          const isCircuit = group.type === "CIRCUIT";
+                          const groupLetter = groupLetters[exercises[0].groupId];
+
+                          return (
+                            <Card key={group.id} className="border-primary/20 bg-card/65 shadow-md relative overflow-hidden">
+                              <div className="absolute top-0 left-0 right-0 h-1.5 bg-primary" />
+                              <CardHeader className="p-4 md:p-6 pb-2">
+                                <div className="flex flex-wrap items-center justify-between gap-3">
+                                  <div className="flex items-center gap-2">
+                                    <Badge className="bg-primary text-primary-foreground font-black px-2 py-0.5 text-xs rounded-md uppercase">
+                                      {group.type === "BISET" ? "Biset" : group.type === "TRISET" ? "Triset" : "Circuito"} {groupLetter}
+                                    </Badge>
+                                    <a
+                                      href={getYouTubeSearchUrl(group.type, exercises.map((e: any) => e.exercise.name).join(" + "))}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary hover:bg-primary/20 px-2.5 py-1 rounded-lg font-bold border border-primary/20 transition-colors shrink-0"
+                                    >
+                                      Como Executar (YouTube) ↗
+                                    </a>
+                                  </div>
+                                </div>
+                                <div className="mt-2.5 p-3 rounded-xl bg-primary/5 border border-primary/10">
+                                  <p className="text-[11px] text-muted-foreground leading-relaxed font-medium">
+                                    {group.type === "BISET" && (
+                                      <>
+                                        <strong>Como fazer (Biset):</strong> Faça uma série do primeiro exercício e, imediatamente após, sem descansar, faça uma série do segundo. Descanse somente após finalizar o segundo exercício.
+                                      </>
+                                    )}
+                                    {group.type === "TRISET" && (
+                                      <>
+                                        <strong>Como fazer (Triset):</strong> Faça uma série do primeiro, do segundo e do terceiro exercício consecutivamente sem descansar. Descanse somente após finalizar o terceiro exercício.
+                                      </>
+                                    )}
+                                    {group.type === "CIRCUIT" && (
+                                      <>
+                                        <strong>Como fazer (Circuito):</strong> Faça uma série de cada exercício do grupo em sequência, um após o outro, sem descansar. Descanse por {group.config?.restBetweenRounds || 60}s apenas ao final de cada volta.
+                                      </>
+                                    )}
+                                  </p>
+                                </div>
+                              </CardHeader>
+                              <CardContent className="p-4 md:p-6 pt-0 space-y-4">
+                                {exercises.map((we: any, subIdx: number) => {
+                                  const repsArr = String(we.reps || "").split(",").map(s => s.trim());
+                                  const loadArr = String(we.load || "").split(",").map(s => s.trim());
+                                  const restArr = String(we.rest || "").split(",").map(s => s.trim());
+
+                                  return (
+                                    <div key={we.id} className="flex items-start gap-4 p-3 rounded-xl bg-secondary/10 border border-border/20">
+                                      <div className="size-7 rounded-lg bg-secondary flex items-center justify-center font-bold text-xs text-primary shrink-0">
+                                        {groupLetter}{subIdx + 1}
+                                      </div>
+                                      <div className="space-y-1 min-w-0 flex-1">
+                                        <div className="flex justify-between items-start gap-2">
+                                          <h4 className="font-bold text-sm text-foreground truncate">{we.exercise.name}</h4>
+                                          {we.exercise.videoUrl && (
+                                            <button
+                                              onClick={() => {
+                                                setPreviewExercise(we.exercise);
+                                                setIsPreviewModalOpen(true);
+                                              }}
+                                              className="text-[10px] text-primary font-bold hover:underline shrink-0"
+                                            >
+                                              Vídeo
+                                            </button>
+                                          )}
+                                        </div>
+                                        <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
+                                          <span>{we.sets} séries</span>
+                                          <span>•</span>
+                                          <span>{repsArr[0] || "10"} reps</span>
+                                          <span>•</span>
+                                          <span>Carga: {loadArr[0] || "Auto"}</span>
+                                          {!isCircuit && (
+                                            <>
+                                              <span>•</span>
+                                              <span>Desc: {restArr[0] || "60s"}</span>
+                                            </>
+                                          )}
+                                        </div>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                              </CardContent>
+                            </Card>
+                          );
+                        }
+                      });
+                    })()}
                   </div>
                 </section>
               </div>
@@ -1074,6 +1444,8 @@ export default function StudentWorkoutsPage() {
               onClick={() => {
                 setIsExitConfirmOpen(false);
                 setActiveExecutionWorkout(null);
+                setCurrentStepIdx(0);
+                setExecutionSteps([]);
                 setIsRestTimerActive(false);
               }}
               className="h-10 px-4 cursor-pointer rounded-xl transition-all font-bold"
@@ -1112,141 +1484,398 @@ export default function StudentWorkoutsPage() {
           </header>
 
           {/* Active Workout exercise block */}
-          {activeExecutionWorkout.exercises[currentExecExerciseIdx] ? (
+          {executionSteps[currentStepIdx] ? (
             (() => {
-              const execEx = activeExecutionWorkout.exercises[currentExecExerciseIdx];
+              const currentStep = executionSteps[currentStepIdx];
+              const isGroup = currentStep.type === "group";
+
               return (
-                <main className="flex-1 p-4 md:p-6 max-w-2xl mx-auto w-full space-y-6 pb-36">
+                <main className="flex-1 p-4 md:p-6 max-w-2xl mx-auto w-full space-y-6 pb-36 animate-in fade-in duration-300">
                   {/* Progress Indicator */}
                   <div className="space-y-2">
                     <div className="flex justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
                       <span>Progresso do Treino</span>
                       <span>
-                        {Math.round(((currentExecExerciseIdx + 1) / activeExecutionWorkout.exercises.length) * 100)}%
+                        {Math.round(((currentStepIdx + 1) / executionSteps.length) * 100)}%
                       </span>
                     </div>
                     <Progress
-                      value={((currentExecExerciseIdx + 1) / activeExecutionWorkout.exercises.length) * 100}
+                      value={((currentStepIdx + 1) / executionSteps.length) * 100}
                       className="h-1.5 rounded-full"
                     />
                   </div>
 
-                  {/* Exercise info card */}
-                  <Card className="border-border/50 overflow-hidden shadow-sm">
-                    <CardContent className="p-5 space-y-4">
-                      <div className="flex justify-between items-start gap-4">
-                        <div>
-                          <span className="text-[10px] font-black uppercase tracking-widest text-primary">
-                            Exercício {currentExecExerciseIdx + 1} de {activeExecutionWorkout.exercises.length}
-                          </span>
-                          <h3 className="text-lg font-bold mt-1 text-foreground leading-tight">{execEx.exercise.name}</h3>
-                        </div>
-                        {execEx.exercise.videoUrl && (
-                          <Button
-                            onClick={() => {
-                              setPreviewExercise(execEx.exercise);
-                              setIsPreviewModalOpen(true);
-                            }}
-                            variant="outline"
-                            size="icon"
-                            className="size-9 rounded-lg border-border/60 shrink-0 cursor-pointer"
-                          >
-                            <Play className="size-4 text-primary fill-current" />
-                          </Button>
-                        )}
-                      </div>
+                  {!isGroup ? (
+                    (() => {
+                      const execEx = currentStep.exercise;
+                      return (
+                        <>
+                          <Card className="border-border/50 overflow-hidden shadow-sm p-0">
+                            <CardContent className="p-5 space-y-4">
+                              <div className="flex justify-between items-start gap-4">
+                                <div>
+                                  <span className="text-[10px] font-black uppercase tracking-widest text-primary">
+                                    Exercício {currentStepIdx + 1} de {executionSteps.length}
+                                  </span>
+                                  <h3 className="text-lg font-bold mt-1 text-foreground leading-tight">{execEx.exercise.name}</h3>
+                                </div>
+                                {execEx.exercise.videoUrl && (
+                                  <Button
+                                    onClick={() => {
+                                      setPreviewExercise(execEx.exercise);
+                                      setIsPreviewModalOpen(true);
+                                    }}
+                                    variant="outline"
+                                    size="icon"
+                                    className="size-9 rounded-lg border-border/60 shrink-0 cursor-pointer"
+                                  >
+                                    <Play className="size-4 text-primary fill-current" />
+                                  </Button>
+                                )}
+                              </div>
 
-                      {execEx.notes && (
-                        <p className="text-xs text-muted-foreground/90 font-semibold p-3 bg-secondary/25 border border-border/30 rounded-xl">
-                          <Lightbulb className="size-3.5 inline mr-1 text-primary align-text-bottom" />
-                          {execEx.notes}
-                        </p>
-                      )}
-                    </CardContent>
-                  </Card>
+                              {execEx.methodType === "DROPSET" && (
+                                <div className="flex flex-col gap-2 p-3.5 bg-amber-500/5 border border-amber-500/20 rounded-xl">
+                                  <div className="flex justify-between items-center gap-2">
+                                    <span className="text-[10px] font-bold text-amber-500 uppercase tracking-wider">Método Dropset Ativo</span>
+                                  </div>
+                                  <p className="text-[11px] text-muted-foreground leading-relaxed mt-1 font-medium">
+                                    <strong>Como fazer:</strong> Faça a série com a carga planejada até a falha. Sem descansar, reduza a carga em {(execEx.methodConfig as any)?.reduction || 20}% e faça o máximo de repetições possíveis. Repita o processo {(execEx.methodConfig as any)?.drops || 2} vezes.
+                                  </p>
+                                  <div className="flex flex-wrap items-center gap-2 mt-1">
+                                    <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[10px] px-2 py-0.5 rounded-md font-bold">
+                                      {execEx.sets}x {String(execEx.reps || "").split(",")[0] || "10"}
+                                    </Badge>
+                                    {Array.from({ length: (execEx.methodConfig as any)?.drops || 2 }).map((_, dropIdx) => (
+                                      <div key={dropIdx} className="flex items-center gap-1 bg-amber-500/5 border border-amber-500/10 rounded-lg p-1 px-2 text-[10px] text-amber-400 font-medium">
+                                        <span>Drop {dropIdx + 1}: -{(execEx.methodConfig as any)?.reduction || 20}%</span>
+                                      </div>
+                                    ))}
+                                  </div>
+                                  <a
+                                    href={getYouTubeSearchUrl("DROPSET", execEx.exercise.name)}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center py-3 gap-1 text-xs bg-amber-500/10 text-amber-400 hover:bg-amber-500/20 px-2.5 rounded-lg font-bold transition-all border border-amber-500/20"
+                                  >
+                                    Como Executar (YouTube) ↗
+                                  </a>
+                                </div>
+                              )}
 
-                  {/* Log sets container */}
-                  <div className="space-y-4">
-                    <div className="grid grid-cols-[3.5rem_1fr_1fr_3.5rem] gap-2 px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                      <div className="text-center">Série</div>
-                      <div className="text-center">Carga (KG)</div>
-                      <div className="text-center">Reps</div>
-                      <div className="text-center">Status</div>
-                    </div>
+                              {execEx.methodType === "REST_PAUSE" && (
+                                <div className="flex flex-col gap-2.5 p-3.5 bg-purple-500/5 border border-purple-500/20 rounded-xl">
+                                  <div className="flex justify-between items-center gap-2">
+                                    <span className="text-[10px] font-bold text-purple-500 uppercase tracking-wider">Método Rest-Pause Ativo</span>
+                                    <a
+                                      href={getYouTubeSearchUrl("REST_PAUSE", execEx.exercise.name)}
+                                      target="_blank"
+                                      rel="noopener noreferrer"
+                                      className="inline-flex items-center gap-1 text-xs bg-purple-500/10 text-purple-400 hover:bg-purple-500/20 px-2.5 py-1 rounded-lg font-bold transition-all border border-purple-500/20"
+                                    >
+                                      Como Executar (YouTube) ↗
+                                    </a>
+                                  </div>
+                                  <p className="text-[11px] text-muted-foreground leading-relaxed mt-1 font-medium">
+                                    <strong>Como fazer:</strong> Faça a série até a falha com a carga planejada. Solte o peso e descanse por apenas {(execEx.methodConfig as any)?.pause || 15} segundos. Faça outra série até a falha. Repita o intervalo curto por {(execEx.methodConfig as any)?.rounds || 2} vezes dentro da mesma série.
+                                  </p>
+                                  <div className="flex flex-wrap items-center gap-2 mt-1">
+                                    <Badge className="bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[10px] px-2 py-0.5 rounded-md font-bold">
+                                      {execEx.sets}x {String(execEx.reps || "").split(",")[0] || "10"}
+                                    </Badge>
+                                    {Array.from({ length: (execEx.methodConfig as any)?.rounds || 2 }).map((_, roundIdx) => (
+                                      <div key={roundIdx} className="flex items-center gap-1.5 text-[10px] text-purple-400">
+                                        <span className="bg-purple-500/5 border border-purple-500/10 rounded-lg p-1 px-2 font-medium">Pausa {roundIdx + 1}: {(execEx.methodConfig as any)?.pause || "15s"}</span>
+                                        {roundIdx < ((execEx.methodConfig as any)?.rounds || 2) - 1 && <span className="text-muted-foreground">→</span>}
+                                      </div>
+                                    ))}
+                                  </div>
+                                </div>
+                              )}
 
-                    <div className="space-y-2.5">
-                      {new Array(execEx.sets).fill(0).map((_, setIdx) => (
-                        <div
-                          key={setIdx}
-                          className={cn(
-                            "grid grid-cols-[3.5rem_1fr_1fr_3.5rem] gap-2 items-center p-3 rounded-xl border transition-all shadow-sm",
-                            (allWorkoutSetsDone[execEx.id]?.[setIdx])
-                              ? "bg-primary/5 border-primary/30"
-                              : "bg-card border-border/40"
-                          )}
-                        >
-                          {/* Set number */}
-                          <div className={cn(
-                            "flex items-center justify-center size-9 rounded-lg font-black text-xs",
-                            (allWorkoutSetsDone[execEx.id]?.[setIdx]) ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
-                          )}>
-                            {setIdx + 1}
+                              {execEx.methodType !== "DROPSET" && execEx.methodType !== "REST_PAUSE" && execEx.notes && (
+                                <p className="text-xs text-muted-foreground/90 font-semibold p-3 bg-secondary/25 border border-border/30 rounded-xl">
+                                  <Lightbulb className="size-3.5 inline mr-1 text-primary align-text-bottom" />
+                                  {execEx.notes}
+                                </p>
+                              )}
+                            </CardContent>
+                          </Card>
+
+                          {/* Log sets container */}
+                          <div className="space-y-4">
+                            <div className="grid grid-cols-[3.5rem_1fr_1fr_3.5rem] gap-2 px-3 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
+                              <div className="text-center">Série</div>
+                              <div className="text-center">Carga (KG)</div>
+                              <div className="text-center">Reps</div>
+                              <div className="text-center">Status</div>
+                            </div>
+
+                            <div className="space-y-2.5">
+                              {new Array(execEx.sets).fill(0).map((_, setIdx) => (
+                                <div
+                                  key={setIdx}
+                                  className={cn(
+                                    "grid grid-cols-[3.5rem_1fr_1fr_3.5rem] gap-2 items-center p-3 rounded-xl border transition-all shadow-sm",
+                                    (allWorkoutSetsDone[execEx.id]?.[setIdx])
+                                      ? "bg-primary/5 border-primary/30"
+                                      : "bg-card border-border/40"
+                                  )}
+                                >
+                                  {/* Set number */}
+                                  <div className={cn(
+                                    "flex items-center justify-center size-9 rounded-lg font-black text-xs",
+                                    (allWorkoutSetsDone[execEx.id]?.[setIdx]) ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
+                                  )}>
+                                    {setIdx + 1}
+                                  </div>
+
+                                  {/* Load Input */}
+                                  <Input
+                                    type="tel"
+                                    value={allWorkoutLoads[execEx.id]?.[setIdx] || ""}
+                                    onChange={(e) => {
+                                      const nextLoads = { ...allWorkoutLoads };
+                                      if (!nextLoads[execEx.id]) {
+                                        nextLoads[execEx.id] = new Array(execEx.sets).fill("");
+                                      }
+                                      nextLoads[execEx.id][setIdx] = e.target.value;
+                                      setAllWorkoutLoads(nextLoads);
+                                    }}
+                                    placeholder="ex: 60"
+                                    className="h-10 text-center font-bold bg-transparent border-none focus-visible:ring-0 text-base"
+                                  />
+
+                                  {/* Reps Input */}
+                                  <Input
+                                    type="tel"
+                                    value={allWorkoutReps[execEx.id]?.[setIdx] || ""}
+                                    onChange={(e) => {
+                                      const nextReps = { ...allWorkoutReps };
+                                      if (!nextReps[execEx.id]) {
+                                        nextReps[execEx.id] = new Array(execEx.sets).fill("");
+                                      }
+                                      nextReps[execEx.id][setIdx] = e.target.value;
+                                      setAllWorkoutReps(nextReps);
+                                    }}
+                                    placeholder="ex: 10"
+                                    className="h-10 text-center font-bold bg-transparent border-none focus-visible:ring-0 text-base"
+                                  />
+
+                                  {/* Complete Check button */}
+                                  <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => handleToggleSet(setIdx, execEx)}
+                                    className={cn(
+                                      "size-10 rounded-lg transition-all cursor-pointer",
+                                      (allWorkoutSetsDone[execEx.id]?.[setIdx])
+                                        ? "bg-primary text-primary-foreground"
+                                        : "bg-secondary/60 text-muted-foreground hover:bg-primary/10"
+                                    )}
+                                  >
+                                    {(allWorkoutSetsDone[execEx.id]?.[setIdx]) ? (
+                                      <Check className="size-5" />
+                                    ) : (
+                                      <div className="size-4.5 rounded-full border-2 border-muted-foreground/30" />
+                                    )}
+                                  </Button>
+                                </div>
+                              ))}
+                            </div>
                           </div>
+                        </>
+                      );
+                    })()
+                  ) : (
+                    // group (Biset, Triset, Circuit)
+                    (() => {
+                      const group = currentStep.group;
+                      const exercises = currentStep.exercises || [];
+                      const isCircuit = group.type === "CIRCUIT";
+                      const setsCount = exercises[0]?.sets || 3;
 
-                          {/* Load Input */}
-                          <Input
-                            type="tel"
-                            value={allWorkoutLoads[execEx.id]?.[setIdx] || ""}
-                            onChange={(e) => {
-                              const nextLoads = { ...allWorkoutLoads };
-                              if (!nextLoads[execEx.id]) {
-                                nextLoads[execEx.id] = new Array(execEx.sets).fill("");
-                              }
-                              nextLoads[execEx.id][setIdx] = e.target.value;
-                              setAllWorkoutLoads(nextLoads);
-                            }}
-                            placeholder="ex: 60"
-                            className="h-10 text-center font-bold bg-transparent border-none focus-visible:ring-0 text-base"
-                          />
+                      const groupLetters: Record<string, string> = {};
+                      let currentLetterCode = 65;
+                      activeExecutionWorkout.exercises.forEach((we: any) => {
+                        if (we.groupId && !groupLetters[we.groupId]) {
+                          groupLetters[we.groupId] = String.fromCharCode(currentLetterCode++);
+                        }
+                      });
+                      const groupLetter = groupLetters[exercises[0].groupId];
 
-                          {/* Reps Input */}
-                          <Input
-                            type="tel"
-                            value={allWorkoutReps[execEx.id]?.[setIdx] || ""}
-                            onChange={(e) => {
-                              const nextReps = { ...allWorkoutReps };
-                              if (!nextReps[execEx.id]) {
-                                nextReps[execEx.id] = new Array(execEx.sets).fill("");
-                              }
-                              nextReps[execEx.id][setIdx] = e.target.value;
-                              setAllWorkoutReps(nextReps);
-                            }}
-                            placeholder="ex: 10"
-                            className="h-10 text-center font-bold bg-transparent border-none focus-visible:ring-0 text-base"
-                          />
+                      return (
+                        <>
+                          <Card className="border-primary/20 bg-card/65 shadow-md relative overflow-hidden">
+                            <div className="absolute top-0 left-0 right-0 h-1.5 bg-primary" />
+                            <CardHeader className="p-4 md:p-6 pb-2">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <Badge className="bg-primary text-primary-foreground font-black px-2 py-0.5 text-xs rounded-md uppercase">
+                                    {group.type === "BISET" ? "Biset" : group.type === "TRISET" ? "Triset" : "Circuito"} {groupLetter}
+                                  </Badge>
+                                  <a
+                                    href={getYouTubeSearchUrl(group.type, exercises.map((e: any) => e.exercise.name).join(" + "))}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-xs bg-primary/10 text-primary hover:bg-primary/20 px-2.5 py-1 rounded-lg font-bold border border-primary/20 transition-colors shrink-0"
+                                  >
+                                    Como Executar (YouTube) ↗
+                                  </a>
+                                </div>
 
-                          {/* Complete Check button */}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => handleToggleSet(setIdx, execEx)}
-                            className={cn(
-                              "size-10 rounded-lg transition-all cursor-pointer",
-                              (allWorkoutSetsDone[execEx.id]?.[setIdx])
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-secondary/60 text-muted-foreground hover:bg-primary/10"
-                            )}
-                          >
-                            {(allWorkoutSetsDone[execEx.id]?.[setIdx]) ? (
-                              <Check className="size-5" />
-                            ) : (
-                              <div className="size-4.5 rounded-full border-2 border-muted-foreground/30" />
-                            )}
-                          </Button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-primary">
+                                  Grupo {currentStepIdx + 1} de {executionSteps.length}
+                                </span>
+                              </div>
+                              <div className="mt-2.5 p-3 rounded-xl bg-primary/5 border border-primary/10">
+                                <p className="text-[11px] text-muted-foreground leading-relaxed font-medium">
+                                  {group.type === "BISET" && (
+                                    <>
+                                      <strong>Como fazer (Biset):</strong> Faça uma série do primeiro exercício e, imediatamente após, sem descansar, faça uma série do segundo. Descanse somente após finalizar o segundo exercício.
+                                    </>
+                                  )}
+                                  {group.type === "TRISET" && (
+                                    <>
+                                      <strong>Como fazer (Triset):</strong> Faça uma série do primeiro, do segundo e do terceiro exercício consecutivamente sem descansar. Descanse somente após finalizar o terceiro exercício.
+                                    </>
+                                  )}
+                                  {group.type === "CIRCUIT" && (
+                                    <>
+                                      <strong>Como fazer (Circuito):</strong> Faça uma série de cada exercício do grupo em sequência, um após o outro, sem descansar. Descanse por {group.config?.restBetweenRounds || 60}s apenas ao final de cada volta completa.
+                                    </>
+                                  )}
+                                </p>
+                              </div>
+                              <p className="text-xs text-muted-foreground font-medium mt-1">
+                                {isCircuit ? (
+                                  `Execução round-por-round: Complete uma volta inteira, depois inicie o descanso de ${group.config?.restBetweenRounds || 60}s.`
+                                ) : (
+                                  "Sem descanso entre exercícios. Complete a série de todos antes de descansar."
+                                )}
+                              </p>
+                            </CardHeader>
+                            <CardContent className="p-4 md:p-6 pt-0 space-y-2.5">
+                              {exercises.map((ex: any, subIdx: number) => (
+                                <div key={ex.id} className="flex justify-between items-center p-2 rounded-xl bg-secondary/15 border border-border/30 text-xs">
+                                  <div className="flex items-center gap-2 min-w-0">
+                                    <div className="size-6 rounded bg-secondary flex items-center justify-center font-bold text-[10px] text-primary shrink-0">
+                                      {groupLetter}{subIdx + 1}
+                                    </div>
+                                    <span className="font-bold truncate text-foreground">{ex.exercise.name}</span>
+                                  </div>
+                                  {ex.exercise.videoUrl && (
+                                    <Button
+                                      onClick={() => {
+                                        setPreviewExercise(ex.exercise);
+                                        setIsPreviewModalOpen(true);
+                                      }}
+                                      variant="ghost"
+                                      size="sm"
+                                      className="h-7 text-[10px] font-bold text-primary hover:bg-secondary shrink-0"
+                                    >
+                                      Vídeo
+                                    </Button>
+                                  )}
+                                </div>
+                              ))}
+                            </CardContent>
+                          </Card>
+
+                          {/* Log sets container (set-by-set or round-by-round) */}
+                          <div className="space-y-4">
+                            <div className="space-y-3.5">
+                              {Array.from({ length: setsCount }).map((_, setIdx) => {
+                                const isSetDone = allWorkoutSetsDone[exercises[0].id]?.[setIdx];
+                                return (
+                                  <div
+                                    key={setIdx}
+                                    className={cn(
+                                      "flex flex-col p-4 rounded-xl border transition-all shadow-sm space-y-3.5",
+                                      isSetDone ? "bg-primary/5 border-primary/30" : "bg-card border-border/40"
+                                    )}
+                                  >
+                                    <div className="flex justify-between items-center">
+                                      <div className={cn(
+                                        "flex items-center justify-center h-7 px-3 rounded-lg font-black text-xs",
+                                        isSetDone ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
+                                      )}>
+                                        {isCircuit ? `Volta ${setIdx + 1}` : `Série ${setIdx + 1}`}
+                                      </div>
+
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        onClick={() => handleToggleGroupSet(setIdx, currentStep)}
+                                        className={cn(
+                                          "size-10 rounded-lg transition-all cursor-pointer",
+                                          isSetDone
+                                            ? "bg-primary text-primary-foreground"
+                                            : "bg-secondary/60 text-muted-foreground hover:bg-primary/10"
+                                        )}
+                                      >
+                                        {isSetDone ? (
+                                          <Check className="size-5" />
+                                        ) : (
+                                          <div className="size-4.5 rounded-full border-2 border-muted-foreground/30" />
+                                        )}
+                                      </Button>
+                                    </div>
+
+                                    <div className="space-y-3 pt-1 border-t border-border/20">
+                                      {exercises.map((ex: any) => (
+                                        <div key={ex.id} className="grid grid-cols-[1fr_85px_85px] gap-2 items-center text-xs">
+                                          <span className="font-bold truncate text-muted-foreground">{ex.exercise.name}</span>
+
+                                          {/* Load Input */}
+                                          <div className="flex flex-col items-center">
+                                            <span className="text-[9px] font-bold text-muted-foreground/50 uppercase tracking-tighter">Carga (KG)</span>
+                                            <Input
+                                              type="tel"
+                                              value={allWorkoutLoads[ex.id]?.[setIdx] || ""}
+                                              onChange={(e) => {
+                                                const nextLoads = { ...allWorkoutLoads };
+                                                if (!nextLoads[ex.id]) {
+                                                  nextLoads[ex.id] = new Array(ex.sets).fill("");
+                                                }
+                                                nextLoads[ex.id][setIdx] = e.target.value;
+                                                setAllWorkoutLoads(nextLoads);
+                                              }}
+                                              placeholder="ex: 60"
+                                              className="h-8 text-center font-bold bg-transparent border-b border-t-0 border-x-0 rounded-none focus-visible:ring-0 text-sm"
+                                            />
+                                          </div>
+
+                                          {/* Reps Input */}
+                                          <div className="flex flex-col items-center">
+                                            <span className="text-[9px] font-bold text-muted-foreground/50 uppercase tracking-tighter">Reps</span>
+                                            <Input
+                                              type="tel"
+                                              value={allWorkoutReps[ex.id]?.[setIdx] || ""}
+                                              onChange={(e) => {
+                                                const nextReps = { ...allWorkoutReps };
+                                                if (!nextReps[ex.id]) {
+                                                  nextReps[ex.id] = new Array(ex.sets).fill("");
+                                                }
+                                                nextReps[ex.id][setIdx] = e.target.value;
+                                                setAllWorkoutReps(nextReps);
+                                              }}
+                                              placeholder="ex: 10"
+                                              className="h-8 text-center font-bold bg-transparent border-b border-t-0 border-x-0 rounded-none focus-visible:ring-0 text-sm"
+                                            />
+                                          </div>
+                                        </div>
+                                      ))}
+                                    </div>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        </>
+                      );
+                    })()
+                  )}
                 </main>
               );
             })()
@@ -1260,7 +1889,7 @@ export default function StudentWorkoutsPage() {
               <div className="flex gap-2">
                 <Button
                   onClick={handlePrevExercise}
-                  disabled={currentExecExerciseIdx === 0}
+                  disabled={currentStepIdx === 0}
                   variant="outline"
                   size="icon"
                   className="size-12 rounded-xl border-border/60 shrink-0 cursor-pointer"
@@ -1268,7 +1897,7 @@ export default function StudentWorkoutsPage() {
                   <ChevronLeft className="size-5" />
                 </Button>
 
-                {activeExecutionWorkout && currentExecExerciseIdx < activeExecutionWorkout.exercises.length - 1 ? (
+                {activeExecutionWorkout && currentStepIdx < executionSteps.length - 1 ? (
                   <Button
                     onClick={handleNextExercise}
                     disabled={!allSetsCompleted}

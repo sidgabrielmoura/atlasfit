@@ -145,6 +145,124 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   const [selectedPlanningDay, setSelectedPlanningDay] = useState<number>(1); // 1 = Segunda-feira
   const [planningViewMode, setPlanningViewMode] = useState<"day" | "week">("day");
 
+  // Edit Workout - Grouping and Method States
+  const [editGroups, setEditGroups] = useState<any[]>([]);
+  const [editSelectedIndexes, setEditSelectedIndexes] = useState<number[]>([]);
+  const [editSelectMode, setEditSelectMode] = useState(false);
+  const [editGroupType, setEditGroupType] = useState<"BISET" | "TRISET" | "CIRCUIT">("BISET");
+  const [editCircuitRounds, setEditCircuitRounds] = useState(3);
+  const [editCircuitRest, setEditCircuitRest] = useState(60);
+  const [editGroupDialogOpen, setEditGroupDialogOpen] = useState(false);
+
+  // Edit Workout - Method Dialog States per exercise
+  const [editMethodDialogOpen, setEditMethodDialogOpen] = useState(false);
+  const [editActiveExerciseIndex, setEditActiveExerciseIndex] = useState<number | null>(null);
+  const [editActiveMethodType, setEditActiveMethodType] = useState<"NONE" | "DROPSET" | "REST_PAUSE">("NONE");
+  const [editDropsCount, setEditDropsCount] = useState(2);
+  const [editDropsReduction, setEditDropsReduction] = useState(20);
+  const [editRestPauseTime, setEditRestPauseTime] = useState(15);
+  const [editRestPauseRounds, setEditRestPauseRounds] = useState(2);
+
+  const getEditGroupLabel = (groupId: string) => {
+    const group = editGroups.find((g) => g.id === groupId);
+    if (!group) return "";
+    const groupIndex = editGroups.findIndex((g) => g.id === groupId);
+    const letter = String.fromCharCode(65 + groupIndex);
+    const typeLabel = group.type === "BISET" ? "Biset" : group.type === "TRISET" ? "Triset" : "Circuito";
+    return `${typeLabel} ${letter}`;
+  };
+
+  const handleOpenEditMethodDialog = (index: number) => {
+    const ex = editExercises[index];
+    setEditActiveExerciseIndex(index);
+    setEditActiveMethodType(ex.methodType || "NONE");
+    if (ex.methodType === "DROPSET") {
+      setEditDropsCount(ex.methodConfig?.drops || 2);
+      setEditDropsReduction(ex.methodConfig?.reduction || 20);
+    } else if (ex.methodType === "REST_PAUSE") {
+      setEditRestPauseTime(ex.methodConfig?.pause || 15);
+      setEditRestPauseRounds(ex.methodConfig?.rounds || 2);
+    } else {
+      setEditDropsCount(2);
+      setEditDropsReduction(20);
+      setEditRestPauseTime(15);
+      setEditRestPauseRounds(2);
+    }
+    setEditMethodDialogOpen(true);
+  };
+
+  const handleSaveEditMethod = () => {
+    if (editActiveExerciseIndex === null) return;
+    setEditExercises(prev => prev.map((ex, idx) => {
+      if (idx !== editActiveExerciseIndex) return ex;
+      let config = null;
+      if (editActiveMethodType === "DROPSET") {
+        config = { drops: Number(editDropsCount), reduction: Number(editDropsReduction) };
+      } else if (editActiveMethodType === "REST_PAUSE") {
+        config = { pause: Number(editRestPauseTime), rounds: Number(editRestPauseRounds) };
+      }
+      return {
+        ...ex,
+        methodType: editActiveMethodType,
+        methodConfig: config
+      };
+    }));
+    setEditMethodDialogOpen(false);
+    setEditActiveExerciseIndex(null);
+    toast.success("Método configurado com sucesso!");
+  };
+
+  const handleOpenEditGroupDialog = () => {
+    if (editSelectedIndexes.length < 2) {
+      toast.error("Selecione pelo menos 2 exercícios para agrupar.");
+      return;
+    }
+    if (editSelectedIndexes.length >= 3) {
+      setEditGroupType("TRISET");
+    } else {
+      setEditGroupType("BISET");
+    }
+    setEditGroupDialogOpen(true);
+  };
+
+  const handleConfirmEditGrouping = () => {
+    const minRequired = editGroupType === "TRISET" ? 3 : 2;
+    if (editSelectedIndexes.length < minRequired) {
+      toast.error(`O método ${editGroupType} exige pelo menos ${minRequired} exercícios.`);
+      return;
+    }
+    const tempGroupId = `group-${Date.now()}`;
+    const newGroup = {
+      id: tempGroupId,
+      type: editGroupType,
+      config: editGroupType === "CIRCUIT" ? { rounds: Number(editCircuitRounds), restBetweenRounds: Number(editCircuitRest) } : null
+    };
+    setEditGroups(prev => [...prev, newGroup]);
+    setEditExercises(prev => prev.map((ex, idx) => {
+      if (editSelectedIndexes.includes(idx)) {
+        return { ...ex, groupId: tempGroupId };
+      }
+      return ex;
+    }));
+    setEditSelectedIndexes([]);
+    setEditSelectMode(false);
+    setEditGroupDialogOpen(false);
+    toast.success("Exercícios agrupados com sucesso!");
+  };
+
+  const handleEditUngroup = (groupId: string) => {
+    setEditExercises(prev => prev.map(ex => {
+      if (ex.groupId === groupId) {
+        const { groupId: _, ...rest } = ex;
+        return rest;
+      }
+      return ex;
+    }));
+    setEditGroups(prev => prev.filter(g => g.id !== groupId));
+    toast.success("Exercícios desagrupados!");
+  };
+
+
   // Profile data state
   const [student, setStudent] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -184,6 +302,15 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   const [customRestBetweenExercises, setCustomRestBetweenExercises] = useState("2 min");
   const [customMuscleGroup, setCustomMuscleGroup] = useState("");
   const [customExercises, setCustomExercises] = useState<any[]>([]);
+
+  // Custom Workout - Method Dialog States per exercise
+  const [customMethodDialogOpen, setCustomMethodDialogOpen] = useState(false);
+  const [customActiveExerciseIndex, setCustomActiveExerciseIndex] = useState<number | null>(null);
+  const [customActiveMethodType, setCustomActiveMethodType] = useState<"NONE" | "DROPSET" | "REST_PAUSE">("NONE");
+  const [customDropsCount, setCustomDropsCount] = useState(2);
+  const [customDropsReduction, setCustomDropsReduction] = useState(20);
+  const [customRestPauseTime, setCustomRestPauseTime] = useState(15);
+  const [customRestPauseRounds, setCustomRestPauseRounds] = useState(2);
 
   // Exercise database fetching states for custom creations
   const [dbExercises, setDbExercises] = useState<any[]>([]);
@@ -454,6 +581,47 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
     }
   };
 
+  // Custom Method Dialog Handlers
+  const handleOpenCustomMethodDialog = (index: number) => {
+    const ex = customExercises[index];
+    setCustomActiveExerciseIndex(index);
+    setCustomActiveMethodType(ex.methodType || "NONE");
+    if (ex.methodType === "DROPSET") {
+      setCustomDropsCount(ex.methodConfig?.drops || 2);
+      setCustomDropsReduction(ex.methodConfig?.reduction || 20);
+    } else if (ex.methodType === "REST_PAUSE") {
+      setCustomRestPauseTime(ex.methodConfig?.pause || 15);
+      setCustomRestPauseRounds(ex.methodConfig?.rounds || 2);
+    } else {
+      setCustomDropsCount(2);
+      setCustomDropsReduction(20);
+      setCustomRestPauseTime(15);
+      setCustomRestPauseRounds(2);
+    }
+    setCustomMethodDialogOpen(true);
+  };
+
+  const handleSaveCustomMethod = () => {
+    if (customActiveExerciseIndex === null) return;
+    setCustomExercises(prev => prev.map((ex, idx) => {
+      if (idx !== customActiveExerciseIndex) return ex;
+      let config = null;
+      if (customActiveMethodType === "DROPSET") {
+        config = { drops: Number(customDropsCount), reduction: Number(customDropsReduction) };
+      } else if (customActiveMethodType === "REST_PAUSE") {
+        config = { pause: Number(customRestPauseTime), rounds: Number(customRestPauseRounds) };
+      }
+      return {
+        ...ex,
+        methodType: customActiveMethodType,
+        methodConfig: config
+      };
+    }));
+    setCustomMethodDialogOpen(false);
+    setCustomActiveExerciseIndex(null);
+    toast.success("Método configurado com sucesso!");
+  };
+
   // Assign/Create Workout submit
   const handleAssignSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -490,6 +658,8 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
           reps: ex.reps,
           rest: ex.rest,
           load: ex.load || "",
+          methodType: ex.methodType || "NONE",
+          methodConfig: ex.methodConfig || null,
         }));
       }
 
@@ -534,6 +704,17 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
     setEditRestBetweenExercises(workout.restBetweenExercises || "2 min");
     setEditMuscleGroup(workout.muscleGroupLabel || "Geral");
     setEditDayOfWeek(String(workout.dayOfWeek));
+
+    // Load groups
+    const loadedGroups = workout.exerciseGroups || [];
+    setEditGroups(
+      loadedGroups.map((g: any) => ({
+        id: g.id,
+        type: g.type,
+        config: g.config,
+      }))
+    );
+
     setEditExercises(
       workout.exercises.map((ex: any) => {
         const repsStr = ex.reps || "10";
@@ -562,6 +743,9 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
           load: loadStr,
           isIndividual,
           individualSets,
+          methodType: ex.methodType || "NONE",
+          methodConfig: ex.methodConfig || null,
+          groupId: ex.groupId || null,
         };
       })
     );
@@ -596,6 +780,14 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
             reps: ex.reps,
             rest: ex.rest,
             load: ex.load || "",
+            methodType: ex.methodType || "NONE",
+            methodConfig: ex.methodConfig || null,
+            groupId: ex.groupId || null,
+          })),
+          groups: editGroups.map((g) => ({
+            id: g.id,
+            type: g.type,
+            config: g.config || null,
           })),
         }),
       });
@@ -825,7 +1017,22 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   };
 
   const removeExerciseFromEditList = (index: number) => {
-    setEditExercises((prev) => prev.filter((_, i) => i !== index));
+    const removedEx = editExercises[index];
+    const newList = editExercises.filter((_, i) => i !== index);
+
+    if (removedEx.groupId) {
+      const remainingInGroup = newList.filter(ex => ex.groupId === removedEx.groupId);
+      if (remainingInGroup.length < 2) {
+        setEditGroups(prev => prev.filter(g => g.id !== removedEx.groupId));
+        newList.forEach(ex => {
+          if (ex.groupId === removedEx.groupId) {
+            delete ex.groupId;
+          }
+        });
+      }
+    }
+
+    setEditExercises(newList);
   };
 
   // Reorder Exercises inside form builder
@@ -1615,7 +1822,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               <p className="text-sm text-muted-foreground">Distribua os treinos do aluno ao longo da semana para acompanhamento fácil.</p>
             </div>
             <Button
-              className="gap-2 font-bold px-4 shadow-md bg-blue-600 hover:bg-blue-500 text-white border-none shrink-0 cursor-pointer"
+              className="gap-2 max-sm:w-full font-bold px-4 shadow-md bg-blue-600 hover:bg-blue-500 text-white border-none shrink-0 cursor-pointer"
               onClick={() => {
                 loadMuscleGroups();
                 setAssignDayOfWeek(String(selectedPlanningDay));
@@ -1769,6 +1976,41 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                     <Badge variant="outline" className="text-[9px] font-black uppercase px-2 py-0.5 bg-muted dark:bg-zinc-900 border-border text-muted-foreground rounded-md tracking-wider">
                                       {workout.muscleGroupLabel || "Geral"}
                                     </Badge>
+                                    {(() => {
+                                      const methodBadges = [];
+                                      const hasDropset = workout.exercises?.some((ex: any) => ex.methodType === "DROPSET");
+                                      const hasRestPause = workout.exercises?.some((ex: any) => ex.methodType === "REST_PAUSE");
+
+                                      if (hasDropset) {
+                                        methodBadges.push(
+                                          <Badge key="dropset" className="text-[9px] font-black uppercase px-2 py-0.5 bg-amber-500/10 text-amber-400 border-amber-500/20 rounded-md tracking-wider">
+                                            Dropset
+                                          </Badge>
+                                        );
+                                      }
+                                      if (hasRestPause) {
+                                        methodBadges.push(
+                                          <Badge key="rest_pause" className="text-[9px] font-black uppercase px-2 py-0.5 bg-purple-500/10 text-purple-400 border-purple-500/20 rounded-md tracking-wider">
+                                            Rest-Pause
+                                          </Badge>
+                                        );
+                                      }
+
+                                      // Groups
+                                      if (workout.exerciseGroups && workout.exerciseGroups.length > 0) {
+                                        workout.exerciseGroups.forEach((g: any, gIdx: number) => {
+                                          const letter = String.fromCharCode(65 + gIdx);
+                                          const typeLabel = g.type === "BISET" ? "Biset" : g.type === "TRISET" ? "Triset" : "Circuito";
+                                          methodBadges.push(
+                                            <Badge key={g.id} className="text-[9px] font-black uppercase px-2 py-0.5 bg-blue-500/10 text-blue-400 border-blue-500/20 rounded-md tracking-wider">
+                                              🔗 {typeLabel} {letter}
+                                            </Badge>
+                                          );
+                                        });
+                                      }
+
+                                      return methodBadges;
+                                    })()}
                                   </div>
 
                                   <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground font-medium">
@@ -1827,7 +2069,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                   {(!workout.exercises || workout.exercises.length === 0) ? (
                                     <p className="text-xs text-muted-foreground py-2 text-center">Nenhum exercício cadastrado para este treino.</p>
                                   ) : (
-                                    <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 scrollbar-thin">
+                                    <div className="space-y-2 max-h-75 overflow-y-auto pr-1 scrollbar-thin">
                                       {workout.exercises.map((we: any, idx: number) => {
                                         const repsArr = String(we.reps || "10").split(",").map((s: string) => s.trim());
                                         const restArr = String(we.rest || "60s").split(",").map((s: string) => s.trim());
@@ -1838,40 +2080,63 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                             key={we.id}
                                             className="flex items-center justify-between gap-4 p-2.5 rounded-xl bg-muted/35 dark:bg-zinc-900/35 border border-border/40 hover:bg-muted/65 dark:hover:bg-zinc-900/65 transition-colors"
                                           >
-                                            <div className="flex items-center gap-2.5 min-w-0">
-                                              <span className="flex items-center justify-center size-6 shrink-0 rounded-lg bg-muted dark:bg-zinc-900 border border-border/50 text-[10px] font-black text-muted-foreground">
-                                                {idx + 1}
-                                              </span>
+                                            <span className="flex items-center justify-center size-6 shrink-0 rounded-lg bg-muted dark:bg-zinc-900 border border-border/50 text-[10px] font-black text-muted-foreground">
+                                              {idx + 1}
+                                            </span>
+                                            <div className="flex flex-col w-full gap-2.5 min-w-0">
                                               <div className="min-w-0">
-                                                <span className="text-xs font-bold text-foreground block truncate leading-none mb-1">
-                                                  {we.exercise?.name}
-                                                </span>
+                                                <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                                                  <span className="text-xs font-bold text-foreground block leading-none">
+                                                    {we.exercise?.name}
+                                                  </span>
+                                                  {we.groupId && (
+                                                    <Badge className="h-4 px-1.5 text-[8px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded">
+                                                      🔗 {(() => {
+                                                        const g = workout.exerciseGroups?.find((group: any) => group.id === we.groupId);
+                                                        if (!g) return "Grupo";
+                                                        const gIdx = workout.exerciseGroups?.findIndex((group: any) => group.id === we.groupId);
+                                                        const letter = String.fromCharCode(65 + gIdx);
+                                                        return `${g.type === "BISET" ? "Biset" : g.type === "TRISET" ? "Triset" : "Circuito"} ${letter}`;
+                                                      })()}
+                                                    </Badge>
+                                                  )}
+                                                  {we.methodType === "DROPSET" && (
+                                                    <Badge className="h-4 px-1.5 text-[8px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded">
+                                                      Dropset {we.methodConfig?.drops && `(${we.methodConfig.drops}q -${we.methodConfig.reduction}%)`}
+                                                    </Badge>
+                                                  )}
+                                                  {we.methodType === "REST_PAUSE" && (
+                                                    <Badge className="h-4 px-1.5 text-[8px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded">
+                                                      Rest-Pause {we.methodConfig?.rounds && `(${we.methodConfig.rounds}r ${we.methodConfig.pause}s)`}
+                                                    </Badge>
+                                                  )}
+                                                </div>
                                                 <span className="text-[9px] text-muted-foreground/80 block truncate uppercase font-bold tracking-wider">
                                                   {we.exercise?.muscleGroup?.name || "Geral"}
                                                 </span>
                                               </div>
-                                            </div>
 
-                                            <div className="flex items-center gap-1.5 shrink-0 text-[10px] text-muted-foreground bg-muted/60 dark:bg-zinc-900/60 px-2.5 py-1 rounded-lg border border-border/60">
-                                              <span className="font-bold text-foreground">{we.sets}</span>
-                                              <span>séries</span>
-                                              <span className="text-border/40">|</span>
-                                              <span className="font-bold text-foreground">{repsArr[0] || "10"}</span>
-                                              <span>reps</span>
-                                              {loadArr[0] && (
-                                                <>
-                                                  <span className="text-border/40">|</span>
-                                                  <span className="font-bold text-foreground">{loadArr[0]}</span>
-                                                  <span>kg</span>
-                                                </>
-                                              )}
-                                              {restArr[0] && (
-                                                <>
-                                                  <span className="text-border/40">|</span>
-                                                  <span className="font-bold text-foreground">{restArr[0]}</span>
-                                                  <span>desc</span>
-                                                </>
-                                              )}
+                                              <div className="flex w-fit items-center gap-1.5 shrink-0 text-[10px] text-muted-foreground bg-muted/60 dark:bg-zinc-900/60 px-2.5 py-1 rounded-lg border border-border/60">
+                                                <span className="font-bold text-foreground">{we.sets}</span>
+                                                <span>séries</span>
+                                                <span className="text-border/40">|</span>
+                                                <span className="font-bold text-foreground">{repsArr[0] || "10"}</span>
+                                                <span>reps</span>
+                                                {loadArr[0] && (
+                                                  <>
+                                                    <span className="text-border/40">|</span>
+                                                    <span className="font-bold text-foreground">{loadArr[0]}</span>
+                                                    <span>kg</span>
+                                                  </>
+                                                )}
+                                                {restArr[0] && (
+                                                  <>
+                                                    <span className="text-border/40">|</span>
+                                                    <span className="font-bold text-foreground">{restArr[0]}</span>
+                                                    <span>desc</span>
+                                                  </>
+                                                )}
+                                              </div>
                                             </div>
                                           </div>
                                         );
@@ -1918,6 +2183,41 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                         <Badge variant="outline" className="text-[9px] font-black uppercase px-2 py-0.5 bg-muted dark:bg-zinc-900 border-border text-muted-foreground rounded-md tracking-wider">
                                           {workout.muscleGroupLabel || "Geral"}
                                         </Badge>
+                                        {(() => {
+                                          const methodBadges = [];
+                                          const hasDropset = workout.exercises?.some((ex: any) => ex.methodType === "DROPSET");
+                                          const hasRestPause = workout.exercises?.some((ex: any) => ex.methodType === "REST_PAUSE");
+
+                                          if (hasDropset) {
+                                            methodBadges.push(
+                                              <Badge key="dropset" className="text-[9px] font-black uppercase px-2 py-0.5 bg-amber-500/10 text-amber-400 border-amber-500/20 rounded-md tracking-wider">
+                                                Dropset
+                                              </Badge>
+                                            );
+                                          }
+                                          if (hasRestPause) {
+                                            methodBadges.push(
+                                              <Badge key="rest_pause" className="text-[9px] font-black uppercase px-2 py-0.5 bg-purple-500/10 text-purple-400 border-purple-500/20 rounded-md tracking-wider">
+                                                Rest-Pause
+                                              </Badge>
+                                            );
+                                          }
+
+                                          // Groups
+                                          if (workout.exerciseGroups && workout.exerciseGroups.length > 0) {
+                                            workout.exerciseGroups.forEach((g: any, gIdx: number) => {
+                                              const letter = String.fromCharCode(65 + gIdx);
+                                              const typeLabel = g.type === "BISET" ? "Biset" : g.type === "TRISET" ? "Triset" : "Circuito";
+                                              methodBadges.push(
+                                                <Badge key={g.id} className="text-[9px] font-black uppercase px-2 py-0.5 bg-blue-500/10 text-blue-400 border-blue-500/20 rounded-md tracking-wider">
+                                                  🔗 {typeLabel} {letter}
+                                                </Badge>
+                                              );
+                                            });
+                                          }
+
+                                          return methodBadges;
+                                        })()}
                                       </div>
 
                                       <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-muted-foreground font-medium">
@@ -1976,7 +2276,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                       {(!workout.exercises || workout.exercises.length === 0) ? (
                                         <p className="text-xs text-muted-foreground py-2 text-center">Nenhum exercício cadastrado para este treino.</p>
                                       ) : (
-                                        <div className="space-y-2 max-h-[300px] overflow-y-auto pr-1 scrollbar-thin">
+                                        <div className="space-y-2 max-h-75 overflow-y-auto pr-1 scrollbar-thin">
                                           {workout.exercises.map((we: any, idx: number) => {
                                             const repsArr = String(we.reps || "10").split(",").map((s: string) => s.trim());
                                             const restArr = String(we.rest || "60s").split(",").map((s: string) => s.trim());
@@ -1992,9 +2292,32 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                                     {idx + 1}
                                                   </span>
                                                   <div className="min-w-0">
-                                                    <span className="text-xs font-bold text-foreground block truncate leading-none mb-1">
-                                                      {we.exercise?.name}
-                                                    </span>
+                                                    <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                                                      <span className="text-xs font-bold text-foreground block leading-none">
+                                                        {we.exercise?.name}
+                                                      </span>
+                                                      {we.groupId && (
+                                                        <Badge className="h-4 px-1.5 text-[8px] font-bold bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded">
+                                                          🔗 {(() => {
+                                                            const g = workout.exerciseGroups?.find((group: any) => group.id === we.groupId);
+                                                            if (!g) return "Grupo";
+                                                            const gIdx = workout.exerciseGroups?.findIndex((group: any) => group.id === we.groupId);
+                                                            const letter = String.fromCharCode(65 + gIdx);
+                                                            return `${g.type === "BISET" ? "Biset" : g.type === "TRISET" ? "Triset" : "Circuito"} ${letter}`;
+                                                          })()}
+                                                        </Badge>
+                                                      )}
+                                                      {we.methodType === "DROPSET" && (
+                                                        <Badge className="h-4 px-1.5 text-[8px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20 rounded">
+                                                          Dropset {we.methodConfig?.drops && `(${we.methodConfig.drops}q -${we.methodConfig.reduction}%)`}
+                                                        </Badge>
+                                                      )}
+                                                      {we.methodType === "REST_PAUSE" && (
+                                                        <Badge className="h-4 px-1.5 text-[8px] font-bold bg-purple-500/10 text-purple-400 border border-purple-500/20 rounded">
+                                                          Rest-Pause {we.methodConfig?.rounds && `(${we.methodConfig.rounds}r ${we.methodConfig.pause}s)`}
+                                                        </Badge>
+                                                      )}
+                                                    </div>
                                                     <span className="text-[9px] text-muted-foreground/80 block truncate uppercase font-bold tracking-wider">
                                                       {we.exercise?.muscleGroup?.name || "Geral"}
                                                     </span>
@@ -2636,7 +2959,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                     <p className="text-sm text-neutral-450 font-light">Registre adipometrias de 7 dobras, bioimpedâncias e questionários de anamnese.</p>
                   </div>
                   <Button
-                    className="gap-2 font-bold px-4 shadow-md bg-yellow-600 hover:bg-yellow-500 text-neutral-950 border-none shrink-0 hover:scale-[1.02] active:scale-[0.98] transition-all rounded-xl text-xs h-10 uppercase tracking-wider font-semibold"
+                    className="gap-2 font-bold max-sm:w-full px-4 shadow-md bg-yellow-600 hover:bg-yellow-500 text-neutral-950 border-none shrink-0 hover:scale-[1.02] active:scale-[0.98] transition-all rounded-xl text-xs h-10 uppercase tracking-wider"
                     onClick={() => setIsEvalModalOpen(true)}
                   >
                     <Plus className="size-4" /> Registrar Avaliação
@@ -3974,7 +4297,6 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
         </TabsContent>
       </Tabs>
 
-      {/* ==================== DIALOG 1: ASSIGN / CREATE WORKOUT ==================== */}
       <Dialog open={isAssignModalOpen} onOpenChange={setIsAssignModalOpen}>
         <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-3xl bg-popover border border-border text-foreground max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -3986,7 +4308,6 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
             </DialogDescription>
           </DialogHeader>
 
-          {/* Selector Segmented Control between Library and Custom */}
           <div className="flex flex-col sm:grid sm:grid-cols-2 p-1 bg-muted border border-border rounded-lg my-2 gap-1.5 sm:gap-0">
             <button
               type="button"
@@ -4018,7 +4339,6 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
           </div>
 
           <form onSubmit={handleAssignSubmit} className="space-y-5 pt-2">
-            {/* Campo Dia da Semana sempre visível no fluxo */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="assignDayOfWeek" className="font-bold text-foreground">Dia de Execução Semanal</Label>
@@ -4037,7 +4357,6 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               </div>
             </div>
 
-            {/* FLUXO A: IMPORT FROM LIBRARY */}
             {assignType === "library" && (
               <div className="space-y-4">
                 <div className="space-y-2">
@@ -4066,7 +4385,6 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               </div>
             )}
 
-            {/* FLUXO B: CREATE EXCLUSIVE FROM SCRATCH */}
             {assignType === "custom" && (
               <div className="space-y-4 border-t border-border dark:border-neutral-900 pt-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -4144,8 +4462,6 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                   </div>
                 </div>
 
-
-                {/* DYNAMIC EXERCISES BUILDER LIST */}
                 <div className="space-y-3 pt-3 border-t border-border dark:border-neutral-900">
                   <div className="flex items-center justify-between">
                     <span className="font-extrabold text-sm uppercase text-muted-foreground tracking-wider">Exercícios do Treino</span>
@@ -4170,27 +4486,98 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                       {customExercises.map((ex, idx) => (
                         <div
                           key={ex.exerciseId}
-                          className="p-3.5 border border-border rounded-xl bg-background/50 hover:bg-background/80 transition flex flex-col gap-3.5"
+                          className="p-3.5 border border-border rounded-xl bg-background/50 hover:bg-background/80 transition flex flex-row gap-3 items-center"
                         >
-                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                            <div className="flex items-center gap-2.5 min-w-0">
-                              <div className="size-8 rounded-lg bg-secondary flex items-center justify-center shrink-0 border border-border">
-                                <Activity className="size-4 text-primary" />
-                              </div>
-                              <div className="min-w-0">
-                                <span className="text-sm font-semibold text-foreground block truncate leading-none mb-1">
-                                  {ex.name}
-                                </span>
-                                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-                                  {ex.muscleGroup}
-                                </span>
-                              </div>
-                            </div>
+                          <div className="flex-1 flex flex-col gap-3.5">
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                              <div className="flex items-start sm:items-center gap-2.5 min-w-0">
+                                <div className="size-8 rounded-lg bg-secondary flex items-center justify-center shrink-0 border border-border mt-0.5 sm:mt-0">
+                                  <Activity className="size-4 text-primary" />
+                                </div>
+                                <div className="min-w-0">
+                                  <span className="text-sm font-semibold text-foreground block truncate leading-none mb-1">
+                                    {ex.name}
+                                  </span>
+                                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                                      {ex.muscleGroup}
+                                    </span>
 
-                            <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                              {!ex.isIndividual && (
-                                <div className="grid grid-cols-4 gap-1.5 shrink-0 w-64">
-                                  <div className="space-y-0.5">
+                                    {ex.methodType === "DROPSET" && (
+                                      <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] font-bold py-0.5 rounded-md">
+                                        Dropset
+                                      </Badge>
+                                    )}
+
+                                    {ex.methodType === "REST_PAUSE" && (
+                                      <Badge className="bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[9px] font-bold py-0.5 rounded-md">
+                                        Rest-Pause
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+
+                              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                                {!ex.isIndividual && (
+                                  <div className="grid grid-cols-4 gap-1.5 shrink-0 w-64">
+                                    <div className="space-y-0.5">
+                                      <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Séries</span>
+                                      <Input
+                                        type="number"
+                                        value={ex.sets}
+                                        onChange={(e) => handleUpdateExerciseField(idx, "sets", e.target.value, false)}
+                                        className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
+                                        min={1}
+                                      />
+                                    </div>
+                                    <div className="space-y-0.5">
+                                      <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Reps</span>
+                                      <Input
+                                        type="text"
+                                        value={ex.reps}
+                                        onChange={(e) => handleUpdateExerciseField(idx, "reps", e.target.value, false)}
+                                        className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
+                                        placeholder="10"
+                                      />
+                                    </div>
+                                    <div className="space-y-0.5">
+                                      <span className="text-[9px] uppercase font-bold text-muted-foreground pl-0.5 flex items-center gap-0.5 select-none">
+                                        Carga
+                                        <TooltipProvider>
+                                          <Tooltip>
+                                            <TooltipTrigger asChild>
+                                              <Info className="size-2.5 text-muted-foreground hover:text-foreground cursor-pointer shrink-0" />
+                                            </TooltipTrigger>
+                                            <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800 text-white p-2 rounded-xl shadow-xl">
+                                              Se não for atribuída uma carga, o próprio aluno que vai colocar quando estiver treinando.
+                                            </TooltipContent>
+                                          </Tooltip>
+                                        </TooltipProvider>
+                                      </span>
+                                      <Input
+                                        type="text"
+                                        value={ex.load || ""}
+                                        onChange={(e) => handleUpdateExerciseField(idx, "load", e.target.value, false)}
+                                        className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
+                                        placeholder="Auto"
+                                      />
+                                    </div>
+                                    <div className="space-y-0.5">
+                                      <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Desc.</span>
+                                      <Input
+                                        type="text"
+                                        value={ex.rest || "60s"}
+                                        onChange={(e) => handleUpdateExerciseField(idx, "rest", e.target.value, false)}
+                                        className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
+                                        placeholder="60s"
+                                      />
+                                    </div>
+                                  </div>
+                                )}
+
+                                {ex.isIndividual && (
+                                  <div className="space-y-0.5 shrink-0 w-16">
                                     <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Séries</span>
                                     <Input
                                       type="number"
@@ -4200,167 +4587,121 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                       min={1}
                                     />
                                   </div>
-                                  <div className="space-y-0.5">
-                                    <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Reps</span>
-                                    <Input
-                                      type="text"
-                                      value={ex.reps}
-                                      onChange={(e) => handleUpdateExerciseField(idx, "reps", e.target.value, false)}
-                                      className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
-                                      placeholder="10"
-                                    />
-                                  </div>
-                                  <div className="space-y-0.5">
-                                    <span className="text-[9px] uppercase font-bold text-muted-foreground pl-0.5 flex items-center gap-0.5 select-none">
-                                      Carga
-                                      <TooltipProvider>
-                                        <Tooltip>
-                                          <TooltipTrigger asChild>
-                                            <Info className="size-2.5 text-muted-foreground hover:text-foreground cursor-pointer shrink-0" />
-                                          </TooltipTrigger>
-                                          <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800 text-white p-2 rounded-xl shadow-xl">
-                                            Se não for atribuída uma carga, o próprio aluno que vai colocar quando estiver treinando.
-                                          </TooltipContent>
-                                        </Tooltip>
-                                      </TooltipProvider>
-                                    </span>
-                                    <Input
-                                      type="text"
-                                      value={ex.load || ""}
-                                      onChange={(e) => handleUpdateExerciseField(idx, "load", e.target.value, false)}
-                                      className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
-                                      placeholder="Auto"
-                                    />
-                                  </div>
-                                  <div className="space-y-0.5">
-                                    <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Desc.</span>
-                                    <Input
-                                      type="text"
-                                      value={ex.rest || "60s"}
-                                      onChange={(e) => handleUpdateExerciseField(idx, "rest", e.target.value, false)}
-                                      className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
-                                      placeholder="60s"
-                                    />
-                                  </div>
-                                </div>
-                              )}
+                                )}
 
-                              {ex.isIndividual && (
-                                <div className="space-y-0.5 shrink-0 w-16">
-                                  <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Séries</span>
-                                  <Input
-                                    type="number"
-                                    value={ex.sets}
-                                    onChange={(e) => handleUpdateExerciseField(idx, "sets", e.target.value, false)}
-                                    className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
-                                    min={1}
-                                  />
+                                <div className="flex items-center gap-0.5 shrink-0 self-end sm:self-center">
+                                  <Button
+                                    type="button"
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => handleOpenCustomMethodDialog(idx)}
+                                    className="h-8 max-sm:w-full gap-1 text-xs border-border/60 text-muted-foreground hover:text-foreground hover:bg-secondary/40 shrink-0 mr-1"
+                                  >
+                                    Método
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => moveExerciseInCustom(idx, "up")}
+                                    disabled={idx === 0}
+                                    className="h-7 w-7 text-muted-foreground hover:text-foreground rounded"
+                                  >
+                                    <ArrowUp className="size-3.5" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => moveExerciseInCustom(idx, "down")}
+                                    disabled={idx === customExercises.length - 1}
+                                    className="h-7 w-7 text-muted-foreground hover:text-foreground rounded"
+                                  >
+                                    <ArrowDown className="size-3.5" />
+                                  </Button>
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => removeExerciseFromCustomList(idx)}
+                                    className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive rounded"
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                  </Button>
                                 </div>
-                              )}
-
-                              <div className="flex items-center gap-0.5 shrink-0 self-end sm:self-center">
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => moveExerciseInCustom(idx, "up")}
-                                  disabled={idx === 0}
-                                  className="h-7 w-7 text-muted-foreground hover:text-foreground rounded"
-                                >
-                                  <ArrowUp className="size-3.5" />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => moveExerciseInCustom(idx, "down")}
-                                  disabled={idx === customExercises.length - 1}
-                                  className="h-7 w-7 text-muted-foreground hover:text-foreground rounded"
-                                >
-                                  <ArrowDown className="size-3.5" />
-                                </Button>
-                                <Button
-                                  type="button"
-                                  variant="ghost"
-                                  size="icon"
-                                  onClick={() => removeExerciseFromCustomList(idx)}
-                                  className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive rounded"
-                                >
-                                  <Trash2 className="size-3.5" />
-                                </Button>
                               </div>
                             </div>
-                          </div>
 
-                          <div className="flex items-center gap-2 px-0.5">
-                            <Checkbox
-                              id={`custom-individual-${idx}`}
-                              checked={ex.isIndividual || false}
-                              onCheckedChange={(checked) => handleToggleIndividual(idx, !!checked, false)}
-                              className="rounded size-3.5"
-                            />
-                            <label
-                              htmlFor={`custom-individual-${idx}`}
-                              className="text-[11px] text-muted-foreground cursor-pointer font-medium select-none"
-                            >
-                              Configurar séries individualmente
-                            </label>
-                          </div>
-
-                          {ex.isIndividual && (
-                            <div className="mt-1 border-t border-border/40 pt-3 space-y-2.5">
-                              <div className="grid grid-cols-4 gap-1.5 text-[9px] font-bold uppercase tracking-wider text-muted-foreground px-0.5">
-                                <div>Série</div>
-                                <div>Reps</div>
-                                <div className="flex items-center gap-0.5 select-none">
-                                  Carga
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Info className="size-2.5 text-muted-foreground hover:text-foreground cursor-pointer shrink-0" />
-                                      </TooltipTrigger>
-                                      <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800 text-white p-2 rounded-xl shadow-xl">
-                                        Se não for atribuída uma carga, o próprio aluno que vai colocar quando estiver treinando.
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                </div>
-                                <div>Descanso</div>
-                              </div>
-
-                              <div className="space-y-1.5">
-                                {Array.from({ length: ex.sets }).map((_, si) => {
-                                  const setItem = ex.individualSets?.[si] || { reps: "10", load: "", rest: "60s" };
-                                  return (
-                                    <div key={si} className="grid grid-cols-4 gap-1.5 items-center">
-                                      <span className="text-xs font-semibold text-neutral-400 pl-0.5">#{si + 1}</span>
-                                      <Input
-                                        type="text"
-                                        value={setItem.reps}
-                                        onChange={(e) => handleUpdateIndividualSetField(idx, si, "reps", e.target.value, false)}
-                                        className="h-8 bg-card border-border text-center text-xs font-semibold"
-                                        placeholder="10"
-                                      />
-                                      <Input
-                                        type="text"
-                                        value={setItem.load}
-                                        onChange={(e) => handleUpdateIndividualSetField(idx, si, "load", e.target.value, false)}
-                                        className="h-8 bg-card border-border text-center text-xs font-semibold"
-                                        placeholder="Auto"
-                                      />
-                                      <Input
-                                        type="text"
-                                        value={setItem.rest}
-                                        onChange={(e) => handleUpdateIndividualSetField(idx, si, "rest", e.target.value, false)}
-                                        className="h-8 bg-card border-border text-center text-xs font-semibold"
-                                        placeholder="60s"
-                                      />
-                                    </div>
-                                  );
-                                })}
-                              </div>
+                            <div className="flex items-center gap-2 px-0.5">
+                              <Checkbox
+                                id={`custom-individual-${idx}`}
+                                checked={ex.isIndividual || false}
+                                onCheckedChange={(checked) => handleToggleIndividual(idx, !!checked, false)}
+                                className="rounded size-3.5"
+                              />
+                              <label
+                                htmlFor={`custom-individual-${idx}`}
+                                className="text-[11px] text-muted-foreground cursor-pointer font-medium select-none"
+                              >
+                                Configurar séries individualmente
+                              </label>
                             </div>
-                          )}
+
+                            {ex.isIndividual && (
+                              <div className="mt-1 border-t border-border/40 pt-3 space-y-2.5">
+                                <div className="grid grid-cols-4 gap-1.5 text-[9px] font-bold uppercase tracking-wider text-muted-foreground px-0.5">
+                                  <div>Série</div>
+                                  <div>Reps</div>
+                                  <div className="flex items-center gap-0.5 select-none">
+                                    Carga
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Info className="size-2.5 text-muted-foreground hover:text-foreground cursor-pointer shrink-0" />
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800 text-white p-2 rounded-xl shadow-xl">
+                                          Se não for atribuída uma carga, o próprio aluno que vai colocar quando estiver treinando.
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </div>
+                                  <div>Descanso</div>
+                                </div>
+
+                                <div className="space-y-1.5">
+                                  {Array.from({ length: ex.sets }).map((_, si) => {
+                                    const setItem = ex.individualSets?.[si] || { reps: "10", load: "", rest: "60s" };
+                                    return (
+                                      <div key={si} className="grid grid-cols-4 gap-1.5 items-center">
+                                        <span className="text-xs font-semibold text-neutral-400 pl-0.5">#{si + 1}</span>
+                                        <Input
+                                          type="text"
+                                          value={setItem.reps}
+                                          onChange={(e) => handleUpdateIndividualSetField(idx, si, "reps", e.target.value, false)}
+                                          className="h-8 bg-card border-border text-center text-xs font-semibold"
+                                          placeholder="10"
+                                        />
+                                        <Input
+                                          type="text"
+                                          value={setItem.load}
+                                          onChange={(e) => handleUpdateIndividualSetField(idx, si, "load", e.target.value, false)}
+                                          className="h-8 bg-card border-border text-center text-xs font-semibold"
+                                          placeholder="Auto"
+                                        />
+                                        <Input
+                                          type="text"
+                                          value={setItem.rest}
+                                          onChange={(e) => handleUpdateIndividualSetField(idx, si, "rest", e.target.value, false)}
+                                          className="h-8 bg-card border-border text-center text-xs font-semibold"
+                                          placeholder="60s"
+                                        />
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         </div>
                       ))}
                     </div>
@@ -4398,7 +4739,6 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
         </DialogContent>
       </Dialog>
 
-      {/* ==================== DIALOG 2: EDIT WORKOUT ==================== */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-3xl bg-popover border border-border text-foreground max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -4502,17 +4842,46 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
             </div>
 
             <div className="space-y-3 pt-3 border-t border-border dark:border-neutral-900">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2">
                 <span className="font-extrabold text-sm uppercase text-muted-foreground tracking-wider">Exercícios Cadastrados</span>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  className="h-8 font-semibold border-border dark:border-neutral-800 hover:bg-muted dark:bg-neutral-900 text-xs"
-                  onClick={() => setExerciseDialogOpen(true)}
-                >
-                  <Plus className="size-3.5 mr-1" /> Adicionar Exercício
-                </Button>
+                <div className="flex flex-wrap items-center gap-2">
+                  {editExercises.length >= 2 && (
+                    <Button
+                      type="button"
+                      variant={editSelectMode ? "default" : "outline"}
+                      onClick={() => {
+                        setEditSelectMode(!editSelectMode);
+                        setEditSelectedIndexes([]);
+                      }}
+                      size="sm"
+                      className="h-8 text-xs font-semibold"
+                    >
+                      {editSelectMode ? "Cancelar Seleção" : "Selecionar Exercícios"}
+                    </Button>
+                  )}
+
+                  {editSelectMode && editSelectedIndexes.length >= 2 && (
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={handleOpenEditGroupDialog}
+                      size="sm"
+                      className="h-8 text-xs font-semibold border-primary/30 text-primary bg-primary/5 hover:bg-primary/10 gap-1"
+                    >
+                      Agrupar ({editSelectedIndexes.length})
+                    </Button>
+                  )}
+
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 font-semibold border-border dark:border-neutral-800 hover:bg-muted dark:bg-neutral-900 text-xs"
+                    onClick={() => setExerciseDialogOpen(true)}
+                  >
+                    <Plus className="size-3.5 mr-1" /> Adicionar Exercício
+                  </Button>
+                </div>
               </div>
 
               {editExercises.length === 0 ? (
@@ -4525,27 +4894,125 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                   {editExercises.map((ex, idx) => (
                     <div
                       key={ex.exerciseId}
-                      className="p-3.5 border border-border rounded-xl bg-background/50 hover:bg-background/80 transition flex flex-col gap-3.5"
+                      className="p-3.5 border border-border rounded-xl bg-background/50 hover:bg-background/80 transition flex flex-row gap-3 items-center"
                     >
-                      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="size-8 rounded-lg bg-secondary flex items-center justify-center shrink-0 border border-border">
-                            <Activity className="size-4 text-primary" />
-                          </div>
-                          <div className="min-w-0">
-                            <span className="text-sm font-semibold text-foreground block truncate leading-none mb-1">
-                              {ex.name}
-                            </span>
-                            <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
-                              {ex.muscleGroup}
-                            </span>
-                          </div>
-                        </div>
+                      {editSelectMode && (
+                        <Checkbox
+                          checked={editSelectedIndexes.includes(idx)}
+                          onCheckedChange={(checked) => {
+                            if (checked) {
+                              setEditSelectedIndexes(prev => [...prev, idx]);
+                            } else {
+                              setEditSelectedIndexes(prev => prev.filter(i => i !== idx));
+                            }
+                          }}
+                          className="mr-1 shrink-0 rounded"
+                        />
+                      )}
 
-                        <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                          {!ex.isIndividual && (
-                            <div className="grid grid-cols-4 gap-1.5 shrink-0 w-64">
-                              <div className="space-y-0.5">
+                      <div className="flex-1 flex flex-col gap-3.5">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                          <div className="flex items-start sm:items-center gap-2.5 min-w-0">
+                            <div className="size-8 rounded-lg bg-secondary flex items-center justify-center shrink-0 border border-border mt-0.5 sm:mt-0">
+                              <Activity className="size-4 text-primary" />
+                            </div>
+                            <div className="min-w-0">
+                              <span className="text-sm font-semibold text-foreground block truncate leading-none mb-1">
+                                {ex.name}
+                              </span>
+                              <div className="flex flex-wrap items-center gap-1.5 mt-1">
+                                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                                  {ex.muscleGroup}
+                                </span>
+
+                                {ex.groupId && (
+                                  <Badge className="bg-primary/10 text-primary border border-primary/20 text-[9px] font-bold gap-1 pr-1 py-0.5 rounded-md">
+                                    🔗 {getEditGroupLabel(ex.groupId)}
+                                    <button
+                                      type="button"
+                                      onClick={() => handleEditUngroup(ex.groupId)}
+                                      className="hover:text-destructive text-neutral-500 font-bold text-xs leading-none"
+                                    >
+                                      &times;
+                                    </button>
+                                  </Badge>
+                                )}
+
+                                {ex.methodType === "DROPSET" && (
+                                  <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] font-bold py-0.5 rounded-md">
+                                    Dropset
+                                  </Badge>
+                                )}
+
+                                {ex.methodType === "REST_PAUSE" && (
+                                  <Badge className="bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[9px] font-bold py-0.5 rounded-md">
+                                    Rest-Pause
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+
+                          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                            {!ex.isIndividual && (
+                              <div className="grid grid-cols-4 gap-1.5 shrink-0 w-64">
+                                <div className="space-y-0.5">
+                                  <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Séries</span>
+                                  <Input
+                                    type="number"
+                                    value={ex.sets}
+                                    onChange={(e) => handleUpdateExerciseField(idx, "sets", e.target.value, true)}
+                                    className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
+                                    min={1}
+                                  />
+                                </div>
+                                <div className="space-y-0.5">
+                                  <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Reps</span>
+                                  <Input
+                                    type="text"
+                                    value={ex.reps}
+                                    onChange={(e) => handleUpdateExerciseField(idx, "reps", e.target.value, true)}
+                                    className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
+                                    placeholder="10"
+                                  />
+                                </div>
+                                <div className="space-y-0.5">
+                                  <span className="text-[9px] uppercase font-bold text-muted-foreground pl-0.5 flex items-center gap-0.5 select-none">
+                                    Carga
+                                    <TooltipProvider>
+                                      <Tooltip>
+                                        <TooltipTrigger asChild>
+                                          <Info className="size-2.5 text-muted-foreground hover:text-foreground cursor-pointer shrink-0" />
+                                        </TooltipTrigger>
+                                        <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800 text-white p-2 rounded-xl shadow-xl">
+                                          Se não for atribuída uma carga, o próprio aluno que vai colocar quando estiver treinando.
+                                        </TooltipContent>
+                                      </Tooltip>
+                                    </TooltipProvider>
+                                  </span>
+                                  <Input
+                                    type="text"
+                                    value={ex.load || ""}
+                                    onChange={(e) => handleUpdateExerciseField(idx, "load", e.target.value, true)}
+                                    className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
+                                    placeholder="Auto"
+                                  />
+                                </div>
+                                <div className="space-y-0.5">
+                                  <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Desc.</span>
+                                  <Input
+                                    type="text"
+                                    value={ex.rest || "60s"}
+                                    onChange={(e) => handleUpdateExerciseField(idx, "rest", e.target.value, true)}
+                                    className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
+                                    placeholder="60s"
+                                  />
+                                </div>
+                              </div>
+                            )}
+
+                            {ex.isIndividual && (
+                              <div className="space-y-0.5 shrink-0 w-16">
                                 <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Séries</span>
                                 <Input
                                   type="number"
@@ -4555,167 +5022,124 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                   min={1}
                                 />
                               </div>
-                              <div className="space-y-0.5">
-                                <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Reps</span>
-                                <Input
-                                  type="text"
-                                  value={ex.reps}
-                                  onChange={(e) => handleUpdateExerciseField(idx, "reps", e.target.value, true)}
-                                  className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
-                                  placeholder="10"
-                                />
-                              </div>
-                              <div className="space-y-0.5">
-                                <span className="text-[9px] uppercase font-bold text-muted-foreground pl-0.5 flex items-center gap-0.5 select-none">
-                                  Carga
-                                  <TooltipProvider>
-                                    <Tooltip>
-                                      <TooltipTrigger asChild>
-                                        <Info className="size-2.5 text-muted-foreground hover:text-foreground cursor-pointer shrink-0" />
-                                      </TooltipTrigger>
-                                      <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800 text-white p-2 rounded-xl shadow-xl">
-                                        Se não for atribuída uma carga, o próprio aluno que vai colocar quando estiver treinando.
-                                      </TooltipContent>
-                                    </Tooltip>
-                                  </TooltipProvider>
-                                </span>
-                                <Input
-                                  type="text"
-                                  value={ex.load || ""}
-                                  onChange={(e) => handleUpdateExerciseField(idx, "load", e.target.value, true)}
-                                  className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
-                                  placeholder="Auto"
-                                />
-                              </div>
-                              <div className="space-y-0.5">
-                                <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Desc.</span>
-                                <Input
-                                  type="text"
-                                  value={ex.rest || "60s"}
-                                  onChange={(e) => handleUpdateExerciseField(idx, "rest", e.target.value, true)}
-                                  className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
-                                  placeholder="60s"
-                                />
-                              </div>
-                            </div>
-                          )}
+                            )}
 
-                          {ex.isIndividual && (
-                            <div className="space-y-0.5 shrink-0 w-16">
-                              <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Séries</span>
-                              <Input
-                                type="number"
-                                value={ex.sets}
-                                onChange={(e) => handleUpdateExerciseField(idx, "sets", e.target.value, true)}
-                                className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
-                                min={1}
-                              />
+                            <div className="flex items-center gap-0.5 shrink-0 sm:self-center">
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => moveExerciseInEdit(idx, "up")}
+                                disabled={idx === 0}
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground rounded"
+                              >
+                                <ArrowUp className="size-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => moveExerciseInEdit(idx, "down")}
+                                disabled={idx === editExercises.length - 1}
+                                className="h-7 w-7 text-muted-foreground hover:text-foreground rounded"
+                              >
+                                <ArrowDown className="size-3.5" />
+                              </Button>
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => removeExerciseFromEditList(idx)}
+                                className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive rounded"
+                              >
+                                <Trash2 className="size-3.5" />
+                              </Button>
                             </div>
-                          )}
-
-                          <div className="flex items-center gap-0.5 shrink-0 self-end sm:self-center">
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => moveExerciseInEdit(idx, "up")}
-                              disabled={idx === 0}
-                              className="h-7 w-7 text-muted-foreground hover:text-foreground rounded"
-                            >
-                              <ArrowUp className="size-3.5" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => moveExerciseInEdit(idx, "down")}
-                              disabled={idx === editExercises.length - 1}
-                              className="h-7 w-7 text-muted-foreground hover:text-foreground rounded"
-                            >
-                              <ArrowDown className="size-3.5" />
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="ghost"
-                              size="icon"
-                              onClick={() => removeExerciseFromEditList(idx)}
-                              className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive rounded"
-                            >
-                              <Trash2 className="size-3.5" />
-                            </Button>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="flex items-center gap-2 px-0.5">
-                        <Checkbox
-                          id={`edit-individual-${idx}`}
-                          checked={ex.isIndividual || false}
-                          onCheckedChange={(checked) => handleToggleIndividual(idx, !!checked, true)}
-                          className="rounded size-3.5"
-                        />
-                        <label
-                          htmlFor={`edit-individual-${idx}`}
-                          className="text-[11px] text-muted-foreground cursor-pointer font-medium select-none"
-                        >
-                          Configurar séries individualmente
-                        </label>
-                      </div>
+                        <section className="flex items-center justify-between">
+                          <div className="flex items-center gap-2 px-0.5">
+                            <Checkbox
+                              id={`edit-individual-${idx}`}
+                              checked={ex.isIndividual || false}
+                              onCheckedChange={(checked) => handleToggleIndividual(idx, !!checked, true)}
+                              className="rounded size-3.5"
+                            />
+                            <label
+                              htmlFor={`edit-individual-${idx}`}
+                              className="text-[11px] text-muted-foreground cursor-pointer font-medium select-none"
+                            >
+                              Configurar séries
+                            </label>
+                          </div>
 
-                      {ex.isIndividual && (
-                        <div className="mt-1 border-t border-border/40 pt-3 space-y-2.5">
-                          <div className="grid grid-cols-4 gap-1.5 text-[9px] font-bold uppercase tracking-wider text-muted-foreground px-0.5">
-                            <div>Série</div>
-                            <div>Reps</div>
-                            <div className="flex items-center gap-0.5 select-none">
-                              Carga
-                              <TooltipProvider>
-                                <Tooltip>
-                                  <TooltipTrigger asChild>
-                                    <Info className="size-2.5 text-muted-foreground hover:text-foreground cursor-pointer shrink-0" />
-                                  </TooltipTrigger>
-                                  <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800 text-white p-2 rounded-xl shadow-xl">
-                                    Se não for atribuída uma carga, o próprio aluno que vai colocar quando estiver treinando.
-                                  </TooltipContent>
-                                </Tooltip>
-                              </TooltipProvider>
+                          <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleOpenEditMethodDialog(idx)}
+                            className="h-8 w-fit gap-1 text-xs border-border/60 text-muted-foreground hover:text-foreground hover:bg-secondary/40 shrink-0 mr-1"
+                          >
+                            Configurar método
+                          </Button>
+                        </section>
+
+                        {ex.isIndividual && (
+                          <div className="mt-1 border-t border-border/40 pt-3 space-y-2.5">
+                            <div className="grid grid-cols-4 gap-1.5 text-[9px] font-bold uppercase tracking-wider text-muted-foreground px-0.5">
+                              <div>Série</div>
+                              <div>Reps</div>
+                              <div className="flex items-center gap-0.5 select-none">
+                                Carga
+                                <TooltipProvider>
+                                  <Tooltip>
+                                    <TooltipTrigger asChild>
+                                      <Info className="size-2.5 text-muted-foreground hover:text-foreground cursor-pointer shrink-0" />
+                                    </TooltipTrigger>
+                                    <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800 text-white p-2 rounded-xl shadow-xl">
+                                      Se não for atribuída uma carga, o próprio aluno que vai colocar quando estiver treinando.
+                                    </TooltipContent>
+                                  </Tooltip>
+                                </TooltipProvider>
+                              </div>
+                              <div>Descanso</div>
                             </div>
-                            <div>Descanso</div>
-                          </div>
 
-                          <div className="space-y-1.5">
-                            {Array.from({ length: ex.sets }).map((_, si) => {
-                              const setItem = ex.individualSets?.[si] || { reps: "10", load: "", rest: "60s" };
-                              return (
-                                <div key={si} className="grid grid-cols-4 gap-1.5 items-center">
-                                  <span className="text-xs font-semibold text-neutral-400 pl-0.5">#{si + 1}</span>
-                                  <Input
-                                    type="text"
-                                    value={setItem.reps}
-                                    onChange={(e) => handleUpdateIndividualSetField(idx, si, "reps", e.target.value, true)}
-                                    className="h-8 bg-card border-border text-center text-xs font-semibold"
-                                    placeholder="10"
-                                  />
-                                  <Input
-                                    type="text"
-                                    value={setItem.load}
-                                    onChange={(e) => handleUpdateIndividualSetField(idx, si, "load", e.target.value, true)}
-                                    className="h-8 bg-card border-border text-center text-xs font-semibold"
-                                    placeholder="Auto"
-                                  />
-                                  <Input
-                                    type="text"
-                                    value={setItem.rest}
-                                    onChange={(e) => handleUpdateIndividualSetField(idx, si, "rest", e.target.value, true)}
-                                    className="h-8 bg-card border-border text-center text-xs font-semibold"
-                                    placeholder="60s"
-                                  />
-                                </div>
-                              );
-                            })}
+                            <div className="space-y-1.5">
+                              {Array.from({ length: ex.sets }).map((_, si) => {
+                                const setItem = ex.individualSets?.[si] || { reps: "10", load: "", rest: "60s" };
+                                return (
+                                  <div key={si} className="grid grid-cols-4 gap-1.5 items-center">
+                                    <span className="text-xs font-semibold text-neutral-400 pl-0.5">#{si + 1}</span>
+                                    <Input
+                                      type="text"
+                                      value={setItem.reps}
+                                      onChange={(e) => handleUpdateIndividualSetField(idx, si, "reps", e.target.value, true)}
+                                      className="h-8 bg-card border-border text-center text-xs font-semibold"
+                                      placeholder="10"
+                                    />
+                                    <Input
+                                      type="text"
+                                      value={setItem.load}
+                                      onChange={(e) => handleUpdateIndividualSetField(idx, si, "load", e.target.value, true)}
+                                      className="h-8 bg-card border-border text-center text-xs font-semibold"
+                                      placeholder="Auto"
+                                    />
+                                    <Input
+                                      type="text"
+                                      value={setItem.rest}
+                                      onChange={(e) => handleUpdateIndividualSetField(idx, si, "rest", e.target.value, true)}
+                                      className="h-8 bg-card border-border text-center text-xs font-semibold"
+                                      placeholder="60s"
+                                    />
+                                  </div>
+                                );
+                              })}
+                            </div>
                           </div>
-                        </div>
-                      )}
+                        )}
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -4950,6 +5374,376 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Workout - Individual Exercise Method Dialog */}
+      <Dialog open={editMethodDialogOpen} onOpenChange={setEditMethodDialogOpen}>
+        <DialogContent className="max-w-md w-[95%] rounded-xl bg-popover border border-border text-foreground">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Configurar Método Avançado</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Escolha um método para aplicar a este exercício específico.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-4">
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: "NONE", label: "Nenhum" },
+                { id: "DROPSET", label: "Dropset" },
+                { id: "REST_PAUSE", label: "Rest-Pause" }
+              ].map((m) => (
+                <Button
+                  key={m.id}
+                  type="button"
+                  variant={editActiveMethodType === m.id ? "default" : "outline"}
+                  onClick={() => setEditActiveMethodType(m.id as any)}
+                  className="h-9 text-xs"
+                >
+                  {m.label}
+                </Button>
+              ))}
+            </div>
+
+            {editActiveMethodType === "DROPSET" && (
+              <div className="space-y-4 border-t border-border/40 pt-4 animate-in fade-in duration-200">
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
+                    Quedas (Drops)
+                  </Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[1, 2, 3].map((d) => (
+                      <Button
+                        key={d}
+                        type="button"
+                        variant={editDropsCount === d ? "default" : "outline"}
+                        onClick={() => setEditDropsCount(d)}
+                        className="h-9 text-xs"
+                      >
+                        {d}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
+                    Redução da Carga
+                  </Label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[10, 20, 30, 40].map((r) => (
+                      <Button
+                        key={r}
+                        type="button"
+                        variant={editDropsReduction === r ? "default" : "outline"}
+                        onClick={() => setEditDropsReduction(r)}
+                        className="h-9 text-xs"
+                      >
+                        {r}%
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {editActiveMethodType === "REST_PAUSE" && (
+              <div className="space-y-4 border-t border-border/40 pt-4 animate-in fade-in duration-200">
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
+                    Tempo de Pausa
+                  </Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[10, 15, 20].map((p) => (
+                      <Button
+                        key={p}
+                        type="button"
+                        variant={editRestPauseTime === p ? "default" : "outline"}
+                        onClick={() => setEditRestPauseTime(p)}
+                        className="h-9 text-xs"
+                      >
+                        {p}s
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
+                    Repetições de Pausa (Rounds)
+                  </Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[1, 2, 3].map((r) => (
+                      <Button
+                        key={r}
+                        type="button"
+                        variant={editRestPauseRounds === r ? "default" : "outline"}
+                        onClick={() => setEditRestPauseRounds(r)}
+                        className="h-9 text-xs"
+                      >
+                        {r}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-4 border-t border-border">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditMethodDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSaveEditMethod}
+              >
+                Salvar Método
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Custom Workout - Method Configuration Dialog */}
+      <Dialog open={customMethodDialogOpen} onOpenChange={setCustomMethodDialogOpen}>
+        <DialogContent className="max-w-md w-[95%] rounded-xl bg-popover border border-border text-foreground">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Configurar Método Avançado</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Escolha um método para aplicar a este exercício específico.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-4">
+            <div className="grid grid-cols-3 gap-2">
+              {[
+                { id: "NONE", label: "Nenhum" },
+                { id: "DROPSET", label: "Dropset" },
+                { id: "REST_PAUSE", label: "Rest-Pause" }
+              ].map((m) => (
+                <Button
+                  key={m.id}
+                  type="button"
+                  variant={customActiveMethodType === m.id ? "default" : "outline"}
+                  onClick={() => setCustomActiveMethodType(m.id as any)}
+                  className="h-9 text-xs"
+                >
+                  {m.label}
+                </Button>
+              ))}
+            </div>
+
+            {customActiveMethodType === "DROPSET" && (
+              <div className="space-y-4 border-t border-border/40 pt-4 animate-in fade-in duration-200">
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
+                    Quedas (Drops)
+                  </Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[1, 2, 3].map((d) => (
+                      <Button
+                        key={d}
+                        type="button"
+                        variant={customDropsCount === d ? "default" : "outline"}
+                        onClick={() => setCustomDropsCount(d)}
+                        className="h-9 text-xs"
+                      >
+                        {d}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
+                    Redução da Carga
+                  </Label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[10, 20, 30, 40].map((r) => (
+                      <Button
+                        key={r}
+                        type="button"
+                        variant={customDropsReduction === r ? "default" : "outline"}
+                        onClick={() => setCustomDropsReduction(r)}
+                        className="h-9 text-xs"
+                      >
+                        {r}%
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {customActiveMethodType === "REST_PAUSE" && (
+              <div className="space-y-4 border-t border-border/40 pt-4 animate-in fade-in duration-200">
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
+                    Tempo de Pausa
+                  </Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[10, 15, 20].map((p) => (
+                      <Button
+                        key={p}
+                        type="button"
+                        variant={customRestPauseTime === p ? "default" : "outline"}
+                        onClick={() => setCustomRestPauseTime(p)}
+                        className="h-9 text-xs"
+                      >
+                        {p}s
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
+                    Repetições de Pausa (Rounds)
+                  </Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[1, 2, 3].map((r) => (
+                      <Button
+                        key={r}
+                        type="button"
+                        variant={customRestPauseRounds === r ? "default" : "outline"}
+                        onClick={() => setCustomRestPauseRounds(r)}
+                        className="h-9 text-xs"
+                      >
+                        {r}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-4 border-t border-border">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setCustomMethodDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleSaveCustomMethod}
+              >
+                Salvar Método
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Workout - Group Configuration Dialog */}
+      <Dialog open={editGroupDialogOpen} onOpenChange={setEditGroupDialogOpen}>
+        <DialogContent className="max-w-md w-[95%] rounded-xl bg-popover border border-border text-foreground">
+          <DialogHeader>
+            <DialogTitle className="text-foreground">Agrupar Exercícios</DialogTitle>
+            <DialogDescription className="text-muted-foreground">
+              Crie um método agrupado para os exercícios selecionados.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 pt-4">
+            <div className="space-y-2">
+              <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
+                Tipo do Grupo
+              </Label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: "BISET", label: "Biset" },
+                  { id: "TRISET", label: "Triset" },
+                  { id: "CIRCUIT", label: "Circuito" }
+                ].map((t) => {
+                  const minEx = t.id === "TRISET" ? 3 : 2;
+                  const isBlocked = editSelectedIndexes.length < minEx;
+                  return (
+                    <Button
+                      key={t.id}
+                      type="button"
+                      disabled={isBlocked}
+                      variant={editGroupType === t.id ? "default" : "outline"}
+                      onClick={() => setEditGroupType(t.id as any)}
+                      className={cn("h-10 text-xs flex flex-col items-center justify-center gap-0.5", isBlocked && "opacity-45")}
+                    >
+                      <span>{t.label}</span>
+                      <span className="text-[8px] opacity-70">mín. {minEx} ex.</span>
+                    </Button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {editGroupType === "CIRCUIT" && (
+              <div className="space-y-4 border-t border-border/40 pt-4 animate-in fade-in duration-200">
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
+                    Número de Voltas
+                  </Label>
+                  <div className="grid grid-cols-5 gap-2">
+                    {[1, 2, 3, 4, 5].map((v) => (
+                      <Button
+                        key={v}
+                        type="button"
+                        variant={editCircuitRounds === v ? "default" : "outline"}
+                        onClick={() => setEditCircuitRounds(v)}
+                        className="h-9 text-xs"
+                      >
+                        {v}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
+                    Descanso entre voltas
+                  </Label>
+                  <div className="grid grid-cols-4 gap-2">
+                    {[
+                      { val: 30, label: "30s" },
+                      { val: 60, label: "60s" },
+                      { val: 90, label: "90s" },
+                      { val: 120, label: "120s" }
+                    ].map((d) => (
+                      <Button
+                        key={d.val}
+                        type="button"
+                        variant={editCircuitRest === d.val ? "default" : "outline"}
+                        onClick={() => setEditCircuitRest(d.val)}
+                        className="h-9 text-xs"
+                      >
+                        {d.label}
+                      </Button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-2 pt-4 border-t border-border">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => setEditGroupDialogOpen(false)}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                onClick={handleConfirmEditGrouping}
+              >
+                Criar Grupo
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* ==================== DIALOG 4: REGISTRAR MEDIDAS ==================== */}
       <Dialog open={isProgressModalOpen} onOpenChange={setIsProgressModalOpen}>

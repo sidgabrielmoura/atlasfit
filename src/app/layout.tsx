@@ -19,6 +19,7 @@ const geistMono = Geist_Mono({
 
 import prisma from "@/lib/prisma";
 import { PWARegister } from "@/components/pwa-register";
+import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
 
 export const viewport = {
   themeColor: "#ea580c",
@@ -90,6 +91,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col transition-colors duration-500 ease-in-out">
         <Providers>
           <PWARegister />
+          <PWAInstallPrompt />
           <ImpersonationBanner />
           {children}
         </Providers>

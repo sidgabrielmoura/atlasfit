@@ -28,11 +28,13 @@ export async function GET(
                 muscleGroup: true,
               },
             },
+            group: true,
           },
           orderBy: {
             order: "asc",
           },
         },
+        exerciseGroups: true,
       },
     });
 
@@ -60,7 +62,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await req.json();
-    const { name, goal, difficulty, duration, muscleGroupLabel, restBetweenExercises, exercises } = body;
+    const { name, goal, difficulty, duration, muscleGroupLabel, restBetweenExercises, exercises, groups } = body;
 
     if (!name || !goal || !difficulty || !duration) {
       return new NextResponse("Campos obrigatórios ausentes.", { status: 400 });
@@ -87,14 +89,56 @@ export async function PUT(
       });
       const oldExerciseIds = oldExercises.map((oe: any) => oe.exerciseId);
 
-      // 1. Delete all old workout exercises
+      // 1. Delete all old workout exercises and groups
       await tx.workoutExercise.deleteMany({
         where: {
           workoutId: id,
         },
       });
+      await tx.workoutExerciseGroup.deleteMany({
+        where: {
+          workoutId: id,
+        },
+      });
 
-      // 2. Update general workout info and create new exercise associations
+      // 2. Create new groups
+      const groupMap: Record<string, string> = {};
+      if (groups && groups.length > 0) {
+        for (const g of groups) {
+          const dbGroup = await tx.workoutExerciseGroup.create({
+            data: {
+              workoutId: id,
+              type: g.type,
+              config: g.config || null,
+            },
+          });
+          groupMap[g.id] = dbGroup.id;
+        }
+      }
+
+      // 3. Create new exercise associations with mapped group IDs
+      if (exercises && exercises.length > 0) {
+        for (let index = 0; index < exercises.length; index++) {
+          const ex = exercises[index];
+          const dbGroupId = ex.groupId ? groupMap[ex.groupId] : null;
+          await tx.workoutExercise.create({
+            data: {
+              workoutId: id,
+              exerciseId: ex.exerciseId,
+              sets: Number(ex.sets) || 4,
+              reps: String(ex.reps) || "10",
+              rest: String(ex.rest) || "60s",
+              load: ex.load ? String(ex.load) : "",
+              order: index,
+              methodType: ex.methodType || "NONE",
+              methodConfig: ex.methodConfig || null,
+              groupId: dbGroupId,
+            },
+          });
+        }
+      }
+
+      // 4. Update general workout info
       const updated = await tx.workout.update({
         where: {
           id,
@@ -106,16 +150,6 @@ export async function PUT(
           duration,
           muscleGroupLabel: muscleGroupLabel || null,
           restBetweenExercises: restBetweenExercises || "2 min",
-          exercises: {
-            create: (exercises || []).map((ex: any, index: number) => ({
-              exerciseId: ex.exerciseId,
-              sets: Number(ex.sets) || 4,
-              reps: String(ex.reps) || "10",
-              rest: String(ex.rest) || "60s",
-              load: ex.load ? String(ex.load) : "",
-              order: index,
-            })),
-          },
         },
         include: {
           exercises: {
@@ -125,11 +159,13 @@ export async function PUT(
                   muscleGroup: true,
                 },
               },
+              group: true,
             },
             orderBy: {
               order: "asc",
             },
           },
+          exerciseGroups: true,
         },
       });
 
