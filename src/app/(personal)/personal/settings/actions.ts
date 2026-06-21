@@ -55,17 +55,22 @@ export async function updateBrandSettings(
     throw new Error("Não autorizado");
   }
 
-  // Ensure member has permission (OWNER or ADMIN)
-  const member = await prisma.workspaceMember.findFirst({
-    where: {
-      workspaceId,
-      userId: session.user.id,
-      role: { in: ["OWNER", "TRAINER", "ASSISTANT"] },
-    },
-  });
+  const isSuperAdminOrImpersonated =
+    session.user.role === "SUPERADMIN" ||
+    (session.user as any).isImpersonated === true;
 
-  if (!member) {
-    throw new Error("Permissão negada. Apenas administradores e proprietários podem alterar a marca.");
+  if (!isSuperAdminOrImpersonated) {
+    const member = await prisma.workspaceMember.findFirst({
+      where: {
+        workspaceId,
+        userId: session.user.id,
+        role: { in: ["OWNER", "TRAINER", "ASSISTANT"] },
+      },
+    });
+
+    if (!member) {
+      throw new Error("Permissão negada. Apenas administradores e proprietários podem alterar a marca.");
+    }
   }
 
   const updatedWorkspace = await prisma.workspace.update({

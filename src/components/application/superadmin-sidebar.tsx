@@ -21,6 +21,7 @@ import {
   Database,
   Search,
   Folder,
+  Megaphone,
 } from "lucide-react";
 import {
   Sidebar,
@@ -59,6 +60,7 @@ const platformNavItems = [
   { title: "Exercícios", href: "/superadmin/exercises", icon: Dumbbell },
   { title: "Arquivos & Documentos", href: "/superadmin/files", icon: Folder },
   { title: "Assinaturas", href: "/superadmin/subscriptions", icon: BadgeCheck },
+  { title: "Campanhas e Avisos", href: "/superadmin/campaigns", icon: Megaphone },
   { title: "Logs & Auditoria", href: "/superadmin/logs", icon: Database },
   { title: "Configurações", href: "/superadmin/settings", icon: Settings },
 ];

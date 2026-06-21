@@ -6,6 +6,12 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "./providers/auth-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { DynamicBranding } from "@/components/application/dynamic-branding";
+import dynamic from "next/dynamic";
+
+const CampaignModal = dynamic(
+  () => import("@/components/campaign-modal").then((mod) => mod.CampaignModal),
+  { ssr: false }
+);
 
 export function Providers({ children }: { children: React.ReactNode }) {
   // Workaround para erro do next-themes no React 19 / Next.js 15
@@ -30,6 +36,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <TooltipProvider delayDuration={0}>
           <DynamicBranding />
           {children}
+          <CampaignModal />
           <Toaster position="top-right" richColors />
         </TooltipProvider>
       </NextThemesProvider>

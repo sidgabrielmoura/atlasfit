@@ -70,6 +70,7 @@ model User {
   workoutLogs            WorkoutLog[]
   studentTasks           TrainerTask[]               @relation("StudentTasks")
   dailyFeedbacks         DailyFeedback[]
+  campaignViews          CampaignView[]
 }
 
 model Workspace {
@@ -604,4 +605,50 @@ model WorkoutExerciseGroup {
   createdAt  DateTime          @default(now())
   updatedAt  DateTime          @updatedAt
 }
+
+enum CampaignType {
+  PROMOTION
+  ANNOUNCEMENT
+  UPDATE
+}
+
+enum CampaignTarget {
+  PERSONAL
+  STUDENT
+  ALL
+}
+
+model Campaign {
+  id           String         @id @default(cuid())
+  title        String
+  description  String         @db.Text
+  imageUrl     String?
+  type         CampaignType
+  targetRole   CampaignTarget
+  startDate    DateTime
+  endDate      DateTime
+  buttonText   String?
+  buttonLink   String?
+  showOnlyOnce Boolean        @default(false)
+  isActive     Boolean        @default(true)
+  priority     Int            @default(0)
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+  views        CampaignView[]
+
+  @@index([isActive, targetRole])
+  @@index([startDate, endDate])
+}
+
+model CampaignView {
+  id         String   @id @default(cuid())
+  campaignId String
+  userId     String
+  viewedAt   DateTime @default(now())
+  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, userId])
+}
+
 
