@@ -18,7 +18,8 @@ import {
   Search,
   MessageCircle,
   Calendar,
-  Filter
+  Filter,
+  MoreHorizontal
 } from "lucide-react";
 import { workspaceStore } from "@/stores/workspace.store";
 import { toast } from "sonner";
@@ -37,6 +38,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   Select,
   SelectContent,
@@ -244,19 +252,19 @@ export default function FinancePage() {
     setPaymentAmount("150.00");
     setPaymentStatus("pendente");
     setPaymentMethod("PIX");
-    
+
     // Set current local date as default in YYYY-MM-DD
     const localDate = new Date();
     const formatted = localDate.toISOString().split("T")[0];
     setPaymentDate(formatted);
-    
+
     setIsPaymentModalOpen(true);
   };
 
   // Open editing modal
   const handleOpenEditModal = (payment: any) => {
     setEditingPayment(payment);
-    
+
     // Check if the student matches a registered one
     const matchingStudent = students.find((s) => s.name === payment.student);
     if (matchingStudent) {
@@ -415,7 +423,7 @@ export default function FinancePage() {
     // Attempt to lookup student phone number
     const matchingStudent = students.find((s) => s.name === payment.student);
     const phone = matchingStudent?.whatsapp || "";
-    
+
     const formattedDate = new Date(payment.date).toLocaleDateString("pt-BR", {
       day: "2-digit",
       month: "2-digit",
@@ -429,7 +437,7 @@ export default function FinancePage() {
       : `Olá, ${payment.student}! Tudo bem? Passando para lembrar que a mensalidade da sua assessoria esportiva no valor de ${amountStr} vence em ${formattedDate}. Qualquer dúvida estou à disposição. Tenha um ótimo treino!`;
 
     const cleanedPhone = phone.replace(/\D/g, "");
-    
+
     // Fallback if no phone registered
     if (!cleanedPhone) {
       toast.info("Este aluno não possui WhatsApp cadastrado. O link foi copiado e abrirá o WhatsApp Geral.");
@@ -460,7 +468,7 @@ export default function FinancePage() {
     const matchesSearch =
       p.student.toLowerCase().includes(searchQuery.toLowerCase()) ||
       p.plan.toLowerCase().includes(searchQuery.toLowerCase());
-    
+
     if (activeTabFilter === "todos") return matchesSearch;
     return matchesSearch && p.status === activeTabFilter;
   });
@@ -590,7 +598,7 @@ export default function FinancePage() {
 
           {/* Main Grid: Chart & Table vs Alerts Sidebar */}
           <div className="grid gap-6 lg:grid-cols-3">
-            <div className="space-y-6 lg:col-span-2">
+            <div className="space-y-6 lg:col-span-2 min-w-0">
               {/* Revenue Chart */}
               <motion.div variants={item as any}>
                 <Card>
@@ -599,9 +607,9 @@ export default function FinancePage() {
                     <CardDescription>Visualização dos pagamentos manuais marcados como pagos nos últimos 6 meses.</CardDescription>
                   </CardHeader>
                   <CardContent>
-                    <div className="h-[300px] w-full">
+                    <div className="h-[250px] w-full min-w-0">
                       <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
+                        <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                           <defs>
                             <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
                               <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3} />
@@ -613,15 +621,15 @@ export default function FinancePage() {
                             dataKey="name"
                             axisLine={false}
                             tickLine={false}
-                            tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
-                            dy={10}
+                            tickMargin={8}
+                            className="text-[10px] font-bold text-muted-foreground"
                           />
                           <YAxis
                             axisLine={false}
                             tickLine={false}
-                            tick={{ fill: "var(--muted-foreground)", fontSize: 12 }}
-                            tickFormatter={(value) => `R$${value}`}
-                            dx={-10}
+                            width={40}
+                            tickFormatter={(value) => `R$ ${value}`}
+                            className="text-[10px] font-bold text-muted-foreground"
                           />
                           <Tooltip
                             contentStyle={{ backgroundColor: "var(--card)", borderColor: "var(--border)", borderRadius: "8px" }}
@@ -643,7 +651,6 @@ export default function FinancePage() {
                 </Card>
               </motion.div>
 
-              {/* Comprehensive Controle de Mensalidades List */}
               <motion.div variants={item as any}>
                 <Card>
                   <CardHeader className="pb-4">
@@ -655,7 +662,6 @@ export default function FinancePage() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    {/* Filter and Search Bar */}
                     <div className="flex flex-col sm:flex-row gap-3">
                       <div className="relative flex-1">
                         <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
@@ -686,7 +692,7 @@ export default function FinancePage() {
                       </div>
                     </div>
 
-                    <div className="space-y-3 max-h-[400px] overflow-y-auto pr-1 custom-scrollbar">
+                    <div className="space-y-3 max-h-100 overflow-y-auto pr-1 custom-scrollbar">
                       {filteredPayments.length === 0 ? (
                         <div className="flex flex-col items-center justify-center p-12 border border-dashed rounded-xl bg-secondary/10">
                           <Filter className="size-8 text-muted-foreground mb-2" />
@@ -694,10 +700,10 @@ export default function FinancePage() {
                         </div>
                       ) : (
                         filteredPayments.map((tx) => (
-                          <div key={tx.id} className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-secondary/20 hover:bg-secondary/40 transition-all group relative">
-                            <div className="flex items-center gap-4">
+                          <div key={tx.id} className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-secondary/20 hover:bg-secondary/40 transition-all gap-4 min-w-0">
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
                               <div className={cn(
-                                "size-10 rounded-full flex items-center justify-center shrink-0",
+                                "size-10 rounded-full flex items-center justify-center shrink-0 border",
                                 tx.status === "pago" ? "bg-success/10 text-success" :
                                   tx.status === "atrasado" ? "bg-destructive/10 text-destructive" :
                                     "bg-warning/10 text-warning"
@@ -706,67 +712,73 @@ export default function FinancePage() {
                                   tx.status === "atrasado" ? <AlertCircle className="size-5" /> :
                                     <Clock className="size-5" />}
                               </div>
-                              <div>
-                                <p className="font-semibold text-sm leading-tight text-white">{tx.student}</p>
-                                <div className="flex items-center gap-2 mt-1">
-                                  <p className="text-xs text-muted-foreground">{tx.plan}</p>
-                                  <span className="text-[10px] text-neutral-600">•</span>
-                                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                              <div className="flex flex-col gap-1 min-w-0 flex-1">
+                                <p className="font-semibold text-sm leading-tight text-white truncate">{tx.student}</p>
+                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                                  <span className="truncate max-w-[120px]">{tx.plan}</span>
+                                  <span className="text-[10px] text-zinc-700 select-none">•</span>
+                                  <span className="flex items-center gap-1 shrink-0">
                                     <Calendar className="size-3" />
                                     {new Date(tx.date).toLocaleDateString("pt-BR")}
-                                  </p>
+                                  </span>
+                                  <span className="text-[10px] text-zinc-700 select-none">•</span>
+                                  <span className="uppercase font-bold text-[9px] px-1.5 py-0.5 bg-secondary border border-border/50 rounded shrink-0">{tx.method}</span>
                                 </div>
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-4">
+                            <div className="flex items-center gap-3 shrink-0 ml-auto">
                               <div className="text-right">
                                 <p className="font-bold text-sm text-white">
                                   {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.amount)}
                                 </p>
-                                <div className="flex items-center justify-end gap-2 mt-1">
-                                  <span className="text-[10px] text-muted-foreground uppercase">{tx.method}</span>
+                                <div className="mt-1 flex justify-end">
                                   {getStatusBadge(tx.status)}
                                 </div>
                               </div>
 
-                              {/* Hover Quick Actions */}
-                              <div className="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity bg-neutral-900 p-1 rounded-lg border border-neutral-800 shadow-md">
-                                {tx.status !== "pago" && (
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
                                   <Button
-                                    size="icon"
                                     variant="ghost"
-                                    title="Marcar como Pago"
-                                    className="size-8 hover:bg-success/15 hover:text-success rounded-md text-muted-foreground"
-                                    onClick={() => handleQuickMarkAsPaid(tx.id)}
-                                    disabled={isUpdatingStatusId === tx.id}
+                                    size="icon"
+                                    className="size-8 rounded-lg hover:bg-neutral-800 text-muted-foreground hover:text-white cursor-pointer shrink-0"
                                   >
-                                    {isUpdatingStatusId === tx.id ? (
-                                      <Loader2 className="size-4 animate-spin" />
-                                    ) : (
-                                      <CheckCircle2 className="size-4" />
-                                    )}
+                                    <MoreHorizontal className="size-4" />
                                   </Button>
-                                )}
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  title="Editar Lançamento"
-                                  className="size-8 hover:bg-neutral-800 text-muted-foreground hover:text-white rounded-md"
-                                  onClick={() => handleOpenEditModal(tx)}
-                                >
-                                  <Edit className="size-4" />
-                                </Button>
-                                <Button
-                                  size="icon"
-                                  variant="ghost"
-                                  title="Excluir Lançamento"
-                                  className="size-8 hover:bg-destructive/15 hover:text-destructive text-muted-foreground rounded-md"
-                                  onClick={() => handleOpenDeleteConfirm(tx)}
-                                >
-                                  <Trash2 className="size-4" />
-                                </Button>
-                              </div>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end" className="w-52 rounded-xl border-border/50">
+                                  {tx.status !== "pago" && (
+                                    <DropdownMenuItem
+                                      onClick={() => handleQuickMarkAsPaid(tx.id)}
+                                      disabled={isUpdatingStatusId === tx.id}
+                                      className="h-9 rounded-lg gap-2 cursor-pointer font-semibold text-xs text-emerald-500 focus:text-emerald-500 focus:bg-emerald-500/10"
+                                    >
+                                      {isUpdatingStatusId === tx.id ? (
+                                        <Loader2 className="size-3.5 animate-spin" />
+                                      ) : (
+                                        <CheckCircle2 className="size-3.5" />
+                                      )}
+                                      <span>Confirmar Pagamento</span>
+                                    </DropdownMenuItem>
+                                  )}
+                                  <DropdownMenuItem
+                                    onClick={() => handleOpenEditModal(tx)}
+                                    className="h-9 rounded-lg gap-2 cursor-pointer font-semibold text-xs"
+                                  >
+                                    <Edit className="size-3.5 text-primary" />
+                                    <span>Editar Lançamento</span>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator />
+                                  <DropdownMenuItem
+                                    onClick={() => handleOpenDeleteConfirm(tx)}
+                                    className="h-9 rounded-lg gap-2 cursor-pointer text-red-500 focus:text-red-500 focus:bg-red-500/10 font-semibold text-xs"
+                                  >
+                                    <Trash2 className="size-3.5" />
+                                    <span>Excluir Lançamento</span>
+                                  </DropdownMenuItem>
+                                </DropdownMenuContent>
+                              </DropdownMenu>
                             </div>
                           </div>
                         ))
