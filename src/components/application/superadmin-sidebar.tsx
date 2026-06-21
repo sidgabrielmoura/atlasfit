@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
+import { signOut } from "next-auth/react";
 import {
   LayoutDashboard,
   Users,
@@ -201,7 +202,10 @@ export function SuperAdminSidebar() {
                   Site Público
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem className="h-10 rounded-lg cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10">
+                <DropdownMenuItem
+                  onClick={() => signOut({ callbackUrl: "/" })}
+                  className="h-10 rounded-lg cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10"
+                >
                   <LogOut className="mr-2 size-4" />
                   Encerrar Sessão
                 </DropdownMenuItem>
