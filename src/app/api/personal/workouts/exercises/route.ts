@@ -30,6 +30,9 @@ export async function GET(req: Request) {
     }
 
     const muscleGroupId = searchParams.get("muscleGroupId");
+    const search = searchParams.get("search") || "";
+    const muscle = searchParams.get("muscle") || "";
+    const paginated = searchParams.get("paginated") === "true" || !!searchParams.get("page");
 
     const whereClause: any = {
       AND: [
@@ -51,17 +54,76 @@ export async function GET(req: Request) {
       whereClause.AND.push({ muscleGroupId });
     }
 
-    const exercises = await prisma.exercise.findMany({
-      where: whereClause,
-      include: {
-        muscleGroup: true,
-      },
-      orderBy: {
-        name: "asc",
-      },
-    });
+    if (search) {
+      whereClause.AND.push({
+        name: { contains: search, mode: "insensitive" }
+      });
+    }
 
-    return NextResponse.json(exercises);
+    if (muscle && muscle !== "all") {
+      const muscleLower = muscle.toLowerCase();
+      if (muscleLower === "peito") {
+        whereClause.AND.push({
+          muscleGroup: {
+            OR: [
+              { name: { contains: "peito", mode: "insensitive" } },
+              { name: { contains: "peitoral", mode: "insensitive" } }
+            ]
+          }
+        });
+      } else {
+        whereClause.AND.push({
+          muscleGroup: {
+            name: { contains: muscle, mode: "insensitive" }
+          }
+        });
+      }
+    }
+
+    if (paginated) {
+      const page = parseInt(searchParams.get("page") || "1");
+      const limit = parseInt(searchParams.get("limit") || "12");
+      const skip = (page - 1) * limit;
+
+      const [exercises, total] = await Promise.all([
+        prisma.exercise.findMany({
+          where: whereClause,
+          include: {
+            muscleGroup: true,
+          },
+          orderBy: {
+            name: "asc",
+          },
+          skip,
+          take: limit,
+        }),
+        prisma.exercise.count({
+          where: whereClause
+        })
+      ]);
+
+      return NextResponse.json({
+        data: exercises,
+        pagination: {
+          total,
+          page,
+          limit,
+          pages: Math.ceil(total / limit),
+          hasMore: page * limit < total
+        }
+      });
+    } else {
+      const exercises = await prisma.exercise.findMany({
+        where: whereClause,
+        include: {
+          muscleGroup: true,
+        },
+        orderBy: {
+          name: "asc",
+        },
+      });
+      return NextResponse.json(exercises);
+    }
   } catch (error) {
     console.error("Error fetching exercises:", error);
     return new NextResponse("Erro Interno do Servidor", { status: 500 });

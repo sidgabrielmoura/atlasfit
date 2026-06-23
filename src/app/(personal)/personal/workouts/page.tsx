@@ -134,25 +134,90 @@ export default function WorkoutsPage() {
   const [loadingDbExercises, setLoadingDbExercises] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
 
+  // Exercise Pagination and Scroll States
+  const [loadingMoreExercises, setLoadingMoreExercises] = useState(false);
+  const [hasMoreExercises, setHasMoreExercises] = useState(false);
+  const [dbExercisesPage, setDbExercisesPage] = useState(1);
+  const [debouncedSearch, setDebouncedSearch] = useState("");
+  const [scrollTrigger, setScrollTrigger] = useState<HTMLElement | null>(null);
+
   // Exercise Preview State
   const [previewExercise, setPreviewExercise] = useState<any>(null);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
-  // Fetch approved/official exercises
-  const fetchDbExercises = async () => {
+  // Debounce exercise search
+  useEffect(() => {
+    const handler = setTimeout(() => {
+      setDebouncedSearch(exerciseSearch);
+    }, 300);
+    return () => clearTimeout(handler);
+  }, [exerciseSearch]);
+
+  // Fetch approved/official exercises with paginated API
+  const fetchDbExercises = async (page: number, search: string, filter: string, isAppend = false) => {
+    if (page > 1 && (loadingMoreExercises || loadingDbExercises)) return;
+
     try {
-      setLoadingDbExercises(true);
-      const res = await fetch("/api/personal/workouts/exercises");
+      if (page === 1) {
+        setLoadingDbExercises(true);
+      } else {
+        setLoadingMoreExercises(true);
+      }
+
+      const params = new URLSearchParams({
+        paginated: "true",
+        page: page.toString(),
+        limit: "12",
+        search: search,
+        muscle: filter,
+      });
+
+      const res = await fetch(`/api/personal/workouts/exercises?${params.toString()}`);
       if (res.ok) {
-        const data = await res.json();
-        setDbExercises(data);
+        const payload = await res.json();
+        if (isAppend) {
+          setDbExercises((prev) => {
+            const existingIds = new Set(prev.map((e) => e.id));
+            const newExercises = payload.data.filter((e: any) => !existingIds.has(e.id));
+            return [...prev, ...newExercises];
+          });
+        } else {
+          setDbExercises(payload.data);
+        }
+        setHasMoreExercises(payload.pagination.hasMore);
+        setDbExercisesPage(page);
       }
     } catch (error) {
       console.error("Error loading exercises from DB:", error);
     } finally {
       setLoadingDbExercises(false);
+      setLoadingMoreExercises(false);
     }
   };
+
+  // Infinite scroll intersection observer
+  useEffect(() => {
+    if (!scrollTrigger || !hasMoreExercises || loadingDbExercises || loadingMoreExercises) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          fetchDbExercises(dbExercisesPage + 1, debouncedSearch, exerciseFilter, true);
+        }
+      },
+      { threshold: 0.1 }
+    );
+
+    observer.observe(scrollTrigger);
+    return () => {
+      observer.unobserve(scrollTrigger);
+    };
+  }, [scrollTrigger, hasMoreExercises, loadingDbExercises, loadingMoreExercises, dbExercisesPage, debouncedSearch, exerciseFilter]);
+
+  // Load paginated exercises when search, filter, or workspace changes
+  useEffect(() => {
+    fetchDbExercises(1, debouncedSearch, exerciseFilter, false);
+  }, [activeWorkspaceId, debouncedSearch, exerciseFilter]);
 
   // Fetch requested exercises
   const fetchRequestedExercises = async () => {
@@ -199,6 +264,9 @@ export default function WorkoutsPage() {
     setDbExercises([]);
     setRequestedExercises([]);
     setAdjustmentRequests([]);
+    setDbExercisesPage(1);
+    setHasMoreExercises(false);
+    setLoadingMoreExercises(false);
 
     const fetchMuscleGroups = async () => {
       try {
@@ -217,7 +285,6 @@ export default function WorkoutsPage() {
     fetchMuscleGroups();
     fetchRequestedExercises();
     fetchAdjustmentRequests();
-    fetchDbExercises();
   }, [activeWorkspaceId]);
 
   const handleRequestSubmit = async (e: React.FormEvent) => {
@@ -425,20 +492,7 @@ export default function WorkoutsPage() {
     return matchesSearch && matchesFilter;
   });
 
-  const filteredExercises = dbExercises.filter((exercise) => {
-    const matchesSearch = exercise.name.toLowerCase().includes(exerciseSearch.toLowerCase());
-    let matchesFilter = true;
-    if (exerciseFilter !== "all") {
-      const exerciseMuscleName = exercise.muscleGroup?.name?.toLowerCase() || "";
-      const filterLower = exerciseFilter.toLowerCase();
-      if (filterLower === "peito") {
-        matchesFilter = exerciseMuscleName.includes("peito") || exerciseMuscleName.includes("peitoral");
-      } else {
-        matchesFilter = exerciseMuscleName.includes(filterLower);
-      }
-    }
-    return matchesSearch && matchesFilter;
-  });
+  const filteredExercises = dbExercises;
 
   return (
     <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
@@ -647,7 +701,8 @@ export default function WorkoutsPage() {
                       setRefreshing(true);
                       await Promise.all([
                         fetchRequestedExercises(),
-                        fetchAdjustmentRequests()
+                        fetchAdjustmentRequests(),
+                        fetchDbExercises(1, debouncedSearch, exerciseFilter, false)
                       ]);
                       toast.success("Solicitações e mensagens atualizadas!");
                     } catch (error) {
@@ -785,68 +840,128 @@ export default function WorkoutsPage() {
             </div>
           )}
 
-          <motion.div
-            variants={container}
-            initial="hidden"
-            animate="show"
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"
-          >
-            {filteredExercises.length === 0 ? (
-              <div className="col-span-full py-12 text-center border-2 border-dashed border-border rounded-xl bg-secondary/10">
-                <p className="text-muted-foreground font-medium">Nenhum exercício encontrado.</p>
-              </div>
-            ) : (
-              filteredExercises.map((exercise) => (
-                <motion.div key={exercise.id} variants={item as any}>
-                  <Card className="hover:bg-card/60 transition-colors duration-200 p-0">
-                    <CardContent className="p-4 flex items-center justify-between gap-4">
-                      <div
-                        className="flex items-center gap-4 min-w-0 flex-1 cursor-pointer"
-                        onClick={() => {
-                          setPreviewExercise(exercise);
-                          setIsPreviewModalOpen(true);
-                        }}
-                      >
-                        <ExerciseThumbnail videoUrl={exercise.videoUrl} className="size-12 rounded-xl" />
-                        <div className="min-w-0 flex-1">
-                          <h4 className="font-bold text-sm text-white truncate group-hover:text-primary transition-colors">{exercise.name}</h4>
-                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
-                            <span className="flex items-center gap-1">
-                              <Activity className="size-3" />
-                              {exercise.muscleGroup?.name || "Geral"}
-                            </span>
-                            <span className="flex items-center gap-1">
-                              <PlaySquare className="size-3" />
-                              {exercise.videoUrl ? "Demonstração em Vídeo" : "Sem Vídeo"}
-                            </span>
-                          </div>
+          {loadingDbExercises && dbExercises.length === 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <Card key={i} className="p-0 border border-neutral-800 bg-neutral-950/40 rounded-xl">
+                  <CardContent className="p-4 flex items-center justify-between gap-4">
+                    <div className="flex items-center gap-4 flex-1">
+                      <Skeleton className="size-12 rounded-xl bg-neutral-900 animate-pulse shrink-0" />
+                      <div className="flex-1 space-y-2 min-w-0">
+                        <Skeleton className="h-4 w-3/4 rounded bg-neutral-900 animate-pulse" />
+                        <div className="flex gap-3">
+                          <Skeleton className="h-3 w-16 rounded bg-neutral-900 animate-pulse" />
+                          <Skeleton className="h-3 w-24 rounded bg-neutral-900 animate-pulse" />
                         </div>
                       </div>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-xs text-primary hover:text-primary-foreground hover:bg-primary gap-1 shrink-0 h-8 px-2.5 rounded-md cursor-pointer"
-                        onClick={() => {
-                          const hasPending = adjustmentRequests.some(
-                            (req) => req.exerciseId === exercise.id && req.status === "PENDING"
-                          );
-                          if (hasPending) {
-                            toast.warning("Você já possui uma solicitação de reajuste em andamento para este exercício. Ela precisa ser concluída antes de iniciar uma nova.");
-                            return;
-                          }
-                          setSelectedExerciseForAdjustment(exercise);
-                          setIsAdjustmentModalOpen(true);
-                        }}
-                      >
-                        <RefreshCw className="size-3" />
-                        <span>Reajustar</span>
-                      </Button>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              ))
-            )}
-          </motion.div>
+                    </div>
+                    <Skeleton className="h-8 w-20 rounded bg-neutral-900 animate-pulse shrink-0" />
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <>
+              <motion.div
+                variants={container}
+                initial="hidden"
+                animate="show"
+                className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3"
+              >
+                {filteredExercises.length === 0 ? (
+                  <div className="col-span-full py-12 text-center border-2 border-dashed border-border rounded-xl bg-secondary/10">
+                    <p className="text-muted-foreground font-medium">Nenhum exercício encontrado.</p>
+                  </div>
+                ) : (
+                  filteredExercises.map((exercise) => (
+                    <motion.div key={exercise.id} variants={item as any}>
+                      <Card className="hover:bg-card/60 transition-colors duration-200 p-0">
+                        <CardContent className="p-4 flex items-center justify-between gap-4">
+                          <div
+                            className="flex items-center gap-4 min-w-0 flex-1 cursor-pointer"
+                            onClick={() => {
+                              setPreviewExercise(exercise);
+                              setIsPreviewModalOpen(true);
+                            }}
+                          >
+                            <ExerciseThumbnail videoUrl={exercise.videoUrl} className="size-12 rounded-xl" />
+                            <div className="min-w-0 flex-1">
+                              <h4 className="font-bold text-sm text-white truncate group-hover:text-primary transition-colors">{exercise.name}</h4>
+                              <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
+                                <span className="flex items-center gap-1">
+                                  <Activity className="size-3" />
+                                  {exercise.muscleGroup?.name || "Geral"}
+                                </span>
+                                <span className="flex items-center gap-1">
+                                  <PlaySquare className="size-3" />
+                                  {exercise.videoUrl ? "Demonstração em Vídeo" : "Sem Vídeo"}
+                                </span>
+                              </div>
+                            </div>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="text-xs text-primary hover:text-primary-foreground hover:bg-primary gap-1 shrink-0 h-8 px-2.5 rounded-md cursor-pointer"
+                            onClick={() => {
+                              const hasPending = adjustmentRequests.some(
+                                (req) => req.exerciseId === exercise.id && req.status === "PENDING"
+                              );
+                              if (hasPending) {
+                                toast.warning("Você já possui uma solicitação de reajuste em andamento para este exercício. Ela precisa ser concluída antes de iniciar uma nova.");
+                                return;
+                              }
+                              setSelectedExerciseForAdjustment(exercise);
+                              setIsAdjustmentModalOpen(true);
+                            }}
+                          >
+                            <RefreshCw className="size-3" />
+                            <span>Reajustar</span>
+                          </Button>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
+                  ))
+                )}
+
+                {/* Additional loading skeletons representing incoming page */}
+                {loadingMoreExercises && (
+                  <>
+                    {[1, 2, 3].map((i) => (
+                      <Card key={`more-skeleton-${i}`} className="p-0 border border-neutral-800 bg-neutral-950/40 rounded-xl">
+                        <CardContent className="p-4 flex items-center justify-between gap-4 animate-pulse">
+                          <div className="flex items-center gap-4 flex-1">
+                            <Skeleton className="size-12 rounded-xl bg-neutral-900 shrink-0" />
+                            <div className="flex-1 space-y-2 min-w-0">
+                              <Skeleton className="h-4 w-3/4 rounded bg-neutral-900" />
+                              <div className="flex gap-3">
+                                <Skeleton className="h-3 w-16 rounded bg-neutral-900" />
+                                <Skeleton className="h-3 w-24 rounded bg-neutral-900" />
+                              </div>
+                            </div>
+                          </div>
+                          <Skeleton className="h-8 w-20 rounded bg-neutral-900 shrink-0" />
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </>
+                )}
+              </motion.div>
+
+              {/* Scroll Trigger Sentinel */}
+              {hasMoreExercises && !loadingDbExercises && !loadingMoreExercises && (
+                <div
+                  ref={setScrollTrigger}
+                  className="w-full py-6 flex items-center justify-center gap-2"
+                >
+                  <Loader2 className="size-5 animate-spin text-primary animate-spin-slow" />
+                  <span className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                    Carregando mais exercícios...
+                  </span>
+                </div>
+              )}
+            </>
+          )}
         </TabsContent>
       </Tabs>
 

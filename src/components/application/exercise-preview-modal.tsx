@@ -56,6 +56,29 @@ export function getGoogleDriveEmbedUrl(url: string | null | undefined) {
   return null;
 }
 
+export function getGoogleDriveDirectUrl(url: string | null | undefined) {
+  if (!url) return null;
+  const fileDRegex = /drive\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/;
+  const openIdRegex = /id=([a-zA-Z0-9_-]+)/;
+  const docsDRegex = /docs\.google\.com\/file\/d\/([a-zA-Z0-9_-]+)/;
+
+  if (url.includes("drive.google.com") || url.includes("docs.google.com")) {
+    const matchD = url.match(fileDRegex);
+    if (matchD && matchD[1]) {
+      return `https://lh3.googleusercontent.com/d/${matchD[1]}`;
+    }
+    const matchDocs = url.match(docsDRegex);
+    if (matchDocs && matchDocs[1]) {
+      return `https://lh3.googleusercontent.com/d/${matchDocs[1]}`;
+    }
+    const matchOpen = url.match(openIdRegex);
+    if (matchOpen && matchOpen[1]) {
+      return `https://lh3.googleusercontent.com/d/${matchOpen[1]}`;
+    }
+  }
+  return null;
+}
+
 interface ExerciseThumbnailProps {
   videoUrl?: string | null;
   className?: string;
@@ -63,6 +86,7 @@ interface ExerciseThumbnailProps {
 
 export function ExerciseThumbnail({ videoUrl, className }: ExerciseThumbnailProps) {
   const youtubeId = getYouTubeId(videoUrl);
+  const driveDirectUrl = getGoogleDriveDirectUrl(videoUrl);
   const isGif = videoUrl?.toLowerCase().endsWith(".gif") || videoUrl?.toLowerCase().includes(".gif") || videoUrl?.toLowerCase().includes("giphy");
   const isMp4 = videoUrl?.toLowerCase().endsWith(".mp4") || videoUrl?.toLowerCase().includes(".mp4");
   const isDrive = videoUrl?.includes("drive.google.com") || videoUrl?.includes("docs.google.com");
@@ -73,6 +97,12 @@ export function ExerciseThumbnail({ videoUrl, className }: ExerciseThumbnailProp
         <img
           src={`https://img.youtube.com/vi/${youtubeId}/hqdefault.jpg`}
           alt="thumbnail"
+          className="size-full object-cover group-hover/thumb:scale-110 transition-transform duration-300"
+        />
+      ) : driveDirectUrl ? (
+        <img
+          src={driveDirectUrl}
+          alt="drive thumbnail"
           className="size-full object-cover group-hover/thumb:scale-110 transition-transform duration-300"
         />
       ) : isGif && videoUrl ? (
@@ -123,6 +153,7 @@ export function ExercisePreviewModal({ exercise, open, onOpenChange }: ExerciseP
   if (!exercise) return null;
 
   const youtubeId = getYouTubeId(exercise.videoUrl);
+  const driveDirectUrl = getGoogleDriveDirectUrl(exercise.videoUrl);
   const isGif = exercise.videoUrl?.toLowerCase().endsWith(".gif") || exercise.videoUrl?.toLowerCase().includes(".gif") || exercise.videoUrl?.toLowerCase().includes("giphy");
   const isMp4 = exercise.videoUrl?.toLowerCase().endsWith(".mp4") || exercise.videoUrl?.toLowerCase().includes(".mp4");
   const driveEmbedUrl = getGoogleDriveEmbedUrl(exercise.videoUrl);
@@ -141,6 +172,12 @@ export function ExercisePreviewModal({ exercise, open, onOpenChange }: ExerciseP
             className="w-full h-full border-none"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
+          />
+        ) : driveDirectUrl ? (
+          <img
+            src={driveDirectUrl}
+            alt={`Demonstração de ${exercise.name}`}
+            className="w-full h-full object-contain"
           />
         ) : driveEmbedUrl ? (
           <iframe

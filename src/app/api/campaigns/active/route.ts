@@ -22,6 +22,17 @@ export async function GET() {
 
     const now = new Date();
 
+    // Auto-deactivate campaigns in the database if their endDate has passed
+    await prisma.campaign.updateMany({
+      where: {
+        isActive: true,
+        endDate: { lt: now }
+      },
+      data: {
+        isActive: false
+      }
+    });
+
     // Map the GlobalRole to CampaignTarget
     const targetRoles: ("PERSONAL" | "STUDENT" | "ALL")[] = ["ALL"];
     

@@ -455,7 +455,7 @@ function ExercisesContent() {
                 <Card className="border-border/40 bg-card/50">
                   <CardContent className="p-4 md:p-6 space-y-2">
                     <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Total de Exercícios</p>
-                    <p className="text-xl md:text-2xl font-black">{officialExercisesRaw.length + needsConfigExercisesRaw.length}</p>
+                    <p className="text-xl md:text-2xl font-black">{snap.exercisePagination.total + needsConfigExercisesRaw.length}</p>
                   </CardContent>
                 </Card>
                 <Card className="border-border/40 bg-card/50">
@@ -922,7 +922,7 @@ function ExercisesContent() {
       </div>
 
       <Dialog open={isConfigModalOpen} onOpenChange={setIsConfigModalOpen}>
-        <DialogContent className="max-w-xl rounded-2xl">
+        <DialogContent className="max-w-xl! rounded-2xl!">
           <DialogHeader>
             <DialogTitle className="text-2xl font-black tracking-tight">
               {selectedExercise ? "Editar Exercício" : "Novo Exercício Oficial"}
