@@ -50,8 +50,20 @@ export async function GET(req: Request) {
         }
       ]
     };
+
     if (muscleGroupId) {
-      whereClause.AND.push({ muscleGroupId });
+      whereClause.AND.push({
+        OR: [
+          { muscleGroupId },
+          {
+            muscleGroups: {
+              some: {
+                id: muscleGroupId
+              }
+            }
+          }
+        ]
+      });
     }
 
     if (search) {
@@ -64,18 +76,43 @@ export async function GET(req: Request) {
       const muscleLower = muscle.toLowerCase();
       if (muscleLower === "peito") {
         whereClause.AND.push({
-          muscleGroup: {
-            OR: [
-              { name: { contains: "peito", mode: "insensitive" } },
-              { name: { contains: "peitoral", mode: "insensitive" } }
-            ]
-          }
+          OR: [
+            {
+              muscleGroup: {
+                OR: [
+                  { name: { contains: "peito", mode: "insensitive" } },
+                  { name: { contains: "peitoral", mode: "insensitive" } }
+                ]
+              }
+            },
+            {
+              muscleGroups: {
+                some: {
+                  OR: [
+                    { name: { contains: "peito", mode: "insensitive" } },
+                    { name: { contains: "peitoral", mode: "insensitive" } }
+                  ]
+                }
+              }
+            }
+          ]
         });
       } else {
         whereClause.AND.push({
-          muscleGroup: {
-            name: { contains: muscle, mode: "insensitive" }
-          }
+          OR: [
+            {
+              muscleGroup: {
+                name: { contains: muscle, mode: "insensitive" }
+              }
+            },
+            {
+              muscleGroups: {
+                some: {
+                  name: { contains: muscle, mode: "insensitive" }
+                }
+              }
+            }
+          ]
         });
       }
     }
@@ -90,6 +127,7 @@ export async function GET(req: Request) {
           where: whereClause,
           include: {
             muscleGroup: true,
+            muscleGroups: true,
           },
           orderBy: {
             name: "asc",
@@ -117,6 +155,7 @@ export async function GET(req: Request) {
         where: whereClause,
         include: {
           muscleGroup: true,
+          muscleGroups: true,
         },
         orderBy: {
           name: "asc",

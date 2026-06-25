@@ -30,6 +30,7 @@ export async function GET(req: Request) {
             exercise: {
               include: {
                 muscleGroup: true,
+                muscleGroups: true,
               },
             },
             group: true,
@@ -137,6 +138,7 @@ export async function POST(req: Request) {
               exercise: {
                 include: {
                   muscleGroup: true,
+                  muscleGroups: true,
                 },
               },
               group: true,

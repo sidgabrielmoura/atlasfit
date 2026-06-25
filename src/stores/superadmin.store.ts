@@ -415,7 +415,7 @@ export const superAdminActions = {
       throw new Error(err.response?.data || err.message);
     }
   },
-  async createExercise(data: { name: string; videoUrl: string; muscleGroupId: string; isOfficial: boolean }) {
+  async createExercise(data: { name: string; videoUrl: string; muscleGroupId?: string; muscleGroupIds?: string[]; isOfficial: boolean }) {
     try {
       await api.post("/superadmin/exercises", { ...data, status: "READY" });
       await Promise.all([
@@ -427,7 +427,7 @@ export const superAdminActions = {
       throw new Error(err.response?.data || err.message);
     }
   },
-  async configureExercise(id: string, data: { name: string; videoUrl: string; muscleGroupId: string; isOfficial: boolean }) {
+  async configureExercise(id: string, data: { name: string; videoUrl: string; muscleGroupId?: string; muscleGroupIds?: string[]; isOfficial: boolean }) {
     try {
       await api.patch(`/superadmin/exercises/${id}`, { ...data, status: "READY" });
       await Promise.all([

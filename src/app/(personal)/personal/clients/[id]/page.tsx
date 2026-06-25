@@ -43,6 +43,7 @@ import {
   Sparkles,
   Link2,
   FileText,
+  Play,
   X
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
@@ -62,6 +63,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { PhysicalEvaluationFormModal } from "@/components/application/physical-evaluation-form-modal";
+import { ExercisePreviewModal } from "@/components/application/exercise-preview-modal";
 import { PhysicalEvaluationDetailModal } from "@/components/application/physical-evaluation-detail-modal";
 import {
   ResponsiveContainer,
@@ -263,38 +265,30 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   };
 
 
-  // Profile data state
   const [student, setStudent] = useState<any>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
 
-  // Workouts data state
   const [studentWorkouts, setStudentWorkouts] = useState<any[]>([]);
   const [loadingWorkouts, setLoadingWorkouts] = useState(true);
 
-  // Workspace general workouts (templates)
   const [templates, setTemplates] = useState<any[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
 
-  // Control UI Expansion for specific workout details
   const [expandedWorkouts, setExpandedWorkouts] = useState<string[]>([]);
 
-  // Modals & Forms visibility
   const [isAssignModalOpen, setIsAssignModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [workoutToDelete, setWorkoutToDelete] = useState<any>(null);
 
-  // Action status (loading indicators for rules)
   const [submittingAssign, setSubmittingAssign] = useState(false);
   const [submittingEdit, setSubmittingEdit] = useState(false);
   const [submittingDelete, setSubmittingDelete] = useState(false);
 
-  // Form State for Adding/Assigning Workout
   const [assignType, setAssignType] = useState<"library" | "custom">("library");
   const [selectedTemplateId, setSelectedTemplateId] = useState("");
-  const [assignDayOfWeek, setAssignDayOfWeek] = useState("1"); // Segunda-feira default
+  const [assignDayOfWeek, setAssignDayOfWeek] = useState("1");
 
-  // Custom workout states (creation from scratch)
   const [customName, setCustomName] = useState("");
   const [customGoal, setCustomGoal] = useState("Hipertrofia");
   const [customDifficulty, setCustomDifficulty] = useState("Intermediário");
@@ -303,7 +297,6 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   const [customMuscleGroup, setCustomMuscleGroup] = useState("");
   const [customExercises, setCustomExercises] = useState<any[]>([]);
 
-  // Custom Workout - Method Dialog States per exercise
   const [customMethodDialogOpen, setCustomMethodDialogOpen] = useState(false);
   const [customActiveExerciseIndex, setCustomActiveExerciseIndex] = useState<number | null>(null);
   const [customActiveMethodType, setCustomActiveMethodType] = useState<"NONE" | "DROPSET" | "REST_PAUSE">("NONE");
@@ -312,7 +305,6 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   const [customRestPauseTime, setCustomRestPauseTime] = useState(15);
   const [customRestPauseRounds, setCustomRestPauseRounds] = useState(2);
 
-  // Exercise database fetching states for custom creations
   const [dbExercises, setDbExercises] = useState<any[]>([]);
   const [loadingExercises, setLoadingExercises] = useState(false);
   const [muscleGroups, setMuscleGroups] = useState<any[]>([]);
@@ -321,7 +313,6 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   const [tempSelected, setTempSelected] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Edit Workout Form State
   const [selectedWorkoutToEdit, setSelectedWorkoutToEdit] = useState<any>(null);
   const [editName, setEditName] = useState("");
   const [editGoal, setEditGoal] = useState("");
@@ -331,21 +322,20 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   const [editMuscleGroup, setEditMuscleGroup] = useState("");
   const [editDayOfWeek, setEditDayOfWeek] = useState("1");
   const [editExercises, setEditExercises] = useState<any[]>([]);
+  const [previewExercise, setPreviewExercise] = useState<any>(null);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
-  // ==================== NEW STATES: INDIVIDUAL PROGRESS & PHOTO TIMELINE ====================
   const [progressHistory, setProgressHistory] = useState<any[]>([]);
   const [loadingProgress, setLoadingProgress] = useState(false);
   const [photos, setPhotos] = useState<any[]>([]);
   const [loadingPhotos, setLoadingPhotos] = useState(false);
 
-  // Modals & form submissions
   const [isProgressModalOpen, setIsProgressModalOpen] = useState(false);
   const [submittingProgress, setSubmittingProgress] = useState(false);
   const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
   const [submittingPhoto, setSubmittingPhoto] = useState(false);
   const [requestingUpdate, setRequestingUpdate] = useState(false);
 
-  // Dialog deletes
   const [isDeleteProgressAlertOpen, setIsDeleteProgressAlertOpen] = useState(false);
   const [progressToDelete, setProgressToDelete] = useState<any>(null);
   const [submittingDeleteProgress, setSubmittingDeleteProgress] = useState(false);
@@ -353,7 +343,6 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   const [photoToDelete, setPhotoToDelete] = useState<any>(null);
   const [submittingDeletePhoto, setSubmittingDeletePhoto] = useState(false);
 
-  // Local Date Helper to avoid timezone shift on GMT-3 etc.
   const getLocalDateString = () => {
     const today = new Date();
     const year = today.getFullYear();
@@ -736,7 +725,10 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
         return {
           exerciseId: ex.exercise.id,
           name: ex.exercise.name,
-          muscleGroup: ex.exercise.muscleGroup?.name || "Geral",
+          videoUrl: ex.exercise.videoUrl,
+          muscleGroup: ex.exercise.muscleGroups && ex.exercise.muscleGroups.length > 0
+            ? ex.exercise.muscleGroups.map((g: any) => g.name).join(", ")
+            : (ex.exercise.muscleGroup?.name || "Geral"),
           sets: ex.sets,
           reps: repsStr,
           rest: restStr,
@@ -861,6 +853,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
     const newExercises = tempSelected.map((exercise) => ({
       exerciseId: exercise.id,
       name: exercise.name,
+      videoUrl: exercise.videoUrl,
       muscleGroup: muscleGroups.find((g) => g.id === selectedMuscleGroupId)?.name || "Geral",
       sets: 4,
       reps: "10",
@@ -896,6 +889,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
         if (i !== index) return ex;
 
         const updated = { ...ex, [field]: value };
+        const isBodyweight = String(ex.load || "").toLowerCase().includes("p.c");
 
         // If updating sets, resize the individualSets array accordingly
         if (field === "sets") {
@@ -911,7 +905,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
             const loadArr = String(ex.load).split(",").map(s => s.trim());
             const restArr = String(ex.rest).split(",").map(s => s.trim());
             const fallbackReps = repsArr[0] || "10";
-            const fallbackLoad = loadArr[0] || "";
+            const fallbackLoad = isBodyweight ? "p.c." : (loadArr[0] || "");
             const fallbackRest = restArr[0] || "60s";
 
             updated.individualSets = Array.from({ length: setsCount }, (_, si) => {
@@ -942,7 +936,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
         if (!updated.isIndividual && updated.sets !== "") {
           updated.individualSets = Array.from({ length: Number(updated.sets) || 1 }, () => ({
             reps: updated.reps || "10",
-            load: updated.load || "",
+            load: isBodyweight ? "p.c." : (updated.load || ""),
             rest: updated.rest || "60s",
           }));
         }
@@ -980,6 +974,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
         if (i !== index) return ex;
 
         const updated = { ...ex, isIndividual: checked };
+        const isBodyweight = String(ex.load || "").toLowerCase().includes("p.c");
 
         if (checked) {
           const repsArr = String(ex.reps).split(",").map((s) => s.trim());
@@ -989,21 +984,51 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
           updated.individualSets = Array.from({ length: ex.sets }, (_, si) => ({
             reps: repsArr[si] || repsArr[0] || "10",
             rest: restArr[si] || restArr[0] || "60s",
-            load: loadArr[si] || loadArr[0] || "",
+            load: isBodyweight ? "p.c." : (loadArr[si] || loadArr[0] || ""),
           }));
 
           updated.reps = updated.individualSets.map((s: any) => s.reps).join(", ");
           updated.rest = updated.individualSets.map((s: any) => s.rest).join(", ");
           updated.load = updated.individualSets.map((s: any) => s.load).join(", ");
         } else {
-          const firstSet = ex.individualSets?.[0] || { reps: "10", rest: "60s", load: "" };
+          const firstSet = ex.individualSets?.[0] || { reps: "10", rest: "60s", load: isBodyweight ? "p.c." : "" };
+          const finalLoad = isBodyweight ? "p.c." : firstSet.load;
           updated.reps = firstSet.reps;
           updated.rest = firstSet.rest;
-          updated.load = firstSet.load;
+          updated.load = finalLoad;
           updated.individualSets = Array.from({ length: ex.sets }, () => ({
             reps: firstSet.reps,
             rest: firstSet.rest,
-            load: firstSet.load,
+            load: finalLoad,
+          }));
+        }
+
+        return updated;
+      })
+    );
+  };
+
+  const handleToggleBodyweight = (index: number, checked: boolean, isEdit: boolean) => {
+    const setter = isEdit ? setEditExercises : setCustomExercises;
+    setter((prev) =>
+      prev.map((ex, i) => {
+        if (i !== index) return ex;
+
+        const loadVal = checked ? "p.c." : "";
+        const updated = { ...ex };
+
+        if (ex.isIndividual) {
+          updated.individualSets = (ex.individualSets || []).map((s: any) => ({
+            ...s,
+            load: loadVal,
+          }));
+          updated.load = updated.individualSets.map((s: any) => s.load).join(", ");
+        } else {
+          updated.load = loadVal;
+          updated.individualSets = Array.from({ length: Number(ex.sets) || 1 }, () => ({
+            reps: ex.reps || "10",
+            rest: ex.rest || "60s",
+            load: loadVal,
           }));
         }
 
@@ -2112,7 +2137,9 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                                   )}
                                                 </div>
                                                 <span className="text-[9px] text-muted-foreground/80 block truncate uppercase font-bold tracking-wider">
-                                                  {we.exercise?.muscleGroup?.name || "Geral"}
+                                                  {we.exercise?.muscleGroups && we.exercise.muscleGroups.length > 0
+                                                    ? we.exercise.muscleGroups.map((g: any) => g.name).join(", ")
+                                                    : (we.exercise?.muscleGroup?.name || "Geral")}
                                                 </span>
                                               </div>
 
@@ -2125,8 +2152,14 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                                 {loadArr[0] && (
                                                   <>
                                                     <span className="text-border/40">|</span>
-                                                    <span className="font-bold text-foreground">{loadArr[0]}</span>
-                                                    <span>kg</span>
+                                                    {loadArr[0].toLowerCase().includes("p.c") ? (
+                                                      <span className="font-bold text-primary">Peso do Corpo</span>
+                                                    ) : (
+                                                      <>
+                                                        <span className="font-bold text-foreground">{loadArr[0]}</span>
+                                                        <span>kg</span>
+                                                      </>
+                                                    )}
                                                   </>
                                                 )}
                                                 {restArr[0] && (
@@ -2293,6 +2326,21 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                                   </span>
                                                   <div className="min-w-0">
                                                     <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                                                      {we.exercise?.videoUrl && (
+                                                        <Button
+                                                          type="button"
+                                                          variant="ghost"
+                                                          size="icon"
+                                                          onClick={() => {
+                                                            setPreviewExercise(we.exercise);
+                                                            setIsPreviewModalOpen(true);
+                                                          }}
+                                                          className="h-5 w-5 text-primary hover:bg-primary/10 hover:text-primary rounded shrink-0 p-0"
+                                                          title="Visualizar execução"
+                                                        >
+                                                          <Play className="size-3 fill-primary" />
+                                                        </Button>
+                                                      )}
                                                       <span className="text-xs font-bold text-foreground block leading-none">
                                                         {we.exercise?.name}
                                                       </span>
@@ -2319,7 +2367,9 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                                       )}
                                                     </div>
                                                     <span className="text-[9px] text-muted-foreground/80 block truncate uppercase font-bold tracking-wider">
-                                                      {we.exercise?.muscleGroup?.name || "Geral"}
+                                                      {we.exercise?.muscleGroups && we.exercise.muscleGroups.length > 0
+                                                        ? we.exercise.muscleGroups.map((g: any) => g.name).join(", ")
+                                                        : (we.exercise?.muscleGroup?.name || "Geral")}
                                                     </span>
                                                   </div>
                                                 </div>
@@ -2333,8 +2383,14 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                                   {loadArr[0] && (
                                                     <>
                                                       <span className="text-border/40">|</span>
-                                                      <span className="font-bold text-foreground">{loadArr[0]}</span>
-                                                      <span>kg</span>
+                                                      {loadArr[0].toLowerCase().includes("p.c") ? (
+                                                        <span className="font-bold text-primary">Peso do Corpo</span>
+                                                      ) : (
+                                                        <>
+                                                          <span className="font-bold text-foreground">{loadArr[0]}</span>
+                                                          <span>kg</span>
+                                                        </>
+                                                      )}
                                                     </>
                                                   )}
                                                   {restArr[0] && (
@@ -4298,7 +4354,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
       </Tabs>
 
       <Dialog open={isAssignModalOpen} onOpenChange={setIsAssignModalOpen}>
-        <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-3xl bg-popover border border-border text-foreground max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-3xl bg-popover border border-border text-foreground max-h-[90vh] overflow-y-auto!">
           <DialogHeader>
             <DialogTitle className="text-xl font-extrabold flex items-center gap-2 text-foreground">
               <Dumbbell className="size-5 text-primary" /> Planejar Novo Treino para o Aluno
@@ -4482,35 +4538,55 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                       <span>Nenhum exercício adicionado a este treino exclusivo ainda.</span>
                     </div>
                   ) : (
-                    <div className="space-y-3 max-h-[350px] overflow-y-auto pr-1">
+                    <div className="space-y-3 overflow-y-auto pr-1">
                       {customExercises.map((ex, idx) => (
                         <div
                           key={ex.exerciseId}
-                          className="p-3.5 border border-border rounded-xl bg-background/50 hover:bg-background/80 transition flex flex-row gap-3 items-center"
+                          className="p-3.5 border border-border rounded-xl bg-background/50 hover:bg-background/80 transition flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center relative"
                         >
-                          <div className="flex-1 flex flex-col gap-3.5">
-                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                              <div className="flex items-start sm:items-center gap-2.5 min-w-0">
-                                <div className="size-8 rounded-lg bg-secondary flex items-center justify-center shrink-0 border border-border mt-0.5 sm:mt-0">
-                                  <Activity className="size-4 text-primary" />
-                                </div>
+                          <div className="flex-1 flex flex-col gap-3">
+                            {/* Top Row: Info & Badges + Positioning & Delete Actions */}
+                            <div className="flex flex-row items-start justify-between gap-3 min-w-0">
+                              <div className="flex items-center gap-2.5 min-w-0">
+                                <button
+                                  type="button"
+                                  disabled={!ex.videoUrl}
+                                  onClick={() => {
+                                    setPreviewExercise({
+                                      id: ex.exerciseId,
+                                      name: ex.name,
+                                      videoUrl: ex.videoUrl,
+                                      muscleGroup: { name: ex.muscleGroup }
+                                    });
+                                    setIsPreviewModalOpen(true);
+                                  }}
+                                  className={cn(
+                                    "size-8 sm:size-9 rounded-lg bg-secondary flex items-center justify-center shrink-0 border border-border transition-all relative group/thumb",
+                                    ex.videoUrl ? "hover:border-primary/50 cursor-pointer" : "cursor-default"
+                                  )}
+                                >
+                                  <Activity className="size-4 text-primary group-hover/thumb:scale-110 transition-transform" />
+                                  {ex.videoUrl && (
+                                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity rounded-lg">
+                                      <Play className="size-3 fill-white text-white" />
+                                    </div>
+                                  )}
+                                </button>
                                 <div className="min-w-0">
-                                  <span className="text-sm font-semibold text-foreground block truncate leading-none mb-1">
-                                    {ex.name}
-                                  </span>
-                                  <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                                    <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                                  <h4 className="font-semibold text-sm text-foreground truncate">{ex.name}</h4>
+                                  <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                                    <Badge variant="secondary" className="text-[9px] bg-secondary/80 text-muted-foreground px-1.5 py-0">
                                       {ex.muscleGroup}
-                                    </span>
+                                    </Badge>
 
                                     {ex.methodType === "DROPSET" && (
-                                      <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] font-bold py-0.5 rounded-md">
+                                      <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] font-bold px-1.5 py-0">
                                         Dropset
                                       </Badge>
                                     )}
 
                                     {ex.methodType === "REST_PAUSE" && (
-                                      <Badge className="bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[9px] font-bold py-0.5 rounded-md">
+                                      <Badge className="bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[9px] font-bold px-1.5 py-0">
                                         Rest-Pause
                                       </Badge>
                                     )}
@@ -4518,138 +4594,181 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                 </div>
                               </div>
 
-                              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                                {!ex.isIndividual && (
-                                  <div className="grid grid-cols-4 gap-1.5 shrink-0 w-64">
-                                    <div className="space-y-0.5">
-                                      <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Séries</span>
-                                      <Input
-                                        type="number"
-                                        value={ex.sets}
-                                        onChange={(e) => handleUpdateExerciseField(idx, "sets", e.target.value, false)}
-                                        className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
-                                        min={1}
-                                      />
-                                    </div>
-                                    <div className="space-y-0.5">
-                                      <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Reps</span>
-                                      <Input
-                                        type="text"
-                                        value={ex.reps}
-                                        onChange={(e) => handleUpdateExerciseField(idx, "reps", e.target.value, false)}
-                                        className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
-                                        placeholder="10"
-                                      />
-                                    </div>
-                                    <div className="space-y-0.5">
-                                      <span className="text-[9px] uppercase font-bold text-muted-foreground pl-0.5 flex items-center gap-0.5 select-none">
-                                        Carga
-                                        <TooltipProvider>
-                                          <Tooltip>
-                                            <TooltipTrigger asChild>
-                                              <Info className="size-2.5 text-muted-foreground hover:text-foreground cursor-pointer shrink-0" />
-                                            </TooltipTrigger>
-                                            <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800 text-white p-2 rounded-xl shadow-xl">
-                                              Se não for atribuída uma carga, o próprio aluno que vai colocar quando estiver treinando.
-                                            </TooltipContent>
-                                          </Tooltip>
-                                        </TooltipProvider>
-                                      </span>
-                                      <Input
-                                        type="text"
-                                        value={ex.load || ""}
-                                        onChange={(e) => handleUpdateExerciseField(idx, "load", e.target.value, false)}
-                                        className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
-                                        placeholder="Auto"
-                                      />
-                                    </div>
-                                    <div className="space-y-0.5">
-                                      <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Desc.</span>
-                                      <Input
-                                        type="text"
-                                        value={ex.rest || "60s"}
-                                        onChange={(e) => handleUpdateExerciseField(idx, "rest", e.target.value, false)}
-                                        className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
-                                        placeholder="60s"
-                                      />
-                                    </div>
-                                  </div>
+                              <div className="flex items-center gap-0.5 shrink-0">
+                                {ex.videoUrl && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon"
+                                    onClick={() => {
+                                      setPreviewExercise({
+                                        id: ex.exerciseId,
+                                        name: ex.name,
+                                        videoUrl: ex.videoUrl,
+                                        muscleGroup: { name: ex.muscleGroup }
+                                      });
+                                      setIsPreviewModalOpen(true);
+                                    }}
+                                    className="h-8 w-8 text-primary hover:bg-primary/10 hover:text-primary"
+                                    title="Visualizar execução"
+                                  >
+                                    <Play className="size-4 fill-primary" />
+                                  </Button>
                                 )}
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => moveExerciseInCustom(idx, "up")}
+                                  disabled={idx === 0}
+                                  className="h-8 w-8 text-muted-foreground hover:text-foreground disabled:opacity-40"
+                                >
+                                  <ArrowUp className="size-4" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => moveExerciseInCustom(idx, "down")}
+                                  disabled={idx === customExercises.length - 1}
+                                  className="h-8 w-8 text-muted-foreground hover:text-foreground disabled:opacity-40"
+                                >
+                                  <ArrowDown className="size-4" />
+                                </Button>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => removeExerciseFromCustomList(idx)}
+                                  className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                                >
+                                  <Trash2 className="size-4" />
+                                </Button>
+                              </div>
+                            </div>
 
-                                {ex.isIndividual && (
-                                  <div className="space-y-0.5 shrink-0 w-16">
+                            {/* Middle Row: Inputs + Method configuration */}
+                            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-border/10 sm:border-0">
+                              {!ex.isIndividual && (
+                                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full sm:w-72 shrink-0">
+                                  <div className="space-y-1">
                                     <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Séries</span>
                                     <Input
                                       type="number"
                                       value={ex.sets}
                                       onChange={(e) => handleUpdateExerciseField(idx, "sets", e.target.value, false)}
-                                      className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
+                                      className="h-8 bg-card border-border w-full text-center text-xs px-1"
                                       min={1}
                                     />
                                   </div>
-                                )}
-
-                                <div className="flex items-center gap-0.5 shrink-0 self-end sm:self-center">
-                                  <Button
-                                    type="button"
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => handleOpenCustomMethodDialog(idx)}
-                                    className="h-8 max-sm:w-full gap-1 text-xs border-border/60 text-muted-foreground hover:text-foreground hover:bg-secondary/40 shrink-0 mr-1"
-                                  >
-                                    Método
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => moveExerciseInCustom(idx, "up")}
-                                    disabled={idx === 0}
-                                    className="h-7 w-7 text-muted-foreground hover:text-foreground rounded"
-                                  >
-                                    <ArrowUp className="size-3.5" />
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => moveExerciseInCustom(idx, "down")}
-                                    disabled={idx === customExercises.length - 1}
-                                    className="h-7 w-7 text-muted-foreground hover:text-foreground rounded"
-                                  >
-                                    <ArrowDown className="size-3.5" />
-                                  </Button>
-                                  <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => removeExerciseFromCustomList(idx)}
-                                    className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive rounded"
-                                  >
-                                    <Trash2 className="size-3.5" />
-                                  </Button>
+                                  <div className="space-y-1">
+                                    <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Reps</span>
+                                    <Input
+                                      type="text"
+                                      value={ex.reps}
+                                      onChange={(e) => handleUpdateExerciseField(idx, "reps", e.target.value, false)}
+                                      className="h-8 bg-card border-border w-full text-center text-xs px-1"
+                                      placeholder="Ex: 10"
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <span className="text-[9px] uppercase font-bold text-muted-foreground pl-0.5 flex items-center gap-0.5 select-none">
+                                      Carga
+                                      <TooltipProvider>
+                                        <Tooltip>
+                                          <TooltipTrigger asChild>
+                                            <Info className="size-3 text-muted-foreground hover:text-foreground cursor-pointer shrink-0" />
+                                          </TooltipTrigger>
+                                          <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800 text-white p-2.5 rounded-xl shadow-xl">
+                                            Se não for atribuída uma carga, o próprio aluno que vai colocar quando estiver treinando.
+                                          </TooltipContent>
+                                        </Tooltip>
+                                      </TooltipProvider>
+                                    </span>
+                                    <Input
+                                      type="text"
+                                      value={String(ex.load || "").toLowerCase().includes("p.c") ? "p.c." : (ex.load || "")}
+                                      onChange={(e) => handleUpdateExerciseField(idx, "load", e.target.value, false)}
+                                      disabled={String(ex.load || "").toLowerCase().includes("p.c")}
+                                      className="h-8 bg-card border-border w-full text-center text-xs px-1 disabled:opacity-80 font-semibold"
+                                      placeholder={String(ex.load || "").toLowerCase().includes("p.c") ? "p.c." : "Auto"}
+                                    />
+                                  </div>
+                                  <div className="space-y-1">
+                                    <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Desc.</span>
+                                    <Input
+                                      type="text"
+                                      value={ex.rest || "60s"}
+                                      onChange={(e) => handleUpdateExerciseField(idx, "rest", e.target.value, false)}
+                                      className="h-8 bg-card border-border w-full text-center text-xs px-1"
+                                      placeholder="Ex: 60s"
+                                    />
+                                  </div>
                                 </div>
+                              )}
+
+                              {ex.isIndividual && (
+                                <div className="space-y-1 w-full sm:w-24 shrink-0">
+                                  <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Séries</span>
+                                  <Input
+                                    type="number"
+                                    value={ex.sets}
+                                    onChange={(e) => handleUpdateExerciseField(idx, "sets", e.target.value, false)}
+                                    className="h-8 bg-card border-border w-full text-center text-xs px-1"
+                                    min={1}
+                                  />
+                                </div>
+                              )}
+
+                              <div className="flex items-center justify-end">
+                                <Button
+                                  type="button"
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleOpenCustomMethodDialog(idx)}
+                                  className="h-8 w-full sm:w-auto gap-1 text-xs border-border/60 text-muted-foreground hover:text-foreground hover:bg-secondary/40 shrink-0"
+                                >
+                                  Método
+                                </Button>
                               </div>
                             </div>
 
-                            <div className="flex items-center gap-2 px-0.5">
-                              <Checkbox
-                                id={`custom-individual-${idx}`}
-                                checked={ex.isIndividual || false}
-                                onCheckedChange={(checked) => handleToggleIndividual(idx, !!checked, false)}
-                                className="rounded size-3.5"
-                              />
-                              <label
-                                htmlFor={`custom-individual-${idx}`}
-                                className="text-[11px] text-muted-foreground cursor-pointer font-medium select-none"
-                              >
-                                Configurar séries individualmente
-                              </label>
+                            {/* Bottom Row: Checkboxes */}
+                            <div className="flex flex-wrap items-center gap-4 px-0.5">
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  id={`custom-individual-${idx}`}
+                                  checked={ex.isIndividual || false}
+                                  onCheckedChange={(checked) => handleToggleIndividual(idx, !!checked, false)}
+                                  className="rounded size-3.5"
+                                />
+                                <label
+                                  htmlFor={`custom-individual-${idx}`}
+                                  className="text-[11px] text-muted-foreground cursor-pointer font-medium select-none"
+                                >
+                                  Configurar séries individualmente
+                                </label>
+                              </div>
+                              <div className="flex items-center gap-2">
+                                <Checkbox
+                                  id={`custom-bodyweight-${idx}`}
+                                  checked={String(ex.load || "").toLowerCase().includes("p.c")}
+                                  onCheckedChange={(checked) => handleToggleBodyweight(idx, !!checked, false)}
+                                  className="rounded size-3.5"
+                                />
+                                <label
+                                  htmlFor={`custom-bodyweight-${idx}`}
+                                  className="text-[11px] text-muted-foreground cursor-pointer font-medium select-none"
+                                >
+                                  Peso do corpo
+                                </label>
+                              </div>
                             </div>
 
+                            {/* Individual Sets */}
                             {ex.isIndividual && (
                               <div className="mt-1 border-t border-border/40 pt-3 space-y-2.5">
-                                <div className="grid grid-cols-4 gap-1.5 text-[9px] font-bold uppercase tracking-wider text-muted-foreground px-0.5">
+                                <div className="grid grid-cols-[30px_1fr_1fr_1fr] gap-2 text-[9px] font-bold uppercase tracking-wider text-muted-foreground px-0.5">
                                   <div>Série</div>
                                   <div>Reps</div>
                                   <div className="flex items-center gap-0.5 select-none">
@@ -4657,9 +4776,9 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                     <TooltipProvider>
                                       <Tooltip>
                                         <TooltipTrigger asChild>
-                                          <Info className="size-2.5 text-muted-foreground hover:text-foreground cursor-pointer shrink-0" />
+                                          <Info className="size-3 text-muted-foreground hover:text-foreground cursor-pointer shrink-0" />
                                         </TooltipTrigger>
-                                        <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800 text-white p-2 rounded-xl shadow-xl">
+                                        <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800 text-white p-2.5 rounded-xl shadow-xl">
                                           Se não for atribuída uma carga, o próprio aluno que vai colocar quando estiver treinando.
                                         </TooltipContent>
                                       </Tooltip>
@@ -4672,7 +4791,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                   {Array.from({ length: ex.sets }).map((_, si) => {
                                     const setItem = ex.individualSets?.[si] || { reps: "10", load: "", rest: "60s" };
                                     return (
-                                      <div key={si} className="grid grid-cols-4 gap-1.5 items-center">
+                                      <div key={si} className="grid grid-cols-[30px_1fr_1fr_1fr] gap-2 items-center">
                                         <span className="text-xs font-semibold text-neutral-400 pl-0.5">#{si + 1}</span>
                                         <Input
                                           type="text"
@@ -4683,10 +4802,11 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                         />
                                         <Input
                                           type="text"
-                                          value={setItem.load}
+                                          value={String(setItem.load || "").toLowerCase().includes("p.c") ? "p.c." : setItem.load}
                                           onChange={(e) => handleUpdateIndividualSetField(idx, si, "load", e.target.value, false)}
-                                          className="h-8 bg-card border-border text-center text-xs font-semibold"
-                                          placeholder="Auto"
+                                          disabled={String(setItem.load || "").toLowerCase().includes("p.c")}
+                                          className="h-8 bg-card border-border text-center text-xs font-semibold disabled:opacity-80"
+                                          placeholder={String(setItem.load || "").toLowerCase().includes("p.c") ? "p.c." : "Auto"}
                                         />
                                         <Input
                                           type="text"
@@ -4740,7 +4860,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
       </Dialog>
 
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-3xl bg-popover border border-border text-foreground max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-3xl bg-popover border border-border text-foreground max-h-[90vh] overflow-y-auto!">
           <DialogHeader>
             <DialogTitle className="text-xl font-extrabold flex items-center gap-2 text-foreground">
               <Edit2 className="size-5 text-primary" /> Editar Treino do Aluno
@@ -4894,44 +5014,66 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                   {editExercises.map((ex, idx) => (
                     <div
                       key={ex.exerciseId}
-                      className="p-3.5 border border-border rounded-xl bg-background/50 hover:bg-background/80 transition flex flex-row gap-3 items-center"
+                      className="p-3.5 border border-border rounded-xl bg-background/50 hover:bg-background/80 transition flex flex-col sm:flex-row gap-3 sm:gap-4 items-stretch sm:items-center relative"
                     >
                       {editSelectMode && (
-                        <Checkbox
-                          checked={editSelectedIndexes.includes(idx)}
-                          onCheckedChange={(checked) => {
-                            if (checked) {
-                              setEditSelectedIndexes(prev => [...prev, idx]);
-                            } else {
-                              setEditSelectedIndexes(prev => prev.filter(i => i !== idx));
-                            }
-                          }}
-                          className="mr-1 shrink-0 rounded"
-                        />
+                        <div className="flex items-center shrink-0">
+                          <Checkbox
+                            checked={editSelectedIndexes.includes(idx)}
+                            onCheckedChange={(checked) => {
+                              if (checked) {
+                                setEditSelectedIndexes(prev => [...prev, idx]);
+                              } else {
+                                setEditSelectedIndexes(prev => prev.filter(i => i !== idx));
+                              }
+                            }}
+                            className="mr-2 sm:mr-0"
+                          />
+                        </div>
                       )}
 
-                      <div className="flex-1 flex flex-col gap-3.5">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                          <div className="flex items-start sm:items-center gap-2.5 min-w-0">
-                            <div className="size-8 rounded-lg bg-secondary flex items-center justify-center shrink-0 border border-border mt-0.5 sm:mt-0">
-                              <Activity className="size-4 text-primary" />
-                            </div>
+                      <div className="flex-1 flex flex-col gap-3">
+                        {/* Top Row: Info & Badges + Positioning & Delete Actions */}
+                        <div className="flex flex-row items-start justify-between gap-3 min-w-0">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <button
+                              type="button"
+                              disabled={!ex.videoUrl}
+                              onClick={() => {
+                                setPreviewExercise({
+                                  id: ex.exerciseId,
+                                  name: ex.name,
+                                  videoUrl: ex.videoUrl,
+                                  muscleGroup: { name: ex.muscleGroup }
+                                });
+                                setIsPreviewModalOpen(true);
+                              }}
+                              className={cn(
+                                "size-8 sm:size-9 rounded-lg bg-secondary flex items-center justify-center shrink-0 border border-border transition-all relative group/thumb",
+                                ex.videoUrl ? "hover:border-primary/50 cursor-pointer" : "cursor-default"
+                              )}
+                            >
+                              <Activity className="size-4 text-primary group-hover/thumb:scale-110 transition-transform" />
+                              {ex.videoUrl && (
+                                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity rounded-lg">
+                                  <Play className="size-3 fill-white text-white" />
+                                </div>
+                              )}
+                            </button>
                             <div className="min-w-0">
-                              <span className="text-sm font-semibold text-foreground block truncate leading-none mb-1">
-                                {ex.name}
-                              </span>
-                              <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                                <span className="text-[10px] text-muted-foreground uppercase tracking-wider font-semibold">
+                              <h4 className="font-semibold text-sm text-foreground truncate">{ex.name}</h4>
+                              <div className="flex flex-wrap items-center gap-1 mt-0.5">
+                                <Badge variant="secondary" className="text-[9px] bg-secondary/80 text-muted-foreground px-1.5 py-0">
                                   {ex.muscleGroup}
-                                </span>
+                                </Badge>
 
                                 {ex.groupId && (
-                                  <Badge className="bg-primary/10 text-primary border border-primary/20 text-[9px] font-bold gap-1 pr-1 py-0.5 rounded-md">
+                                  <Badge className="bg-primary/10 text-primary border border-primary/20 text-[9px] font-bold gap-1 pr-1 px-1.5 py-0">
                                     🔗 {getEditGroupLabel(ex.groupId)}
                                     <button
                                       type="button"
                                       onClick={() => handleEditUngroup(ex.groupId)}
-                                      className="hover:text-destructive text-neutral-500 font-bold text-xs leading-none"
+                                      className="hover:text-destructive text-neutral-500 font-bold text-[10px] leading-none"
                                     >
                                       &times;
                                     </button>
@@ -4939,13 +5081,13 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                 )}
 
                                 {ex.methodType === "DROPSET" && (
-                                  <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] font-bold py-0.5 rounded-md">
+                                  <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] font-bold px-1.5 py-0">
                                     Dropset
                                   </Badge>
                                 )}
 
                                 {ex.methodType === "REST_PAUSE" && (
-                                  <Badge className="bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[9px] font-bold py-0.5 rounded-md">
+                                  <Badge className="bg-purple-500/10 text-purple-400 border border-purple-500/20 text-[9px] font-bold px-1.5 py-0">
                                     Rest-Pause
                                   </Badge>
                                 )}
@@ -4953,113 +5095,147 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                             </div>
                           </div>
 
-                          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                            {!ex.isIndividual && (
-                              <div className="grid grid-cols-4 gap-1.5 shrink-0 w-64">
-                                <div className="space-y-0.5">
-                                  <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Séries</span>
-                                  <Input
-                                    type="number"
-                                    value={ex.sets}
-                                    onChange={(e) => handleUpdateExerciseField(idx, "sets", e.target.value, true)}
-                                    className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
-                                    min={1}
-                                  />
-                                </div>
-                                <div className="space-y-0.5">
-                                  <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Reps</span>
-                                  <Input
-                                    type="text"
-                                    value={ex.reps}
-                                    onChange={(e) => handleUpdateExerciseField(idx, "reps", e.target.value, true)}
-                                    className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
-                                    placeholder="10"
-                                  />
-                                </div>
-                                <div className="space-y-0.5">
-                                  <span className="text-[9px] uppercase font-bold text-muted-foreground pl-0.5 flex items-center gap-0.5 select-none">
-                                    Carga
-                                    <TooltipProvider>
-                                      <Tooltip>
-                                        <TooltipTrigger asChild>
-                                          <Info className="size-2.5 text-muted-foreground hover:text-foreground cursor-pointer shrink-0" />
-                                        </TooltipTrigger>
-                                        <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800 text-white p-2 rounded-xl shadow-xl">
-                                          Se não for atribuída uma carga, o próprio aluno que vai colocar quando estiver treinando.
-                                        </TooltipContent>
-                                      </Tooltip>
-                                    </TooltipProvider>
-                                  </span>
-                                  <Input
-                                    type="text"
-                                    value={ex.load || ""}
-                                    onChange={(e) => handleUpdateExerciseField(idx, "load", e.target.value, true)}
-                                    className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
-                                    placeholder="Auto"
-                                  />
-                                </div>
-                                <div className="space-y-0.5">
-                                  <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Desc.</span>
-                                  <Input
-                                    type="text"
-                                    value={ex.rest || "60s"}
-                                    onChange={(e) => handleUpdateExerciseField(idx, "rest", e.target.value, true)}
-                                    className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
-                                    placeholder="60s"
-                                  />
-                                </div>
-                              </div>
+                          <div className="flex items-center gap-0.5 shrink-0">
+                            {ex.videoUrl && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                onClick={() => {
+                                  setPreviewExercise({
+                                    id: ex.exerciseId,
+                                    name: ex.name,
+                                    videoUrl: ex.videoUrl,
+                                    muscleGroup: { name: ex.muscleGroup }
+                                  });
+                                  setIsPreviewModalOpen(true);
+                                }}
+                                className="h-8 w-8 text-primary hover:bg-primary/10 hover:text-primary"
+                                title="Visualizar execução"
+                              >
+                                <Play className="size-4 fill-primary" />
+                              </Button>
                             )}
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => moveExerciseInEdit(idx, "up")}
+                              disabled={idx === 0}
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground disabled:opacity-40"
+                            >
+                              <ArrowUp className="size-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => moveExerciseInEdit(idx, "down")}
+                              disabled={idx === editExercises.length - 1}
+                              className="h-8 w-8 text-muted-foreground hover:text-foreground disabled:opacity-40"
+                            >
+                              <ArrowDown className="size-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => removeExerciseFromEditList(idx)}
+                              className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
+                            >
+                              <Trash2 className="size-4" />
+                            </Button>
+                          </div>
+                        </div>
 
-                            {ex.isIndividual && (
-                              <div className="space-y-0.5 shrink-0 w-16">
+                        {/* Middle Row: Inputs + Method configuration */}
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2 border-t border-border/10 sm:border-0">
+                          {!ex.isIndividual && (
+                            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 w-full sm:w-72 shrink-0">
+                              <div className="space-y-1">
                                 <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Séries</span>
                                 <Input
                                   type="number"
                                   value={ex.sets}
                                   onChange={(e) => handleUpdateExerciseField(idx, "sets", e.target.value, true)}
-                                  className="h-8 bg-card border-border w-full text-center text-xs font-semibold"
+                                  className="h-8 bg-card border-border w-full text-center text-xs px-1"
                                   min={1}
                                 />
                               </div>
-                            )}
-
-                            <div className="flex items-center gap-0.5 shrink-0 sm:self-center">
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => moveExerciseInEdit(idx, "up")}
-                                disabled={idx === 0}
-                                className="h-7 w-7 text-muted-foreground hover:text-foreground rounded"
-                              >
-                                <ArrowUp className="size-3.5" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => moveExerciseInEdit(idx, "down")}
-                                disabled={idx === editExercises.length - 1}
-                                className="h-7 w-7 text-muted-foreground hover:text-foreground rounded"
-                              >
-                                <ArrowDown className="size-3.5" />
-                              </Button>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => removeExerciseFromEditList(idx)}
-                                className="h-7 w-7 text-destructive hover:bg-destructive/10 hover:text-destructive rounded"
-                              >
-                                <Trash2 className="size-3.5" />
-                              </Button>
+                              <div className="space-y-1">
+                                <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Reps</span>
+                                <Input
+                                  type="text"
+                                  value={ex.reps}
+                                  onChange={(e) => handleUpdateExerciseField(idx, "reps", e.target.value, true)}
+                                  className="h-8 bg-card border-border w-full text-center text-xs px-1"
+                                  placeholder="Ex: 10"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <span className="text-[9px] uppercase font-bold text-muted-foreground pl-0.5 flex items-center gap-0.5 select-none">
+                                  Carga
+                                  <TooltipProvider>
+                                    <Tooltip>
+                                      <TooltipTrigger asChild>
+                                        <Info className="size-3 text-muted-foreground hover:text-foreground cursor-pointer shrink-0" />
+                                      </TooltipTrigger>
+                                      <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800 text-white p-2.5 rounded-xl shadow-xl">
+                                        Se não for atribuída uma carga, o próprio aluno que vai colocar quando estiver treinando.
+                                      </TooltipContent>
+                                    </Tooltip>
+                                  </TooltipProvider>
+                                </span>
+                                <Input
+                                  type="text"
+                                  value={ex.load || ""}
+                                  onChange={(e) => handleUpdateExerciseField(idx, "load", e.target.value, true)}
+                                  className="h-8 bg-card border-border w-full text-center text-xs px-1"
+                                  placeholder="Auto"
+                                />
+                              </div>
+                              <div className="space-y-1">
+                                <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Desc.</span>
+                                <Input
+                                  type="text"
+                                  value={ex.rest || "60s"}
+                                  onChange={(e) => handleUpdateExerciseField(idx, "rest", e.target.value, true)}
+                                  className="h-8 bg-card border-border w-full text-center text-xs px-1"
+                                  placeholder="Ex: 60s"
+                                />
+                              </div>
                             </div>
+                          )}
+
+                          {ex.isIndividual && (
+                            <div className="space-y-1 w-full sm:w-24 shrink-0">
+                              <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Séries</span>
+                              <Input
+                                type="number"
+                                value={ex.sets}
+                                onChange={(e) => handleUpdateExerciseField(idx, "sets", e.target.value, true)}
+                                className="h-8 bg-card border-border w-full text-center text-xs px-1"
+                                min={1}
+                              />
+                            </div>
+                          )}
+
+                          <div className="flex items-center justify-end">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handleOpenEditMethodDialog(idx)}
+                              className="h-8 w-full sm:w-auto gap-1 text-xs border-border/60 text-muted-foreground hover:text-foreground hover:bg-secondary/40 shrink-0"
+                            >
+                              Método
+                            </Button>
                           </div>
                         </div>
 
-                        <section className="flex items-center justify-between">
-                          <div className="flex items-center gap-2 px-0.5">
+                        {/* Bottom Row: Checkboxes */}
+                        <div className="flex flex-wrap items-center gap-4 px-0.5">
+                          <div className="flex items-center gap-2">
                             <Checkbox
                               id={`edit-individual-${idx}`}
                               checked={ex.isIndividual || false}
@@ -5070,24 +5246,29 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                               htmlFor={`edit-individual-${idx}`}
                               className="text-[11px] text-muted-foreground cursor-pointer font-medium select-none"
                             >
-                              Configurar séries
+                              Configurar séries individualmente
                             </label>
                           </div>
+                          <div className="flex items-center gap-2">
+                            <Checkbox
+                              id={`edit-bodyweight-${idx}`}
+                              checked={String(ex.load || "").toLowerCase().includes("p.c")}
+                              onCheckedChange={(checked) => handleToggleBodyweight(idx, !!checked, true)}
+                              className="rounded size-3.5"
+                            />
+                            <label
+                              htmlFor={`edit-bodyweight-${idx}`}
+                              className="text-[11px] text-muted-foreground cursor-pointer font-medium select-none"
+                            >
+                              Peso do corpo
+                            </label>
+                          </div>
+                        </div>
 
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() => handleOpenEditMethodDialog(idx)}
-                            className="h-8 w-fit gap-1 text-xs border-border/60 text-muted-foreground hover:text-foreground hover:bg-secondary/40 shrink-0 mr-1"
-                          >
-                            Configurar método
-                          </Button>
-                        </section>
-
+                        {/* Individual Sets */}
                         {ex.isIndividual && (
                           <div className="mt-1 border-t border-border/40 pt-3 space-y-2.5">
-                            <div className="grid grid-cols-4 gap-1.5 text-[9px] font-bold uppercase tracking-wider text-muted-foreground px-0.5">
+                            <div className="grid grid-cols-[30px_1fr_1fr_1fr] gap-2 text-[9px] font-bold uppercase tracking-wider text-muted-foreground px-0.5">
                               <div>Série</div>
                               <div>Reps</div>
                               <div className="flex items-center gap-0.5 select-none">
@@ -5095,9 +5276,9 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                 <TooltipProvider>
                                   <Tooltip>
                                     <TooltipTrigger asChild>
-                                      <Info className="size-2.5 text-muted-foreground hover:text-foreground cursor-pointer shrink-0" />
+                                      <Info className="size-3 text-muted-foreground hover:text-foreground cursor-pointer shrink-0" />
                                     </TooltipTrigger>
-                                    <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800 text-white p-2 rounded-xl shadow-xl">
+                                    <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800 text-white p-2.5 rounded-xl shadow-xl">
                                       Se não for atribuída uma carga, o próprio aluno que vai colocar quando estiver treinando.
                                     </TooltipContent>
                                   </Tooltip>
@@ -5110,7 +5291,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                               {Array.from({ length: ex.sets }).map((_, si) => {
                                 const setItem = ex.individualSets?.[si] || { reps: "10", load: "", rest: "60s" };
                                 return (
-                                  <div key={si} className="grid grid-cols-4 gap-1.5 items-center">
+                                  <div key={si} className="grid grid-cols-[30px_1fr_1fr_1fr] gap-2 items-center">
                                     <span className="text-xs font-semibold text-neutral-400 pl-0.5">#{si + 1}</span>
                                     <Input
                                       type="text"
@@ -5121,10 +5302,11 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                     />
                                     <Input
                                       type="text"
-                                      value={setItem.load}
+                                      value={String(setItem.load || "").toLowerCase().includes("p.c") ? "p.c." : setItem.load}
                                       onChange={(e) => handleUpdateIndividualSetField(idx, si, "load", e.target.value, true)}
-                                      className="h-8 bg-card border-border text-center text-xs font-semibold"
-                                      placeholder="Auto"
+                                      disabled={String(setItem.load || "").toLowerCase().includes("p.c")}
+                                      className="h-8 bg-card border-border text-center text-xs font-semibold disabled:opacity-80"
+                                      placeholder={String(setItem.load || "").toLowerCase().includes("p.c") ? "p.c." : "Auto"}
                                     />
                                     <Input
                                       type="text"
@@ -5176,7 +5358,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
       </Dialog>
 
       <Dialog open={exerciseDialogOpen} onOpenChange={setExerciseDialogOpen}>
-        <DialogContent className="max-w-md w-[95%] rounded-xl">
+        <DialogContent className="max-w-md w-[95%] overflow-y-auto! rounded-xl!">
           <DialogHeader>
             <DialogTitle>Pesquisar Exercício</DialogTitle>
             <DialogDescription>Selecione um grupamento muscular e selecione os exercícios desejados.</DialogDescription>
@@ -5194,7 +5376,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                   ))}
                 </div>
               ) : (
-                <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pb-1">
+                <div className="flex flex-wrap gap-1.5 pb-1">
                   {muscleGroups.map((group) => {
                     const isActive = selectedMuscleGroupId === group.id;
                     return (
@@ -5205,7 +5387,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                         size="sm"
                         onClick={() => setSelectedMuscleGroupId(group.id)}
                         className={cn(
-                          "h-8 px-3 rounded-full text-xs font-medium transition-all",
+                          "h-8 px-3 rounded-full flex-1 text-xs font-medium transition-all",
                           isActive
                             ? "bg-primary text-black hover:bg-primary/90"
                             : "border-border hover:bg-secondary/40 text-muted-foreground"
@@ -5230,7 +5412,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="h-9 bg-card border-border text-xs mb-2"
               />
-              <div className="border border-border rounded-lg bg-background max-h-60 overflow-y-auto p-2 space-y-1">
+              <div className="border border-border rounded-lg bg-background max-h-50 overflow-y-auto p-2 space-y-1">
                 {loadingExercises ? (
                   <div className="space-y-1 py-2">
                     {[1, 2, 3, 4].map((n) => (
@@ -5256,27 +5438,53 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                       const isAdded = currentList.some((ex: any) => ex.exerciseId === exercise.id);
                       const isChecked = tempSelected.some((ex) => ex.id === exercise.id);
                       return (
-                        <button
+                        <div
                           key={exercise.id}
-                          type="button"
-                          disabled={isAdded}
-                          onClick={() => handleToggleTempSelected(exercise)}
                           className={cn(
-                            "w-full text-left p-2.5 rounded-md flex items-center justify-between transition text-sm border",
+                            "w-full p-2.5 rounded-md flex items-center justify-between transition text-sm border gap-2",
                             isAdded
-                              ? "bg-muted/20 border-transparent opacity-60 cursor-not-allowed"
+                              ? "bg-muted/20 border-transparent opacity-60"
                               : isChecked
                                 ? "bg-primary/10 border-primary/50 text-primary"
                                 : "bg-transparent border-transparent hover:bg-secondary/40 text-foreground"
                           )}
                         >
-                          <span className="font-medium">{exercise.name}</span>
-                          <div className="shrink-0 flex items-center justify-center size-5 rounded-md border border-neutral-700 bg-neutral-950">
-                            {(isAdded || isChecked) && (
-                              <Check className={cn("size-3.5", isAdded ? "text-muted-foreground" : "text-primary")} />
+                          <button
+                            type="button"
+                            disabled={isAdded}
+                            onClick={() => handleToggleTempSelected(exercise)}
+                            className="flex-1 text-left font-medium min-w-0 truncate disabled:cursor-not-allowed"
+                          >
+                            {exercise.name}
+                          </button>
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {exercise.videoUrl && (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="icon"
+                                className="size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  setPreviewExercise(exercise);
+                                  setIsPreviewModalOpen(true);
+                                }}
+                              >
+                                <Play className="size-3.5 fill-muted-foreground" />
+                              </Button>
                             )}
+                            <button
+                              type="button"
+                              disabled={isAdded}
+                              onClick={() => handleToggleTempSelected(exercise)}
+                              className="shrink-0 flex items-center justify-center size-5 rounded-md border border-neutral-700 bg-neutral-950 disabled:cursor-not-allowed"
+                            >
+                              {(isAdded || isChecked) && (
+                                <Check className={cn("size-3.5", isAdded ? "text-muted-foreground" : "text-primary")} />
+                              )}
+                            </button>
                           </div>
-                        </button>
+                        </div>
                       );
                     })
                 )}
@@ -5293,7 +5501,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                     <Badge
                       key={ex.id}
                       variant="secondary"
-                      className="gap-1 px-2.5 py-1 text-xs font-medium bg-secondary text-foreground rounded-full border border-border"
+                      className="gap-1 px-2.5 py-1 min-w-fit flex-1 text-xs font-medium bg-secondary text-foreground rounded-full border border-border"
                     >
                       {ex.name}
                       <button
@@ -6862,6 +7070,11 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
         </AlertDialogContent>
       </AlertDialog>
 
+      <ExercisePreviewModal
+        exercise={previewExercise}
+        open={isPreviewModalOpen}
+        onOpenChange={setIsPreviewModalOpen}
+      />
     </div>
   );
 }

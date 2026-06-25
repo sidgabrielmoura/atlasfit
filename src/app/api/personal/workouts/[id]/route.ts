@@ -26,6 +26,7 @@ export async function GET(
             exercise: {
               include: {
                 muscleGroup: true,
+                muscleGroups: true,
               },
             },
             group: true,
@@ -157,6 +158,7 @@ export async function PUT(
               exercise: {
                 include: {
                   muscleGroup: true,
+                  muscleGroups: true,
                 },
               },
               group: true,

@@ -233,11 +233,12 @@ model PasswordResetToken {
 }
 
 model MuscleGroup {
-  id        String     @id @default(cuid())
-  name      String     @unique
-  exercises Exercise[]
-  createdAt DateTime   @default(now())
-  updatedAt DateTime   @updatedAt
+  id            String     @id @default(cuid())
+  name          String     @unique
+  exercises     Exercise[] @relation("SingleGroup")
+  exercisesMany Exercise[] @relation("MultiGroups")
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 }
 
 model Exercise {
@@ -250,7 +251,8 @@ model Exercise {
   status        String  @default("PENDING") // PENDING, APPROVED, REJECTED
   muscleGroupId String
 
-  muscleGroup        MuscleGroup                 @relation(fields: [muscleGroupId], references: [id], onDelete: Cascade)
+  muscleGroup        MuscleGroup                 @relation("SingleGroup", fields: [muscleGroupId], references: [id], onDelete: Cascade)
+  muscleGroups       MuscleGroup[]               @relation("MultiGroups")
   creator            User?                       @relation("CreatedExercises", fields: [creatorId], references: [id], onDelete: SetNull)
   workoutExercises   WorkoutExercise[]
   adjustmentRequests ExerciseAdjustmentRequest[]

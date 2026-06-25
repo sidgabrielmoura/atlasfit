@@ -14,8 +14,10 @@ import {
   Activity,
   Loader2,
   Check,
-  Info
+  Info,
+  Play
 } from "lucide-react";
+import { ExercisePreviewModal } from "@/components/application/exercise-preview-modal";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -58,6 +60,10 @@ export default function NewWorkoutPage() {
   const [difficulty, setDifficulty] = useState("Intermediário");
   const [duration, setDuration] = useState("60 min");
   const [restBetweenExercises, setRestBetweenExercises] = useState("2 min");
+
+  // Exercise Preview State
+  const [previewExercise, setPreviewExercise] = useState<any>(null);
+  const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
   // Selected exercises
   const [selectedExercises, setSelectedExercises] = useState<any[]>([]);
@@ -261,6 +267,7 @@ export default function NewWorkoutPage() {
     const newExercises = tempSelected.map((exercise) => ({
       exerciseId: exercise.id,
       name: exercise.name,
+      videoUrl: exercise.videoUrl,
       muscleGroup: muscleGroups.find((g) => g.id === selectedMuscleGroupId)?.name || "Geral",
       sets: 4,
       reps: "10",
@@ -331,6 +338,7 @@ export default function NewWorkoutPage() {
         if (i !== index) return ex;
 
         const updated = { ...ex, [field]: value };
+        const isBodyweight = String(ex.load || "").toLowerCase().includes("p.c");
 
         // If updating sets, resize the individualSets array accordingly
         if (field === "sets") {
@@ -346,7 +354,7 @@ export default function NewWorkoutPage() {
             const loadArr = String(ex.load).split(",").map(s => s.trim());
             const restArr = String(ex.rest).split(",").map(s => s.trim());
             const fallbackReps = repsArr[0] || "10";
-            const fallbackLoad = loadArr[0] || "";
+            const fallbackLoad = isBodyweight ? "p.c." : (loadArr[0] || "");
             const fallbackRest = restArr[0] || "60s";
 
             updated.individualSets = Array.from({ length: setsCount }, (_, si) => {
@@ -377,7 +385,7 @@ export default function NewWorkoutPage() {
         if (!updated.isIndividual && updated.sets !== "") {
           updated.individualSets = Array.from({ length: Number(updated.sets) || 1 }, () => ({
             reps: updated.reps || "10",
-            load: updated.load || "",
+            load: isBodyweight ? "p.c." : (updated.load || ""),
             rest: updated.rest || "60s",
           }));
         }
@@ -413,6 +421,7 @@ export default function NewWorkoutPage() {
         if (i !== index) return ex;
 
         const updated = { ...ex, isIndividual: checked };
+        const isBodyweight = String(ex.load || "").toLowerCase().includes("p.c");
 
         if (checked) {
           const repsArr = String(ex.reps).split(",").map((s) => s.trim());
@@ -422,21 +431,50 @@ export default function NewWorkoutPage() {
           updated.individualSets = Array.from({ length: ex.sets }, (_, si) => ({
             reps: repsArr[si] || repsArr[0] || "10",
             rest: restArr[si] || restArr[0] || "60s",
-            load: loadArr[si] || loadArr[0] || "",
+            load: isBodyweight ? "p.c." : (loadArr[si] || loadArr[0] || ""),
           }));
 
           updated.reps = updated.individualSets.map((s: any) => s.reps).join(", ");
           updated.rest = updated.individualSets.map((s: any) => s.rest).join(", ");
           updated.load = updated.individualSets.map((s: any) => s.load).join(", ");
         } else {
-          const firstSet = ex.individualSets?.[0] || { reps: "10", rest: "60s", load: "" };
+          const firstSet = ex.individualSets?.[0] || { reps: "10", rest: "60s", load: isBodyweight ? "p.c." : "" };
+          const finalLoad = isBodyweight ? "p.c." : firstSet.load;
           updated.reps = firstSet.reps;
           updated.rest = firstSet.rest;
-          updated.load = firstSet.load;
+          updated.load = finalLoad;
           updated.individualSets = Array.from({ length: ex.sets }, () => ({
             reps: firstSet.reps,
             rest: firstSet.rest,
-            load: firstSet.load,
+            load: finalLoad,
+          }));
+        }
+
+        return updated;
+      })
+    );
+  };
+
+  const handleToggleBodyweight = (index: number, checked: boolean) => {
+    setSelectedExercises((prev) =>
+      prev.map((ex, i) => {
+        if (i !== index) return ex;
+
+        const loadVal = checked ? "p.c." : "";
+        const updated = { ...ex };
+
+        if (ex.isIndividual) {
+          updated.individualSets = (ex.individualSets || []).map((s: any) => ({
+            ...s,
+            load: loadVal,
+          }));
+          updated.load = updated.individualSets.map((s: any) => s.load).join(", ");
+        } else {
+          updated.load = loadVal;
+          updated.individualSets = Array.from({ length: Number(ex.sets) || 1 }, () => ({
+            reps: ex.reps || "10",
+            rest: ex.rest || "60s",
+            load: loadVal,
           }));
         }
 
@@ -652,7 +690,7 @@ export default function NewWorkoutPage() {
                     <Plus className="size-4" /> Adicionar Exercício
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="max-w-md w-[95%] rounded-xl">
+                <DialogContent className="max-w-md w-[95%] overflow-y-auto! rounded-xl!">
                   <DialogHeader>
                     <DialogTitle>Pesquisar Exercício</DialogTitle>
                     <DialogDescription>Selecione um grupamento muscular e selecione os exercícios desejados.</DialogDescription>
@@ -730,27 +768,53 @@ export default function NewWorkoutPage() {
                               const isAdded = selectedExercises.some((ex) => ex.exerciseId === exercise.id);
                               const isChecked = tempSelected.some((ex) => ex.id === exercise.id);
                               return (
-                                <button
+                                <div
                                   key={exercise.id}
-                                  type="button"
-                                  disabled={isAdded}
-                                  onClick={() => handleToggleTempSelected(exercise)}
                                   className={cn(
-                                    "w-full text-left p-2.5 rounded-md flex items-center justify-between transition text-sm border",
+                                    "w-full p-2.5 rounded-md flex items-center justify-between transition text-sm border gap-2",
                                     isAdded
-                                      ? "bg-muted/20 border-transparent opacity-60 cursor-not-allowed"
+                                      ? "bg-muted/20 border-transparent opacity-60"
                                       : isChecked
                                         ? "bg-primary/10 border-primary/50 text-primary"
                                         : "bg-transparent border-transparent hover:bg-secondary/40 text-foreground"
                                   )}
                                 >
-                                  <span className="font-medium">{exercise.name}</span>
-                                  <div className="shrink-0 flex items-center justify-center size-5 rounded-md border border-neutral-700 bg-neutral-950">
-                                    {(isAdded || isChecked) && (
-                                      <Check className={cn("size-3.5", isAdded ? "text-muted-foreground" : "text-primary")} />
+                                  <button
+                                    type="button"
+                                    disabled={isAdded}
+                                    onClick={() => handleToggleTempSelected(exercise)}
+                                    className="flex-1 text-left font-medium min-w-0 truncate disabled:cursor-not-allowed"
+                                  >
+                                    {exercise.name}
+                                  </button>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {exercise.videoUrl && (
+                                      <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        className="size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/60"
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setPreviewExercise(exercise);
+                                          setIsPreviewModalOpen(true);
+                                        }}
+                                      >
+                                        <Play className="size-3.5 fill-muted-foreground" />
+                                      </Button>
                                     )}
+                                    <button
+                                      type="button"
+                                      disabled={isAdded}
+                                      onClick={() => handleToggleTempSelected(exercise)}
+                                      className="shrink-0 flex items-center justify-center size-5 rounded-md border border-neutral-700 bg-neutral-950 disabled:cursor-not-allowed"
+                                    >
+                                      {(isAdded || isChecked) && (
+                                        <Check className={cn("size-3.5", isAdded ? "text-muted-foreground" : "text-primary")} />
+                                      )}
+                                    </button>
                                   </div>
-                                </button>
+                                </div>
                               );
                             })
                         )}
@@ -844,9 +908,30 @@ export default function NewWorkoutPage() {
                       {/* Top Row: Info & Badges + Positioning & Delete Actions */}
                       <div className="flex flex-row items-start justify-between gap-3 min-w-0">
                         <div className="flex items-center gap-2.5 min-w-0">
-                          <div className="size-8 sm:size-9 rounded-lg bg-secondary flex items-center justify-center shrink-0 border border-border">
-                            <Activity className="size-4 text-primary" />
-                          </div>
+                          <button
+                            type="button"
+                            disabled={!ex.videoUrl}
+                            onClick={() => {
+                              setPreviewExercise({
+                                id: ex.exerciseId,
+                                name: ex.name,
+                                videoUrl: ex.videoUrl,
+                                muscleGroup: { name: ex.muscleGroup }
+                              });
+                              setIsPreviewModalOpen(true);
+                            }}
+                            className={cn(
+                              "size-8 sm:size-9 rounded-lg bg-secondary flex items-center justify-center shrink-0 border border-border transition-all relative group/thumb",
+                              ex.videoUrl ? "hover:border-primary/50 cursor-pointer" : "cursor-default"
+                            )}
+                          >
+                            <Activity className="size-4 text-primary group-hover/thumb:scale-110 transition-transform" />
+                            {ex.videoUrl && (
+                              <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity rounded-lg">
+                                <Play className="size-3 fill-white text-white" />
+                              </div>
+                            )}
+                          </button>
                           <div className="min-w-0">
                             <h4 className="font-semibold text-sm text-foreground truncate">{ex.name}</h4>
                             <div className="flex flex-wrap items-center gap-1 mt-0.5">
@@ -883,6 +968,26 @@ export default function NewWorkoutPage() {
                         </div>
 
                         <div className="flex items-center gap-0.5 shrink-0">
+                          {ex.videoUrl && (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => {
+                                setPreviewExercise({
+                                  id: ex.exerciseId,
+                                  name: ex.name,
+                                  videoUrl: ex.videoUrl,
+                                  muscleGroup: { name: ex.muscleGroup }
+                                });
+                                setIsPreviewModalOpen(true);
+                              }}
+                              className="h-8 w-8 text-primary hover:bg-primary/10 hover:text-primary"
+                              title="Visualizar execução"
+                            >
+                              <Play className="size-4 fill-primary" />
+                            </Button>
+                          )}
                           <Button
                             type="button"
                             variant="ghost"
@@ -955,10 +1060,11 @@ export default function NewWorkoutPage() {
                               </span>
                               <Input
                                 type="text"
-                                value={ex.load || ""}
+                                value={String(ex.load || "").toLowerCase().includes("p.c") ? "p.c." : (ex.load || "")}
                                 onChange={(e) => handleUpdateExerciseField(index, "load", e.target.value)}
-                                className="h-8 bg-card border-border w-full text-center text-xs px-1"
-                                placeholder="Auto"
+                                disabled={String(ex.load || "").toLowerCase().includes("p.c")}
+                                className="h-8 bg-card border-border w-full text-center text-xs px-1 disabled:opacity-80 font-semibold"
+                                placeholder={String(ex.load || "").toLowerCase().includes("p.c") ? "p.c." : "Auto"}
                               />
                             </div>
                             <div className="space-y-1">
@@ -1000,20 +1106,36 @@ export default function NewWorkoutPage() {
                         </div>
                       </div>
 
-                      {/* Bottom Row: Set Configuration Checkbox */}
-                      <div className="flex items-center gap-2 px-1 pt-1">
-                        <Checkbox
-                          id={`individual-${index}`}
-                          checked={ex.isIndividual || false}
-                          onCheckedChange={(checked) => handleToggleIndividual(index, !!checked)}
-                          className="rounded size-4"
-                        />
-                        <label
-                          htmlFor={`individual-${index}`}
-                          className="text-[11px] text-muted-foreground cursor-pointer font-medium select-none"
-                        >
-                          Configurar séries individualmente
-                        </label>
+                      {/* Bottom Row: Checkboxes */}
+                      <div className="flex flex-wrap items-center gap-4 px-1 pt-1">
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id={`individual-${index}`}
+                            checked={ex.isIndividual || false}
+                            onCheckedChange={(checked) => handleToggleIndividual(index, !!checked)}
+                            className="rounded size-4"
+                          />
+                          <label
+                            htmlFor={`individual-${index}`}
+                            className="text-[11px] text-muted-foreground cursor-pointer font-medium select-none"
+                          >
+                            Configurar séries individualmente
+                          </label>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Checkbox
+                            id={`bodyweight-${index}`}
+                            checked={String(ex.load || "").toLowerCase().includes("p.c")}
+                            onCheckedChange={(checked) => handleToggleBodyweight(index, !!checked)}
+                            className="rounded size-4"
+                          />
+                          <label
+                            htmlFor={`bodyweight-${index}`}
+                            className="text-[11px] text-muted-foreground cursor-pointer font-medium select-none"
+                          >
+                            Peso do corpo
+                          </label>
+                        </div>
                       </div>
 
                       {/* Individual Sets details expansion */}
@@ -1053,10 +1175,11 @@ export default function NewWorkoutPage() {
                                   />
                                   <Input
                                     type="text"
-                                    value={setItem.load}
+                                    value={String(setItem.load || "").toLowerCase().includes("p.c") ? "p.c." : setItem.load}
                                     onChange={(e) => handleUpdateIndividualSetField(index, si, "load", e.target.value)}
-                                    className="h-8 bg-card border-border text-center text-xs px-1"
-                                    placeholder="Auto"
+                                    disabled={String(setItem.load || "").toLowerCase().includes("p.c")}
+                                    className="h-8 bg-card border-border text-center text-xs px-1 disabled:opacity-80 font-semibold"
+                                    placeholder={String(setItem.load || "").toLowerCase().includes("p.c") ? "p.c." : "Auto"}
                                   />
                                   <Input
                                     type="text"
@@ -1345,6 +1468,12 @@ export default function NewWorkoutPage() {
           </div>
         </DialogContent>
       </Dialog>
+
+      <ExercisePreviewModal
+        exercise={previewExercise}
+        open={isPreviewModalOpen}
+        onOpenChange={setIsPreviewModalOpen}
+      />
     </div>
   );
 }

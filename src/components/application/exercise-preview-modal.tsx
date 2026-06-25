@@ -142,6 +142,7 @@ interface ExercisePreviewModalProps {
     isOfficial?: boolean;
     usage?: number;
     muscleGroup?: { name: string } | null;
+    muscleGroups?: { name: string }[];
   } | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -223,7 +224,11 @@ export function ExercisePreviewModal({ exercise, open, onOpenChange }: ExerciseP
       <div className="grid grid-cols-2 gap-3">
         <div className="p-4 rounded-2xl bg-zinc-900/30 border border-white/[0.04] flex flex-col gap-1 shadow-sm">
           <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Grupo Muscular</span>
-          <span className="font-extrabold text-sm text-white truncate">{exercise.muscleGroup?.name || "Geral"}</span>
+          <span className="font-extrabold text-sm text-white truncate">
+            {exercise.muscleGroups && exercise.muscleGroups.length > 0
+              ? exercise.muscleGroups.map((g: any) => g.name).join(", ")
+              : (exercise.muscleGroup?.name || "Geral")}
+          </span>
         </div>
 
         <div className="p-4 rounded-2xl bg-zinc-900/30 border border-white/[0.04] flex flex-col gap-1 shadow-sm">
@@ -263,11 +268,17 @@ export function ExercisePreviewModal({ exercise, open, onOpenChange }: ExerciseP
               <Badge className="bg-primary/10 text-primary border border-primary/20 rounded-md px-1.5 py-0.5 text-[10px] font-bold">
                 Biblioteca de Exercícios
               </Badge>
-              {exercise.muscleGroup?.name && (
+              {exercise.muscleGroups && exercise.muscleGroups.length > 0 ? (
+                exercise.muscleGroups.map((g: any) => (
+                  <Badge key={g.name} variant="outline" className="border-white/[0.06] text-zinc-400 text-[10px] px-1.5 py-0.5 rounded-md">
+                    {g.name}
+                  </Badge>
+                ))
+              ) : exercise.muscleGroup?.name ? (
                 <Badge variant="outline" className="border-white/[0.06] text-zinc-400 text-[10px] px-1.5 py-0.5 rounded-md">
                   {exercise.muscleGroup.name}
                 </Badge>
-              )}
+              ) : null}
             </div>
             <DrawerTitle className="text-xl font-black text-white">{exercise.name}</DrawerTitle>
             <DrawerDescription className="text-zinc-500 text-xs mt-0.5">
@@ -300,7 +311,7 @@ export function ExercisePreviewModal({ exercise, open, onOpenChange }: ExerciseP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-2xl bg-zinc-950 border border-white/[0.08] text-foreground rounded-2xl shadow-2xl overflow-hidden p-0">
+      <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-2xl bg-zinc-950 border border-white/[0.08] text-foreground rounded-2xl! overflow-y-auto! shadow-2xl overflow-hidden p-0">
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
 
         <DialogHeader className="p-4 md:p-5 flex flex-row items-center justify-between border-b border-white/[0.04] space-y-0 pb-3">
@@ -309,11 +320,17 @@ export function ExercisePreviewModal({ exercise, open, onOpenChange }: ExerciseP
               <Badge className="bg-primary/10 text-primary border border-primary/20 rounded-md px-1.5 py-0.5 text-[10px] font-bold">
                 Biblioteca de Exercícios
               </Badge>
-              {exercise.muscleGroup?.name && (
+              {exercise.muscleGroups && exercise.muscleGroups.length > 0 ? (
+                exercise.muscleGroups.map((g: any) => (
+                  <Badge key={g.name} variant="outline" className="border-white/[0.06] text-zinc-400 text-[10px] px-1.5 py-0.5 rounded-md">
+                    {g.name}
+                  </Badge>
+                ))
+              ) : exercise.muscleGroup?.name ? (
                 <Badge variant="outline" className="border-white/[0.06] text-zinc-400 text-[10px] px-1.5 py-0.5 rounded-md">
                   {exercise.muscleGroup.name}
                 </Badge>
-              )}
+              ) : null}
             </div>
             <DialogTitle className="text-base md:text-lg font-extrabold text-white flex items-center gap-2">
               <Dumbbell className="size-4.5 text-primary shrink-0" /> {exercise.name}

@@ -36,7 +36,16 @@ export async function GET(req: Request) {
 
     // Filter by muscleGroup
     if (muscleGroupId && muscleGroupId !== "all") {
-      where.muscleGroupId = muscleGroupId;
+      where.OR = [
+        { muscleGroupId: muscleGroupId },
+        {
+          muscleGroups: {
+            some: {
+              id: muscleGroupId
+            }
+          }
+        }
+      ];
     }
 
     // Search query
@@ -44,6 +53,7 @@ export async function GET(req: Request) {
       where.OR = [
         { name: { contains: search, mode: "insensitive" } },
         { muscleGroup: { name: { contains: search, mode: "insensitive" } } },
+        { muscleGroups: { some: { name: { contains: search, mode: "insensitive" } } } },
       ];
     }
 
@@ -54,6 +64,7 @@ export async function GET(req: Request) {
         where,
         include: {
           muscleGroup: true,
+          muscleGroups: true,
           creator: {
             select: {
               name: true,
@@ -70,6 +81,7 @@ export async function GET(req: Request) {
         where,
         include: {
           muscleGroup: true,
+          muscleGroups: true,
           creator: {
             select: {
               name: true,
@@ -116,13 +128,22 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { name, videoUrl, muscleGroupId, isOfficial, status } = body;
+    const { name, videoUrl, muscleGroupId, muscleGroupIds, isOfficial, status } = body;
+
+    const ids = Array.isArray(muscleGroupIds) ? muscleGroupIds : (muscleGroupId ? [muscleGroupId] : []);
+
+    if (ids.length === 0) {
+      return new NextResponse("Pelo menos um grupamento muscular é obrigatório.", { status: 400 });
+    }
 
     const exercise = await prisma.exercise.create({
       data: {
         name,
         videoUrl,
-        muscleGroupId,
+        muscleGroupId: ids[0],
+        muscleGroups: {
+          connect: ids.map(id => ({ id }))
+        },
         isOfficial: isOfficial ?? true,
         status: status ?? "READY"
       }

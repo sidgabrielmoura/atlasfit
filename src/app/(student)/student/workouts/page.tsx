@@ -255,20 +255,78 @@ export default function StudentWorkoutsPage() {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
+    const groupLetters: Record<string, string> = {};
+    let currentLetterCode = 65;
+    (workout.exercises || []).forEach((we: any) => {
+      if (we.groupId && !groupLetters[we.groupId]) {
+        groupLetters[we.groupId] = String.fromCharCode(currentLetterCode++);
+      }
+    });
+
     const exercisesRows = (workout.exercises || []).map((we: any, idx: number) => {
       const repsArr = String(we.reps || "").split(",").map(s => s.trim());
+      const loadArr = String(we.load || "").split(",").map(s => s.trim());
       const restArr = String(we.rest || "").split(",").map(s => s.trim());
+      
+      const isBodyweight = String(we.load || "").toLowerCase().includes("p.c");
+      const formattedLoads = isBodyweight 
+        ? "Peso do Corpo (p.c.)" 
+        : (loadArr.map(l => l ? `${l} kg` : "Auto").join(" / ") || "Auto");
+
       const instructions = we.notes || we.exercise.instructions || "";
+      
+      let methodTags = "";
+      let methodInstructions = "";
+
+      if (we.groupId && we.group) {
+        const typeLabel = we.group.type === "BISET" ? "Biset" : we.group.type === "TRISET" ? "Triset" : "Circuito";
+        methodTags += `
+          <span style="display: inline-block; padding: 2px 6px; font-size: 10px; font-weight: bold; border-radius: 4px; background: rgba(234, 88, 12, 0.1); color: ${primaryColor}; margin-top: 4px; margin-right: 4px; border: 1px solid rgba(234, 88, 12, 0.2);">
+            🔗 ${typeLabel} ${groupLetters[we.groupId]}
+          </span>
+        `;
+      }
+
+      if (we.methodType === "DROPSET") {
+        methodTags += `
+          <span style="display: inline-block; padding: 2px 6px; font-size: 10px; font-weight: bold; border-radius: 4px; background: rgba(245, 158, 11, 0.1); color: #d97706; margin-top: 4px; margin-right: 4px; border: 1px solid rgba(245, 158, 11, 0.2);">
+            ⚡ Dropset
+          </span>
+        `;
+        const reduction = (we.methodConfig as any)?.reduction || 20;
+        const drops = (we.methodConfig as any)?.drops || 2;
+        methodInstructions = `Método Dropset: Faça a série com a carga planejada até a falha. Sem descansar, reduza a carga em ${reduction}% e faça o máximo de repetições possíveis. Repita o processo ${drops} vezes.`;
+      } else if (we.methodType === "REST_PAUSE") {
+        methodTags += `
+          <span style="display: inline-block; padding: 2px 6px; font-size: 10px; font-weight: bold; border-radius: 4px; background: rgba(147, 51, 234, 0.1); color: #9333ea; margin-top: 4px; margin-right: 4px; border: 1px solid rgba(147, 51, 234, 0.2);">
+            ⚡ Rest-Pause
+          </span>
+        `;
+        const pause = (we.methodConfig as any)?.pause || 15;
+        const rounds = (we.methodConfig as any)?.rounds || 2;
+        methodInstructions = `Método Rest-Pause: Faça a série até a falha. Solte o peso e descanse por apenas ${pause} segundos. Faça outra série até a falha. Repita o intervalo por ${rounds} vezes.`;
+      }
+
+      if (isBodyweight) {
+        methodTags += `
+          <span style="display: inline-block; padding: 2px 6px; font-size: 10px; font-weight: bold; border-radius: 4px; background: rgba(16, 185, 129, 0.1); color: #059669; margin-top: 4px; margin-right: 4px; border: 1px solid rgba(16, 185, 129, 0.2);">
+            Peso do Corpo
+          </span>
+        `;
+      }
 
       return `
         <tr style="border-bottom: 1px solid #e4e4e7;">
           <td style="padding: 12px 8px; font-weight: bold; text-align: center; color: ${primaryColor}; width: 40px;">${idx + 1}</td>
           <td style="padding: 12px 8px;">
             <div style="font-weight: bold; font-size: 14px; color: #18181b;">${we.exercise.name}</div>
-            ${instructions ? `<div style="font-size: 11px; color: #71717a; margin-top: 4px; font-style: italic;">${instructions}</div>` : ""}
+            ${methodTags ? `<div style="margin-top: 2px;">${methodTags}</div>` : ""}
+            ${methodInstructions ? `<div style="font-size: 10.5px; color: #18181b; font-weight: 600; background: #fafafa; border: 1px solid #e4e4e7; border-radius: 6px; padding: 6px 10px; margin-top: 6px;">${methodInstructions}</div>` : ""}
+            ${instructions ? `<div style="font-size: 11px; color: #71717a; margin-top: 6px; font-style: italic;"><strong>Obs:</strong> ${instructions}</div>` : ""}
           </td>
           <td style="padding: 12px 8px; text-align: center; font-weight: 600; font-size: 13px;">${we.sets}</td>
           <td style="padding: 12px 8px; text-align: center; font-size: 13px;">${repsArr.join(" / ")}</td>
+          <td style="padding: 12px 8px; text-align: center; font-size: 13px; font-weight: 600; color: ${isBodyweight ? primaryColor : "inherit"};">${formattedLoads}</td>
           <td style="padding: 12px 8px; text-align: center; font-size: 13px;">${restArr.join(" / ")}</td>
         </tr>
       `;
@@ -279,6 +337,7 @@ export default function StudentWorkoutsPage() {
       <html>
         <head>
           <title>${workout.name} - ${workspaceName}</title>
+          <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
             @page {
@@ -494,6 +553,7 @@ export default function StudentWorkoutsPage() {
                   <th style="text-align: left;">Exercício</th>
                   <th style="width: 80px; text-align: center;">Séries</th>
                   <th style="width: 120px; text-align: center;">Repetições</th>
+                  <th style="width: 120px; text-align: center;">Carga</th>
                   <th style="width: 100px; text-align: center;">Descanso</th>
                 </tr>
               </thead>
@@ -512,9 +572,26 @@ export default function StudentWorkoutsPage() {
           <script>
             window.onload = function() {
               setTimeout(function() {
-                window.print();
-                window.close();
-              }, 300);
+                if (typeof html2pdf !== 'undefined') {
+                  var opt = {
+                    margin:       0,
+                    filename:     '${workout.name.replace(/[^a-zA-Z0-9]/g, "_")}.pdf',
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2, useCORS: true, logging: false },
+                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                  };
+                  html2pdf().set(opt).from(document.body).save().then(function() {
+                    setTimeout(function() { window.close(); }, 1000);
+                  }).catch(function(err) {
+                    console.error('html2pdf error:', err);
+                    window.print();
+                    window.close();
+                  });
+                } else {
+                  window.print();
+                  window.close();
+                }
+              }, 500);
             }
           </script>
         </body>
@@ -1124,7 +1201,13 @@ export default function StudentWorkoutsPage() {
                                             {we.sets} séries
                                           </span>
                                           <span>{repsArr[0] || "10"} reps</span>
-                                          <span>Carga: {loadArr[0] || "Auto"}</span>
+                                          {loadArr[0]?.toLowerCase().includes("p.c") ? (
+                                            <Badge className="bg-primary/10 text-primary border border-primary/20 text-[10px] px-2 py-0.5 font-bold rounded">
+                                              Peso do Corpo (p.c.)
+                                            </Badge>
+                                          ) : (
+                                            <span>Carga: {loadArr[0] || "Auto"}</span>
+                                          )}
                                         </div>
                                       </div>
                                     </div>
@@ -1250,7 +1333,9 @@ export default function StudentWorkoutsPage() {
                                               <div className="w-px h-5 bg-border/40" />
                                               <div>
                                                 <span className="text-[10px] text-muted-foreground block leading-none font-bold uppercase">Carga</span>
-                                                <span className="font-bold text-foreground">{loadArr[si] || loadArr[0] || "Auto"}</span>
+                                                <span className="font-bold text-foreground">
+                                                  {(loadArr[si] || loadArr[0])?.toLowerCase().includes("p.c") ? "Peso do Corpo (p.c.)" : (loadArr[si] || loadArr[0] || "Auto")}
+                                                </span>
                                               </div>
                                               <div className="w-px h-5 bg-border/40" />
                                               <div>
@@ -1344,7 +1429,13 @@ export default function StudentWorkoutsPage() {
                                           <span>•</span>
                                           <span>{repsArr[0] || "10"} reps</span>
                                           <span>•</span>
-                                          <span>Carga: {loadArr[0] || "Auto"}</span>
+                                          {loadArr[0]?.toLowerCase().includes("p.c") ? (
+                                            <Badge className="bg-primary/10 text-primary border border-primary/20 text-[9px] px-1.5 py-0.5 font-bold rounded">
+                                              Peso do Corpo (p.c.)
+                                            </Badge>
+                                          ) : (
+                                            <span>Carga: {loadArr[0] || "Auto"}</span>
+                                          )}
                                           {!isCircuit && (
                                             <>
                                               <span>•</span>
@@ -1508,6 +1599,7 @@ export default function StudentWorkoutsPage() {
                   {!isGroup ? (
                     (() => {
                       const execEx = currentStep.exercise;
+                      const isBodyweight = String(execEx.load || "").toLowerCase().includes("p.c");
                       return (
                         <>
                           <Card className="border-border/50 overflow-hidden shadow-sm p-0">
@@ -1517,7 +1609,14 @@ export default function StudentWorkoutsPage() {
                                   <span className="text-[10px] font-black uppercase tracking-widest text-primary">
                                     Exercício {currentStepIdx + 1} de {executionSteps.length}
                                   </span>
-                                  <h3 className="text-lg font-bold mt-1 text-foreground leading-tight">{execEx.exercise.name}</h3>
+                                  <div className="flex flex-wrap items-center gap-2 mt-1">
+                                    <h3 className="text-lg font-bold text-foreground leading-tight">{execEx.exercise.name}</h3>
+                                    {isBodyweight && (
+                                      <Badge className="bg-primary/10 text-primary border border-primary/20 text-[10px] px-2 py-0.5 font-bold rounded">
+                                        Peso do Corpo
+                                      </Badge>
+                                    )}
+                                  </div>
                                 </div>
                                 {execEx.exercise.videoUrl && (
                                   <Button
@@ -1631,20 +1730,26 @@ export default function StudentWorkoutsPage() {
                                   </div>
 
                                   {/* Load Input */}
-                                  <Input
-                                    type="tel"
-                                    value={allWorkoutLoads[execEx.id]?.[setIdx] || ""}
-                                    onChange={(e) => {
-                                      const nextLoads = { ...allWorkoutLoads };
-                                      if (!nextLoads[execEx.id]) {
-                                        nextLoads[execEx.id] = new Array(execEx.sets).fill("");
-                                      }
-                                      nextLoads[execEx.id][setIdx] = e.target.value;
-                                      setAllWorkoutLoads(nextLoads);
-                                    }}
-                                    placeholder="ex: 60"
-                                    className="h-10 text-center font-bold bg-transparent border-none focus-visible:ring-0 text-base"
-                                  />
+                                  {isBodyweight ? (
+                                    <div className="h-10 flex items-center justify-center font-extrabold text-primary text-xs bg-primary/5 rounded-lg border border-primary/20 select-none">
+                                      Peso do Corpo (p.c.)
+                                    </div>
+                                  ) : (
+                                    <Input
+                                      type="tel"
+                                      value={allWorkoutLoads[execEx.id]?.[setIdx] || ""}
+                                      onChange={(e) => {
+                                        const nextLoads = { ...allWorkoutLoads };
+                                        if (!nextLoads[execEx.id]) {
+                                          nextLoads[execEx.id] = new Array(execEx.sets).fill("");
+                                        }
+                                        nextLoads[execEx.id][setIdx] = e.target.value;
+                                        setAllWorkoutLoads(nextLoads);
+                                      }}
+                                      placeholder="ex: 60"
+                                      className="h-10 text-center font-bold bg-transparent border-none focus-visible:ring-0 text-base"
+                                    />
+                                  )}
 
                                   {/* Reps Input */}
                                   <Input
@@ -1823,49 +1928,63 @@ export default function StudentWorkoutsPage() {
                                     </div>
 
                                     <div className="space-y-3 pt-1 border-t border-border/20">
-                                      {exercises.map((ex: any) => (
-                                        <div key={ex.id} className="grid grid-cols-[1fr_85px_85px] gap-2 items-center text-xs">
-                                          <span className="font-bold truncate text-muted-foreground">{ex.exercise.name}</span>
+                                      {exercises.map((ex: any) => {
+                                        const isExBodyweight = String(ex.load || "").toLowerCase().includes("p.c");
+                                        return (
+                                          <div key={ex.id} className="grid grid-cols-[1fr_85px_85px] gap-2 items-center text-xs">
+                                            <div className="flex flex-col min-w-0">
+                                              <span className="font-bold truncate text-muted-foreground">{ex.exercise.name}</span>
+                                              {isExBodyweight && (
+                                                <span className="text-[10px] text-primary font-bold">Peso do Corpo</span>
+                                              )}
+                                            </div>
 
-                                          {/* Load Input */}
-                                          <div className="flex flex-col items-center">
-                                            <span className="text-[9px] font-bold text-muted-foreground/50 uppercase tracking-tighter">Carga (KG)</span>
-                                            <Input
-                                              type="tel"
-                                              value={allWorkoutLoads[ex.id]?.[setIdx] || ""}
-                                              onChange={(e) => {
-                                                const nextLoads = { ...allWorkoutLoads };
-                                                if (!nextLoads[ex.id]) {
-                                                  nextLoads[ex.id] = new Array(ex.sets).fill("");
-                                                }
-                                                nextLoads[ex.id][setIdx] = e.target.value;
-                                                setAllWorkoutLoads(nextLoads);
-                                              }}
-                                              placeholder="ex: 60"
-                                              className="h-8 text-center font-bold bg-transparent border-b border-t-0 border-x-0 rounded-none focus-visible:ring-0 text-sm"
-                                            />
-                                          </div>
+                                            {/* Load Input */}
+                                            <div className="flex flex-col items-center w-full">
+                                              <span className="text-[9px] font-bold text-muted-foreground/50 uppercase tracking-tighter">Carga (KG)</span>
+                                              {isExBodyweight ? (
+                                                <div className="h-8 flex items-center justify-center font-extrabold text-primary text-[10px] bg-primary/5 rounded border border-primary/20 px-1.5 w-full select-none mt-1">
+                                                  p.c.
+                                                </div>
+                                              ) : (
+                                                <Input
+                                                  type="tel"
+                                                  value={allWorkoutLoads[ex.id]?.[setIdx] || ""}
+                                                  onChange={(e) => {
+                                                    const nextLoads = { ...allWorkoutLoads };
+                                                    if (!nextLoads[ex.id]) {
+                                                      nextLoads[ex.id] = new Array(ex.sets).fill("");
+                                                    }
+                                                    nextLoads[ex.id][setIdx] = e.target.value;
+                                                    setAllWorkoutLoads(nextLoads);
+                                                  }}
+                                                  placeholder="ex: 60"
+                                                  className="h-8 text-center font-bold bg-transparent border-b border-t-0 border-x-0 rounded-none focus-visible:ring-0 text-sm w-full"
+                                                />
+                                              )}
+                                            </div>
 
-                                          {/* Reps Input */}
-                                          <div className="flex flex-col items-center">
-                                            <span className="text-[9px] font-bold text-muted-foreground/50 uppercase tracking-tighter">Reps</span>
-                                            <Input
-                                              type="tel"
-                                              value={allWorkoutReps[ex.id]?.[setIdx] || ""}
-                                              onChange={(e) => {
-                                                const nextReps = { ...allWorkoutReps };
-                                                if (!nextReps[ex.id]) {
-                                                  nextReps[ex.id] = new Array(ex.sets).fill("");
-                                                }
-                                                nextReps[ex.id][setIdx] = e.target.value;
-                                                setAllWorkoutReps(nextReps);
-                                              }}
-                                              placeholder="ex: 10"
-                                              className="h-8 text-center font-bold bg-transparent border-b border-t-0 border-x-0 rounded-none focus-visible:ring-0 text-sm"
-                                            />
+                                            {/* Reps Input */}
+                                            <div className="flex flex-col items-center">
+                                              <span className="text-[9px] font-bold text-muted-foreground/50 uppercase tracking-tighter">Reps</span>
+                                              <Input
+                                                type="tel"
+                                                value={allWorkoutReps[ex.id]?.[setIdx] || ""}
+                                                onChange={(e) => {
+                                                  const nextReps = { ...allWorkoutReps };
+                                                  if (!nextReps[ex.id]) {
+                                                    nextReps[ex.id] = new Array(ex.sets).fill("");
+                                                  }
+                                                  nextReps[ex.id][setIdx] = e.target.value;
+                                                  setAllWorkoutReps(nextReps);
+                                                }}
+                                                placeholder="ex: 10"
+                                                className="h-8 text-center font-bold bg-transparent border-b border-t-0 border-x-0 rounded-none focus-visible:ring-0 text-sm"
+                                              />
+                                            </div>
                                           </div>
-                                        </div>
-                                      ))}
+                                        );
+                                      })}
                                     </div>
                                   </div>
                                 );

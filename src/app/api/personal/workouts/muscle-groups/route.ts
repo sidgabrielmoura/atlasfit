@@ -25,20 +25,31 @@ export async function GET() {
       return new NextResponse("Não autorizado.", { status: 401 });
     }
 
-    // Garante que os grupos musculares solicitados existam no banco
-    for (const name of DEFAULT_MUSCLE_GROUPS) {
-      await prisma.muscleGroup.upsert({
-        where: { name },
-        update: {},
-        create: { name }
-      });
-    }
-
     const muscleGroups = await prisma.muscleGroup.findMany({
       orderBy: {
         name: "asc",
       },
     });
+
+    const existingNames = new Set(muscleGroups.map(g => g.name));
+    const missingNames = DEFAULT_MUSCLE_GROUPS.filter(name => !existingNames.has(name));
+    
+    if (missingNames.length > 0) {
+      for (const name of missingNames) {
+        try {
+          await prisma.muscleGroup.create({
+            data: { name }
+          });
+        } catch (e) {
+          // ignore duplicate errors
+        }
+      }
+      return NextResponse.json(await prisma.muscleGroup.findMany({
+        orderBy: {
+          name: "asc",
+        },
+      }));
+    }
 
     return NextResponse.json(muscleGroups);
   } catch (error) {

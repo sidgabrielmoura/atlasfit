@@ -85,22 +85,78 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
+    const groupLetters: Record<string, string> = {};
+    let currentLetterCode = 65;
+    (workout.exercises || []).forEach((we: any) => {
+      if (we.groupId && !groupLetters[we.groupId]) {
+        groupLetters[we.groupId] = String.fromCharCode(currentLetterCode++);
+      }
+    });
+
     const exercisesRows = (workout.exercises || []).map((we: any, idx: number) => {
       const repsArr = String(we.reps || "").split(",").map(s => s.trim());
       const loadArr = String(we.load || "").split(",").map(s => s.trim());
       const restArr = String(we.rest || "").split(",").map(s => s.trim());
+      
+      const isBodyweight = String(we.load || "").toLowerCase().includes("p.c");
+      const formattedLoads = isBodyweight 
+        ? "Peso do Corpo (p.c.)" 
+        : (loadArr.map(l => l ? `${l} kg` : "Auto").join(" / ") || "Auto");
+
       const instructions = we.notes || we.exercise.instructions || "";
       
+      let methodTags = "";
+      let methodInstructions = "";
+
+      if (we.groupId && we.group) {
+        const typeLabel = we.group.type === "BISET" ? "Biset" : we.group.type === "TRISET" ? "Triset" : "Circuito";
+        methodTags += `
+          <span style="display: inline-block; padding: 2px 6px; font-size: 10px; font-weight: bold; border-radius: 4px; background: rgba(234, 88, 12, 0.1); color: ${primaryColor}; margin-top: 4px; margin-right: 4px; border: 1px solid rgba(234, 88, 12, 0.2);">
+            🔗 ${typeLabel} ${groupLetters[we.groupId]}
+          </span>
+        `;
+      }
+
+      if (we.methodType === "DROPSET") {
+        methodTags += `
+          <span style="display: inline-block; padding: 2px 6px; font-size: 10px; font-weight: bold; border-radius: 4px; background: rgba(245, 158, 11, 0.1); color: #d97706; margin-top: 4px; margin-right: 4px; border: 1px solid rgba(245, 158, 11, 0.2);">
+            ⚡ Dropset
+          </span>
+        `;
+        const reduction = (we.methodConfig as any)?.reduction || 20;
+        const drops = (we.methodConfig as any)?.drops || 2;
+        methodInstructions = `Método Dropset: Faça a série com a carga planejada até a falha. Sem descansar, reduza a carga em ${reduction}% e faça o máximo de repetições possíveis. Repita o processo ${drops} vezes.`;
+      } else if (we.methodType === "REST_PAUSE") {
+        methodTags += `
+          <span style="display: inline-block; padding: 2px 6px; font-size: 10px; font-weight: bold; border-radius: 4px; background: rgba(147, 51, 234, 0.1); color: #9333ea; margin-top: 4px; margin-right: 4px; border: 1px solid rgba(147, 51, 234, 0.2);">
+            ⚡ Rest-Pause
+          </span>
+        `;
+        const pause = (we.methodConfig as any)?.pause || 15;
+        const rounds = (we.methodConfig as any)?.rounds || 2;
+        methodInstructions = `Método Rest-Pause: Faça a série até a falha. Solte o peso e descanse por apenas ${pause} segundos. Faça outra série até a falha. Repita o intervalo por ${rounds} vezes.`;
+      }
+
+      if (isBodyweight) {
+        methodTags += `
+          <span style="display: inline-block; padding: 2px 6px; font-size: 10px; font-weight: bold; border-radius: 4px; background: rgba(16, 185, 129, 0.1); color: #059669; margin-top: 4px; margin-right: 4px; border: 1px solid rgba(16, 185, 129, 0.2);">
+            Peso do Corpo
+          </span>
+        `;
+      }
+
       return `
         <tr style="border-bottom: 1px solid #e4e4e7;">
           <td style="padding: 12px 8px; font-weight: bold; text-align: center; color: ${primaryColor}; width: 40px;">${idx + 1}</td>
           <td style="padding: 12px 8px;">
             <div style="font-weight: bold; font-size: 14px; color: #18181b;">${we.exercise.name}</div>
-            ${instructions ? `<div style="font-size: 11px; color: #71717a; margin-top: 4px; font-style: italic;">${instructions}</div>` : ""}
+            ${methodTags ? `<div style="margin-top: 2px;">${methodTags}</div>` : ""}
+            ${methodInstructions ? `<div style="font-size: 10.5px; color: #18181b; font-weight: 600; background: #fafafa; border: 1px solid #e4e4e7; border-radius: 6px; padding: 6px 10px; margin-top: 6px;">${methodInstructions}</div>` : ""}
+            ${instructions ? `<div style="font-size: 11px; color: #71717a; margin-top: 6px; font-style: italic;"><strong>Obs:</strong> ${instructions}</div>` : ""}
           </td>
           <td style="padding: 12px 8px; text-align: center; font-weight: 600; font-size: 13px;">${we.sets}</td>
           <td style="padding: 12px 8px; text-align: center; font-size: 13px;">${repsArr.join(" / ")}</td>
-          <td style="padding: 12px 8px; text-align: center; font-size: 13px;">${loadArr.join(" / ") || "Auto"}</td>
+          <td style="padding: 12px 8px; text-align: center; font-size: 13px; font-weight: 600; color: ${isBodyweight ? primaryColor : "inherit"};">${formattedLoads}</td>
           <td style="padding: 12px 8px; text-align: center; font-size: 13px;">${restArr.join(" / ")}</td>
         </tr>
       `;
@@ -111,6 +167,7 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
       <html>
         <head>
           <title>${workout.name} - ${workspaceName}</title>
+          <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap');
             @page {
@@ -345,9 +402,26 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
           <script>
             window.onload = function() {
               setTimeout(function() {
-                window.print();
-                window.close();
-              }, 300);
+                if (typeof html2pdf !== 'undefined') {
+                  var opt = {
+                    margin:       0,
+                    filename:     '${workout.name.replace(/[^a-zA-Z0-9]/g, "_")}.pdf',
+                    image:        { type: 'jpeg', quality: 0.98 },
+                    html2canvas:  { scale: 2, useCORS: true, logging: false },
+                    jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                  };
+                  html2pdf().set(opt).from(document.body).save().then(function() {
+                    setTimeout(function() { window.close(); }, 1000);
+                  }).catch(function(err) {
+                    console.error('html2pdf error:', err);
+                    window.print();
+                    window.close();
+                  });
+                } else {
+                  window.print();
+                  window.close();
+                }
+              }, 500);
             }
           </script>
         </body>
@@ -435,10 +509,16 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
   const getMuscleGroupCoverage = (exercises: any[]) => {
     const counts: { [key: string]: number } = {};
     exercises.forEach((we) => {
-      const muscle = we.exercise.muscleGroup?.name || "Geral";
-      counts[muscle] = (counts[muscle] || 0) + 1;
+      if (we.exercise.muscleGroups && we.exercise.muscleGroups.length > 0) {
+        we.exercise.muscleGroups.forEach((g: any) => {
+          counts[g.name] = (counts[g.name] || 0) + 1;
+        });
+      } else {
+        const muscle = we.exercise.muscleGroup?.name || "Geral";
+        counts[muscle] = (counts[muscle] || 0) + 1;
+      }
     });
-    const total = exercises.length || 1;
+    const total = Object.values(counts).reduce((sum, val) => sum + val, 0) || 1;
     return Object.keys(counts).map((muscle) => ({
       name: muscle,
       count: counts[muscle],
@@ -780,9 +860,17 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
                                 {we.exercise.name}
                               </h4>
                               <div className="flex flex-wrap items-center gap-2">
-                                <Badge variant="outline" className="border-white/[0.04] bg-zinc-900/40 text-zinc-400 text-[10px] px-2 py-0.5 rounded-md font-bold tracking-wider uppercase">
-                                  {we.exercise.muscleGroup?.name || "Geral"}
-                                </Badge>
+                                 {we.exercise.muscleGroups && we.exercise.muscleGroups.length > 0 ? (
+                                   we.exercise.muscleGroups.map((g: any) => (
+                                     <Badge key={g.name} variant="outline" className="border-white/[0.04] bg-zinc-900/40 text-zinc-400 text-[10px] px-2 py-0.5 rounded-md font-bold tracking-wider uppercase">
+                                       {g.name}
+                                     </Badge>
+                                   ))
+                                 ) : (
+                                   <Badge variant="outline" className="border-white/[0.04] bg-zinc-900/40 text-zinc-400 text-[10px] px-2 py-0.5 rounded-md font-bold tracking-wider uppercase">
+                                     {we.exercise.muscleGroup?.name || "Geral"}
+                                   </Badge>
+                                 )}
 
                                 {we.groupId && we.group && (
                                   <Badge className="bg-primary/10 text-primary border border-primary/20 text-[10px] px-2 py-0.5 rounded-md font-bold">
@@ -1039,7 +1127,7 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
 
       {/* ALERT DIALOG: Permanent deletion confirmation */}
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-        <AlertDialogContent className="bg-zinc-950 border border-white/[0.08] text-white rounded-3xl max-w-[calc(100%-2rem)] sm:max-w-md relative overflow-hidden">
+        <AlertDialogContent className="bg-zinc-950 border border-white/[0.08] text-white rounded-3xl max-w-[calc(100%-2rem)] sm:max-w-md overflow-hidden">
           <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-rose-500/20 to-transparent" />
 
           <AlertDialogHeader>

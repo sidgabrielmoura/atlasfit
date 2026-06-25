@@ -114,10 +114,17 @@ function ExercisesContent() {
   const [searchConfig, setSearchConfig] = useState(initialSearch);
   const [searchOfficial, setSearchOfficial] = useState(initialSearch);
 
-  const [configForm, setConfigForm] = useState({
+  const [configForm, setConfigForm] = useState<{
+    name: string;
+    videoUrl: string;
+    muscleGroupId: string;
+    muscleGroupIds: string[];
+    isOfficial: boolean;
+  }>({
     name: "",
     videoUrl: "",
     muscleGroupId: "",
+    muscleGroupIds: [],
     isOfficial: true
   });
 
@@ -368,10 +375,12 @@ function ExercisesContent() {
 
   const openConfigModal = (ex: any | null) => {
     setSelectedExercise(ex);
+    const ids = ex?.muscleGroups ? ex.muscleGroups.map((g: any) => g.id) : (ex?.muscleGroupId ? [ex.muscleGroupId] : []);
     setConfigForm({
       name: ex?.name || "",
       videoUrl: ex?.videoUrl || "",
       muscleGroupId: ex?.muscleGroupId || "",
+      muscleGroupIds: ids,
       isOfficial: ex ? ex.isOfficial : true
     });
     setIsConfigModalOpen(true);
@@ -379,6 +388,10 @@ function ExercisesContent() {
 
   const handleSaveConfig = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (configForm.muscleGroupIds.length === 0) {
+      toast.error("Selecione pelo menos um grupamento muscular.");
+      return;
+    }
     setIsSubmitting(true);
     try {
       if (selectedExercise) {
@@ -564,9 +577,25 @@ function ExercisesContent() {
                               </div>
                             </td>
                             <td className="px-6 py-4">
-                              <div className="flex items-center gap-2">
-                                <Tag className="size-3 text-muted-foreground" />
-                                <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{ex.muscleGroup?.name || "Sem Categoria"}</span>
+                              <div className="flex flex-wrap gap-1.5 items-center max-w-[240px]">
+                                {ex.muscleGroups && ex.muscleGroups.length > 0 ? (
+                                  ex.muscleGroups.map((group: any) => (
+                                    <Badge
+                                      key={group.id}
+                                      variant="secondary"
+                                      className="text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded bg-secondary/80 text-foreground border border-border/40"
+                                    >
+                                      {group.name}
+                                    </Badge>
+                                  ))
+                                ) : (
+                                  <Badge
+                                    variant="secondary"
+                                    className="text-[9px] font-extrabold uppercase tracking-wider px-1.5 py-0.5 rounded bg-secondary/80 text-foreground border border-border/40"
+                                  >
+                                    {ex.muscleGroup?.name || "Sem Categoria"}
+                                  </Badge>
+                                )}
                               </div>
                             </td>
                             <td className="px-6 py-4 text-center">
@@ -781,7 +810,11 @@ function ExercisesContent() {
 
                     <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
                       <Tag className="size-3" />
-                      {ex.muscleGroup?.name || "Sem Categoria"}
+                      <span className="truncate max-w-[150px]">
+                        {ex.muscleGroups && ex.muscleGroups.length > 0
+                          ? ex.muscleGroups.map((g: any) => g.name).join(", ")
+                          : (ex.muscleGroup?.name || "Sem Categoria")}
+                      </span>
                       <span className="mx-1">•</span>
                       <Clock className="size-3" />
                       {new Date(ex.createdAt).toLocaleDateString()}
@@ -922,7 +955,7 @@ function ExercisesContent() {
       </div>
 
       <Dialog open={isConfigModalOpen} onOpenChange={setIsConfigModalOpen}>
-        <DialogContent className="max-w-xl! rounded-2xl!">
+        <DialogContent className="max-w-xl! rounded-2xl! overflow-y-auto!">
           <DialogHeader>
             <DialogTitle className="text-2xl font-black tracking-tight">
               {selectedExercise ? "Editar Exercício" : "Novo Exercício Oficial"}
@@ -935,7 +968,7 @@ function ExercisesContent() {
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSaveConfig} className="space-y-6 py-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="space-y-4">
               <div className="space-y-2">
                 <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nome do Exercício</Label>
                 <Input
@@ -946,23 +979,43 @@ function ExercisesContent() {
                   className="rounded-xl h-12 border-border/40 focus:border-primary font-bold"
                 />
               </div>
+
               <div className="space-y-2">
-                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Grupo Muscular</Label>
-                <Select
-                  value={configForm.muscleGroupId}
-                  onValueChange={(val) => setConfigForm({ ...configForm, muscleGroupId: val })}
-                >
-                  <SelectTrigger className="rounded-xl h-12! w-full border-border/40 font-bold">
-                    <SelectValue placeholder="Selecione..." />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl border-border/40">
-                    {snap.muscleGroups.map((group: any) => (
-                      <SelectItem key={group.id} value={group.id} className="font-bold text-xs">
-                        {group.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                  Grupamentos Musculares (Selecione pelo menos um)
+                </Label>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 p-4 rounded-xl bg-secondary/10 border border-border/40 max-h-48 overflow-y-auto">
+                  {snap.muscleGroups.map((group: any) => {
+                    const isChecked = configForm.muscleGroupIds.includes(group.id);
+                    return (
+                      <div key={group.id} className="flex items-center space-x-2">
+                        <Checkbox
+                          id={`muscle-group-${group.id}`}
+                          checked={isChecked}
+                          onCheckedChange={(checked) => {
+                            let newIds = [...configForm.muscleGroupIds];
+                            if (checked) {
+                              newIds.push(group.id);
+                            } else {
+                              newIds = newIds.filter((id) => id !== group.id);
+                            }
+                            setConfigForm({
+                              ...configForm,
+                              muscleGroupIds: newIds,
+                              muscleGroupId: newIds[0] || "",
+                            });
+                          }}
+                        />
+                        <label
+                          htmlFor={`muscle-group-${group.id}`}
+                          className="text-xs font-bold text-foreground cursor-pointer select-none truncate"
+                        >
+                          {group.name}
+                        </label>
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
 

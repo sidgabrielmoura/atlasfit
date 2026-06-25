@@ -46,7 +46,7 @@ export function RegisterForm() {
     <div className="space-y-8 w-full max-w-sm mx-auto">
       <div className="space-y-2 text-center md:text-left">
         <h2 className="text-3xl font-extrabold tracking-tight">Criar Conta Grátis</h2>
-        <p className="text-muted-foreground">Experimente a plataforma completa grátis por 10 dias.</p>
+        <p className="text-muted-foreground">Experimente a plataforma completa grátis por 30 dias.</p>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-6">

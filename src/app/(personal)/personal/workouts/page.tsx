@@ -813,7 +813,11 @@ export default function WorkoutsPage() {
                         <h4 className="font-medium text-sm truncate text-foreground leading-snug">{request.name}</h4>
                         <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
                           <Activity className="size-3 shrink-0" />
-                          <span className="truncate">{request.muscleGroup?.name || "Sem grupo"}</span>
+                          <span className="truncate">
+                            {request.muscleGroups && request.muscleGroups.length > 0
+                              ? request.muscleGroups.map((g: any) => g.name).join(", ")
+                              : (request.muscleGroup?.name || "Sem grupo")}
+                          </span>
                           {request.videoUrl && (
                             <span className="flex items-center gap-1 text-primary/80 border-l border-border/60 pl-1.5 shrink-0">
                               Vídeo
@@ -890,7 +894,9 @@ export default function WorkoutsPage() {
                               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
                                 <span className="flex items-center gap-1">
                                   <Activity className="size-3" />
-                                  {exercise.muscleGroup?.name || "Geral"}
+                                  {exercise.muscleGroups && exercise.muscleGroups.length > 0
+                                    ? exercise.muscleGroups.map((g: any) => g.name).join(", ")
+                                    : (exercise.muscleGroup?.name || "Geral")}
                                 </span>
                                 <span className="flex items-center gap-1">
                                   <PlaySquare className="size-3" />

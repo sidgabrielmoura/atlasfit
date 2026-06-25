@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { AbacatePay } from "@/lib/abacatepay";
 import { logSystemError } from "@/lib/logger";
+import crypto from "crypto";
 
 export async function POST(req: Request) {
   const signature = req.headers.get("x-webhook-signature");
@@ -17,8 +18,22 @@ export async function POST(req: Request) {
       return new NextResponse("Assinatura ausente.", { status: 401 });
     }
     try {
-      const abacate = AbacatePay({ secret: apiKey });
-      eventPayload = abacate.webhooks.verify(rawBody, signature);
+      const ABACATEPAY_SHARED_KEY = "t9dXRhHHo3yDEj5pVDYz0frf7q6bMKyMRmxxCPIPp3RCplBfXRxqlC6ZpiWmOqj4L63qEaeUOtrCI8P0VMUgo6iIga2ri9ogaHFs0WIIywSMg0q7RmBfybe1E5XJcfC4IW3alNqym0tXoAKkzvfEjZxV6bE0oG2zJrNNYmUCKZyV0KZ3JS8Votf9EAWWYdiDkMkpbMdPggfh1EqHlVkMiTady6jOR3hyzGEHrIz2Ret0xHKMbiqkr9HS1JhNHDX9";
+      
+      const sigHexSecret = crypto.createHmac("sha256", webhookSecret).update(rawBody).digest("hex");
+      const sigBase64Secret = crypto.createHmac("sha256", webhookSecret).update(rawBody).digest("base64");
+      const sigBase64Shared = crypto.createHmac("sha256", ABACATEPAY_SHARED_KEY).update(rawBody).digest("base64");
+      const sigHexShared = crypto.createHmac("sha256", ABACATEPAY_SHARED_KEY).update(rawBody).digest("hex");
+
+      const isValid = (signature === sigHexSecret) || 
+                      (signature === sigBase64Secret) || 
+                      (signature === sigBase64Shared) || 
+                      (signature === sigHexShared);
+
+      if (!isValid) {
+        throw new Error("Assinatura inválida (HMAC incorreto).");
+      }
+      eventPayload = JSON.parse(rawBody);
     } catch (err: any) {
       console.error("Webhook signature verification failed:", err);
       await logSystemError({ action: "WEBHOOK_SIGNATURE_VERIFICATION", error: err, entity: "WEBHOOK" });
@@ -37,10 +52,17 @@ export async function POST(req: Request) {
   }
 
   const { event: eventType, data } = eventPayload;
+  const isCheckoutEvent = eventType && eventType.startsWith("checkout");
+  const targetData = isCheckoutEvent ? data?.checkout : data;
 
-  if (eventType === "billing.paid") {
-    const transactionId = data.externalId;
-    const { planId, userId, isPreSubscription } = data.metadata || {};
+  if (!targetData) {
+    console.error("Payload do webhook inválido ou dados de targetData ausentes.");
+    return new NextResponse("Dados insuficientes no payload.", { status: 400 });
+  }
+
+  if (eventType === "billing.paid" || (eventType === "checkout.completed" && targetData.status === "PAID")) {
+    const transactionId = targetData.externalId;
+    const { planId, userId, isPreSubscription } = targetData.metadata || {};
 
     if (!transactionId || !userId || !planId) {
       console.error("Webhook recebido com metadados ou ID de transação ausentes.");
@@ -49,14 +71,14 @@ export async function POST(req: Request) {
 
     // Identificar cupons aplicados no webhook de checkout / cobrança
     let usedCoupons: string[] = [];
-    if (Array.isArray(data.coupons)) {
-      usedCoupons = data.coupons.map((c: any) => typeof c === "string" ? c : c?.code).filter(Boolean);
+    if (Array.isArray(targetData.coupons)) {
+      usedCoupons = targetData.coupons.map((c: any) => typeof c === "string" ? c : c?.code).filter(Boolean);
     }
-    if (usedCoupons.length === 0 && data.billing && Array.isArray(data.billing.coupons)) {
-      usedCoupons = data.billing.coupons.map((c: any) => typeof c === "string" ? c : c?.code).filter(Boolean);
+    if (usedCoupons.length === 0 && targetData.billing && Array.isArray(targetData.billing.coupons)) {
+      usedCoupons = targetData.billing.coupons.map((c: any) => typeof c === "string" ? c : c?.code).filter(Boolean);
     }
-    if (usedCoupons.length === 0 && data.metadata?.coupons) {
-      const metaCoupons = data.metadata.coupons;
+    if (usedCoupons.length === 0 && targetData.metadata?.coupons) {
+      const metaCoupons = targetData.metadata.coupons;
       if (typeof metaCoupons === "string") {
         try {
           const parsed = JSON.parse(metaCoupons);
@@ -233,13 +255,13 @@ export async function POST(req: Request) {
     eventType.includes("past_due") || 
     eventType.includes("unpaid")
   ) {
-    let userId = data.metadata?.userId;
-    let planId = data.metadata?.planId || "";
+    let userId = targetData.metadata?.userId;
+    let planId = targetData.metadata?.planId || "";
 
-    if (!userId && data.externalId) {
+    if (!userId && targetData.externalId) {
       try {
         const transaction = await prisma.transaction.findUnique({
-          where: { id: data.externalId }
+          where: { id: targetData.externalId }
         });
         if (transaction) {
           userId = transaction.userId;
@@ -261,9 +283,9 @@ export async function POST(req: Request) {
           });
 
           // 2. Se houver transação correspondente, marcar como falha
-          if (data.externalId) {
+          if (targetData.externalId) {
             await tx.transaction.updateMany({
-              where: { id: data.externalId },
+              where: { id: targetData.externalId },
               data: {
                 status: "FAILED",
               }
@@ -276,7 +298,7 @@ export async function POST(req: Request) {
               userId,
               planId: planId || "fallback_plan",
               type: "RENEWAL",
-              amount: data.amount ? data.amount / 100 : 0,
+              amount: targetData.amount ? targetData.amount / 100 : 0,
               status: "failed",
             }
           });

@@ -185,7 +185,7 @@ export function CommandMenu() {
                   {(snap.exercises as any[]).slice(0, 6).map((exercise: any) => (
                     <CommandItem
                       key={exercise.id}
-                      value={`${exercise.name} ${exercise.muscleGroup?.name ?? ""}`}
+                      value={`${exercise.name} ${exercise.muscleGroups && exercise.muscleGroups.length > 0 ? exercise.muscleGroups.map((g: any) => g.name).join(" ") : (exercise.muscleGroup?.name ?? "")}`}
                       onSelect={() =>
                         runCommand(() =>
                           router.push(`/superadmin/exercises?q=${encodeURIComponent(exercise.name)}`)
@@ -198,12 +198,17 @@ export function CommandMenu() {
                       </div>
                       <div className="flex flex-col min-w-0">
                         <span className="text-sm font-semibold leading-none truncate">{exercise.name}</span>
-                        {exercise.muscleGroup?.name && (
+                        {exercise.muscleGroups && exercise.muscleGroups.length > 0 ? (
+                          <span className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
+                            <Tag className="size-2.5" />
+                            {exercise.muscleGroups.map((g: any) => g.name).join(", ")}
+                          </span>
+                        ) : exercise.muscleGroup?.name ? (
                           <span className="text-[11px] text-muted-foreground mt-0.5 flex items-center gap-1">
                             <Tag className="size-2.5" />
                             {exercise.muscleGroup.name}
                           </span>
-                        )}
+                        ) : null}
                       </div>
                       <ArrowRight className="size-3.5 ml-auto text-muted-foreground/40 group-data-selected:text-primary group-data-selected:translate-x-0.5 transition-all" />
                     </CommandItem>

@@ -42,13 +42,13 @@ export async function registerTrainer(formData: {
       });
 
       const now = new Date();
-      const tenDaysFromNow = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000);
+      const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
       await tx.freeTrial.create({
         data: {
           userId: user.id,
           startDate: now,
-          endDate: tenDaysFromNow,
+          endDate: thirtyDaysFromNow,
           isActive: true,
         }
       });

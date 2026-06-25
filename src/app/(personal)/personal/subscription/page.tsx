@@ -599,7 +599,7 @@ export default function SubscriptionPage() {
             <div className="max-w-2xl mx-auto p-5 bg-amber-500/5 border border-amber-500/20 rounded-2xl text-center flex flex-col items-center gap-2 select-none animate-in fade-in duration-300">
               <Zap className="size-5 text-amber-500 shrink-0" />
               <p className="text-xs text-foreground/80 leading-relaxed max-w-lg font-medium">
-                <strong>Como funciona a Pré-Assinatura?</strong> Ao escolher seu plano premium hoje, a cobrança é realizada imediatamente, mas seu período de 10 dias de teste grátis continua contando normalmente. Suas mensalidades só começam após o fim do teste!
+                <strong>Como funciona a Pré-Assinatura?</strong> Ao escolher seu plano premium hoje, a cobrança é realizada imediatamente, mas seu período de 30 dias de teste grátis continua contando normalmente. Suas mensalidades só começam após o fim do teste!
               </p>
             </div>
           )}

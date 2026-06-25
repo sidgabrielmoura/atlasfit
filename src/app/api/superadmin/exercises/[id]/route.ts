@@ -16,17 +16,27 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    const { status, name, videoUrl, muscleGroupId, isOfficial } = body;
+    const { status, name, videoUrl, muscleGroupId, muscleGroupIds, isOfficial } = body;
+
+    const ids = Array.isArray(muscleGroupIds) ? muscleGroupIds : (muscleGroupId ? [muscleGroupId] : []);
+
+    const updateData: any = {
+      status,
+      name,
+      videoUrl,
+      isOfficial
+    };
+
+    if (ids.length > 0) {
+      updateData.muscleGroupId = ids[0];
+      updateData.muscleGroups = {
+        set: ids.map(id => ({ id }))
+      };
+    }
 
     const exercise = await prisma.exercise.update({
       where: { id },
-      data: {
-        status,
-        name,
-        videoUrl,
-        muscleGroupId,
-        isOfficial
-      }
+      data: updateData
     });
 
     return NextResponse.json(exercise);
