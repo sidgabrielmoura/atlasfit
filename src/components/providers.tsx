@@ -14,7 +14,6 @@ const CampaignModal = dynamic(
 );
 
 export function Providers({ children }: { children: React.ReactNode }) {
-  // Workaround para erro do next-themes no React 19 / Next.js 15
   if (typeof window !== "undefined") {
     const originalError = console.error;
     console.error = (...args) => {

@@ -146,6 +146,16 @@ export async function PATCH(
     if (isActive !== undefined) dataToUpdate.isActive = !!isActive;
     if (priority !== undefined) dataToUpdate.priority = parseInt(priority);
 
+    if (body.imageKey !== undefined) {
+      dataToUpdate.imageKey = body.imageKey;
+      if (existingCampaign.imageKey && existingCampaign.imageKey !== body.imageKey) {
+        const { storageService } = require("@/lib/storage.service");
+        await storageService.deleteObject(existingCampaign.imageKey).catch((e: any) =>
+          console.error("Error deleting old campaign image from R2:", e)
+        );
+      }
+    }
+
     const updatedCampaign = await prisma.campaign.update({
       where: { id },
       data: dataToUpdate,
@@ -185,6 +195,13 @@ export async function DELETE(
 
     if (!existingCampaign) {
       return new NextResponse("Campaign not found", { status: 404 });
+    }
+
+    if (existingCampaign.imageKey) {
+      const { storageService } = require("@/lib/storage.service");
+      await storageService.deleteObject(existingCampaign.imageKey).catch((e: any) =>
+        console.error("Error deleting campaign image on delete:", e)
+      );
     }
 
     await prisma.campaign.delete({

@@ -165,11 +165,7 @@ export default function StudentEvolutionPage() {
     const file = e.target.files?.[0];
     if (file) {
       setPhotoFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPhotoBase64(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      setPhotoBase64(URL.createObjectURL(file));
     }
   };
 
@@ -231,26 +227,65 @@ export default function StudentEvolutionPage() {
   // Submit progress photo
   const handlePhotoSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const finalUrl = photoBase64 || photoUrlInput.trim();
-    if (!finalUrl) {
+    if (!photoFile && !photoUrlInput.trim()) {
       toast.warning("Por favor, selecione uma imagem ou informe um link.");
       return;
     }
 
     setIsSubmittingPhoto(true);
+    const toastId = toast.loading("Enviando foto de progresso...");
     try {
+      let finalUrl = photoUrlInput.trim();
+      let finalKey = null;
+
+      if (photoFile) {
+        // 1. Get presigned URL
+        const presignedRes = await fetch("/api/storage/presigned", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: photoFile.name,
+            contentType: photoFile.type,
+            fileSize: photoFile.size,
+            targetType: "progress_photo",
+          }),
+        });
+
+        if (!presignedRes.ok) {
+          const txt = await presignedRes.text();
+          throw new Error(txt || "Erro ao obter URL de upload.");
+        }
+
+        const { uploadUrl: putUrl, fileUrl, objectKey } = await presignedRes.json();
+
+        // 2. Put file to R2
+        const putRes = await fetch(putUrl, {
+          method: "PUT",
+          headers: { "Content-Type": photoFile.type },
+          body: photoFile,
+        });
+
+        if (!putRes.ok) {
+          throw new Error("Erro ao transferir arquivo para o storage.");
+        }
+
+        finalUrl = fileUrl;
+        finalKey = objectKey;
+      }
+
       const res = await fetch("/api/student/evolution", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           action: "uploadPhoto",
           photoUrl: finalUrl,
+          objectKey: finalKey,
         }),
       });
 
-      if (!res.ok) throw new Error("Erro ao salvar foto.");
+      if (!res.ok) throw new Error("Erro ao salvar foto no banco.");
 
-      toast.success("Foto de progresso enviada com sucesso! 📸");
+      toast.success("Foto de progresso enviada com sucesso! 📸", { id: toastId });
       setIsPhotoModalOpen(false);
       setPhotoUrlInput("");
       setPhotoFile(null);
@@ -259,7 +294,7 @@ export default function StudentEvolutionPage() {
       loadProgressData();
     } catch (err: any) {
       console.error(err);
-      toast.error("Falha ao salvar foto de progresso.");
+      toast.error(err.message || "Falha ao salvar foto de progresso.", { id: toastId });
     } finally {
       setIsSubmittingPhoto(false);
     }

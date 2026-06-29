@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { batchVerifyAndDecayStreaks } from "@/lib/streak-helper";
+import { NotificationService } from "@/lib/notifications/service";
+
 
 export async function GET(req: Request) {
   try {
@@ -158,6 +160,45 @@ export async function GET(req: Request) {
       ]
     });
 
+    const leadTasks = await prisma.leadTask.findMany({
+      where: {
+        lead: {
+          workspaceId,
+        },
+        dueDate: {
+          gte: startDate,
+          lte: endDate,
+        },
+      },
+      include: {
+        lead: {
+          select: {
+            id: true,
+            name: true,
+          },
+        },
+      },
+    });
+
+    const mappedLeadTasks = leadTasks.map((lt) => ({
+      id: `lead_task_${lt.id}`,
+      workspaceId,
+      title: `${lt.title} (Lead: ${lt.lead.name})`,
+      time: lt.time || "09:00",
+      type: "crm_tarefa",
+      completed: lt.status === "COMPLETED",
+      createdAt: lt.createdAt,
+      studentId: null,
+      student: null,
+    }));
+
+    const combinedAgenda = [...dailyAgenda, ...mappedLeadTasks].sort((a, b) => {
+      if (a.time !== b.time) {
+        return a.time.localeCompare(b.time);
+      }
+      return new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime();
+    });
+
     const newStudentsWithoutWorkout = studentMembers.filter(
       (m) => m.streak === 0 && m.progress === 0 && (!m.user.studentWorkouts || m.user.studentWorkouts.length === 0)
     ).length;
@@ -229,7 +270,7 @@ export async function GET(req: Request) {
 
     return NextResponse.json({
       alerts,
-      dailyAgenda,
+      dailyAgenda: combinedAgenda,
       pendingTasks,
       intelligentStudentsList,
     });
@@ -283,6 +324,18 @@ export async function POST(req: Request) {
       },
     });
 
+    if (newTask && studentId) {
+      await NotificationService.sendNotification({
+        userId: studentId,
+        type: "SYSTEM",
+        category: "ASSESSMENT",
+        title: "Agendamento Confirmado 🗓️",
+        description: `Uma atividade "${title}" foi agendada para ${targetDateStr} às ${time}.`,
+        deepLink: "/student/agenda",
+        source: "ASSESSMENT"
+      });
+    }
+
     return NextResponse.json(newTask);
   } catch (error) {
     console.error("POST trainer task error:", error);
@@ -313,6 +366,33 @@ export async function PATCH(req: Request) {
 
     if (!memberCheck) {
       return new NextResponse("Acesso negado", { status: 403 });
+    }
+
+    if (taskId.startsWith("lead_task_")) {
+      const cleanTaskId = taskId.replace("lead_task_", "");
+      const updateData: any = {};
+      if (typeof completed === "boolean") {
+        updateData.status = completed ? "COMPLETED" : "PENDING";
+      }
+      if (typeof title === "string") {
+        updateData.title = title;
+      }
+      if (typeof time === "string") {
+        updateData.time = time;
+      }
+      const updatedLeadTask = await prisma.leadTask.update({
+        where: { id: cleanTaskId },
+        data: updateData,
+      });
+      return NextResponse.json({
+        id: `lead_task_${updatedLeadTask.id}`,
+        workspaceId,
+        title: updatedLeadTask.title,
+        time: updatedLeadTask.time || "09:00",
+        type: "crm_tarefa",
+        completed: updatedLeadTask.status === "COMPLETED",
+        createdAt: updatedLeadTask.createdAt,
+      });
     }
 
     const updateData: any = {};
@@ -375,6 +455,16 @@ export async function DELETE(req: Request) {
 
     if (!memberCheck) {
       return new NextResponse("Acesso negado", { status: 403 });
+    }
+
+    if (taskId.startsWith("lead_task_")) {
+      const cleanTaskId = taskId.replace("lead_task_", "");
+      await prisma.leadTask.delete({
+        where: {
+          id: cleanTaskId,
+        },
+      });
+      return NextResponse.json({ success: true });
     }
 
     await prisma.trainerTask.delete({

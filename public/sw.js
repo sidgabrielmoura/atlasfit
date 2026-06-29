@@ -50,7 +50,7 @@ self.addEventListener("fetch", (event) => {
         return cachedResponse;
       }
       return fetch(event.request).catch(() => {
-        // Fail silently for assets when offline
+        return new Response(null, { status: 408 });
       });
     })
   );

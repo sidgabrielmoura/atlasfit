@@ -23,8 +23,27 @@ export async function GET(req: Request) {
     const isTrialActive = !!(freeTrial && new Date() < new Date(freeTrial.endDate));
     const isTrialExpired = !!(freeTrial && new Date() > new Date(freeTrial.endDate));
 
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { isTestAccount: true }
+    });
+    const isTestAccount = user?.isTestAccount || false;
+
     let effectiveSub: any = subscription;
-    if (!effectiveSub && freeTrial) {
+    if (isTestAccount) {
+      effectiveSub = {
+        id: "test_account",
+        plan: {
+          name: "Conta Teste",
+          price: 0,
+          maxStudents: 999999,
+        },
+        status: "active",
+        startDate: new Date(),
+        endDate: new Date(Date.now() + 3650 * 24 * 60 * 60 * 1000), // 10 years in the future
+        isPreSubscription: false,
+      };
+    } else if (!effectiveSub && freeTrial) {
       effectiveSub = {
         id: "trial_" + freeTrial.id,
         plan: {
@@ -188,12 +207,13 @@ export async function GET(req: Request) {
         planName: effectiveSub.plan.name,
         planPrice: effectiveSub.plan.price,
         status: effectiveSub.status.toLowerCase(),
-        nextBillingDate: nextBillingStr,
+        nextBillingDate: isTestAccount ? "Não vence" : nextBillingStr,
         daysRemaining: daysRemaining,
         paymentMethod: effectiveSub.plan.price === 0 ? "Nenhum" : "Pix Automático",
         billingCycle: effectiveSub.plan.price === 0 ? "Nenhum" : "Mensal",
         invoices: mappedInvoices,
         isPreSubscription: effectiveSub.isPreSubscription || false,
+        isTestAccount: isTestAccount,
         primaryDomain,
         freeTrial: freeTrial ? {
           startDate: freeTrial.startDate.toISOString().split("T")[0],
@@ -257,7 +277,7 @@ export async function POST(req: Request) {
         amount: plan.price,
         status: "PENDING",
         paymentMethod: "PIX",
-        description: isTrialActive 
+        description: isTrialActive
           ? `Pré-assinatura do plano ${plan.name} (Ativação pós-teste)`
           : `Assinatura do plano ${plan.name}`,
       }
@@ -401,9 +421,9 @@ export async function POST(req: Request) {
         }
       });
 
-      return NextResponse.json({ 
-        success: true, 
-        checkoutUrl: `/subscription-expired/pending?transactionId=${transaction.id}` 
+      return NextResponse.json({
+        success: true,
+        checkoutUrl: `/subscription-expired/pending?transactionId=${transaction.id}`
       });
     }
   } catch (error) {

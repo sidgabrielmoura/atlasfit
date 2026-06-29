@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { NotificationService } from "@/lib/notifications/service";
+
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -177,6 +179,23 @@ export async function POST(req: Request) {
     }
 
     const workspaceId = member.workspaceId;
+
+    // Notify personal trainer about daily feedback
+    const workspace = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { ownerId: true }
+    });
+    if (workspace?.ownerId) {
+      await NotificationService.sendNotification({
+        userId: workspace.ownerId,
+        type: "DAILY_FEEDBACK_RECEIVED",
+        category: "CRM",
+        title: "Feedback Diário Recebido 📋",
+        description: `O aluno "${session.user.name || "Aluno"}" preencheu o feedback diário: Energia ${energy}%, Fadiga ${fatigue}%, Humor ${humor}%.`,
+        deepLink: `/personal/clients/${userId}`,
+        source: "CRM"
+      });
+    }
 
     // Check if feedback already exists for today
     const now = new Date();

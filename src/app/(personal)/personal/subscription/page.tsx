@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle2, Zap, CreditCard, AlertCircle, Loader2, Calendar, Clock } from "lucide-react";
+import { CheckCircle2, Zap, CreditCard, AlertCircle, Loader2, Calendar, Clock, Infinity as InfinityIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
@@ -30,6 +30,7 @@ interface SubscriptionDetails {
   billingCycle: string;
   invoices: Invoice[];
   isPreSubscription: boolean;
+  isTestAccount?: boolean;
   freeTrial?: {
     startDate: string;
     endDate: string;
@@ -313,9 +314,13 @@ export default function SubscriptionPage() {
   const usagePercentage = Math.round((subscription.usage.students.current / subscription.usage.students.limit) * 100);
   const isNearLimit = usagePercentage >= 80;
 
-  const formattedDate = subscription.nextBillingDate
-    ? subscription.nextBillingDate.split("-").reverse().join("/")
-    : "";
+  const formattedDate = subscription.isTestAccount
+    ? "Não vence"
+    : (subscription.nextBillingDate
+      ? (subscription.nextBillingDate.includes("-") 
+         ? subscription.nextBillingDate.split("-").reverse().join("/") 
+         : subscription.nextBillingDate)
+      : "");
 
   return (
     <div className="flex-1 space-y-8 p-4 md:p-8 pt-6 w-full animate-in fade-in duration-300">
@@ -534,7 +539,16 @@ export default function SubscriptionPage() {
 
               {/* Central Days Display */}
               <div className="py-6 flex flex-col items-center justify-center text-center space-y-2">
-                {subscription.daysRemaining > 0 && (subscription.status === "active" || subscription.status === "trial") ? (
+                {subscription.isTestAccount ? (
+                  <>
+                    <div className="flex items-center justify-center p-4 rounded-2xl bg-primary/10 border border-primary/20 text-primary animate-in fade-in zoom-in duration-300">
+                      <InfinityIcon className="size-16 stroke-[1.5]" />
+                    </div>
+                    <p className="text-xs text-muted-foreground max-w-[200px] font-medium leading-normal pt-2">
+                      Acesso ilimitado e vitalício autorizado para esta conta de teste.
+                    </p>
+                  </>
+                ) : subscription.daysRemaining > 0 && (subscription.status === "active" || subscription.status === "trial") ? (
                   <>
                     <div className="inline-flex items-baseline justify-center">
                       <span className={cn(

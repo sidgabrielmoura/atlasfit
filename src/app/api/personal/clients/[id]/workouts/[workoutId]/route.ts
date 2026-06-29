@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { NotificationService } from "@/lib/notifications/service";
+
 
 // PATCH /api/personal/clients/[id]/workouts/[workoutId]
 // Atualiza metadados e os exercícios vinculados ao treino do aluno de forma transacional e atômica.
@@ -137,6 +139,18 @@ export async function PATCH(
 
       return updated;
     });
+
+    if (updatedWorkout) {
+      await NotificationService.sendNotification({
+        userId: studentId,
+        type: "TRAINING_UPDATED",
+        category: "TRAINING",
+        title: "Treino Atualizado 🔄",
+        description: `Seu treino "${updatedWorkout.name}" foi atualizado pelo personal.`,
+        deepLink: "/student/workouts",
+        source: "TRAINING"
+      });
+    }
 
     return NextResponse.json(updatedWorkout);
   } catch (error) {

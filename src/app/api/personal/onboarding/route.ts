@@ -18,6 +18,7 @@ export async function POST(req: Request) {
     const {
       name,
       image,
+      imageKey,
       bio,
       specialty,
       whatsapp,
@@ -30,8 +31,11 @@ export async function POST(req: Request) {
       brandSlogan,
       brandColor,
       logoUrl,
+      logoKey,
       watermarkUrl,
+      watermarkKey,
       workoutCoverUrl,
+      workoutCoverKey,
     } = body;
 
     // Validate mandatory fields
@@ -95,6 +99,7 @@ export async function POST(req: Request) {
         data: {
           name: name.trim(),
           image: image || null,
+          imageKey: imageKey || null,
           bio: bio?.trim() || null,
           specialty: specialty.trim(),
           whatsapp: whatsapp.trim(),
@@ -115,9 +120,12 @@ export async function POST(req: Request) {
           ownerId: session.user.id,
           slogan: brandSlogan?.trim() || null,
           logoUrl: logoUrl,
+          logoKey: logoKey || null,
           primaryColor: brandColor || "#ea580c",
           watermarkUrl: watermarkUrl || null,
+          watermarkKey: watermarkKey || null,
           workoutCoverUrl: workoutCoverUrl || null,
+          workoutCoverKey: workoutCoverKey || null,
         },
       });
 

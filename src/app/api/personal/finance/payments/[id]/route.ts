@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { logSystemError } from "@/lib/logger";
+import { NotificationService } from "@/lib/notifications/service";
+
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -50,6 +52,28 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       where: { id },
       data: updateData,
     });
+
+    if (updatedPayment.status === "pago" && payment.status !== "pago") {
+      const studentMember = await prisma.workspaceMember.findFirst({
+        where: {
+          workspaceId: payment.workspaceId,
+          role: "STUDENT",
+          user: { name: updatedPayment.studentName }
+        },
+        select: { userId: true }
+      });
+      if (studentMember?.userId) {
+        await NotificationService.sendNotification({
+          userId: studentMember.userId,
+          type: "PAYMENT_CONFIRMED",
+          category: "FINANCE",
+          title: "Pagamento Confirmado! ✅",
+          description: `Seu pagamento referente ao plano "${updatedPayment.planName}" foi confirmado.`,
+          deepLink: "/student/finance",
+          source: "FINANCE"
+        });
+      }
+    }
 
     return NextResponse.json(updatedPayment);
   } catch (error) {

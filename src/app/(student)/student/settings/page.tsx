@@ -58,6 +58,8 @@ export default function StudentSettingsPage() {
   const [city, setCity] = useState("");
   const [objective, setObjective] = useState(""); // Represents fitness goal / objective
   const [avatarBase64, setAvatarBase64] = useState("");
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
+  const [imageKey, setImageKey] = useState("");
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
   // Physical data states
@@ -95,6 +97,7 @@ export default function StudentSettingsPage() {
         setCity(rawData.user.city || "");
         setObjective(rawData.user.objective || "");
         setAvatarBase64(rawData.user.image || "");
+        setImageKey(rawData.user.imageKey || "");
       }
 
       // Load latest physical metrics
@@ -120,11 +123,8 @@ export default function StudentSettingsPage() {
   const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setAvatarBase64(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      setAvatarFile(file);
+      setAvatarBase64(URL.createObjectURL(file));
     }
   };
 
@@ -136,7 +136,46 @@ export default function StudentSettingsPage() {
     }
 
     setIsUpdatingProfile(true);
+    const toastId = toast.loading("Atualizando perfil...");
     try {
+      let finalAvatarUrl = avatarBase64;
+      let finalImageKey = imageKey;
+
+      if (avatarFile) {
+        // 1. Get presigned URL
+        const presignedRes = await fetch("/api/storage/presigned", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: avatarFile.name,
+            contentType: avatarFile.type,
+            fileSize: avatarFile.size,
+            targetType: "avatar",
+          }),
+        });
+
+        if (!presignedRes.ok) {
+          const txt = await presignedRes.text();
+          throw new Error(txt || "Erro ao obter URL de upload.");
+        }
+
+        const { uploadUrl: putUrl, fileUrl, objectKey } = await presignedRes.json();
+
+        // 2. Put file to R2
+        const putRes = await fetch(putUrl, {
+          method: "PUT",
+          headers: { "Content-Type": avatarFile.type },
+          body: avatarFile,
+        });
+
+        if (!putRes.ok) {
+          throw new Error("Erro ao transferir arquivo para o storage.");
+        }
+
+        finalAvatarUrl = fileUrl;
+        finalImageKey = objectKey;
+      }
+
       const res = await fetch("/api/student/settings", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -146,7 +185,8 @@ export default function StudentSettingsPage() {
           whatsapp: whatsapp.trim() || null,
           city: city.trim() || null,
           objective: objective || null,
-          image: avatarBase64 || null,
+          image: finalAvatarUrl || null,
+          imageKey: finalImageKey || null,
         }),
       });
 
@@ -156,12 +196,13 @@ export default function StudentSettingsPage() {
 
       // Update next-auth session in real-time to keep sidebar/topbar dynamic avatars synced
       await update();
+      setAvatarFile(null);
       await loadSettingsData(true);
 
-      toast.success("Perfil atualizado com sucesso! 🎉");
+      toast.success("Perfil atualizado com sucesso! 🎉", { id: toastId });
     } catch (err: any) {
       console.error(err);
-      toast.error(err.message || "Erro ao salvar seus dados pessoais.");
+      toast.error(err.message || "Erro ao salvar seus dados pessoais.", { id: toastId });
     } finally {
       setIsUpdatingProfile(false);
     }

@@ -20,6 +20,10 @@
 # production
 /build
 
+# Firebase
+secrets/
+*.json
+
 # misc
 .DS_Store
 *.pem

@@ -24,6 +24,8 @@ function ImageInputWithToggle({
   description,
   value,
   onChange,
+  onFileChange,
+  onKeyChange,
   placeholder,
   isAvatar,
 }: {
@@ -32,6 +34,8 @@ function ImageInputWithToggle({
   description: string;
   value: string;
   onChange: (val: string) => void;
+  onFileChange?: (file: File | null) => void;
+  onKeyChange?: (key: string) => void;
   placeholder?: string;
   isAvatar?: boolean;
 }) {
@@ -42,7 +46,7 @@ function ImageInputWithToggle({
   // Sync state with parent value (e.g., when loaded from database)
   useEffect(() => {
     if (value) {
-      if (value.startsWith("data:")) {
+      if (value.startsWith("/api/storage/file") || value.startsWith("blob:") || value.startsWith("data:")) {
         if (value !== filePreview) {
           setInputType("file");
           setFilePreview(value);
@@ -63,19 +67,18 @@ function ImageInputWithToggle({
   const handleUrlChange = (val: string) => {
     setUrlVal(val);
     onChange(val);
+    if (onFileChange) onFileChange(null);
+    if (onKeyChange) onKeyChange("");
   };
 
-  // Handle file base64 conversion
+  // Handle file preview and bubble up
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        setFilePreview(base64);
-        onChange(base64);
-      };
-      reader.readAsDataURL(file);
+      const previewUrl = URL.createObjectURL(file);
+      setFilePreview(previewUrl);
+      onChange(previewUrl);
+      if (onFileChange) onFileChange(file);
     }
   };
 
@@ -84,13 +87,15 @@ function ImageInputWithToggle({
     setInputType(type);
     if (type === "url") {
       onChange(urlVal);
+      if (onFileChange) onFileChange(null);
+      if (onKeyChange) onKeyChange("");
     } else {
       onChange(filePreview);
     }
   };
 
   const previewSrc = inputType === "file" ? filePreview : urlVal;
-  const hasPreview = !!previewSrc && (previewSrc.startsWith("data:") || previewSrc.startsWith("http://") || previewSrc.startsWith("https://"));
+  const hasPreview = !!previewSrc && (previewSrc.startsWith("/api/storage") || previewSrc.startsWith("blob:") || previewSrc.startsWith("data:") || previewSrc.startsWith("http://") || previewSrc.startsWith("https://"));
 
   return (
     <div className="space-y-3">
@@ -99,7 +104,7 @@ function ImageInputWithToggle({
           <Label htmlFor={id} className="text-sm font-semibold">{label}</Label>
           <p className="text-xs text-muted-foreground">{description}</p>
         </div>
-        
+
         {/* Toggle Button Group */}
         <div className="flex gap-1 bg-secondary/40 p-0.5 rounded-lg border border-border/30 shrink-0">
           <Button
@@ -107,11 +112,10 @@ function ImageInputWithToggle({
             variant="ghost"
             size="sm"
             onClick={() => toggleInputType("file")}
-            className={`h-7 px-2.5 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
-              inputType === "file" 
-                ? "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground shadow-sm" 
-                : "text-muted-foreground hover:bg-transparent"
-            }`}
+            className={`h-7 px-2.5 rounded-md text-[10px] font-bold transition-all cursor-pointer ${inputType === "file"
+              ? "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-transparent"
+              }`}
           >
             Arquivo
           </Button>
@@ -120,11 +124,10 @@ function ImageInputWithToggle({
             variant="ghost"
             size="sm"
             onClick={() => toggleInputType("url")}
-            className={`h-7 px-2.5 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
-              inputType === "url" 
-                ? "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground shadow-sm" 
-                : "text-muted-foreground hover:bg-transparent"
-            }`}
+            className={`h-7 px-2.5 rounded-md text-[10px] font-bold transition-all cursor-pointer ${inputType === "url"
+              ? "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground shadow-sm"
+              : "text-muted-foreground hover:bg-transparent"
+              }`}
           >
             Link URL
           </Button>
@@ -133,7 +136,7 @@ function ImageInputWithToggle({
 
       <div className="flex items-center gap-4">
         {hasPreview && (
-          <div className={`size-14 border border-border/50 bg-secondary/30 overflow-hidden flex items-center justify-center shrink-0 shadow-sm animate-in fade-in zoom-in-95 duration-200 ${isAvatar ? "rounded-full" : "rounded-xl"}`}>
+          <div className={`size-14 border border-border/50 bg-secondary/30 overflow-hidden flex items-center justify-center shrink-0 shadow-sm animate-in fade-in zoom-in-95 duration-200 relative ${isAvatar ? "rounded-full" : "rounded-xl"}`}>
             <img
               src={previewSrc}
               alt="Preview"
@@ -144,7 +147,7 @@ function ImageInputWithToggle({
             />
           </div>
         )}
-        
+
         <div className="flex-1">
           {inputType === "file" ? (
             <Input
@@ -152,7 +155,7 @@ function ImageInputWithToggle({
               type="file"
               accept="image/*"
               onChange={handleFileChange}
-              className="rounded-xl bg-secondary/30 border-border/50 focus:bg-secondary/50 transition-all text-xs font-semibold flex items-center pt-2.5 h-10 cursor-pointer"
+              className="rounded-xl bg-secondary/30 border-border/50 focus:bg-secondary/50 transition-all text-xs font-semibold flex items-center pt-2.5 h-10 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             />
           ) : (
             <Input
@@ -179,6 +182,7 @@ export default function SettingsPage() {
   // Profile Tab State
   const [name, setName] = useState("");
   const [image, setImage] = useState("");
+  const [imageKey, setImageKey] = useState("");
   const [specialty, setSpecialty] = useState("");
   const [bio, setBio] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
@@ -198,14 +202,24 @@ export default function SettingsPage() {
   const [brandSlogan, setBrandSlogan] = useState("");
   const [brandColor, setBrandColor] = useState("#0ea5e9");
   const [logoUrl, setLogoUrl] = useState("");
+  const [logoKey, setLogoKey] = useState("");
   const [watermarkUrl, setWatermarkUrl] = useState("");
+  const [watermarkKey, setWatermarkKey] = useState("");
   const [workoutCoverUrl, setWorkoutCoverUrl] = useState("");
+  const [workoutCoverKey, setWorkoutCoverKey] = useState("");
+
+  // Defer R2 upload file states
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [watermarkFile, setWatermarkFile] = useState<File | null>(null);
+  const [workoutCoverFile, setWorkoutCoverFile] = useState<File | null>(null);
+  const [avatarFile, setAvatarFile] = useState<File | null>(null);
 
   // Sync profile data state with session values when loaded
   useEffect(() => {
     if (user) {
       setName(user.name || "");
       setImage(user.image || "");
+      setImageKey((user as any).imageKey || "");
       setSpecialty(user.specialty || "");
       setBio(user.bio || "");
       setWhatsapp(user.whatsapp || "");
@@ -217,6 +231,7 @@ export default function SettingsPage() {
     } else {
       setName(settingsData.profile.name);
       setImage("");
+      setImageKey("");
       setSpecialty(settingsData.profile.specialty);
       setBio(settingsData.profile.bio);
       setWhatsapp(settingsData.profile.whatsapp);
@@ -235,18 +250,65 @@ export default function SettingsPage() {
       setBrandSlogan(activeWorkspace.slogan || "");
       setBrandColor(activeWorkspace.primaryColor || "#0ea5e9");
       setLogoUrl(activeWorkspace.logoUrl || "");
+      setLogoKey((activeWorkspace as any).logoKey || "");
       setWatermarkUrl(activeWorkspace.watermarkUrl || "");
+      setWatermarkKey((activeWorkspace as any).watermarkKey || "");
       setWorkoutCoverUrl(activeWorkspace.workoutCoverUrl || "");
+      setWorkoutCoverKey((activeWorkspace as any).workoutCoverKey || "");
     }
   }, [activeWorkspace]);
 
+  const uploadToR2 = async (file: File, targetType: string, workspaceId?: string) => {
+    const res = await fetch("/api/storage/presigned", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        workspaceId,
+        fileName: file.name,
+        contentType: file.type,
+        fileSize: file.size,
+        targetType,
+      }),
+    });
+
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(txt || "Erro ao obter URL de upload.");
+    }
+
+    const { uploadUrl, fileUrl, objectKey } = await res.json();
+
+    const putRes = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
+
+    if (!putRes.ok) {
+      throw new Error("Erro ao transferir arquivo para o storage.");
+    }
+
+    return { fileUrl, objectKey };
+  };
+
   const handleSave = async () => {
     setIsSaving(true);
+    const toastId = toast.loading("Salvando alterações...");
     try {
       if (activeTab === "perfil") {
+        let finalImage = image;
+        let finalImageKey = imageKey;
+
+        if (avatarFile) {
+          const uploaded = await uploadToR2(avatarFile, "avatar");
+          finalImage = uploaded.fileUrl;
+          finalImageKey = uploaded.objectKey;
+        }
+
         const result = await updateProfile({
           name,
-          image,
+          image: finalImage,
+          imageKey: finalImageKey,
           specialty,
           bio,
           whatsapp,
@@ -258,30 +320,63 @@ export default function SettingsPage() {
         });
 
         if (result.success) {
+          setAvatarFile(null);
           await update();
-          toast.success("Perfil atualizado com sucesso! 🎉");
+          toast.success("Perfil atualizado com sucesso! 🎉", { id: toastId });
         }
       } else if (activeTab === "marca") {
         if (!activeWorkspace?.id) {
-          toast.error("Nenhum workspace ativo selecionado.");
+          toast.error("Nenhum workspace ativo selecionado.", { id: toastId });
           return;
         }
 
         if (!brandName.trim()) {
-          toast.error("O nome da assessoria é obrigatório.");
+          toast.error("O nome da assessoria é obrigatório.", { id: toastId });
           return;
+        }
+
+        let finalLogoUrl = logoUrl;
+        let finalLogoKey = logoKey;
+        let finalWatermarkUrl = watermarkUrl;
+        let finalWatermarkKey = watermarkKey;
+        let finalWorkoutCoverUrl = workoutCoverUrl;
+        let finalWorkoutCoverKey = workoutCoverKey;
+
+        if (logoFile) {
+          const uploaded = await uploadToR2(logoFile, "logo", activeWorkspace.id);
+          finalLogoUrl = uploaded.fileUrl;
+          finalLogoKey = uploaded.objectKey;
+        }
+
+        if (watermarkFile) {
+          const uploaded = await uploadToR2(watermarkFile, "watermark", activeWorkspace.id);
+          finalWatermarkUrl = uploaded.fileUrl;
+          finalWatermarkKey = uploaded.objectKey;
+        }
+
+        if (workoutCoverFile) {
+          const uploaded = await uploadToR2(workoutCoverFile, "workout_cover", activeWorkspace.id);
+          finalWorkoutCoverUrl = uploaded.fileUrl;
+          finalWorkoutCoverKey = uploaded.objectKey;
         }
 
         const result = await updateBrandSettings(activeWorkspace.id, {
           name: brandName,
           slogan: brandSlogan,
           primaryColor: brandColor,
-          logoUrl: logoUrl,
-          watermarkUrl: watermarkUrl,
-          workoutCoverUrl: workoutCoverUrl,
+          logoUrl: finalLogoUrl,
+          logoKey: finalLogoKey,
+          watermarkUrl: finalWatermarkUrl,
+          watermarkKey: finalWatermarkKey,
+          workoutCoverUrl: finalWorkoutCoverUrl,
+          workoutCoverKey: finalWorkoutCoverKey,
         });
 
         if (result.success && result.workspace) {
+          setLogoFile(null);
+          setWatermarkFile(null);
+          setWorkoutCoverFile(null);
+
           // Update Valtio store locally so dynamic styles and switcher logo propagate instantly
           workspaceActions.setActiveWorkspace({
             ...activeWorkspace,
@@ -295,12 +390,12 @@ export default function SettingsPage() {
           );
           workspaceActions.setWorkspaces(updatedWorkspaces);
 
-          toast.success("Marca atualizada com sucesso! 🎨");
+          toast.success("Marca atualizada com sucesso! 🎨", { id: toastId });
         }
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error(error);
-      toast.error("Ocorreu um erro ao salvar as configurações.");
+      toast.error(error.message || "Ocorreu um erro ao salvar as configurações.", { id: toastId });
     } finally {
       setIsSaving(false);
     }
@@ -402,17 +497,21 @@ export default function SettingsPage() {
                   <ImageInputWithToggle
                     id="brandLogo"
                     label="Logotipo da Assessoria"
-                    description="O logotipo da sua assessoria (PNG, JPG ou SVG)."
+                    description="(PNG, JPG ou SVG)."
                     value={logoUrl}
                     onChange={setLogoUrl}
+                    onFileChange={setLogoFile}
+                    onKeyChange={setLogoKey}
                     placeholder="https://exemplo.com/logo-assessoria.png"
                   />
                   <ImageInputWithToggle
                     id="pdfWatermark"
                     label="Marca d'água em PDF"
-                    description="A imagem sutil de fundo que será impressa nos PDFs exportados."
+                    description="A imagem nos PDFs exportados."
                     value={watermarkUrl}
                     onChange={setWatermarkUrl}
+                    onFileChange={setWatermarkFile}
+                    onKeyChange={setWatermarkKey}
                     placeholder="https://exemplo.com/marca-dagua.png"
                   />
                 </div>
@@ -453,28 +552,26 @@ export default function SettingsPage() {
               </CardContent>
             </Card>
 
-            {/* 3. Personalização Avançada */}
             <Card className="border-border/50 shadow-sm bg-card">
               <CardHeader>
                 <CardTitle>Personalização de Conteúdo</CardTitle>
                 <CardDescription>Defina imagens e coberturas padrão para as suas planilhas de treinos.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                 <ImageInputWithToggle
-                   id="workoutCover"
-                   label="Capa Padrão dos Treinos"
-                   description="Capa padrão exibida no app do aluno quando um treino específico não possuir uma capa personalizada."
-                   value={workoutCoverUrl}
-                   onChange={setWorkoutCoverUrl}
-                   placeholder="https://exemplo.com/capa-padrao.jpg"
-                 />
+                <ImageInputWithToggle
+                  id="workoutCover"
+                  label="Capa Padrão dos Treinos"
+                  description="Capa personalizada de treino."
+                  value={workoutCoverUrl}
+                  onChange={setWorkoutCoverUrl}
+                  onFileChange={setWorkoutCoverFile}
+                  onKeyChange={setWorkoutCoverKey}
+                  placeholder="https://exemplo.com/capa-padrao.jpg"
+                />
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* ============================== */}
-          {/* ABA: PERFIL DO PERSONAL        */}
-          {/* ============================== */}
           <TabsContent value="perfil" className="space-y-8 mt-0 outline-none">
             <Card className="border-border/50 shadow-sm bg-card">
               <CardHeader>
@@ -489,6 +586,8 @@ export default function SettingsPage() {
                     description="Sua foto de perfil (PNG, JPG ou SVG)."
                     value={image}
                     onChange={setImage}
+                    onFileChange={setAvatarFile}
+                    onKeyChange={setImageKey}
                     placeholder="https://exemplo.com/sua-foto-de-perfil.jpg"
                     isAvatar={true}
                   />

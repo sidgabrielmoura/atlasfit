@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { NotificationService } from "@/lib/notifications/service";
+
 
 // PATCH /api/personal/clients/[id]/progress/photos/[photoId]
 // Atualiza a curtida ou o comentário de uma foto específica
@@ -53,11 +55,36 @@ export async function PATCH(
       updateData.comment = comment;
     }
 
-    // Atualizar
     const updatedPhoto = await prisma.studentProgressPhoto.update({
       where: { id: photoId },
       data: updateData,
     });
+
+    if (updatedPhoto) {
+      if (typeof trainerLiked === "boolean" && trainerLiked && !photo.trainerLiked) {
+        await NotificationService.sendNotification({
+          userId: studentId,
+          type: "BADGE_UNLOCKED",
+          category: "ASSESSMENT",
+          title: "Seu Personal curtiu seu progresso! ❤️",
+          description: "Seu personal trainer curtiu a foto de progresso que você enviou.",
+          deepLink: "/student/evolution",
+          source: "ASSESSMENT"
+        });
+      }
+
+      if (comment && comment !== photo.comment) {
+        await NotificationService.sendNotification({
+          userId: studentId,
+          type: "MESSAGE_RECEIVED",
+          category: "ASSESSMENT",
+          title: "Novo Comentário no seu Progresso 💬",
+          description: `O personal comentou: "${comment.length > 50 ? comment.substring(0, 50) + "..." : comment}"`,
+          deepLink: "/student/evolution",
+          source: "ASSESSMENT"
+        });
+      }
+    }
 
     return NextResponse.json(updatedPhoto);
   } catch (error) {

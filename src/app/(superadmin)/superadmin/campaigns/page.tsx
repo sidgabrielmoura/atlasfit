@@ -87,12 +87,14 @@ function CampaignsContent() {
   const [imageInputType, setImageInputType] = useState<"file" | "url">("url");
   const [urlVal, setUrlVal] = useState("");
   const [filePreview, setFilePreview] = useState("");
+  const [campaignFileObj, setCampaignFileObj] = useState<File | null>(null);
 
   // Form State
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     imageUrl: "",
+    imageKey: "",
     type: "ANNOUNCEMENT",
     targetRole: "ALL",
     startDate: "",
@@ -130,10 +132,12 @@ function CampaignsContent() {
     setImageInputType("url");
     setUrlVal("");
     setFilePreview("");
+    setCampaignFileObj(null);
     setFormData({
       title: "",
       description: "",
       imageUrl: "",
+      imageKey: "",
       type: "ANNOUNCEMENT",
       targetRole: "ALL",
       startDate: formatDateTimeLocal(now),
@@ -150,6 +154,7 @@ function CampaignsContent() {
   const handleOpenEdit = (campaign: any) => {
     setEditingCampaign(campaign);
     const imgUrl = campaign.imageUrl || "";
+    setCampaignFileObj(null);
     if (imgUrl.startsWith("data:")) {
       setImageInputType("file");
       setFilePreview(imgUrl);
@@ -163,6 +168,7 @@ function CampaignsContent() {
       title: campaign.title,
       description: campaign.description,
       imageUrl: imgUrl,
+      imageKey: campaign.imageKey || "",
       type: campaign.type,
       targetRole: campaign.targetRole,
       startDate: formatDateTimeLocal(campaign.startDate),
@@ -193,13 +199,10 @@ function CampaignsContent() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        const base64 = reader.result as string;
-        setFilePreview(base64);
-        setFormData((prev) => ({ ...prev, imageUrl: base64 }));
-      };
-      reader.readAsDataURL(file);
+      setCampaignFileObj(file);
+      const previewUrl = URL.createObjectURL(file);
+      setFilePreview(previewUrl);
+      setFormData((prev) => ({ ...prev, imageUrl: previewUrl }));
     }
   };
 
@@ -215,9 +218,9 @@ function CampaignsContent() {
     }
     if (formData.imageUrl) {
       const trimmedUrl = formData.imageUrl.trim();
-      const isBase64 = /^data:image\/(png|jpeg|jpg|webp|gif);base64,/.test(trimmedUrl);
+      const isBlob = trimmedUrl.startsWith("blob:");
       const isHttps = trimmedUrl.startsWith("https://");
-      if (!isBase64 && !isHttps) {
+      if (!isBlob && !isHttps) {
         return toast.error("A Imagem deve ser uma URL HTTPS (https://) ou um arquivo de imagem válido");
       }
     }
@@ -232,10 +235,50 @@ function CampaignsContent() {
     }
 
     setIsSubmitting(true);
+    const toastId = toast.loading("Salvando campanha...");
     try {
+      let finalImageUrl = formData.imageUrl.trim() || null;
+      let finalImageKey = formData.imageKey || null;
+
+      if (imageInputType === "file" && campaignFileObj) {
+        // 1. Get presigned URL
+        const presignedRes = await fetch("/api/storage/presigned", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            fileName: campaignFileObj.name,
+            contentType: campaignFileObj.type,
+            fileSize: campaignFileObj.size,
+            targetType: "campaign_banner",
+          }),
+        });
+
+        if (!presignedRes.ok) {
+          const txt = await presignedRes.text();
+          throw new Error(txt || "Erro ao obter URL de upload.");
+        }
+
+        const { uploadUrl: putUrl, fileUrl, objectKey } = await presignedRes.json();
+
+        // 2. Put file to R2
+        const putRes = await fetch(putUrl, {
+          method: "PUT",
+          headers: { "Content-Type": campaignFileObj.type },
+          body: campaignFileObj,
+        });
+
+        if (!putRes.ok) {
+          throw new Error("Erro ao transferir arquivo para o storage.");
+        }
+
+        finalImageUrl = fileUrl;
+        finalImageKey = objectKey;
+      }
+
       const payload = {
         ...formData,
-        imageUrl: formData.imageUrl.trim() || null,
+        imageUrl: finalImageUrl,
+        imageKey: finalImageKey,
         buttonText: formData.buttonText.trim() || null,
         buttonLink: formData.buttonLink.trim() || null,
         priority: parseInt(formData.priority) || 0,
@@ -245,14 +288,16 @@ function CampaignsContent() {
 
       if (editingCampaign) {
         await superAdminActions.updateCampaign(editingCampaign.id, payload);
-        toast.success("Campanha atualizada com sucesso!");
+        toast.success("Campanha atualizada com sucesso!", { id: toastId });
       } else {
         await superAdminActions.createCampaign(payload);
-        toast.success("Campanha criada com sucesso!");
+        toast.success("Campanha criada com sucesso!", { id: toastId });
       }
+      setCampaignFileObj(null);
       setIsFormOpen(false);
     } catch (error: any) {
-      toast.error(error.message || "Erro ao salvar a campanha");
+      console.error(error);
+      toast.error(error.message || "Erro ao salvar a campanha", { id: toastId });
     } finally {
       setIsSubmitting(false);
     }

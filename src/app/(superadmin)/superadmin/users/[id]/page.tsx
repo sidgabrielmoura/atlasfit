@@ -18,8 +18,17 @@ import {
   LogIn,
   AlertCircle,
   Ban,
-  Loader2
+  Loader2,
+  Key
 } from "lucide-react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -87,7 +96,7 @@ export default function UserDeepViewPage({ params }: { params: Promise<{ id: str
       const { token } = await res.json();
 
       toast.loading("Realizando login seguro...", { id: toastId });
-      
+
       const result = await signIn("credentials", {
         impersonateToken: token,
         redirect: false,
@@ -123,6 +132,53 @@ export default function UserDeepViewPage({ params }: { params: Promise<{ id: str
       toast.error("Erro ao alterar as permissões globais.");
     } finally {
       setIsTogglingRole(false);
+    }
+  };
+
+  const [isToggling2FA, setIsToggling2FA] = useState(false);
+
+  const handleToggle2FA = async (value: string) => {
+    setIsToggling2FA(true);
+    const toastId = toast.loading("Atualizando configuração de 2FA...");
+
+    let twoFactorEnabled: boolean | null = null;
+    if (value === "enabled") twoFactorEnabled = true;
+    if (value === "disabled") twoFactorEnabled = false;
+
+    try {
+      const res = await fetch(`/api/superadmin/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ twoFactorEnabled })
+      });
+      if (!res.ok) throw new Error("Erro na atualização");
+      setUser({ ...user, twoFactorEnabled });
+      toast.success("Configuração de 2FA atualizada com sucesso!", { id: toastId });
+    } catch (error) {
+      toast.error("Erro ao atualizar a configuração de 2FA.", { id: toastId });
+    } finally {
+      setIsToggling2FA(false);
+    }
+  };
+
+  const [isUpdatingTestAccount, setIsUpdatingTestAccount] = useState(false);
+
+  const handleToggleTestAccount = async (checked: boolean) => {
+    setIsUpdatingTestAccount(true);
+    const toastId = toast.loading("Atualizando tipo de conta...");
+    try {
+      const res = await fetch(`/api/superadmin/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isTestAccount: checked })
+      });
+      if (!res.ok) throw new Error("Erro na atualização");
+      setUser({ ...user, isTestAccount: checked });
+      toast.success(checked ? "Usuário definido como Conta de Teste!" : "Conta de Teste desativada.", { id: toastId });
+    } catch (error) {
+      toast.error("Erro ao atualizar a configuração de Conta de Teste.", { id: toastId });
+    } finally {
+      setIsUpdatingTestAccount(false);
     }
   };
 
@@ -178,8 +234,8 @@ export default function UserDeepViewPage({ params }: { params: Promise<{ id: str
         <div className="flex gap-3">
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button 
-                variant="outline" 
+              <Button
+                variant="outline"
                 className="h-11 rounded-xl font-bold gap-2 shadow-sm border-border/60"
               >
                 <ShieldAlert className="size-4 text-primary" />
@@ -193,15 +249,15 @@ export default function UserDeepViewPage({ params }: { params: Promise<{ id: str
                   Tem certeza?
                 </AlertDialogTitle>
                 <AlertDialogDescription className="text-sm font-medium leading-relaxed">
-                  {user.role === "SUPERADMIN" 
+                  {user.role === "SUPERADMIN"
                     ? "Você está prestes a REVOGAR o acesso de SuperAdmin deste usuário. Ele voltará a ser um usuário comum."
                     : "Você está prestes a CONCEDER acesso irrestrito de SuperAdmin a este usuário. Ele poderá ver todos os workspaces, planos e excluir dados globais."}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter className="mt-6 gap-2">
                 <AlertDialogCancel className="rounded-xl font-bold h-11">Cancelar</AlertDialogCancel>
-                <AlertDialogAction 
-                  onClick={handleToggleRole} 
+                <AlertDialogAction
+                  onClick={handleToggleRole}
                   disabled={isTogglingRole}
                   className={`rounded-xl h-11 font-black bg-primary text-primary-foreground hover:bg-primary/90`}
                 >
@@ -213,7 +269,7 @@ export default function UserDeepViewPage({ params }: { params: Promise<{ id: str
 
           <AlertDialog>
             <AlertDialogTrigger asChild>
-              <Button 
+              <Button
                 className="h-11 rounded-xl font-black gap-2 shadow-lg shadow-primary/20 bg-primary text-primary-foreground hover:bg-primary/90"
               >
                 <LogIn className="size-4" />
@@ -227,19 +283,19 @@ export default function UserDeepViewPage({ params }: { params: Promise<{ id: str
                   Aviso de Segurança (Auditoria)
                 </AlertDialogTitle>
                 <AlertDialogDescription className="text-sm font-medium leading-relaxed">
-                  Você está prestes a entrar na plataforma <strong>como se fosse {user.name} ({user.email})</strong>. 
+                  Você está prestes a entrar na plataforma <strong>como se fosse {user.name} ({user.email})</strong>.
                   Qualquer ação tomada dentro do workspace deste usuário será registrada como se ele próprio tivesse feito. Use com extrema cautela e apenas para suporte.
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter className="mt-6 gap-2">
                 <AlertDialogCancel className="rounded-xl font-bold h-11">Cancelar</AlertDialogCancel>
-                <AlertDialogAction 
-                  onClick={handleImpersonate} 
+                <AlertDialogAction
+                  onClick={handleImpersonate}
                   disabled={isImpersonating}
                   className="rounded-xl h-11 font-black bg-destructive text-destructive-foreground hover:bg-destructive/90"
                 >
                   {isImpersonating ? (
-                    <><Loader2 className="size-4 animate-spin mr-2"/> Gerando Sessão...</>
+                    <><Loader2 className="size-4 animate-spin mr-2" /> Gerando Sessão...</>
                   ) : "Sim, Entrar como Usuário"}
                 </AlertDialogAction>
               </AlertDialogFooter>
@@ -308,11 +364,70 @@ export default function UserDeepViewPage({ params }: { params: Promise<{ id: str
             )}
           </CardContent>
         </Card>
+
+        {/* Security Settings Card */}
+        <Card className="border-border/40 shadow-sm bg-card/50 lg:col-span-2">
+          <CardHeader>
+            <CardTitle className="text-lg font-bold flex items-center gap-2">
+              <Key className="size-5 text-primary" /> Configurações de Segurança
+            </CardTitle>
+            <CardDescription className="text-xs font-medium uppercase tracking-widest">Controles de privacidade e acesso</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-border/30 bg-secondary/15 gap-4">
+              <div className="space-y-1">
+                <p className="font-bold text-sm">Autenticação de Duas Etapas (2FA)</p>
+                <p className="text-xs text-muted-foreground max-w-xl leading-relaxed">
+                  Exigir a validação com código OTP de 6 dígitos enviado por e-mail no login deste usuário. Requer o serviço Resend configurado.
+                </p>
+              </div>
+              <Select
+                value={
+                  user.twoFactorEnabled === true
+                    ? "enabled"
+                    : user.twoFactorEnabled === false
+                      ? "disabled"
+                      : "inherit"
+                }
+                onValueChange={handleToggle2FA}
+                disabled={isToggling2FA}
+              >
+                <SelectTrigger className="w-[280px] rounded-xl h-11 border-border/60 font-bold bg-background">
+                  <SelectValue placeholder="Selecione a política" />
+                </SelectTrigger>
+                <SelectContent className="rounded-xl border-border/40">
+                  <SelectItem value="inherit" className="font-bold text-xs">
+                    Herdar padrão global ({user.isGlobal2FA ? "Ativo" : "Inativo"})
+                  </SelectItem>
+                  <SelectItem value="enabled" className="font-bold text-xs text-emerald-500">
+                    Sempre Ativo (Forçar)
+                  </SelectItem>
+                  <SelectItem value="disabled" className="font-bold text-xs text-rose-500">
+                    Sempre Inativo (Burlar)
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-border/30 bg-secondary/15 gap-4">
+              <div className="space-y-1">
+                <p className="font-bold text-sm">Conta Teste</p>
+                <p className="text-xs text-muted-foreground max-w-xl leading-relaxed">
+                  Permitir acesso por tempo indeterminado à plataforma AtlasFit, pulando qualquer limitação de cobrança ou expiração de período de teste (Free Trial).
+                </p>
+              </div>
+              <Switch
+                checked={user.isTestAccount || false}
+                onCheckedChange={handleToggleTestAccount}
+                disabled={isUpdatingTestAccount}
+              />
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Overlay de Transição de Conta (Impersonate) */}
       {isImpersonating && (
-        <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background/80 backdrop-blur-md animate-in fade-in duration-300">
+        <div className="fixed inset-0 z-100 flex flex-col items-center justify-center bg-background/80 backdrop-blur-md animate-in fade-in duration-300">
           <div className="flex flex-col items-center gap-4 text-center max-w-sm px-6 py-8 rounded-2xl border border-border/50 bg-card shadow-2xl">
             <div className="size-16 rounded-2xl bg-primary/10 text-primary flex items-center justify-center border border-primary/20 animate-bounce">
               <LogIn className="size-8" />

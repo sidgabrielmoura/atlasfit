@@ -10,17 +10,23 @@ import { headers } from "next/headers";
 import { rateLimit } from "@/lib/rate-limit";
 import crypto from "crypto";
 import { resend } from "@/lib/resend";
-import { getResetPasswordEmailHtml, getResetPasswordEmailText } from "@/lib/email-templates";
+import { 
+  getResetPasswordEmailHtml, 
+  getResetPasswordEmailText,
+  getTwoFactorEmailHtml,
+  getTwoFactorEmailText
+} from "@/lib/email-templates";
 
 export async function login(formData: {
   email: string;
   password: string;
   redirectTo: string;
+  code?: string;
 }) {
   try {
     const ipHeaders = await headers();
     const ip = ipHeaders.get("x-forwarded-for") || ipHeaders.get("x-real-ip") || "127.0.0.1";
-    const limiter = await rateLimit(`login:${ip}`, 5, 60000);
+    const limiter = await rateLimit(`login:${ip}`, 10, 60000); // Expanded rate limit to allow OTP attempts
 
     if (!limiter.success) {
       return { error: "Muitas tentativas de login. Tente novamente mais tarde." };
@@ -28,7 +34,6 @@ export async function login(formData: {
     const user = await prisma.user.findUnique({
       where: { email: formData.email }
     });
-
     if (!user) {
       return { error: "Credenciais inválidas. Tente novamente." };
     }
@@ -41,12 +46,90 @@ export async function login(formData: {
       redirect("/maintenance");
     }
 
-    await signIn("credentials", {
-      email: formData.email,
-      password: formData.password,
-      redirect: false,
+    // If a 2FA OTP code is submitted
+    if (formData.code) {
+      const identifier = `2FA:${formData.email}`;
+      const dbToken = await prisma.verificationToken.findFirst({
+        where: {
+          identifier,
+          token: formData.code,
+          expires: { gt: new Date() }
+        }
+      });
+
+      if (!dbToken) {
+        return { error: "Código de verificação inválido ou expirado." };
+      }
+
+      // Delete the verified token
+      await prisma.verificationToken.delete({
+        where: { token: dbToken.token }
+      });
+
+      await signIn("credentials", {
+        email: formData.email,
+        password: formData.password,
+        redirect: false,
+      });
+      return { success: true, role: user.role };
+    }
+
+    // Verify Password first
+    const isPasswordValid = user.password ? await bcryptjs.compare(formData.password, user.password) : false;
+    if (!isPasswordValid) {
+      return { error: "Credenciais inválidas. Tente novamente." };
+    }
+
+    // Check if global 2FA is active
+    const global2FA = await prisma.systemSetting.findUnique({
+      where: { key: "two_factor_auth_enabled" }
     });
-    return { success: true, role: user.role };
+    const isGlobal2FA = global2FA?.value === "true";
+    
+    // User-specific configuration overrides global setting if explicitly set (not null)
+    const is2FAEnabled = user.twoFactorEnabled !== null 
+      ? user.twoFactorEnabled 
+      : isGlobal2FA;
+
+    // If 2FA is NOT enabled (taking override logic into account), bypass and log in immediately
+    if (!is2FAEnabled) {
+      await signIn("credentials", {
+        email: formData.email,
+        password: formData.password,
+        redirect: false,
+      });
+      return { success: true, role: user.role };
+    }
+
+    // Generate 6-digit code
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
+    const identifier = `2FA:${formData.email}`;
+
+    // Clean up old active 2FA codes for this email
+    await prisma.verificationToken.deleteMany({
+      where: { identifier }
+    });
+
+    // Save token
+    await prisma.verificationToken.create({
+      data: {
+        identifier,
+        token: code,
+        expires: new Date(Date.now() + 5 * 60 * 1000) // 5 minutes validity
+      }
+    });
+
+    // Send email using Resend integration
+    const fromEmail = process.env.EMAIL_FROM || "AtlasFit <noreply@atlasfit.site>";
+    await resend.emails.send({
+      from: fromEmail,
+      to: formData.email,
+      subject: `${code} é seu código de segurança do AtlasFit`,
+      html: getTwoFactorEmailHtml(code),
+      text: getTwoFactorEmailText(code),
+    });
+
+    return { requires2FA: true, email: formData.email };
   } catch (error) {
     if (error instanceof AuthError) {
       switch (error.type) {

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { calculateStreaks, verifyAndDecayWorkspaceMemberStreak } from "@/lib/streak-helper";
+import { NotificationService } from "@/lib/notifications/service";
+
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -125,6 +127,28 @@ export async function POST(req: Request) {
         completedAt: new Date(),
       },
     });
+
+    // Notify trainer about completed workout
+    const workspace = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { ownerId: true }
+    });
+    const completedWorkout = await prisma.workout.findUnique({
+      where: { id: workoutId },
+      select: { name: true }
+    });
+    if (workspace?.ownerId) {
+      await NotificationService.sendNotification({
+        userId: workspace.ownerId,
+        type: "TRAINING_COMPLETED",
+        category: "TRAINING",
+        title: "Treino Concluído! 🏆",
+        description: `O aluno "${session.user.name || "Aluno"}" concluiu o treino "${completedWorkout?.name || "Treino"}".`,
+        deepLink: `/personal/clients/${session.user.id}/workout-logs`,
+        source: "TRAINING"
+      });
+    }
+
 
     // 3. Calculate and update streak and progress dynamically from all history
     const allLogs = await (prisma as any).workoutLog.findMany({

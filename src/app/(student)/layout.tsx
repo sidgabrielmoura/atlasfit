@@ -1,6 +1,6 @@
 import { StudentSidebar } from "@/components/application/student-sidebar";
 import { SidebarProvider, SidebarInset, SidebarTrigger } from "@/components/ui/sidebar";
-import { Bell, Search } from "lucide-react";
+import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { redirect } from "next/navigation";
@@ -8,6 +8,7 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
 import { cookies } from "next/headers";
 import { StudentMobileNavbar } from "@/components/application/student-mobile-navbar";
+import { NotificationBell } from "@/components/application/notification-bell";
 
 export default async function StudentLayout({
   children,
@@ -125,10 +126,7 @@ export default async function StudentLayout({
           </div>
 
           <div className="flex items-center gap-2 md:gap-4">
-            <Button variant="ghost" size="icon" className="rounded-full relative">
-              <Bell className="size-5 text-muted-foreground" />
-              <span className="absolute top-2 right-2 size-2 bg-destructive rounded-full border-2 border-background" />
-            </Button>
+            <NotificationBell />
           </div>
         </header>
 

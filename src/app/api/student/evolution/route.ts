@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { storageService } from "@/lib/storage.service";
+import { NotificationService } from "@/lib/notifications/service";
+
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -122,11 +125,27 @@ export async function POST(req: Request) {
         },
       });
 
+      const workspace = await prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        select: { ownerId: true }
+      });
+      if (workspace?.ownerId) {
+        await NotificationService.sendNotification({
+          userId: workspace.ownerId,
+          type: "ASSESSMENT_CREATED",
+          category: "ASSESSMENT",
+          title: "Novas Medidas de Progresso 📈",
+          description: `O aluno "${session.user.name || "Aluno"}" registrou novas medidas corporais.`,
+          deepLink: `/personal/clients/${session.user.id}/progress`,
+          source: "ASSESSMENT"
+        });
+      }
+
       return NextResponse.json({ success: true, progress: newProgress });
     }
 
     if (action === "uploadPhoto") {
-      const { photoUrl } = body;
+      const { photoUrl, objectKey } = body;
       if (!photoUrl) {
         return new NextResponse("photoUrl é obrigatório para envio de foto.", { status: 400 });
       }
@@ -136,9 +155,26 @@ export async function POST(req: Request) {
           studentId: session.user.id,
           workspaceId,
           photoUrl,
+          objectKey: objectKey || null,
           date: new Date(),
         },
       });
+
+      const workspace = await prisma.workspace.findUnique({
+        where: { id: workspaceId },
+        select: { ownerId: true }
+      });
+      if (workspace?.ownerId) {
+        await NotificationService.sendNotification({
+          userId: workspace.ownerId,
+          type: "ASSESSMENT_CREATED",
+          category: "ASSESSMENT",
+          title: "Novas Fotos de Progresso 📷",
+          description: `O aluno "${session.user.name || "Aluno"}" enviou uma nova foto de progresso.`,
+          deepLink: `/personal/clients/${session.user.id}/progress`,
+          source: "ASSESSMENT"
+        });
+      }
 
       return NextResponse.json({ success: true, photo: newPhoto });
     }
@@ -166,12 +202,23 @@ export async function DELETE(req: Request) {
     }
 
     if (type === "photo") {
-      await prisma.studentProgressPhoto.delete({
+      const photoRecord = await prisma.studentProgressPhoto.findUnique({
         where: {
           id,
           studentId: session.user.id,
         },
       });
+
+      if (photoRecord) {
+        if (photoRecord.objectKey) {
+          await storageService.deleteObject(photoRecord.objectKey);
+        }
+        await prisma.studentProgressPhoto.delete({
+          where: {
+            id,
+          },
+        });
+      }
     } else if (type === "progress") {
       await prisma.studentProgress.delete({
         where: {

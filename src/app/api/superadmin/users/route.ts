@@ -70,17 +70,15 @@ export async function POST(req: Request) {
         }
       });
 
-      // When creating a TRAINER, automatically grant a 10-day free trial
-      // to match the self-registration flow in registerTrainer()
       if (role === "TRAINER") {
         const now = new Date();
-        const tenDaysFromNow = new Date(now.getTime() + 10 * 24 * 60 * 60 * 1000);
+        const thirtyDaysFromNow = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
 
         await tx.freeTrial.create({
           data: {
             userId: user.id,
             startDate: now,
-            endDate: tenDaysFromNow,
+            endDate: thirtyDaysFromNow,
             isActive: true,
           }
         });

@@ -54,7 +54,8 @@ export default function PersonalOnboardingPage() {
   const [bio, setBio] = useState("");
   const [imageType, setImageType] = useState<"file" | "url">("file");
   const [imageUrl, setImageUrl] = useState("");
-  const [imageBase64, setImageBase64] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState("");
 
   // Step 2: Identidade Visual
   const [brandName, setBrandName] = useState("");
@@ -63,15 +64,18 @@ export default function PersonalOnboardingPage() {
   
   const [logoType, setLogoType] = useState<"file" | "url">("file");
   const [logoUrl, setLogoUrl] = useState("");
-  const [logoBase64, setLogoBase64] = useState("");
+  const [logoFile, setLogoFile] = useState<File | null>(null);
+  const [logoPreview, setLogoPreview] = useState("");
 
   const [watermarkType, setWatermarkType] = useState<"file" | "url">("file");
   const [watermarkUrl, setWatermarkUrl] = useState("");
-  const [watermarkBase64, setWatermarkBase64] = useState("");
+  const [watermarkFile, setWatermarkFile] = useState<File | null>(null);
+  const [watermarkPreview, setWatermarkPreview] = useState("");
 
   const [coverType, setCoverType] = useState<"file" | "url">("file");
   const [coverUrl, setCoverUrl] = useState("");
-  const [coverBase64, setCoverBase64] = useState("");
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState("");
 
   // Step 3: Contato e Localização
   const [whatsapp, setWhatsapp] = useState("");
@@ -86,18 +90,16 @@ export default function PersonalOnboardingPage() {
     }
   }, [session, name]);
 
-  // Handle file base64 conversions
-  const handleFileChange = (
+  // Handle file select previews
+  const handleFileSelect = (
     e: React.ChangeEvent<HTMLInputElement>,
-    setter: (val: string) => void
+    fileSetter: (file: File | null) => void,
+    previewSetter: (url: string) => void
   ) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setter(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      fileSetter(file);
+      previewSetter(URL.createObjectURL(file));
     }
   };
 
@@ -108,7 +110,7 @@ export default function PersonalOnboardingPage() {
         toast.warning("O seu nome é obrigatório.");
         return false;
       }
-      const activeAvatar = imageType === "file" ? imageBase64 : imageUrl;
+      const activeAvatar = imageType === "file" ? (imageFile || imagePreview) : imageUrl;
       if (!activeAvatar) {
         toast.warning("Por favor, adicione uma foto de perfil.");
         return false;
@@ -126,7 +128,7 @@ export default function PersonalOnboardingPage() {
         toast.warning("O nome da assessoria é obrigatório.");
         return false;
       }
-      const activeLogo = logoType === "file" ? logoBase64 : logoUrl;
+      const activeLogo = logoType === "file" ? (logoFile || logoPreview) : logoUrl;
       if (!activeLogo) {
         toast.warning("Por favor, adicione o logotipo da sua assessoria.");
         return false;
@@ -167,13 +169,68 @@ export default function PersonalOnboardingPage() {
     }
   };
 
+  const uploadToR2 = async (file: File, targetType: string) => {
+    const res = await fetch("/api/storage/presigned", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fileName: file.name,
+        contentType: file.type,
+        fileSize: file.size,
+        targetType,
+      }),
+    });
+    if (!res.ok) {
+      const txt = await res.text();
+      throw new Error(txt || "Erro ao obter URL assinada.");
+    }
+    const { uploadUrl, fileUrl, objectKey } = await res.json();
+    
+    const putRes = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": file.type },
+      body: file,
+    });
+    if (!putRes.ok) {
+      throw new Error("Erro no upload do arquivo.");
+    }
+    return { fileUrl, objectKey };
+  };
+
   const handleSubmit = async () => {
     setLoading(true);
     try {
-      const finalAvatar = imageType === "file" ? imageBase64 : imageUrl;
-      const finalLogo = logoType === "file" ? logoBase64 : logoUrl;
-      const finalWatermark = watermarkType === "file" ? watermarkBase64 : watermarkUrl;
-      const finalCover = coverType === "file" ? coverBase64 : coverUrl;
+      let finalAvatar = imageUrl;
+      let finalAvatarKey = null;
+      if (imageType === "file" && imageFile) {
+        const { fileUrl, objectKey } = await uploadToR2(imageFile, "avatar");
+        finalAvatar = fileUrl;
+        finalAvatarKey = objectKey;
+      }
+
+      let finalLogo = logoUrl;
+      let finalLogoKey = null;
+      if (logoType === "file" && logoFile) {
+        const { fileUrl, objectKey } = await uploadToR2(logoFile, "logo");
+        finalLogo = fileUrl;
+        finalLogoKey = objectKey;
+      }
+
+      let finalWatermark = watermarkUrl;
+      let finalWatermarkKey = null;
+      if (watermarkType === "file" && watermarkFile) {
+        const { fileUrl, objectKey } = await uploadToR2(watermarkFile, "watermark");
+        finalWatermark = fileUrl;
+        finalWatermarkKey = objectKey;
+      }
+
+      let finalCover = coverUrl;
+      let finalCoverKey = null;
+      if (coverType === "file" && coverFile) {
+        const { fileUrl, objectKey } = await uploadToR2(coverFile, "workout_cover");
+        finalCover = fileUrl;
+        finalCoverKey = objectKey;
+      }
 
       const res = await fetch("/api/personal/onboarding", {
         method: "POST",
@@ -181,6 +238,7 @@ export default function PersonalOnboardingPage() {
         body: JSON.stringify({
           name,
           image: finalAvatar || null,
+          imageKey: finalAvatarKey || null,
           bio: bio || null,
           specialty,
           whatsapp,
@@ -193,8 +251,11 @@ export default function PersonalOnboardingPage() {
           brandSlogan: brandSlogan || null,
           brandColor,
           logoUrl: finalLogo,
+          logoKey: finalLogoKey || null,
           watermarkUrl: finalWatermark || null,
+          watermarkKey: finalWatermarkKey || null,
           workoutCoverUrl: finalCover || null,
+          workoutCoverKey: finalCoverKey || null,
         }),
       });
 
@@ -298,8 +359,8 @@ export default function PersonalOnboardingPage() {
                   {/* Avatar upload */}
                   <div className="flex flex-col sm:flex-row items-center gap-5 pb-4 border-b border-white/[0.04]">
                     <div className="relative group size-20 rounded-full overflow-hidden border border-white/[0.08] bg-neutral-900 flex items-center justify-center shrink-0">
-                      {imageType === "file" && imageBase64 ? (
-                        <img src={imageBase64} alt="Avatar Preview" className="size-full object-cover" />
+                      {imageType === "file" && imagePreview ? (
+                        <img src={imagePreview} alt="Avatar Preview" className="size-full object-cover" />
                       ) : imageType === "url" && imageUrl ? (
                         <img src={imageUrl} alt="Avatar Preview" className="size-full object-cover" />
                       ) : (
@@ -314,7 +375,7 @@ export default function PersonalOnboardingPage() {
                             type="file"
                             accept="image/*"
                             className="hidden"
-                            onChange={(e) => handleFileChange(e, setImageBase64)}
+                            onChange={(e) => handleFileSelect(e, setImageFile, setImagePreview)}
                           />
                         </label>
                       )}
@@ -547,12 +608,12 @@ export default function PersonalOnboardingPage() {
                           <Input
                             type="file"
                             accept="image/*"
-                            onChange={(e) => handleFileChange(e, setLogoBase64)}
+                            onChange={(e) => handleFileSelect(e, setLogoFile, setLogoPreview)}
                             className="bg-neutral-900 border-white/[0.06] focus-visible:ring-primary h-11 text-white rounded-xl text-xs flex items-center pt-2.5"
                           />
-                          {logoBase64 && (
+                          {logoPreview && (
                             <div className="size-11 rounded-lg border border-white/[0.06] bg-neutral-900 overflow-hidden flex items-center justify-center shrink-0">
-                              <img src={logoBase64} className="size-full object-cover" />
+                              <img src={logoPreview} className="size-full object-cover" />
                             </div>
                           )}
                         </div>
@@ -599,12 +660,12 @@ export default function PersonalOnboardingPage() {
                           <Input
                             type="file"
                             accept="image/*"
-                            onChange={(e) => handleFileChange(e, setWatermarkBase64)}
+                            onChange={(e) => handleFileSelect(e, setWatermarkFile, setWatermarkPreview)}
                             className="bg-neutral-900 border-white/[0.06] focus-visible:ring-primary h-11 text-white rounded-xl text-xs flex items-center pt-2.5"
                           />
-                          {watermarkBase64 && (
+                          {watermarkPreview && (
                             <div className="size-11 rounded-lg border border-white/[0.06] bg-neutral-900 overflow-hidden flex items-center justify-center shrink-0">
-                              <img src={watermarkBase64} className="size-full object-cover" />
+                              <img src={watermarkPreview} className="size-full object-cover" />
                             </div>
                           )}
                         </div>
@@ -649,12 +710,12 @@ export default function PersonalOnboardingPage() {
                           <Input
                             type="file"
                             accept="image/*"
-                            onChange={(e) => handleFileChange(e, setCoverBase64)}
+                            onChange={(e) => handleFileSelect(e, setCoverFile, setCoverPreview)}
                             className="bg-neutral-900 border-white/[0.06] focus-visible:ring-primary h-11 text-white rounded-xl text-xs flex items-center pt-2.5"
                           />
-                          {coverBase64 && (
+                          {coverPreview && (
                             <div className="size-11 rounded-lg border border-white/[0.06] bg-neutral-900 overflow-hidden flex items-center justify-center shrink-0">
-                              <img src={coverBase64} className="size-full object-cover" />
+                              <img src={coverPreview} className="size-full object-cover" />
                             </div>
                           )}
                         </div>

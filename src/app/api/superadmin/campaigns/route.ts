@@ -178,6 +178,7 @@ export async function POST(req: Request) {
         title: cleanTitle,
         description: cleanDescription,
         imageUrl: imageUrl ? imageUrl.trim() : null,
+        imageKey: body.imageKey || null,
         type,
         targetRole,
         startDate: start,

@@ -133,6 +133,7 @@ export async function PATCH(req: Request) {
           bio: bio ?? null,
           objective: objective ?? null,
           image: image ?? undefined,
+          imageKey: body.imageKey ?? undefined,
         },
       });
       return NextResponse.json({ success: true, user: updatedUser });

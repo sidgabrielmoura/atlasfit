@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { NotificationService } from "@/lib/notifications/service";
+
 
 interface RouteParams {
   params: Promise<{ id: string }>;
@@ -249,6 +251,18 @@ export async function POST(req: Request, { params }: RouteParams) {
         objective: anamnese?.objective || undefined,
       }
     });
+
+    if (evaluation) {
+      await NotificationService.sendNotification({
+        userId: studentId,
+        type: "ASSESSMENT_CREATED",
+        category: "ASSESSMENT",
+        title: "Sua Avaliação Física está Pronta! 📊",
+        description: "Seu personal trainer liberou uma nova avaliação física para você.",
+        deepLink: "/student/assessments",
+        source: "ASSESSMENT"
+      });
+    }
 
     return NextResponse.json(evaluation);
   } catch (error) {

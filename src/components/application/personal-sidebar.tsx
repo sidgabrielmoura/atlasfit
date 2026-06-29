@@ -25,6 +25,7 @@ import {
   Moon,
   ChevronRight,
   FolderOpen,
+  Target,
 } from "lucide-react";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 import {
@@ -70,6 +71,7 @@ import { workspaceStore } from "@/stores/workspace.store";
 const mainNavItems = [
   { title: "Dashboard", href: "/personal/dashboard", icon: LayoutDashboard },
   { title: "Alunos", href: "/personal/clients", icon: Users },
+  { title: "CRM", href: "/personal/crm", icon: Target },
   { title: "Treinos e Exercícios", href: "/personal/workouts", icon: Dumbbell },
   { title: "Financeiro", href: "/personal/finance", icon: DollarSign },
   { title: "Arquivos", href: "/personal/files", icon: FolderOpen },

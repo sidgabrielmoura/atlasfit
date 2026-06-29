@@ -309,6 +309,7 @@ export default function SuperAdminSettingsPage() {
           <div className="space-y-6">
             {[
               { key: "session_expiration", title: "Expiração de Sessão", desc: "Forçar logout após 24h de inatividade." },
+              { key: "two_factor_auth_enabled", title: "Autenticação de Duas Etapas (2FA)", desc: "Exigir validação com código OTP enviado por e-mail para todos os usuários ao realizar login." },
             ].map((item, idx) => {
               const enabled = formData[item.key] === "true";
               return (

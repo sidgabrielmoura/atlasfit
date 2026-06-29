@@ -61,7 +61,19 @@ export async function POST(req: Request, { params }: RouteParams) {
 
   try {
     const body = await req.json();
-    const { workspaceId, name, category, type, fileName, fileSize, url, notes } = body;
+    const { 
+      workspaceId, 
+      name, 
+      category, 
+      type, 
+      fileName, 
+      fileSize, 
+      url, 
+      notes,
+      objectKey,
+      mimeType,
+      size
+    } = body;
 
     if (!workspaceId || !name || !category || !type || !url) {
       return new NextResponse("Campos obrigatórios ausentes.", { status: 400 });
@@ -96,6 +108,10 @@ export async function POST(req: Request, { params }: RouteParams) {
         fileSize: fileSize || null,
         url,
         notes: notes || null,
+        objectKey: objectKey || null,
+        mimeType: mimeType || null,
+        size: size || null,
+        uploadedBy: session.user.id,
       }
     });
 

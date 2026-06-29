@@ -20,6 +20,7 @@ const geistMono = Geist_Mono({
 import prisma from "@/lib/prisma";
 import { PWARegister } from "@/components/pwa-register";
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
+import { PwaFcmInit } from "@/components/pwa-fcm-init";
 
 export const viewport = {
   themeColor: "#ea580c",
@@ -37,12 +38,11 @@ export async function generateMetadata(): Promise<Metadata> {
       platformName = setting.value;
     }
   } catch (error) {
-    // Fail silently in build if DB is not set up yet
   }
 
   const title = `${platformName} — Gestão Inteligente para Personal Trainers`;
   const description = "Plataforma completa para personal trainers gerenciarem alunos, treinos, finanças e performance com inteligência de dados.";
-  const siteUrl = "https://atlasfit.app"; // Domain for SEO
+  const siteUrl = "https://atlasfit.site";
 
   return {
     metadataBase: new URL(siteUrl),
@@ -91,6 +91,7 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col transition-colors duration-500 ease-in-out">
         <Providers>
           <PWARegister />
+          <PwaFcmInit />
           <PWAInstallPrompt />
           <ImpersonationBanner />
           {children}

@@ -437,6 +437,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   const [uploadNotes, setUploadNotes] = useState("");
   const [uploadFileName, setUploadFileName] = useState("");
   const [uploadFileSize, setUploadFileSize] = useState("");
+  const [selectedFileObj, setSelectedFileObj] = useState<File | null>(null);
 
 
 
@@ -1212,13 +1213,57 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
       toast.warning("Por favor, informe a URL do link externo.");
       return;
     }
-    if (uploadType === "file" && !uploadFileName) {
+    if (uploadType === "file" && (!selectedFileObj || !uploadFileName)) {
       toast.warning("Por favor, selecione ou arraste um arquivo.");
       return;
     }
 
     try {
       setSubmittingUpload(true);
+
+      let finalUrl = uploadUrl;
+      let finalKey = null;
+      let finalMimeType = null;
+      let finalSize = null;
+
+      if (uploadType === "file" && selectedFileObj) {
+        // 1. Get presigned URL
+        const presignedRes = await fetch("/api/storage/presigned", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            workspaceId: activeWorkspaceId,
+            studentId: studentId,
+            fileName: selectedFileObj.name,
+            contentType: selectedFileObj.type,
+            fileSize: selectedFileObj.size,
+            targetType: "student_file",
+          }),
+        });
+
+        if (!presignedRes.ok) {
+          const txt = await presignedRes.text();
+          throw new Error(txt || "Erro ao obter URL de upload.");
+        }
+
+        const { uploadUrl: putUrl, fileUrl, objectKey } = await presignedRes.json();
+
+        // 2. Put file to Cloudflare R2
+        const putRes = await fetch(putUrl, {
+          method: "PUT",
+          headers: { "Content-Type": selectedFileObj.type },
+          body: selectedFileObj,
+        });
+
+        if (!putRes.ok) {
+          throw new Error("Erro no upload do arquivo para o servidor de armazenamento.");
+        }
+
+        finalUrl = fileUrl;
+        finalKey = objectKey;
+        finalMimeType = selectedFileObj.type;
+        finalSize = selectedFileObj.size;
+      }
 
       const payload = {
         workspaceId: activeWorkspaceId,
@@ -1227,8 +1272,11 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
         type: uploadType,
         fileName: uploadType === "file" ? uploadFileName : null,
         fileSize: uploadType === "file" ? uploadFileSize : "Link",
-        url: uploadType === "file" ? "https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf" : uploadUrl,
+        url: finalUrl,
         notes: uploadNotes.trim() || null,
+        objectKey: finalKey,
+        mimeType: finalMimeType,
+        size: finalSize,
       };
 
       const res = await fetch(`/api/personal/clients/${studentId}/files`, {
@@ -1251,6 +1299,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
       setUploadNotes("");
       setUploadFileName("");
       setUploadFileSize("");
+      setSelectedFileObj(null);
       setIsUploadModalOpen(false);
 
       fetchStudentFiles();
@@ -6917,6 +6966,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                         setUploadFileName(file.name);
                         const sizeMB = (file.size / (1024 * 1024)).toFixed(1);
                         setUploadFileSize(`${sizeMB} MB`);
+                        setSelectedFileObj(file);
                         if (!uploadName) {
                           const cleanName = file.name.substring(0, file.name.lastIndexOf('.')) || file.name;
                           setUploadName(cleanName.replace(/[-_]/g, ' '));

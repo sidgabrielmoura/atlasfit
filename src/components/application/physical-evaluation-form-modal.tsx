@@ -123,9 +123,13 @@ export function PhysicalEvaluationFormModal({
 
   // 5. Avaliação Postural states
   const [photoFrontal, setPhotoFrontal] = useState("");
+  const [fileFrontal, setFileFrontal] = useState<File | null>(null);
   const [photoPosterior, setPhotoPosterior] = useState("");
+  const [filePosterior, setFilePosterior] = useState<File | null>(null);
   const [photoLateralRight, setPhotoLateralRight] = useState("");
+  const [fileLateralRight, setFileLateralRight] = useState<File | null>(null);
   const [photoLateralLeft, setPhotoLateralLeft] = useState("");
+  const [fileLateralLeft, setFileLateralLeft] = useState<File | null>(null);
 
   const [posturalOmbros, setPosturalOmbros] = useState("Normal");
   const [posturalCabeca, setPosturalCabeca] = useState("Normal");
@@ -396,24 +400,20 @@ export function PhysicalEvaluationFormModal({
     }
   }, [flexWells]);
 
-  // Base64 file uploader
+  // File select and preview generator
   const handlePhotoUpload = (view: "frontal" | "posterior" | "right" | "left", file: File | null) => {
     if (!file) {
-      if (view === "frontal") setPhotoFrontal("");
-      if (view === "posterior") setPhotoPosterior("");
-      if (view === "right") setPhotoLateralRight("");
-      if (view === "left") setPhotoLateralLeft("");
+      if (view === "frontal") { setPhotoFrontal(""); setFileFrontal(null); }
+      if (view === "posterior") { setPhotoPosterior(""); setFilePosterior(null); }
+      if (view === "right") { setPhotoLateralRight(""); setFileLateralRight(null); }
+      if (view === "left") { setPhotoLateralLeft(""); setFileLateralLeft(null); }
       return;
     }
-    const reader = new FileReader();
-    reader.onload = () => {
-      const base64 = reader.result as string;
-      if (view === "frontal") setPhotoFrontal(base64);
-      if (view === "posterior") setPhotoPosterior(base64);
-      if (view === "right") setPhotoLateralRight(base64);
-      if (view === "left") setPhotoLateralLeft(base64);
-    };
-    reader.readAsDataURL(file);
+    const previewUrl = URL.createObjectURL(file);
+    if (view === "frontal") { setPhotoFrontal(previewUrl); setFileFrontal(file); }
+    if (view === "posterior") { setPhotoPosterior(previewUrl); setFilePosterior(file); }
+    if (view === "right") { setPhotoLateralRight(previewUrl); setFileLateralRight(file); }
+    if (view === "left") { setPhotoLateralLeft(previewUrl); setFileLateralLeft(file); }
   };
 
 
@@ -424,6 +424,60 @@ export function PhysicalEvaluationFormModal({
 
     try {
       setSubmitting(true);
+      // S2 Upload helper
+      const uploadEvalPhoto = async (file: File) => {
+        const res = await fetch("/api/storage/presigned", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            workspaceId,
+            studentId,
+            fileName: file.name,
+            contentType: file.type,
+            fileSize: file.size,
+            targetType: "progress_photo",
+          }),
+        });
+
+        if (!res.ok) {
+          const txt = await res.text();
+          throw new Error(txt || "Erro ao obter URL assinada para foto postural.");
+        }
+
+        const { uploadUrl, fileUrl } = await res.json();
+
+        const putRes = await fetch(uploadUrl, {
+          method: "PUT",
+          headers: { "Content-Type": file.type },
+          body: file,
+        });
+
+        if (!putRes.ok) {
+          throw new Error("Erro no upload da foto postural.");
+        }
+
+        return fileUrl;
+      };
+
+      let finalFrontal = photoFrontal || null;
+      if (fileFrontal) {
+        finalFrontal = await uploadEvalPhoto(fileFrontal);
+      }
+
+      let finalPosterior = photoPosterior || null;
+      if (filePosterior) {
+        finalPosterior = await uploadEvalPhoto(filePosterior);
+      }
+
+      let finalLateralRight = photoLateralRight || null;
+      if (fileLateralRight) {
+        finalLateralRight = await uploadEvalPhoto(fileLateralRight);
+      }
+
+      let finalLateralLeft = photoLateralLeft || null;
+      if (fileLateralLeft) {
+        finalLateralLeft = await uploadEvalPhoto(fileLateralLeft);
+      }
 
       const hasDobras = foldPeitoral.trim() || foldAbdominal.trim() || foldCoxa.trim() || foldTricipital.trim() || foldSuprailiaca.trim();
       const dobrasData = hasDobras ? {
@@ -454,16 +508,16 @@ export function PhysicalEvaluationFormModal({
         leftCalf: parseFloat(circLeftCalf) || null
       } : null;
 
-      const hasPostural = photoFrontal || photoPosterior || photoLateralRight || photoLateralLeft ||
+      const hasPostural = finalFrontal || finalPosterior || finalLateralRight || finalLateralLeft ||
         posturalDeviations.trim() || posturalReport.trim() ||
         posturalOmbros !== "Normal" || posturalCabeca !== "Normal" || posturalQuadril !== "Normal" ||
         posturalJoelhos !== "Normal" || posturalTornozelos !== "Normal" || posturalColuna !== "Normal";
       const posturalData = hasPostural ? {
         photos: {
-          frontal: photoFrontal || null,
-          posterior: photoPosterior || null,
-          lateralRight: photoLateralRight || null,
-          lateralLeft: photoLateralLeft || null
+          frontal: finalFrontal,
+          posterior: finalPosterior,
+          lateralRight: finalLateralRight,
+          lateralLeft: finalLateralLeft
         },
         ombros: posturalOmbros,
         cabeca: posturalCabeca,

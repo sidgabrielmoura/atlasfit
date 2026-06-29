@@ -6,6 +6,7 @@ import { auth } from "@/auth";
 export async function updateProfile(data: {
   name: string;
   image?: string;
+  imageKey?: string;
   specialty?: string;
   bio?: string;
   whatsapp?: string;
@@ -25,6 +26,7 @@ export async function updateProfile(data: {
     data: {
       name: data.name,
       image: data.image || null,
+      imageKey: data.imageKey || null,
       specialty: data.specialty || null,
       bio: data.bio || null,
       whatsapp: data.whatsapp || null,
@@ -46,8 +48,11 @@ export async function updateBrandSettings(
     slogan?: string | null;
     primaryColor?: string | null;
     logoUrl?: string | null;
+    logoKey?: string | null;
     watermarkUrl?: string | null;
+    watermarkKey?: string | null;
     workoutCoverUrl?: string | null;
+    workoutCoverKey?: string | null;
   }
 ) {
   const session = await auth();
@@ -80,8 +85,11 @@ export async function updateBrandSettings(
       slogan: data.slogan?.trim() || null,
       primaryColor: data.primaryColor?.trim() || "#0ea5e9",
       logoUrl: data.logoUrl?.trim() || null,
+      logoKey: data.logoKey || null,
       watermarkUrl: data.watermarkUrl?.trim() || null,
+      watermarkKey: data.watermarkKey || null,
       workoutCoverUrl: data.workoutCoverUrl?.trim() || null,
+      workoutCoverKey: data.workoutCoverKey || null,
     },
   });
 
@@ -110,10 +118,13 @@ export async function updateBrandSettings(
       slug: updatedWorkspace.slug,
       logo,
       logoUrl: updatedWorkspace.logoUrl,
+      logoKey: updatedWorkspace.logoKey,
       primaryColor: updatedWorkspace.primaryColor || "#0ea5e9",
       slogan: updatedWorkspace.slogan,
       watermarkUrl: updatedWorkspace.watermarkUrl,
+      watermarkKey: updatedWorkspace.watermarkKey,
       workoutCoverUrl: updatedWorkspace.workoutCoverUrl,
+      workoutCoverKey: updatedWorkspace.workoutCoverKey,
     },
   };
 }

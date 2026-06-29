@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { NotificationService } from "@/lib/notifications/service";
+
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -60,6 +62,23 @@ export async function POST(req: Request) {
           height: height ? parseFloat(height) : null,
           date: new Date(),
         },
+      });
+    }
+
+    // Notify trainer about onboarding completion
+    const workspace = await prisma.workspace.findUnique({
+      where: { id: member.workspaceId },
+      select: { ownerId: true }
+    });
+    if (workspace?.ownerId) {
+      await NotificationService.sendNotification({
+        userId: workspace.ownerId,
+        type: "SYSTEM",
+        category: "SYSTEM",
+        title: "Convite de Onboarding Aceito! 🎉",
+        description: `O aluno "${session.user.name || "Aluno"}" concluiu o onboarding e está pronto para receber treinos.`,
+        deepLink: `/personal/clients/${session.user.id}`,
+        source: "SYSTEM"
       });
     }
 

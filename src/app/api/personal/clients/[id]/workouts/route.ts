@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { NotificationService } from "@/lib/notifications/service";
+
 
 // GET /api/personal/clients/[id]/workouts
 // Retorna os treinos atribuídos ao aluno ordenados por dia da semana (dayOfWeek)
@@ -319,6 +321,17 @@ export async function POST(
         }
 
         return finalWorkout;
+      });
+    }
+    if (createdWorkout) {
+      await NotificationService.sendNotification({
+        userId: studentId,
+        type: "TRAINING_CREATED",
+        category: "TRAINING",
+        title: "Novo Treino Prescrito! 🏋️‍♂️",
+        description: `Seu personal trainer prescreveu o treino "${createdWorkout.name}".`,
+        deepLink: "/student/workouts",
+        source: "TRAINING"
       });
     }
 

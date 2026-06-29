@@ -30,6 +30,8 @@ model User {
   image            String?
   role             GlobalRole        @default(USER)
   onboarded        Boolean           @default(false)
+  twoFactorEnabled Boolean?
+  isTestAccount    Boolean           @default(false)
   objective        String?
   gender           String?
   birthDate        DateTime?
@@ -55,6 +57,7 @@ model User {
   city       String?
   experience String?
   cref       String?
+  imageKey   String?
 
   subscription           Subscription?
   freeTrial              FreeTrial?
@@ -71,6 +74,10 @@ model User {
   studentTasks           TrainerTask[]               @relation("StudentTasks")
   dailyFeedbacks         DailyFeedback[]
   campaignViews          CampaignView[]
+  leads                  Lead[]
+  notificationDevices    NotificationDevice[]
+  notifications          Notification[]
+  notificationPreference NotificationPreference?
 }
 
 model Workspace {
@@ -84,6 +91,9 @@ model Workspace {
   primaryColor    String?            @default("#ea580c")
   watermarkUrl    String?
   workoutCoverUrl String?
+  logoKey         String?
+  watermarkKey    String?
+  workoutCoverKey String?
   members         WorkspaceMember[]
   plans           WorkspacePlan[]
   payments        WorkspacePayment[]
@@ -93,6 +103,9 @@ model Workspace {
   progressHistory StudentProgress[]
   progressPhotos  StudentProgressPhoto[]
   dailyFeedbacks  DailyFeedback[]
+  leads           Lead[]
+  tags            Tag[]
+  customFields    CustomFieldDefinition[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 }
@@ -484,6 +497,10 @@ model StudentProgressPhoto {
   studentId       String
   workspaceId     String
   photoUrl        String
+  objectKey       String?
+  mimeType        String?
+  size            Int?
+  uploadedBy      String?
   date            DateTime @default(now())
   
   trainerLiked    Boolean  @default(false)
@@ -538,6 +555,10 @@ model StudentFile {
   fileName    String?  // Nome físico do arquivo se for upload
   fileSize    String?  // Tamanho formatado (ex: "2.4 MB") ou "Link"
   url         String   // URL do arquivo em nuvem ou URL externa
+  objectKey   String?
+  mimeType    String?
+  size        Int?
+  uploadedBy  String?
   notes       String?  @db.Text
 
   student     User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
@@ -625,6 +646,7 @@ model Campaign {
   title        String
   description  String         @db.Text
   imageUrl     String?
+  imageKey     String?
   type         CampaignType
   targetRole   CampaignTarget
   startDate    DateTime
@@ -651,6 +673,174 @@ model CampaignView {
   user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([campaignId, userId])
+}
+
+model Lead {
+  id             String             @id @default(cuid())
+  workspaceId    String
+  ownerId        String
+  name           String
+  phone          String?
+  whatsapp       String?
+  email          String?
+  instagram      String?
+  goal           String?
+  source         String?
+  notes          String?            @db.Text
+  potentialValue Float?
+  status         String
+  lostReason     String?
+  lostReasonDetails String?         @db.Text
+  createdAt      DateTime           @default(now())
+  updatedAt      DateTime           @updatedAt
+
+  workspace      Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner          User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  activities     LeadActivity[]
+  tasks          LeadTask[]
+  tags           Tag[]
+  customValues   CustomFieldValue[]
+  files          LeadFile[]
+
+  @@index([workspaceId])
+  @@index([ownerId])
+  @@index([status])
+}
+
+model LeadActivity {
+  id        String   @id @default(cuid())
+  leadId    String
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+}
+
+model LeadTask {
+  id        String   @id @default(cuid())
+  leadId    String
+  title     String
+  status    String   @default("PENDING")
+  dueDate   DateTime?
+  time      String?  @default("09:00")
+  priority  String   @default("MEDIA")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+}
+
+model Tag {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  color       String
+  createdAt   DateTime @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  leads       Lead[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
+model CustomFieldDefinition {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  type        String   @default("text")
+  options     String?
+  createdAt   DateTime @default(now())
+
+  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  values      CustomFieldValue[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId])
+}
+
+model CustomFieldValue {
+  id                  String                @id @default(cuid())
+  leadId              String
+  fieldDefinitionId   String
+  value               String
+
+  lead                Lead                  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  definition          CustomFieldDefinition @relation(fields: [fieldDefinitionId], references: [id], onDelete: Cascade)
+
+  @@unique([leadId, fieldDefinitionId])
+  @@index([leadId])
+  @@index([fieldDefinitionId])
+}
+
+model LeadFile {
+  id          String   @id @default(cuid())
+  leadId      String
+  fileName    String
+  fileSize    String
+  url         String
+  objectKey   String?
+  mimeType    String?
+  size        Int?
+  uploadedBy  String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+
+  @@index([leadId])
+}
+
+model NotificationDevice {
+  id            String   @id @default(cuid())
+  userId        String
+  firebaseToken String   @unique
+  platform      String?
+  browser       String?
+  status        String   @default("ACTIVE")
+  lastSeen      DateTime @default(now())
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+model Notification {
+  id          String    @id @default(cuid())
+  userId      String
+  type        String
+  category    String
+  title       String
+  description String
+  image       String?
+  icon        String?
+  priority    String    @default("NORMAL")
+  payload     Json?
+  deepLink    String?
+  source      String?
+  isRead      Boolean   @default(false)
+  delivered   Boolean   @default(false)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  readAt      DateTime?
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+model NotificationPreference {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  settings  Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
 

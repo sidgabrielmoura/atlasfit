@@ -44,9 +44,15 @@ export async function GET(
       return new NextResponse("User not found", { status: 404 });
     }
 
+    const global2FA = await prisma.systemSetting.findUnique({
+      where: { key: "two_factor_auth_enabled" }
+    });
+    const isGlobal2FA = global2FA?.value === "true";
+
     const { password, ...userWithoutPassword } = user;
     const userWithSub = {
       ...userWithoutPassword,
+      isGlobal2FA,
       subscriptions: user.subscription ? [
         {
           ...user.subscription,
@@ -77,23 +83,31 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    const { role } = body;
+    const { role, twoFactorEnabled, isTestAccount } = body;
 
     if (!id) {
       return new NextResponse("Missing user ID", { status: 400 });
     }
 
+    const dataToUpdate: any = {};
+    if (role !== undefined) dataToUpdate.role = role;
+    if (twoFactorEnabled !== undefined) {
+      dataToUpdate.twoFactorEnabled = twoFactorEnabled;
+    }
+    if (isTestAccount !== undefined) {
+      dataToUpdate.isTestAccount = isTestAccount;
+    }
+
     const updatedUser = await prisma.user.update({
       where: { id },
-      data: {
-        role: role !== undefined ? role : undefined,
-      }
+      data: dataToUpdate,
     });
 
     const { password, ...userWithoutPassword } = updatedUser;
 
     return NextResponse.json(userWithoutPassword, { status: 200 });
   } catch (error) {
+    console.error("[PATCH_USER_ERROR]", error);
     await logSystemError({ action: "PATCH_USER_BY_ID", error, entity: "USER", entityId: id });
     return new NextResponse("Internal Error", { status: 500 });
   }
