@@ -1148,18 +1148,18 @@ export default function CRMPage() {
 
   return (
     <div className="flex-1 min-w-0 w-full max-w-full overflow-x-hidden space-y-8 p-4 md:p-8 animate-in fade-in duration-300 select-none">
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
+      <div className="flex flex-col items-end gap-4">
+        <div className="w-full">
           <h2 className="text-3xl font-extrabold tracking-tight">CRM</h2>
           <p className="text-muted-foreground mt-1 text-sm">
             Gerencie seu funil comercial, acompanhe leads de vendas e converta novos alunos.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <Button
             variant="outline"
-            className="rounded-xl border-border/60 text-xs font-bold gap-2 h-10 shrink-0"
+            className="rounded-xl flex-1 min-w-fit border-border/60 text-xs font-bold gap-2 h-10 shrink-0"
             onClick={() => setIsTagSettingsOpen(true)}
           >
             <TagIcon className="size-4 text-primary" />
@@ -1168,7 +1168,7 @@ export default function CRMPage() {
 
           <Button
             variant="outline"
-            className="rounded-xl border-border/60 text-xs font-bold gap-2 h-10 shrink-0"
+            className="rounded-xl flex-1 min-w-fit border-border/60 text-xs font-bold gap-2 h-10 shrink-0"
             onClick={() => setIsCustomFieldsSettingsOpen(true)}
           >
             <Settings className="size-4 text-primary" />
@@ -1177,7 +1177,7 @@ export default function CRMPage() {
 
           <Button
             onClick={() => setIsCreateOpen(true)}
-            className="bg-primary text-primary-foreground hover:bg-primary/95 rounded-xl font-black gap-2 h-10 px-4 shadow-lg shadow-primary/20 shrink-0"
+            className="bg-primary flex-1 min-w-fit text-primary-foreground hover:bg-primary/95 rounded-xl font-black gap-2 h-10 px-4 shadow-lg shadow-primary/20 shrink-0"
           >
             <Plus className="size-4" />
             <span>Novo Lead</span>
@@ -1185,7 +1185,7 @@ export default function CRMPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3">
+      <div className="flex flex-wrap gap-3">
         <Card
           onClick={() => {
             setSearchQuery("");
@@ -1193,7 +1193,7 @@ export default function CRMPage() {
             setGoalFilter("all");
             setTagFilter("all");
           }}
-          className="border-border/30 bg-secondary/10 hover:bg-secondary/20 transition-all rounded-2xl cursor-pointer"
+          className="flex-1 min-w-fit border-border/30 bg-secondary/10 hover:bg-secondary/20 transition-all rounded-2xl cursor-pointer"
         >
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
@@ -1212,7 +1212,7 @@ export default function CRMPage() {
             setTagFilter("all");
             setActiveMobileColumn("new");
           }}
-          className="border-border/30 bg-secondary/10 hover:bg-secondary/20 transition-all rounded-2xl cursor-pointer"
+          className="flex-1 min-w-fit border-border/30 bg-secondary/10 hover:bg-secondary/20 transition-all rounded-2xl cursor-pointer"
         >
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
@@ -1231,7 +1231,7 @@ export default function CRMPage() {
             setTagFilter("all");
             setActiveMobileColumn("negotiation");
           }}
-          className="border-border/30 bg-secondary/10 hover:bg-secondary/20 transition-all rounded-2xl cursor-pointer"
+          className="flex-1 min-w-fit border-border/30 bg-secondary/10 hover:bg-secondary/20 transition-all rounded-2xl cursor-pointer"
         >
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
@@ -1250,7 +1250,7 @@ export default function CRMPage() {
             setTagFilter("all");
             setActiveMobileColumn("won");
           }}
-          className="border-border/30 bg-secondary/10 hover:bg-secondary/20 transition-all rounded-2xl cursor-pointer"
+          className="flex-1 min-w-fit border-border/30 bg-secondary/10 hover:bg-secondary/20 transition-all rounded-2xl cursor-pointer"
         >
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
@@ -1261,7 +1261,7 @@ export default function CRMPage() {
           </CardContent>
         </Card>
 
-        <Card className="border-border/30 bg-secondary/10 rounded-2xl col-span-2 lg:col-span-1">
+        <Card className="flex-1 min-w-fit border-border/30 bg-secondary/10 rounded-2xl col-span-2 lg:col-span-1">
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
               <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Receita Fechada</span>
