@@ -1,5 +1,5 @@
 import prisma from "@/lib/prisma";
-import { adminMessaging } from "@/lib/firebase-admin";
+import { getAdminMessaging } from "@/lib/firebase-admin";
 import {
   NotificationType,
   NotificationCategory,
@@ -119,6 +119,12 @@ export class NotificationService {
             });
           }
 
+          const adminMessaging = getAdminMessaging();
+          if (!adminMessaging) {
+            console.warn("Skipping FCM push notification dispatch: Firebase Admin Messaging is not initialized.");
+            return;
+          }
+
           const response = await adminMessaging.sendEachForMulticast({
             tokens,
             notification: {
@@ -131,7 +137,7 @@ export class NotificationService {
 
           if (response.failureCount > 0) {
             const badTokens: string[] = [];
-            response.responses.forEach((resp, idx) => {
+            response.responses.forEach((resp: any, idx: number) => {
               if (!resp.success) {
                 const err = resp.error;
                 if (
