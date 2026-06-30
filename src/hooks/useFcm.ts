@@ -1,11 +1,16 @@
 import { app } from "@/lib/firebase";
 import { useEffect, useState } from "react";
+import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 
 export function useFcm() {
   const [token, setToken] = useState<string | null>(null);
+  const { data: session } = useSession();
 
   useEffect(() => {
+    if (!session?.user?.id) {
+      return;
+    }
     if (typeof window === "undefined" || !("serviceWorker" in navigator) || !("Notification" in window)) {
       return;
     }
@@ -75,7 +80,7 @@ export function useFcm() {
     };
 
     initFcm();
-  }, []);
+  }, [session?.user?.id]);
 
   return { token };
 }

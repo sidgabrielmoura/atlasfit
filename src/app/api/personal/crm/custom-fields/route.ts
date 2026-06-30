@@ -92,3 +92,47 @@ export async function POST(req: Request) {
     return new NextResponse("Erro interno.", { status: 500 });
   }
 }
+
+export async function DELETE(req: Request) {
+  const session = await auth();
+  if (!session?.user) {
+    return new NextResponse("Não autorizado.", { status: 401 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const fieldId = searchParams.get("fieldId");
+
+  if (!fieldId) {
+    return new NextResponse("O ID do campo é obrigatório.", { status: 400 });
+  }
+
+  try {
+    const field = await prisma.customFieldDefinition.findUnique({
+      where: { id: fieldId },
+    });
+
+    if (!field) {
+      return new NextResponse("Campo não encontrado.", { status: 404 });
+    }
+
+    const memberCheck = await prisma.workspaceMember.findFirst({
+      where: {
+        userId: session.user.id,
+        workspaceId: field.workspaceId,
+      },
+    });
+
+    if (!memberCheck) {
+      return new NextResponse("Acesso negado.", { status: 403 });
+    }
+
+    await prisma.customFieldDefinition.delete({
+      where: { id: fieldId },
+    });
+
+    return new NextResponse(null, { status: 204 });
+  } catch (error) {
+    console.error("DELETE custom field error:", error);
+    return new NextResponse("Erro interno.", { status: 500 });
+  }
+}

@@ -57,6 +57,16 @@ import {
   DialogFooter
 } from "@/components/ui/dialog";
 import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle
+} from "@/components/ui/alert-dialog";
+import {
   Sheet,
   SheetContent,
   SheetHeader,
@@ -262,6 +272,10 @@ export default function CRMPage() {
   const [togglingTagName, setTogglingTagName] = useState<string | null>(null);
   const [fieldName, setFieldName] = useState("");
   const [fieldType, setFieldType] = useState("text");
+  const [tagToDelete, setTagToDelete] = useState<Tag | null>(null);
+  const [isDeletingTag, setIsDeletingTag] = useState(false);
+  const [fieldToDelete, setFieldToDelete] = useState<CustomFieldDefinition | null>(null);
+  const [isDeletingField, setIsDeletingField] = useState(false);
 
   const [draftWhatsapp, setDraftWhatsapp] = useState("");
   const [draftPhone, setDraftPhone] = useState("");
@@ -472,6 +486,54 @@ export default function CRMPage() {
       fetchTagsAndFields();
     } catch {
       toast.error("Erro ao criar campo.");
+    }
+  };
+
+  const handleDeleteTag = async () => {
+    if (!tagToDelete) return;
+    setIsDeletingTag(true);
+    try {
+      const res = await fetch(`/api/personal/crm/tags?tagId=${tagToDelete.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      toast.success("Etiqueta excluída!");
+      setTagToDelete(null);
+      fetchTagsAndFields();
+      fetchLeads();
+      if (detailLead) {
+        const detailRes = await fetch(`/api/personal/crm/${detailLead.id}`);
+        if (detailRes.ok) {
+          const updatedLead = await detailRes.json();
+          setDetailLead(updatedLead);
+        }
+      }
+    } catch {
+      toast.error("Erro ao excluir etiqueta.");
+    } finally {
+      setIsDeletingTag(false);
+    }
+  };
+
+  const handleDeleteCustomField = async () => {
+    if (!fieldToDelete) return;
+    setIsDeletingField(true);
+    try {
+      const res = await fetch(`/api/personal/crm/custom-fields?fieldId=${fieldToDelete.id}`, { method: "DELETE" });
+      if (!res.ok) throw new Error();
+      toast.success("Campo excluído!");
+      setFieldToDelete(null);
+      fetchTagsAndFields();
+      fetchLeads();
+      if (detailLead) {
+        const detailRes = await fetch(`/api/personal/crm/${detailLead.id}`);
+        if (detailRes.ok) {
+          const updatedLead = await detailRes.json();
+          setDetailLead(updatedLead);
+        }
+      }
+    } catch {
+      toast.error("Erro ao excluir campo.");
+    } finally {
+      setIsDeletingField(false);
     }
   };
 
@@ -1951,7 +2013,7 @@ export default function CRMPage() {
           ) : (
             <div className="flex flex-col h-full justify-between">
               <div>
-                <div className="p-6 border-b border-border/30 bg-secondary/10 flex flex-col justify-between gap-4">
+                <div className="p-4 sm:p-6 border-b border-border/30 bg-secondary/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <Avatar className="size-10 border border-border/30">
@@ -1968,12 +2030,12 @@ export default function CRMPage() {
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 max-sm:w-full">
                     {detailLead.status !== "won" && (
                       <Button
                         size="sm"
                         onClick={() => triggerConvertDialog(detailLead)}
-                        className="bg-emerald-600 max-sm:flex-1 hover:bg-emerald-500 text-white rounded-xl font-bold h-9 shadow-md gap-1.5"
+                        className="bg-emerald-600 flex-1 sm:flex-none hover:bg-emerald-500 text-white rounded-xl font-bold h-9 shadow-md gap-1.5"
                       >
                         <UserCheck className="size-4" />
                         <span>Tornar Aluno</span>
@@ -1982,7 +2044,7 @@ export default function CRMPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="border-destructive/30 text-destructive hover:bg-destructive/10 rounded-xl h-9 font-bold"
+                      className="border-destructive/30 text-destructive hover:bg-destructive/10 rounded-xl h-9 font-bold max-sm:px-3"
                       onClick={() => handleDeleteLead(detailLead.id)}
                     >
                       <Trash2 className="size-4" />
@@ -1990,14 +2052,14 @@ export default function CRMPage() {
                   </div>
                 </div>
 
-                <div className="p-6">
+                <div className="p-4 sm:p-6">
                   <Tabs value={activeDetailTab} onValueChange={setActiveDetailTab} className="w-full">
-                    <TabsList className="grid grid-cols-5 h-10 bg-secondary/10 border border-border/30 rounded-xl p-1 mb-6">
-                      <TabsTrigger value="ficha" className="text-xs font-bold rounded-lg">Ficha</TabsTrigger>
-                      <TabsTrigger value="tarefas" className="text-xs font-bold rounded-lg">Tarefas</TabsTrigger>
-                      <TabsTrigger value="notas" className="text-xs font-bold rounded-lg">Notas</TabsTrigger>
-                      <TabsTrigger value="arquivos" className="text-xs font-bold rounded-lg">Arquivos</TabsTrigger>
-                      <TabsTrigger value="timeline" className="text-xs font-bold rounded-lg">Histórico</TabsTrigger>
+                    <TabsList className="flex w-full overflow-x-auto scrollbar-none bg-secondary/10 border border-border/30 rounded-xl p-1 mb-6 gap-1">
+                      <TabsTrigger value="ficha" className="flex-1 text-xs font-bold rounded-lg min-w-[75px] data-[state=active]:bg-background">Ficha</TabsTrigger>
+                      <TabsTrigger value="tarefas" className="flex-1 text-xs font-bold rounded-lg min-w-[75px] data-[state=active]:bg-background">Tarefas</TabsTrigger>
+                      <TabsTrigger value="notas" className="flex-1 text-xs font-bold rounded-lg min-w-[75px] data-[state=active]:bg-background">Notas</TabsTrigger>
+                      <TabsTrigger value="arquivos" className="flex-1 text-xs font-bold rounded-lg min-w-[75px] data-[state=active]:bg-background">Arquivos</TabsTrigger>
+                      <TabsTrigger value="timeline" className="flex-1 text-xs font-bold rounded-lg min-w-[85px] data-[state=active]:bg-background">Histórico</TabsTrigger>
                     </TabsList>
 
                     <TabsContent value="ficha" className="space-y-6">
@@ -2097,15 +2159,15 @@ export default function CRMPage() {
                             )}
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border/20">
+                          <div className="flex flex-wrap items-center gap-2 pt-3 border-t border-border/20 max-sm:grid max-sm:grid-cols-2">
                             <Input
                               placeholder="Nova etiqueta..."
-                              className="h-8 text-xs rounded-lg max-w-[160px] bg-background border-border"
+                              className="h-8 text-xs rounded-lg bg-background border-border w-full max-sm:col-span-2"
                               value={newTagInlineName}
                               onChange={(e) => setNewTagInlineName(e.target.value)}
                             />
                             <Select value={newTagInlineColor} onValueChange={setNewTagInlineColor}>
-                              <SelectTrigger className="h-8 text-xs rounded-lg w-24 bg-background border-border">
+                              <SelectTrigger className="h-8 text-xs rounded-lg bg-background border-border w-full">
                                 <SelectValue placeholder="Cor" />
                               </SelectTrigger>
                               <SelectContent className="rounded-lg">
@@ -2117,7 +2179,7 @@ export default function CRMPage() {
                             <Button
                               type="button"
                               size="sm"
-                              className="h-8 px-3 rounded-lg text-xs font-bold"
+                              className="h-8 px-3 rounded-lg text-xs font-bold w-full"
                               onClick={handleCreateTagInline}
                               disabled={isTagInlineCreating}
                             >
@@ -2150,11 +2212,11 @@ export default function CRMPage() {
                         </div>
                       </div>
 
-                      <div className="flex justify-end pt-4 border-t border-border/20">
+                      <div className="flex justify-end pt-4 border-t border-border/20 max-sm:w-full">
                         <Button
                           onClick={handleSaveFicha}
                           disabled={isSavingFicha}
-                          className="bg-primary text-primary-foreground font-black px-6 py-2 h-11 rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/95 flex items-center gap-2"
+                          className="bg-primary text-primary-foreground font-black px-6 py-2 h-11 rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/95 flex items-center gap-2 max-sm:w-full max-sm:justify-center"
                         >
                           {isSavingFicha ? <Loader2 className="animate-spin size-4" /> : null}
                           <span>Salvar Ficha</span>
@@ -2631,15 +2693,7 @@ export default function CRMPage() {
                       size="icon"
                       variant="ghost"
                       className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                      onClick={async () => {
-                        try {
-                          await fetch(`/api/personal/crm/tags?tagId=${tag.id}`, { method: "DELETE" });
-                          toast.success("Etiqueta excluída.");
-                          fetchTagsAndFields();
-                        } catch {
-                          toast.error("Erro ao excluir.");
-                        }
-                      }}
+                      onClick={() => setTagToDelete(tag)}
                     >
                       <Trash2 className="size-3.5" />
                     </Button>
@@ -2692,15 +2746,7 @@ export default function CRMPage() {
                     size="icon"
                     variant="ghost"
                     className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                    onClick={async () => {
-                      try {
-                        await fetch(`/api/personal/crm/custom-fields?fieldId=${field.id}`, { method: "DELETE" });
-                        toast.success("Campo excluído.");
-                        fetchTagsAndFields();
-                      } catch {
-                        toast.error("Erro ao excluir.");
-                      }
-                    }}
+                    onClick={() => setFieldToDelete(field)}
                   >
                     <Trash2 className="size-3.5" />
                   </Button>
@@ -2716,6 +2762,59 @@ export default function CRMPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Confirm Deletion Alert Dialogs */}
+      <AlertDialog open={!!tagToDelete} onOpenChange={(open) => !open && setTagToDelete(null)}>
+        <AlertDialogContent className="rounded-2xl border-border/40 bg-card select-none">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-bold">Tem certeza?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-muted-foreground mt-1">
+              Essa ação não poderá ser desfeita. A etiqueta "{tagToDelete?.name}" será removida de todos os leads associados do seu funil comercial.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
+            <AlertDialogCancel disabled={isDeletingTag} className="rounded-xl h-10 text-xs font-bold border-border/60">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeletingTag}
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteTag();
+              }}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-xl h-10 text-xs font-bold"
+            >
+              {isDeletingTag ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={!!fieldToDelete} onOpenChange={(open) => !open && setFieldToDelete(null)}>
+        <AlertDialogContent className="rounded-2xl border-border/40 bg-card select-none">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-bold">Tem certeza?</AlertDialogTitle>
+            <AlertDialogDescription className="text-sm text-muted-foreground mt-1">
+              Essa ação não poderá ser desfeita. O campo personalizado "{fieldToDelete?.name}" e todos os valores preenchidos na ficha dos leads serão permanentemente excluídos.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="mt-4 gap-2 sm:gap-0">
+            <AlertDialogCancel disabled={isDeletingField} className="rounded-xl h-10 text-xs font-bold border-border/60">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isDeletingField}
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteCustomField();
+              }}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-xl h-10 text-xs font-bold"
+            >
+              {isDeletingField ? "Excluindo..." : "Excluir"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

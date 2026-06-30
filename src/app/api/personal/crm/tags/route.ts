@@ -91,3 +91,47 @@ export async function POST(req: Request) {
     return new NextResponse("Erro interno.", { status: 500 });
   }
 }
+
+export async function DELETE(req: Request) {
+  const session = await auth();
+  if (!session?.user) {
+    return new NextResponse("Não autorizado.", { status: 401 });
+  }
+
+  const { searchParams } = new URL(req.url);
+  const tagId = searchParams.get("tagId");
+
+  if (!tagId) {
+    return new NextResponse("O ID da etiqueta é obrigatório.", { status: 400 });
+  }
+
+  try {
+    const tag = await prisma.tag.findUnique({
+      where: { id: tagId },
+    });
+
+    if (!tag) {
+      return new NextResponse("Etiqueta não encontrada.", { status: 404 });
+    }
+
+    const memberCheck = await prisma.workspaceMember.findFirst({
+      where: {
+        userId: session.user.id,
+        workspaceId: tag.workspaceId,
+      },
+    });
+
+    if (!memberCheck) {
+      return new NextResponse("Acesso negado.", { status: 403 });
+    }
+
+    await prisma.tag.delete({
+      where: { id: tagId },
+    });
+
+    return new NextResponse(null, { status: 204 });
+  } catch (error) {
+    console.error("DELETE tag error:", error);
+    return new NextResponse("Erro interno.", { status: 500 });
+  }
+}
