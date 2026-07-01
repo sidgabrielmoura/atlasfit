@@ -2054,13 +2054,15 @@ export default function CRMPage() {
 
                 <div className="p-4 sm:p-6">
                   <Tabs value={activeDetailTab} onValueChange={setActiveDetailTab} className="w-full">
-                    <TabsList className="flex w-full overflow-x-auto scrollbar-none bg-secondary/10 border border-border/30 rounded-xl p-1 mb-6 gap-1">
-                      <TabsTrigger value="ficha" className="flex-1 text-xs font-bold rounded-lg min-w-[75px] data-[state=active]:bg-background">Ficha</TabsTrigger>
-                      <TabsTrigger value="tarefas" className="flex-1 text-xs font-bold rounded-lg min-w-[75px] data-[state=active]:bg-background">Tarefas</TabsTrigger>
-                      <TabsTrigger value="notas" className="flex-1 text-xs font-bold rounded-lg min-w-[75px] data-[state=active]:bg-background">Notas</TabsTrigger>
-                      <TabsTrigger value="arquivos" className="flex-1 text-xs font-bold rounded-lg min-w-[75px] data-[state=active]:bg-background">Arquivos</TabsTrigger>
-                      <TabsTrigger value="timeline" className="flex-1 text-xs font-bold rounded-lg min-w-[85px] data-[state=active]:bg-background">Histórico</TabsTrigger>
-                    </TabsList>
+                    <div className="w-full overflow-x-auto scrollbar-none pb-1">
+                      <TabsList className="flex w-max md:w-full md:grid md:grid-cols-5 h-10 bg-secondary/10 border border-border/30 rounded-xl p-1 mb-6 gap-1 md:gap-0">
+                        <TabsTrigger value="ficha" className="text-xs font-bold rounded-lg px-4 md:px-0">Ficha</TabsTrigger>
+                        <TabsTrigger value="tarefas" className="text-xs font-bold rounded-lg px-4 md:px-0">Tarefas</TabsTrigger>
+                        <TabsTrigger value="notas" className="text-xs font-bold rounded-lg px-4 md:px-0">Notas</TabsTrigger>
+                        <TabsTrigger value="arquivos" className="text-xs font-bold rounded-lg px-4 md:px-0">Arquivos</TabsTrigger>
+                        <TabsTrigger value="timeline" className="text-xs font-bold rounded-lg px-4 md:px-0">Histórico</TabsTrigger>
+                      </TabsList>
+                    </div>
 
                     <TabsContent value="ficha" className="space-y-6">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 bg-secondary/15 p-5 rounded-2xl border border-border/30">
@@ -2225,23 +2227,23 @@ export default function CRMPage() {
                     </TabsContent>
 
                     <TabsContent value="tarefas" className="space-y-6">
-                      <form onSubmit={handleAddTask} className="flex flex-col md:flex-row gap-2 bg-secondary/5 p-4 rounded-xl border border-border/30">
+                      <form onSubmit={handleAddTask} className="flex flex-col md:flex-row gap-3 bg-secondary/5 p-4 rounded-xl border border-border/30">
                         <Input
                           required
                           placeholder="Adicionar tarefa (ex: Enviar proposta...)"
-                          className="rounded-xl h-10 border-border bg-background flex-1"
+                          className="rounded-xl py-3 text-sm border-border bg-background flex-1"
                           value={newTaskTitle}
                           onChange={(e) => setNewTaskTitle(e.target.value)}
                         />
-                        <div className="flex gap-2">
+                        <div className="grid grid-cols-2 md:flex gap-2 items-center">
                           <Input
                             type="date"
-                            className="rounded-xl h-10 border-border bg-background w-32 text-xs"
+                            className="rounded-xl h-10 border-border bg-background text-xs w-full md:w-36"
                             value={newTaskDueDate}
                             onChange={(e) => setNewTaskDueDate(e.target.value)}
                           />
                           <Select value={newTaskPriority} onValueChange={setNewTaskPriority}>
-                            <SelectTrigger className="rounded-xl h-10 w-24 border-border bg-background font-semibold text-xs">
+                            <SelectTrigger className="rounded-xl h-10 border-border bg-background font-semibold text-xs w-full md:w-28">
                               <SelectValue placeholder="Prioridade" />
                             </SelectTrigger>
                             <SelectContent className="rounded-xl">
@@ -2250,8 +2252,13 @@ export default function CRMPage() {
                               <SelectItem value="ALTA">Alta</SelectItem>
                             </SelectContent>
                           </Select>
-                          <Button type="submit" disabled={newTaskLoading} className="rounded-xl h-10 px-4 shrink-0">
+                          <Button
+                            type="submit"
+                            disabled={newTaskLoading}
+                            className="rounded-xl h-10 font-bold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center gap-1.5 col-span-2 md:col-span-1 md:px-4 shrink-0"
+                          >
                             {newTaskLoading ? <Loader2 className="animate-spin size-4" /> : <Plus className="size-4" />}
+                            <span className="md:hidden">Adicionar Tarefa</span>
                           </Button>
                         </div>
                       </form>
