@@ -57,9 +57,6 @@ export async function POST(req: Request) {
     if (!brandName?.trim()) {
       return new NextResponse("O nome da assessoria é obrigatório.", { status: 400 });
     }
-    if (!logoUrl?.trim()) {
-      return new NextResponse("O logotipo da assessoria é obrigatório.", { status: 400 });
-    }
 
     // Generate unique slug
     let baseSlug = brandName
@@ -119,7 +116,7 @@ export async function POST(req: Request) {
           slug: uniqueSlug,
           ownerId: session.user.id,
           slogan: brandSlogan?.trim() || null,
-          logoUrl: logoUrl,
+          logoUrl: logoUrl || null,
           logoKey: logoKey || null,
           primaryColor: brandColor || "#ea580c",
           watermarkUrl: watermarkUrl || null,

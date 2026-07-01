@@ -128,11 +128,6 @@ export default function PersonalOnboardingPage() {
         toast.warning("O nome da assessoria é obrigatório.");
         return false;
       }
-      const activeLogo = logoType === "file" ? (logoFile || logoPreview) : logoUrl;
-      if (!activeLogo) {
-        toast.warning("Por favor, adicione o logotipo da sua assessoria.");
-        return false;
-      }
       if (!brandColor) {
         toast.warning("A cor do tema é obrigatória.");
         return false;
@@ -580,7 +575,10 @@ export default function PersonalOnboardingPage() {
                     {/* Logotipo */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
-                        <Label className="text-[10px] font-black text-neutral-400 uppercase tracking-wider">Logotipo da Marca</Label>
+                        <Label className="text-[10px] font-black text-neutral-400 uppercase tracking-wider flex items-center justify-between w-full">
+                          <span>Logotipo da Marca (Opcional)</span>
+                          <span className="text-[8px] text-neutral-500 font-semibold normal-case">Opcional</span>
+                        </Label>
                         <div className="flex gap-1.5 bg-neutral-900/80 p-0.5 rounded-lg border border-white/[0.04]">
                           <button
                             type="button"
