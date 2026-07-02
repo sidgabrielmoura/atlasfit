@@ -622,7 +622,7 @@ export function PhysicalEvaluationFormModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(val) => !val && onClose()}>
-      <DialogContent className="w-full gap-0 max-w-[calc(100%-1.5rem)] md:max-w-4xl bg-card dark:bg-neutral-950 border border-border dark:border-neutral-900 text-foreground h-[92vh] md:h-[85vh] max-h-[800px] rounded-2xl shadow-2xl p-0 flex flex-col overflow-hidden">
+      <DialogContent className="w-full gap-0 max-w-[calc(100%-1.5rem)] md:max-w-4xl bg-card dark:bg-neutral-950 border border-border dark:border-neutral-900 text-foreground h-[92vh] md:h-[85vh] max-h-200 rounded-2xl! shadow-2xl p-0 flex flex-col overflow-hidden">
         <DialogHeader className="p-6 border-b border-border dark:border-neutral-900 shrink-0">
           <DialogTitle className="text-lg font-black flex items-center gap-2">
             <ClipboardCheck className="size-5 text-orange-500" />
@@ -634,7 +634,7 @@ export function PhysicalEvaluationFormModal({
         </DialogHeader>
 
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden min-h-0">
-          <div className="md:w-56 border-b md:border-b-0 md:border-r border-border dark:border-neutral-900 bg-muted/20 p-3 space-y-1 shrink-0">
+          <div className="md:w-48 border-b md:border-b-0 md:border-r border-border dark:border-neutral-900 bg-muted/20 p-3 space-y-1 shrink-0">
             <div className="space-y-1.5 hidden md:block mb-4">
               <span className="text-[10px] font-extrabold uppercase text-muted-foreground tracking-wider px-2">Seções da Ficha</span>
             </div>

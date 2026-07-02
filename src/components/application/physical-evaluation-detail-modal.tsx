@@ -298,21 +298,21 @@ export function PhysicalEvaluationDetailModal({
     let posturalHtml = "";
     if (postural) {
       const activePhotos = Object.entries(postural.photos || {}).filter(([_, url]) => !!url);
-      
+
       posturalHtml = `
         <div class="section-title">Alinhamento Postural</div>
         
         ${activePhotos.length > 0 ? `
           <div style="display: flex; gap: 10px; margin-bottom: 15px; flex-wrap: wrap; page-break-inside: avoid;">
             ${activePhotos.map(([view, url]) => {
-              const label = view === "frontal" ? "Frontal" : view === "posterior" ? "Posterior" : view === "lateralRight" ? "Lat. Direita" : "Lat. Esquerda";
-              return `
+        const label = view === "frontal" ? "Frontal" : view === "posterior" ? "Posterior" : view === "lateralRight" ? "Lat. Direita" : "Lat. Esquerda";
+        return `
                 <div style="flex: 1; min-width: 120px; border: 1px solid #e4e4e7; border-radius: 8px; overflow: hidden; background: #000; text-align: center;">
                   <img src="${url}" style="width: 100%; height: 140px; object-fit: cover;" />
                   <div style="color: white; font-size: 8px; font-weight: bold; background: #18181b; padding: 4px 0; text-transform: uppercase;">${label}</div>
                 </div>
               `;
-            }).join("")}
+      }).join("")}
           </div>
         ` : ""}
 
@@ -739,7 +739,7 @@ export function PhysicalEvaluationDetailModal({
   return (
     <>
       <Dialog open={isOpen} onOpenChange={(val) => !val && onClose()}>
-        <DialogContent className="w-full gap-0! max-w-[calc(100%-1.5rem)] md:max-w-4xl bg-card dark:bg-neutral-950 border border-border dark:border-neutral-900 text-foreground max-h-[92vh] overflow-y-auto rounded-2xl shadow-2xl p-0">
+        <DialogContent className="w-full gap-0! max-w-[calc(100%-1.5rem)] md:max-w-4xl bg-card dark:bg-neutral-950 border border-border dark:border-neutral-900 text-foreground max-h-[92vh] overflow-y-auto rounded-2xl! shadow-2xl p-0">
           {/* Header */}
           <DialogHeader className="p-6 pb-2 border-b border-border dark:border-neutral-900 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
@@ -766,9 +766,8 @@ export function PhysicalEvaluationDetailModal({
             </div>
           </DialogHeader>
 
-          <div className="flex flex-col md:flex-row min-h-[450px]">
-            {/* Nav Menu Left */}
-            <div className="md:w-56 border-b md:border-b-0 md:border-r border-border dark:border-neutral-900 bg-muted/10 p-3 space-y-1">
+          <div className="flex flex-col md:flex-row min-h-112.5">
+            <div className="md:w-56 border-b md:border-b-0 md:border-r border-border dark:border-neutral-900 bg-muted/10 p-3 space-y-1 flex overflow-x-auto! items-center gap-3 max-w-100 mx-auto">
               {tabsConfig.filter(t => t.show).map((t) => {
                 const Icon = t.icon;
                 return (

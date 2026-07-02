@@ -346,7 +346,7 @@ export function WorkspaceSwitcher() {
       </Dialog>
 
       <Dialog open={isUpgradeWarningOpen} onOpenChange={setIsUpgradeWarningOpen}>
-        <DialogContent className="sm:max-w-112.5 rounded-3xl border-border/50 bg-background/95 backdrop-blur-xl shadow-2xl p-6 overflow-hidden">
+        <DialogContent className="sm:max-w-112.5 rounded-2xl! border-border/50 bg-background/95 backdrop-blur-xl shadow-2xl p-6 overflow-hidden">
           <DialogHeader className="space-y-2 text-center flex flex-col items-center">
             <DialogTitle className="text-2xl font-black tracking-tight">
               Limite de Workspaces Atingido

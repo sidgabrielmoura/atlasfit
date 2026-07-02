@@ -290,11 +290,11 @@ export function NotificationBell() {
         </PopoverTrigger>
         <PopoverContent
           align="end"
-          className="w-80 p-0 overflow-hidden border-border/50 bg-card/95 backdrop-blur-xl shadow-2xl rounded-2xl"
+          className="w-80 p-0! overflow-hidden border-border/50 bg-card/95 backdrop-blur-xl shadow-2xl rounded-2xl"
         >
-          <div className="flex items-center justify-between px-4 py-3 bg-secondary/20">
+          <div className="flex items-center justify-between px-4 py-2 bg-secondary/20">
             <span className="text-sm font-bold text-foreground">Notificações</span>
-            <div className="flex items-center gap-1">
+            <div className="flex items-center">
               {unreadCount > 0 && (
                 <Button
                   variant="ghost"
@@ -328,7 +328,7 @@ export function NotificationBell() {
 
           <Separator />
 
-          <ScrollArea className="h-72">
+          <ScrollArea className="h-72 p-0!">
             {loading && notifications.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-48 space-y-2 text-muted-foreground">
                 <Loader2 className="size-6 animate-spin text-primary" />
@@ -356,7 +356,7 @@ export function NotificationBell() {
                     >
                       <div
                         className={cn(
-                          "flex size-8 shrink-0 items-center justify-center rounded-lg shadow-sm border border-white/[0.04]",
+                          "flex size-8 shrink-0 items-center justify-center rounded-lg shadow-sm border border-white/4",
                           isCritical
                             ? "bg-red-500/10 text-red-500"
                             : "bg-secondary text-muted-foreground"
@@ -493,42 +493,42 @@ export function NotificationBell() {
                   .filter((key) => ACTIVE_CATEGORIES.includes(key))
                   .map((key) => {
                     const Icon = CATEGORY_ICONS[key] || Info;
-                  return (
-                    <div key={key} className="flex items-center justify-between p-3 rounded-xl bg-secondary/10 border border-border/20">
-                      <div className="flex items-center gap-3">
-                        <div className="flex size-8 items-center justify-center rounded-lg bg-secondary/50 text-muted-foreground">
-                          <Icon className="size-4" />
-                        </div>
-                        <div>
-                          <p className="text-xs font-semibold text-foreground">{CATEGORY_LABELS[key]}</p>
-                          <p className="text-[9px] text-muted-foreground mt-0.5">Configure o recebimento desta categoria</p>
-                        </div>
-                      </div>
-
-                      <div className="flex items-center gap-6">
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] text-muted-foreground font-medium">Central</span>
-                          <Switch
-                            checked={preferences[key].inApp}
-                            onCheckedChange={() => handleTogglePreference(key, "inApp")}
-                            disabled={savingPrefs}
-                            size="sm"
-                          />
+                    return (
+                      <div key={key} className="flex items-center justify-between p-3 rounded-xl bg-secondary/10 border border-border/20">
+                        <div className="flex items-center gap-3">
+                          <div className="flex size-8 items-center justify-center rounded-lg bg-secondary/50 text-muted-foreground">
+                            <Icon className="size-4" />
+                          </div>
+                          <div>
+                            <p className="text-xs font-semibold text-foreground">{CATEGORY_LABELS[key]}</p>
+                            <p className="text-[9px] text-muted-foreground mt-0.5">Configure o recebimento desta categoria</p>
+                          </div>
                         </div>
 
-                        <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] text-muted-foreground font-medium">Push</span>
-                          <Switch
-                            checked={preferences[key].push}
-                            onCheckedChange={() => handleTogglePreference(key, "push")}
-                            disabled={savingPrefs}
-                            size="sm"
-                          />
+                        <div className="flex items-center gap-6">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-muted-foreground font-medium">Central</span>
+                            <Switch
+                              checked={preferences[key].inApp}
+                              onCheckedChange={() => handleTogglePreference(key, "inApp")}
+                              disabled={savingPrefs}
+                              size="sm"
+                            />
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] text-muted-foreground font-medium">Push</span>
+                            <Switch
+                              checked={preferences[key].push}
+                              onCheckedChange={() => handleTogglePreference(key, "push")}
+                              disabled={savingPrefs}
+                              size="sm"
+                            />
+                          </div>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
               </div>
             )}
           </ScrollArea>

@@ -443,6 +443,12 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
   // Load student profile
   useEffect(() => {
+    if (searchParams.get("newEval") === "true") {
+      setIsEvalModalOpen(true);
+    }
+  }, [searchParams]);
+
+  useEffect(() => {
     if (!activeWorkspaceId) return;
 
     const fetchStudentProfile = async () => {

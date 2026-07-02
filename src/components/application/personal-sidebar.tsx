@@ -26,6 +26,7 @@ import {
   ChevronRight,
   FolderOpen,
   Target,
+  ClipboardCheck,
 } from "lucide-react";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 import {
@@ -73,6 +74,7 @@ const mainNavItems = [
   { title: "Alunos", href: "/personal/clients", icon: Users },
   { title: "CRM", href: "/personal/crm", icon: Target },
   { title: "Treinos e Exercícios", href: "/personal/workouts", icon: Dumbbell },
+  { title: "Avaliações", href: "/personal/assessments", icon: ClipboardCheck },
   { title: "Financeiro", href: "/personal/finance", icon: DollarSign },
   { title: "Arquivos", href: "/personal/files", icon: FolderOpen },
   { title: "Link de Captação", href: "#capture", icon: QrCode, isModal: true },
