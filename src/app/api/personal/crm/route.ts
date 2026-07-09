@@ -197,7 +197,8 @@ export async function POST(req: Request) {
       title: "Novo Lead Capturado 🎯",
       description: `O lead "${name}" foi adicionado com sucesso ao seu funil de CRM.`,
       deepLink: "/personal/crm",
-      source: "CRM"
+      source: "CRM",
+      workspaceId
     });
 
     return NextResponse.json(lead, { status: 201 });
@@ -289,7 +290,8 @@ export async function PUT(req: Request) {
         title: "Lead Atualizado 🔄",
         description: `O status do lead "${updatedLead.name}" foi alterado para "${statusNames[status] || status}".`,
         deepLink: "/personal/crm",
-        source: "CRM"
+        source: "CRM",
+        workspaceId: updatedLead.workspaceId
       });
 
       return NextResponse.json(updatedLead);

@@ -8,8 +8,8 @@ import { Toaster } from "@/components/ui/sonner";
 import { DynamicBranding } from "@/components/application/dynamic-branding";
 import dynamic from "next/dynamic";
 
-const CampaignModal = dynamic(
-  () => import("@/components/campaign-modal").then((mod) => mod.CampaignModal),
+const EngageRenderer = dynamic(
+  () => import("@/components/engage/engage-renderer").then((mod) => mod.EngageRenderer),
   { ssr: false }
 );
 
@@ -35,7 +35,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <TooltipProvider delayDuration={0}>
           <DynamicBranding />
           {children}
-          <CampaignModal />
+          <EngageRenderer />
           <Toaster position="top-right" richColors />
         </TooltipProvider>
       </NextThemesProvider>

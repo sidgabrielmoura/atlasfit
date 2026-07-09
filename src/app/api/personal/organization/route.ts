@@ -332,7 +332,8 @@ export async function POST(req: Request) {
         title: "Agendamento Confirmado 🗓️",
         description: `Uma atividade "${title}" foi agendada para ${targetDateStr} às ${time}.`,
         deepLink: "/student/agenda",
-        source: "ASSESSMENT"
+        source: "ASSESSMENT",
+        workspaceId
       });
     }
 

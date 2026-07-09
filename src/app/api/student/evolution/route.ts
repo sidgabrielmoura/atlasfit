@@ -137,7 +137,8 @@ export async function POST(req: Request) {
           title: "Novas Medidas de Progresso 📈",
           description: `O aluno "${session.user.name || "Aluno"}" registrou novas medidas corporais.`,
           deepLink: `/personal/clients/${session.user.id}/progress`,
-          source: "ASSESSMENT"
+          source: "ASSESSMENT",
+          workspaceId
         });
       }
 
@@ -172,7 +173,8 @@ export async function POST(req: Request) {
           title: "Novas Fotos de Progresso 📷",
           description: `O aluno "${session.user.name || "Aluno"}" enviou uma nova foto de progresso.`,
           deepLink: `/personal/clients/${session.user.id}/progress`,
-          source: "ASSESSMENT"
+          source: "ASSESSMENT",
+          workspaceId
         });
       }
 

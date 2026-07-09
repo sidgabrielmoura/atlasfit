@@ -69,7 +69,8 @@ export async function PATCH(
           title: "Seu Personal curtiu seu progresso! ❤️",
           description: "Seu personal trainer curtiu a foto de progresso que você enviou.",
           deepLink: "/student/evolution",
-          source: "ASSESSMENT"
+          source: "ASSESSMENT",
+          workspaceId: photo.workspaceId
         });
       }
 
@@ -81,7 +82,8 @@ export async function PATCH(
           title: "Novo Comentário no seu Progresso 💬",
           description: `O personal comentou: "${comment.length > 50 ? comment.substring(0, 50) + "..." : comment}"`,
           deepLink: "/student/evolution",
-          source: "ASSESSMENT"
+          source: "ASSESSMENT",
+          workspaceId: photo.workspaceId
         });
       }
     }

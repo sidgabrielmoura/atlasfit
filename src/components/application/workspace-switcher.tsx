@@ -49,7 +49,7 @@ export function WorkspaceSwitcher() {
   const snap = useSnapshot(workspaceStore);
 
   const [plansList, setPlansList] = React.useState<any[]>([]);
-  const [limitData, setLimitData] = React.useState<{ current: number; limit: number; planName: string; primaryDomain?: string } | null>(null);
+  const [limitData, setLimitData] = React.useState<{ current: number; limit: number; planName: string; primaryDomain?: string; isTestAccount?: boolean } | null>(null);
 
   // Modal States
   const [isCreateOpen, setIsCreateOpen] = React.useState(false);
@@ -213,9 +213,14 @@ export function WorkspaceSwitcher() {
             >
               <DropdownMenuLabel className="text-xs text-muted-foreground flex items-center justify-between px-2.5 py-2">
                 <span className="font-semibold uppercase tracking-wider text-[10px]">Workspaces</span>
-                {limitData && limitData.limit > 1 && (
+                {limitData && !limitData.isTestAccount && limitData.limit > 1 && (
                   <span className="text-[10px] font-extrabold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                     {limitData.current} de {limitData.limit}
+                  </span>
+                )}
+                {limitData && limitData.isTestAccount && (
+                  <span className="text-[10px] font-extrabold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                    Ilimitado (Teste)
                   </span>
                 )}
               </DropdownMenuLabel>
@@ -249,7 +254,7 @@ export function WorkspaceSwitcher() {
               <DropdownMenuItem
                 onSelect={(e) => {
                   e.preventDefault();
-                  if (limitData && limitData.current >= limitData.limit) {
+                  if (limitData && !limitData.isTestAccount && limitData.current >= limitData.limit) {
                     setIsUpgradeWarningOpen(true);
                   } else {
                     setIsCreateOpen(true);

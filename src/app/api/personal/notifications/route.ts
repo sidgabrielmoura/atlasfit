@@ -8,14 +8,18 @@ export async function GET(req: Request) {
     return new NextResponse("Não autorizado.", { status: 401 });
   }
 
+  const { searchParams } = new URL(req.url);
+  const workspaceId = searchParams.get("workspaceId");
+
   try {
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
 
-    // Deleta notificações com mais de 7 dias
+    // Deleta notificações com mais de 7 dias para este workspace/usuário
     await prisma.notification.deleteMany({
       where: {
         userId: session.user.id,
+        workspaceId: workspaceId || null,
         createdAt: {
           lt: sevenDaysAgo
         }
@@ -23,7 +27,10 @@ export async function GET(req: Request) {
     });
 
     const notifications = await prisma.notification.findMany({
-      where: { userId: session.user.id },
+      where: { 
+        userId: session.user.id,
+        workspaceId: workspaceId || null
+      },
       orderBy: { createdAt: "desc" }
     });
 
@@ -40,9 +47,16 @@ export async function PATCH(req: Request) {
     return new NextResponse("Não autorizado.", { status: 401 });
   }
 
+  const { searchParams } = new URL(req.url);
+  const workspaceId = searchParams.get("workspaceId");
+
   try {
     await prisma.notification.updateMany({
-      where: { userId: session.user.id, isRead: false },
+      where: { 
+        userId: session.user.id, 
+        isRead: false,
+        workspaceId: workspaceId || null
+      },
       data: { isRead: true, readAt: new Date() }
     });
 
@@ -59,9 +73,15 @@ export async function DELETE(req: Request) {
     return new NextResponse("Não autorizado.", { status: 401 });
   }
 
+  const { searchParams } = new URL(req.url);
+  const workspaceId = searchParams.get("workspaceId");
+
   try {
     await prisma.notification.deleteMany({
-      where: { userId: session.user.id }
+      where: { 
+        userId: session.user.id,
+        workspaceId: workspaceId || null
+      }
     });
 
     return new NextResponse("Sucesso", { status: 200 });

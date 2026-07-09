@@ -93,6 +93,22 @@ export function StudentSidebar() {
       try {
         const res = await getPersonalWorkspaces();
         setWorkspaces(res);
+        
+        // Auto-initialize active workspace in Valtio if not set
+        if (res && res.length > 0) {
+          workspaceActions.setWorkspaces(res);
+          const cookieVal = document.cookie
+            .split("; ")
+            .find((row) => row.startsWith("student_active_workspace_id="))
+            ?.split("=")[1];
+            
+          const active = res.find((w) => w.id === cookieVal) || res[0];
+          workspaceActions.setActiveWorkspace(active);
+          
+          if (!cookieVal) {
+            document.cookie = `student_active_workspace_id=${active.id}; path=/; max-age=31536000; SameSite=Lax`;
+          }
+        }
       } catch (err) {
         console.error("Erro ao buscar workspaces do aluno:", err);
       }

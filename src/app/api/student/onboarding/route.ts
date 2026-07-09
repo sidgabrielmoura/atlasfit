@@ -78,7 +78,8 @@ export async function POST(req: Request) {
         title: "Convite de Onboarding Aceito! 🎉",
         description: `O aluno "${session.user.name || "Aluno"}" concluiu o onboarding e está pronto para receber treinos.`,
         deepLink: `/personal/clients/${session.user.id}`,
-        source: "SYSTEM"
+        source: "SYSTEM",
+        workspaceId: member.workspaceId
       });
     }
 

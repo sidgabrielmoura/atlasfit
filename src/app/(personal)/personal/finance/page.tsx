@@ -19,11 +19,14 @@ import {
   MessageCircle,
   Calendar,
   Filter,
-  MoreHorizontal
+  MoreHorizontal,
+  RefreshCw,
+  Settings
 } from "lucide-react";
 import { workspaceStore } from "@/stores/workspace.store";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -181,6 +184,28 @@ export default function FinancePage() {
   const [recentPayments, setRecentPayments] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
 
+  // Recurrence states
+  const [activeSection, setActiveSection] = useState<"historico" | "recorrencias">("historico");
+  const [recurrences, setRecurrences] = useState<any[]>([]);
+
+  // Recurrence editing/configuration modal states
+  const [isRecurrenceModalOpen, setIsRecurrenceModalOpen] = useState(false);
+  const [selectedRecurrenceStudent, setSelectedRecurrenceStudent] = useState<any | null>(null);
+  const [isSavingRecurrence, setIsSavingRecurrence] = useState(false);
+  const [selectedStudentIdForRecurrence, setSelectedStudentIdForRecurrence] = useState("");
+
+  // Recurrence form states
+  const [recControlType, setRecControlType] = useState<"MANUAL" | "CONFIRMATION" | "AUTOMATIC">("MANUAL");
+  const [recPrice, setRecPrice] = useState("150.00");
+  const [recPaymentMethod, setRecPaymentMethod] = useState("PIX");
+  const [recPeriodicity, setRecPeriodicity] = useState("MENSAL");
+  const [recCustomCount, setRecCustomCount] = useState("1");
+  const [recCustomUnit, setRecCustomUnit] = useState("meses");
+  const [recDueDay, setRecDueDay] = useState("5");
+  const [recFirstDueDate, setRecFirstDueDate] = useState("");
+  const [recDescription, setRecDescription] = useState("Mensalidade de Assessoria");
+  const [recIsActive, setRecIsActive] = useState(true);
+
   // Search and Filter states
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTabFilter, setActiveTabFilter] = useState<"todos" | "pago" | "pendente" | "atrasado">("todos");
@@ -213,13 +238,14 @@ export default function FinancePage() {
     if (!activeWorkspaceId) return;
     setIsLoading(true);
     try {
-      // 1. Fetch overview metrics, chart, and payments
+      // 1. Fetch overview metrics, chart, payments and recurrences
       const overviewRes = await fetch(`/api/personal/finance?workspaceId=${activeWorkspaceId}`);
       if (overviewRes.ok) {
         const data = await overviewRes.json();
         setMetrics(data.metrics);
         setChartData(data.chartData);
         setRecentPayments(data.recentPayments);
+        setRecurrences(data.recurrences || []);
       } else {
         toast.error("Erro ao carregar dados do financeiro.");
       }
@@ -450,6 +476,98 @@ export default function FinancePage() {
     window.open(whatsappUrl, "_blank");
   };
 
+  // Open Recurrence Config Modal
+  const handleOpenRecurrenceModal = (studentRec: any) => {
+    setSelectedRecurrenceStudent(studentRec);
+    setRecControlType(studentRec.billingControlType || "MANUAL");
+    setRecPrice(studentRec.billingPrice !== null && studentRec.billingPrice !== undefined ? studentRec.billingPrice.toString() : "150.00");
+    setRecPaymentMethod(studentRec.billingPaymentMethod || "PIX");
+    setRecPeriodicity(studentRec.billingPeriodicity || "MENSAL");
+    setRecCustomCount(studentRec.billingCustomIntervalCount?.toString() || "1");
+    setRecCustomUnit(studentRec.billingCustomIntervalUnit || "meses");
+    setRecDueDay(studentRec.billingDueDay?.toString() || "5");
+    
+    const defaultDate = studentRec.billingFirstDueDate 
+      ? studentRec.billingFirstDueDate.split("T")[0] 
+      : new Date().toISOString().split("T")[0];
+    setRecFirstDueDate(defaultDate);
+    setRecDescription(studentRec.billingDescription || "Mensalidade de Assessoria");
+    setRecIsActive(studentRec.billingIsActive !== false);
+    setIsRecurrenceModalOpen(true);
+  };
+
+  const handleOpenCreateRecurrenceModal = () => {
+    setSelectedRecurrenceStudent(null);
+    setSelectedStudentIdForRecurrence(students[0]?.id || "");
+    setRecControlType("AUTOMATIC");
+    setRecPrice("150.00");
+    setRecPaymentMethod("PIX");
+    setRecPeriodicity("MENSAL");
+    setRecCustomCount("1");
+    setRecCustomUnit("meses");
+    setRecDueDay("5");
+    
+    const defaultDate = new Date().toISOString().split("T")[0];
+    setRecFirstDueDate(defaultDate);
+    setRecDescription("Mensalidade de Assessoria");
+    setRecIsActive(true);
+    setIsRecurrenceModalOpen(true);
+  };
+
+  // Save Recurrence Configuration
+  const handleSaveRecurrence = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!activeWorkspaceId) return;
+
+    const targetStudentId = selectedRecurrenceStudent 
+      ? selectedRecurrenceStudent.studentId 
+      : selectedStudentIdForRecurrence;
+
+    if (!targetStudentId) {
+      toast.error("Selecione um aluno.");
+      return;
+    }
+
+    setIsSavingRecurrence(true);
+    try {
+      const res = await fetch(`/api/personal/clients/${targetStudentId}/finance`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspaceId: activeWorkspaceId,
+          billingControlType: recControlType,
+          billingPrice: parseFloat(recPrice || "0"),
+          billingPeriodicity: recPeriodicity,
+          billingCustomIntervalCount: parseInt(recCustomCount || "1"),
+          billingCustomIntervalUnit: recCustomUnit,
+          billingDueDay: parseInt(recDueDay || "5"),
+          billingFirstDueDate: recFirstDueDate ? new Date(`${recFirstDueDate}T12:00:00`) : null,
+          billingStartDate: recFirstDueDate ? new Date(`${recFirstDueDate}T12:00:00`) : null,
+          billingDescription: recDescription,
+          billingPaymentMethod: recPaymentMethod,
+          billingIsActive: recIsActive,
+        }),
+      });
+
+      if (res.ok) {
+        toast.success(selectedRecurrenceStudent
+          ? `Recorrência de ${selectedRecurrenceStudent.studentName} atualizada com sucesso! 💾`
+          : "Configuração de recorrência salva com sucesso! 💾"
+        );
+        setIsRecurrenceModalOpen(false);
+        fetchFinanceData();
+      } else {
+        const errMsg = await res.text();
+        toast.error(errMsg || "Erro ao salvar recorrência.");
+      }
+    } catch (err) {
+      console.error(err);
+      toast.error("Erro de conexão ao salvar recorrência.");
+    } finally {
+      setIsSavingRecurrence(false);
+    }
+  };
+
   const getStatusBadge = (status: string) => {
     switch (status) {
       case "pago":
@@ -656,134 +774,274 @@ export default function FinancePage() {
                   <CardHeader className="pb-4">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <CardTitle>Histórico Geral de Receitas</CardTitle>
-                        <CardDescription>Gerencie todos os lançamentos de mensalidades cadastrados.</CardDescription>
+                        <CardTitle>Gestão Financeira & Cobranças</CardTitle>
+                        <CardDescription>Monitore lançamentos de faturas ou gerencie planos de recorrência dos alunos.</CardDescription>
                       </div>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="flex flex-col sm:flex-row gap-3">
-                      <div className="relative flex-1">
-                        <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
-                        <Input
-                          placeholder="Buscar por aluno ou serviço..."
-                          className="pl-9 bg-neutral-900/50 border-neutral-800"
-                          value={searchQuery}
-                          onChange={(e) => setSearchQuery(e.target.value)}
-                        />
-                      </div>
-                      <div className="flex gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-                        {(["todos", "pago", "pendente", "atrasado"] as const).map((tab) => (
-                          <Button
-                            key={tab}
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => setActiveTabFilter(tab)}
-                            className={cn(
-                              "text-xs capitalize font-medium px-3 h-9 rounded-lg transition-colors border",
-                              activeTabFilter === tab
-                                ? "bg-primary text-white border-primary"
-                                : "text-muted-foreground border-neutral-800 hover:text-white hover:bg-neutral-900"
-                            )}
-                          >
-                            {tab === "todos" ? "Todos" : tab}
-                          </Button>
-                        ))}
-                      </div>
+                    <div className="flex gap-1 p-1 bg-neutral-900/60 border border-neutral-800/80 rounded-xl w-fit">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setActiveSection("historico")}
+                        className={cn(
+                          "text-xs font-bold px-4 h-8 rounded-lg transition-colors cursor-pointer",
+                          activeSection === "historico"
+                            ? "bg-zinc-800 text-white"
+                            : "text-muted-foreground hover:text-white"
+                        )}
+                      >
+                        Histórico de Lançamentos
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setActiveSection("recorrencias")}
+                        className={cn(
+                          "text-xs font-bold px-4 h-8 rounded-lg transition-colors cursor-pointer",
+                          activeSection === "recorrencias"
+                            ? "bg-zinc-800 text-white"
+                            : "text-muted-foreground hover:text-white"
+                        )}
+                      >
+                        Controle de Recorrência ({recurrences.length})
+                      </Button>
                     </div>
 
-                    <div className="space-y-3 max-h-100 overflow-y-auto pr-1 custom-scrollbar">
-                      {filteredPayments.length === 0 ? (
-                        <div className="flex flex-col items-center justify-center p-12 border border-dashed rounded-xl bg-secondary/10">
-                          <Filter className="size-8 text-muted-foreground mb-2" />
-                          <p className="text-sm font-medium text-muted-foreground">Nenhuma receita encontrada para os filtros atuais.</p>
-                        </div>
-                      ) : (
-                        filteredPayments.map((tx) => (
-                          <div key={tx.id} className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-secondary/20 hover:bg-secondary/40 transition-all gap-4 min-w-0">
-                            <div className="flex items-center gap-3 min-w-0 flex-1">
-                              <div className={cn(
-                                "size-10 rounded-full flex items-center justify-center shrink-0 border",
-                                tx.status === "pago" ? "bg-success/10 text-success" :
-                                  tx.status === "atrasado" ? "bg-destructive/10 text-destructive" :
-                                    "bg-warning/10 text-warning"
-                              )}>
-                                {tx.status === "pago" ? <CheckCircle2 className="size-5" /> :
-                                  tx.status === "atrasado" ? <AlertCircle className="size-5" /> :
-                                    <Clock className="size-5" />}
-                              </div>
-                              <div className="flex flex-col gap-1 min-w-0 flex-1">
-                                <p className="font-semibold text-sm leading-tight text-white truncate">{tx.student}</p>
-                                <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                                  <span className="truncate max-w-[120px]">{tx.plan}</span>
-                                  <span className="text-[10px] text-zinc-700 select-none">•</span>
-                                  <span className="flex items-center gap-1 shrink-0">
-                                    <Calendar className="size-3" />
-                                    {new Date(tx.date).toLocaleDateString("pt-BR")}
-                                  </span>
-                                  <span className="text-[10px] text-zinc-700 select-none">•</span>
-                                  <span className="uppercase font-bold text-[9px] px-1.5 py-0.5 bg-secondary border border-border/50 rounded shrink-0">{tx.method}</span>
-                                </div>
-                              </div>
-                            </div>
-
-                            <div className="flex items-center gap-3 shrink-0 ml-auto">
-                              <div className="text-right">
-                                <p className="font-bold text-sm text-white">
-                                  {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.amount)}
-                                </p>
-                                <div className="mt-1 flex justify-end">
-                                  {getStatusBadge(tx.status)}
-                                </div>
-                              </div>
-
-                              <DropdownMenu>
-                                <DropdownMenuTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="icon"
-                                    className="size-8 rounded-lg hover:bg-neutral-800 text-muted-foreground hover:text-white cursor-pointer shrink-0"
-                                  >
-                                    <MoreHorizontal className="size-4" />
-                                  </Button>
-                                </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end" className="w-52 rounded-xl border-border/50">
-                                  {tx.status !== "pago" && (
-                                    <DropdownMenuItem
-                                      onClick={() => handleQuickMarkAsPaid(tx.id)}
-                                      disabled={isUpdatingStatusId === tx.id}
-                                      className="h-9 rounded-lg gap-2 cursor-pointer font-semibold text-xs text-emerald-500 focus:text-emerald-500 focus:bg-emerald-500/10"
-                                    >
-                                      {isUpdatingStatusId === tx.id ? (
-                                        <Loader2 className="size-3.5 animate-spin" />
-                                      ) : (
-                                        <CheckCircle2 className="size-3.5" />
-                                      )}
-                                      <span>Confirmar Pagamento</span>
-                                    </DropdownMenuItem>
-                                  )}
-                                  <DropdownMenuItem
-                                    onClick={() => handleOpenEditModal(tx)}
-                                    className="h-9 rounded-lg gap-2 cursor-pointer font-semibold text-xs"
-                                  >
-                                    <Edit className="size-3.5 text-primary" />
-                                    <span>Editar Lançamento</span>
-                                  </DropdownMenuItem>
-                                  <DropdownMenuSeparator />
-                                  <DropdownMenuItem
-                                    onClick={() => handleOpenDeleteConfirm(tx)}
-                                    className="h-9 rounded-lg gap-2 cursor-pointer text-red-500 focus:text-red-500 focus:bg-red-500/10 font-semibold text-xs"
-                                  >
-                                    <Trash2 className="size-3.5" />
-                                    <span>Excluir Lançamento</span>
-                                  </DropdownMenuItem>
-                                </DropdownMenuContent>
-                              </DropdownMenu>
-                            </div>
+                    {activeSection === "historico" ? (
+                      <div className="space-y-4">
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <div className="relative flex-1">
+                            <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+                            <Input
+                              placeholder="Buscar por aluno ou serviço..."
+                              className="pl-9 bg-neutral-900/50 border-neutral-800"
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                            />
                           </div>
-                        ))
-                      )}
-                    </div>
+                          <div className="flex gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                            {(["todos", "pago", "pendente", "atrasado"] as const).map((tab) => (
+                              <Button
+                                key={tab}
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => setActiveTabFilter(tab)}
+                                className={cn(
+                                  "text-xs capitalize font-medium px-3 h-9 rounded-lg transition-colors border",
+                                  activeTabFilter === tab
+                                    ? "bg-primary text-white border-primary"
+                                    : "text-muted-foreground border-neutral-800 hover:text-white hover:bg-neutral-900"
+                                )}
+                              >
+                                {tab === "todos" ? "Todos" : tab}
+                              </Button>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="space-y-3 max-h-100 overflow-y-auto pr-1 custom-scrollbar">
+                          {filteredPayments.length === 0 ? (
+                            <div className="flex flex-col items-center justify-center p-12 border border-dashed rounded-xl bg-secondary/10">
+                              <Filter className="size-8 text-muted-foreground mb-2" />
+                              <p className="text-sm font-medium text-muted-foreground">Nenhuma receita encontrada para os filtros atuais.</p>
+                            </div>
+                          ) : (
+                            filteredPayments.map((tx) => (
+                              <div key={tx.id} className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-secondary/20 hover:bg-secondary/40 transition-all gap-4 min-w-0">
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                  <div className={cn(
+                                    "size-10 rounded-full flex items-center justify-center shrink-0 border",
+                                    tx.status === "pago" ? "bg-success/10 text-success" :
+                                      tx.status === "atrasado" ? "bg-destructive/10 text-destructive" :
+                                        "bg-warning/10 text-warning"
+                                  )}>
+                                    {tx.status === "pago" ? <CheckCircle2 className="size-5" /> :
+                                      tx.status === "atrasado" ? <AlertCircle className="size-5" /> :
+                                        <Clock className="size-5" />}
+                                  </div>
+                                  <div className="flex flex-col gap-1 min-w-0 flex-1">
+                                    <p className="font-semibold text-sm leading-tight text-white truncate">{tx.student}</p>
+                                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                                      <span className="truncate max-w-[120px]">{tx.plan}</span>
+                                      <span className="text-[10px] text-zinc-700 select-none">•</span>
+                                      <span className="flex items-center gap-1 shrink-0">
+                                        <Calendar className="size-3" />
+                                        {new Date(tx.date).toLocaleDateString("pt-BR")}
+                                      </span>
+                                      <span className="text-[10px] text-zinc-700 select-none">•</span>
+                                      <span className="uppercase font-bold text-[9px] px-1.5 py-0.5 bg-secondary border border-border/50 rounded shrink-0">{tx.method}</span>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                <div className="flex items-center gap-3 shrink-0 ml-auto">
+                                  <div className="text-right">
+                                    <p className="font-bold text-sm text-white">
+                                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.amount)}
+                                    </p>
+                                    <div className="mt-1 flex justify-end">
+                                      {getStatusBadge(tx.status)}
+                                    </div>
+                                  </div>
+
+                                  <DropdownMenu>
+                                    <DropdownMenuTrigger asChild>
+                                      <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="size-8 rounded-lg hover:bg-neutral-800 text-muted-foreground hover:text-white cursor-pointer shrink-0"
+                                      >
+                                        <MoreHorizontal className="size-4" />
+                                      </Button>
+                                    </DropdownMenuTrigger>
+                                    <DropdownMenuContent align="end" className="w-52 rounded-xl border-border/50">
+                                      {tx.status !== "pago" && (
+                                        <DropdownMenuItem
+                                          onClick={() => handleQuickMarkAsPaid(tx.id)}
+                                          disabled={isUpdatingStatusId === tx.id}
+                                          className="h-9 rounded-lg gap-2 cursor-pointer font-semibold text-xs text-emerald-500 focus:text-emerald-500 focus:bg-emerald-500/10"
+                                        >
+                                          {isUpdatingStatusId === tx.id ? (
+                                            <Loader2 className="size-3.5 animate-spin" />
+                                          ) : (
+                                            <CheckCircle2 className="size-3.5" />
+                                          )}
+                                          <span>Confirmar Pagamento</span>
+                                        </DropdownMenuItem>
+                                      )}
+                                      <DropdownMenuItem
+                                        onClick={() => handleOpenEditModal(tx)}
+                                        className="h-9 rounded-lg gap-2 cursor-pointer font-semibold text-xs"
+                                      >
+                                        <Edit className="size-3.5 text-primary" />
+                                        <span>Editar Lançamento</span>
+                                      </DropdownMenuItem>
+                                      <DropdownMenuSeparator />
+                                      <DropdownMenuItem
+                                        onClick={() => handleOpenDeleteConfirm(tx)}
+                                        className="h-9 rounded-lg gap-2 cursor-pointer text-red-500 focus:text-red-500 focus:bg-red-500/10 font-semibold text-xs"
+                                      >
+                                        <Trash2 className="size-3.5" />
+                                        <span>Excluir Lançamento</span>
+                                      </DropdownMenuItem>
+                                    </DropdownMenuContent>
+                                  </DropdownMenu>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex flex-col sm:flex-row gap-3">
+                          <div className="relative flex-1">
+                            <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
+                            <Input
+                              placeholder="Buscar aluno..."
+                              className="pl-9 bg-neutral-900/50 border-neutral-800"
+                              value={searchQuery}
+                              onChange={(e) => setSearchQuery(e.target.value)}
+                            />
+                          </div>
+                          <Button 
+                            onClick={handleOpenCreateRecurrenceModal}
+                            className="gap-2 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl text-xs h-10 px-4 cursor-pointer shrink-0"
+                          >
+                            <Plus className="size-4" />
+                            <span>Nova Recorrência</span>
+                          </Button>
+                        </div>
+
+                        <div className="space-y-3 max-h-100 overflow-y-auto pr-1 custom-scrollbar">
+                          {recurrences.filter(r => r.studentName.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 ? (
+                            <div className="flex flex-col items-center justify-center p-12 border border-dashed rounded-xl bg-secondary/10">
+                              <RefreshCw className="size-8 text-muted-foreground mb-2" />
+                              <p className="text-sm font-medium text-muted-foreground">Nenhum aluno encontrado.</p>
+                            </div>
+                          ) : (
+                            recurrences.filter(r => r.studentName.toLowerCase().includes(searchQuery.toLowerCase())).map((rec) => {
+                              const isManual = rec.billingControlType === "MANUAL";
+                              const isPaused = !rec.billingIsActive;
+                              const isAuto = rec.billingControlType === "AUTOMATIC";
+                              const isConfirm = rec.billingControlType === "CONFIRMATION";
+
+                              return (
+                                <div key={rec.id} className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-secondary/20 hover:bg-secondary/40 transition-all gap-4 min-w-0">
+                                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                                    <div className={cn(
+                                      "size-10 rounded-full flex items-center justify-center shrink-0 border",
+                                      isManual ? "bg-zinc-800/40 text-zinc-400 border-zinc-700/50" :
+                                        isPaused ? "bg-rose-500/10 text-rose-500 border-rose-500/25" :
+                                          isAuto ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/25" :
+                                            "bg-amber-500/10 text-amber-500 border-amber-500/25"
+                                    )}>
+                                      <RefreshCw className={cn("size-5", !isManual && !isPaused && "animate-spin-slow")} />
+                                    </div>
+
+                                    <div className="flex flex-col gap-1 min-w-0 flex-1">
+                                      <div className="flex items-center gap-2">
+                                        <p className="font-semibold text-sm leading-tight text-white truncate">{rec.studentName}</p>
+                                        {!isManual && (
+                                          <span className="flex h-2 w-2 relative shrink-0">
+                                            <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75", isPaused ? "bg-rose-400" : "bg-emerald-400")} />
+                                            <span className={cn("relative inline-flex rounded-full h-2 w-2", isPaused ? "bg-rose-500" : "bg-emerald-500")} />
+                                          </span>
+                                        )}
+                                      </div>
+                                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+                                        <span className="truncate max-w-[150px]">
+                                          {isManual ? "Controle Manual" :
+                                            isConfirm ? "Recorrência com Confirmação" : "Recorrência Automática"}
+                                        </span>
+                                        <span className="text-[10px] text-zinc-700 select-none">•</span>
+                                        {isManual ? (
+                                          <span>Sem automação ativa</span>
+                                        ) : (
+                                          <span className="flex items-center gap-1 shrink-0">
+                                            <Calendar className="size-3" />
+                                            Próximo: {rec.billingNextDueDate ? new Date(rec.billingNextDueDate).toLocaleDateString("pt-BR") : "--/--/----"}
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  </div>
+
+                                  <div className="flex items-center gap-3 shrink-0 ml-auto">
+                                    <div className="text-right">
+                                      {!isManual ? (
+                                        <>
+                                          <p className="font-bold text-sm text-white">
+                                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(rec.billingPrice || 0)}
+                                          </p>
+                                          <span className="text-[10px] text-muted-foreground capitalize mt-0.5 block">
+                                            {rec.billingPeriodicity?.toLowerCase()}
+                                          </span>
+                                        </>
+                                      ) : (
+                                        <p className="text-xs font-semibold text-muted-foreground">Manual</p>
+                                      )}
+                                    </div>
+
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleOpenRecurrenceModal(rec)}
+                                      className="h-9 gap-1.5 border-neutral-800 hover:bg-neutral-800 text-xs font-bold text-neutral-300 hover:text-white rounded-xl cursor-pointer"
+                                    >
+                                      <Settings className="size-3.5" />
+                                      <span>Configurar</span>
+                                    </Button>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          )}
+                        </div>
+                      </div>
+                    )}
                   </CardContent>
                 </Card>
               </motion.div>
@@ -1066,6 +1324,222 @@ export default function FinancePage() {
               <span>Excluir Registro</span>
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Recurrence Configuration Dialog */}
+      <Dialog open={isRecurrenceModalOpen} onOpenChange={setIsRecurrenceModalOpen}>
+        <DialogContent className="sm:max-w-[550px] bg-neutral-950 border-neutral-800 text-white">
+          <form onSubmit={handleSaveRecurrence}>
+            <DialogHeader>
+              <DialogTitle className="text-white text-lg font-bold flex items-center gap-2">
+                <RefreshCw className="size-5 text-emerald-500 shrink-0" />
+                <span>Configurar Recorrência Financeira</span>
+              </DialogTitle>
+              <DialogDescription className="text-muted-foreground">
+                Ajuste os parâmetros de cobrança automática ou periódica para {selectedRecurrenceStudent ? <strong className="text-white">{selectedRecurrenceStudent.studentName}</strong> : "um aluno"}.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-1">
+              {!selectedRecurrenceStudent ? (
+                <div className="space-y-1.5">
+                  <Label htmlFor="recStudentSelect" className="text-xs font-bold text-neutral-400">Aluno *</Label>
+                  <Select value={selectedStudentIdForRecurrence} onValueChange={setSelectedStudentIdForRecurrence}>
+                    <SelectTrigger id="recStudentSelect" className="w-full bg-neutral-900 border-neutral-800 text-white">
+                      <SelectValue placeholder="Selecione o aluno..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                      {students.map((s) => (
+                        <SelectItem key={s.id} value={s.id}>
+                          {s.name} ({s.email || "Sem e-mail"})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div className="p-3 rounded-xl border border-neutral-800 bg-neutral-900/35 text-xs text-muted-foreground">
+                  Configurando recorrência para o aluno: <strong className="text-white">{selectedRecurrenceStudent.studentName}</strong>
+                </div>
+              )}
+              <div className="flex items-center justify-between p-3 rounded-xl border border-neutral-800 bg-neutral-900/50">
+                <div className="space-y-0.5">
+                  <Label htmlFor="recIsActive" className="text-xs text-neutral-300 font-bold block">Status da Recorrência</Label>
+                  <span className="text-[10px] text-muted-foreground block">
+                    {recIsActive ? "Ativa - Processamento automático habilitado" : "Pausada - Sem cobranças automáticas"}
+                  </span>
+                </div>
+                <Switch
+                  id="recIsActive"
+                  checked={recIsActive}
+                  onCheckedChange={setRecIsActive}
+                />
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div className="space-y-1.5">
+                  <Label htmlFor="recControlType" className="text-xs font-bold text-neutral-400">Tipo de Controle</Label>
+                  <Select value={recControlType} onValueChange={(val) => setRecControlType(val as any)}>
+                    <SelectTrigger id="recControlType" className="w-full bg-neutral-900 border-neutral-800 text-white">
+                      <SelectValue placeholder="Selecione o tipo..." />
+                    </SelectTrigger>
+                    <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                      <SelectItem value="MANUAL">Manual (Sem automação)</SelectItem>
+                      <SelectItem value="CONFIRMATION">Recorrência com Confirmação</SelectItem>
+                      <SelectItem value="AUTOMATIC">Recorrência Automática (Baixa auto)</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {recControlType !== "MANUAL" && (
+                  <div className="space-y-1.5">
+                    <Label htmlFor="recPrice" className="text-xs font-bold text-neutral-400">Valor da Cobrança (R$) *</Label>
+                    <Input
+                      id="recPrice"
+                      type="number"
+                      step="0.01"
+                      placeholder="Ex: 150.00"
+                      className="bg-neutral-900 border-neutral-800 text-white"
+                      value={recPrice}
+                      onChange={(e) => setRecPrice(e.target.value)}
+                      required
+                    />
+                  </div>
+                )}
+              </div>
+
+              {recControlType !== "MANUAL" && (
+                <>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="recPaymentMethod" className="text-xs font-bold text-neutral-400">Método de Pagamento Principal</Label>
+                      <Select value={recPaymentMethod} onValueChange={setRecPaymentMethod}>
+                        <SelectTrigger id="recPaymentMethod" className="w-full bg-neutral-900 border-neutral-800 text-white">
+                          <SelectValue placeholder="Selecione..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                          <SelectItem value="PIX">PIX</SelectItem>
+                          <SelectItem value="CREDIT_CARD">Cartão de Crédito</SelectItem>
+                          <SelectItem value="BOLETO">Boleto Bancário</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="recPeriodicity" className="text-xs font-bold text-neutral-400">Periodicidade</Label>
+                      <Select value={recPeriodicity} onValueChange={setRecPeriodicity}>
+                        <SelectTrigger id="recPeriodicity" className="w-full bg-neutral-900 border-neutral-800 text-white">
+                          <SelectValue placeholder="Selecione..." />
+                        </SelectTrigger>
+                        <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                          <SelectItem value="MENSAL">Mensal</SelectItem>
+                          <SelectItem value="QUINZENAL">Quinzenal</SelectItem>
+                          <SelectItem value="SEMANAL">Semanal</SelectItem>
+                          <SelectItem value="ANUAL">Anual</SelectItem>
+                          <SelectItem value="PERSONALIZADA">Personalizada</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {recPeriodicity === "PERSONALIZADA" && (
+                    <div className="grid grid-cols-2 gap-4 bg-neutral-900/40 p-3 rounded-xl border border-neutral-800">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="recCustomCount" className="text-xs font-bold text-neutral-400">Frequência (A cada)</Label>
+                        <Input
+                          id="recCustomCount"
+                          type="number"
+                          min="1"
+                          className="bg-neutral-900 border-neutral-800 text-white"
+                          value={recCustomCount}
+                          onChange={(e) => setRecCustomCount(e.target.value)}
+                          required
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <Label htmlFor="recCustomUnit" className="text-xs font-bold text-neutral-400">Unidade de Tempo</Label>
+                        <Select value={recCustomUnit} onValueChange={setRecCustomUnit}>
+                          <SelectTrigger id="recCustomUnit" className="w-full bg-neutral-900 border-neutral-800 text-white">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                            <SelectItem value="dias">dias</SelectItem>
+                            <SelectItem value="semanas">semanas</SelectItem>
+                            <SelectItem value="meses">meses</SelectItem>
+                            <SelectItem value="anos">anos</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    {(recPeriodicity === "MENSAL" || recPeriodicity === "ANUAL" || (recPeriodicity === "PERSONALIZADA" && (recCustomUnit === "meses" || recCustomUnit === "anos"))) && (
+                      <div className="space-y-1.5">
+                        <Label htmlFor="recDueDay" className="text-xs font-bold text-neutral-400">Dia de Vencimento fixo (1-31)</Label>
+                        <Input
+                          id="recDueDay"
+                          type="number"
+                          min="1"
+                          max="31"
+                          placeholder="Ex: 5"
+                          className="bg-neutral-900 border-neutral-800 text-white"
+                          value={recDueDay}
+                          onChange={(e) => setRecDueDay(e.target.value)}
+                          required
+                        />
+                      </div>
+                    )}
+
+                    <div className="space-y-1.5">
+                      <Label htmlFor="recFirstDueDate" className="text-xs font-bold text-neutral-400 font-bold">Primeiro Vencimento *</Label>
+                      <Input
+                        id="recFirstDueDate"
+                        type="date"
+                        className="bg-neutral-900 border-neutral-800 text-white"
+                        value={recFirstDueDate}
+                        onChange={(e) => setRecFirstDueDate(e.target.value)}
+                        required
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label htmlFor="recDescription" className="text-xs font-bold text-neutral-400">Descrição da Fatura</Label>
+                    <Input
+                      id="recDescription"
+                      placeholder="Ex: Plano Trimestral Assessoria"
+                      className="bg-neutral-900 border-neutral-800 text-white"
+                      value={recDescription}
+                      onChange={(e) => setRecDescription(e.target.value)}
+                    />
+                  </div>
+                </>
+              )}
+            </div>
+
+            <DialogFooter className="border-t border-neutral-900 pt-4 gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                className="border-neutral-800 text-white hover:bg-neutral-900"
+                onClick={() => setIsRecurrenceModalOpen(false)}
+                disabled={isSavingRecurrence}
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSavingRecurrence}
+                className="gap-2 bg-primary text-white hover:bg-primary/95 font-semibold"
+              >
+                {isSavingRecurrence && <Loader2 className="size-4 animate-spin" />}
+                <span>Salvar Configuração</span>
+              </Button>
+            </DialogFooter>
+          </form>
         </DialogContent>
       </Dialog>
     </div>

@@ -145,7 +145,8 @@ export async function POST(req: Request) {
         title: "Treino Concluído! 🏆",
         description: `O aluno "${session.user.name || "Aluno"}" concluiu o treino "${completedWorkout?.name || "Treino"}".`,
         deepLink: `/personal/clients/${session.user.id}/workout-logs`,
-        source: "TRAINING"
+        source: "TRAINING",
+        workspaceId
       });
     }
 

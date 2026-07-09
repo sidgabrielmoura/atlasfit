@@ -10,13 +10,6 @@ export default async function SelectWorkspacePage() {
     redirect("/auth/student");
   }
 
-  const role = (session.user as any).role as string | undefined;
-  if (role === "TRAINER") {
-    redirect("/personal/dashboard");
-  } else if (role === "SUPERADMIN") {
-    redirect("/superadmin/dashboard");
-  }
-
   // Busca as associações de workspaces do usuário autenticado no banco
   const members = await prisma.workspaceMember.findMany({
     where: { userId: session.user.id },
@@ -24,6 +17,13 @@ export default async function SelectWorkspacePage() {
       workspace: true,
     },
   });
+
+  const role = (session.user as any).role as string | undefined;
+  if (role === "TRAINER" && members.length <= 1) {
+    redirect("/personal/dashboard");
+  } else if (role === "SUPERADMIN") {
+    redirect("/superadmin/dashboard");
+  }
 
   const colors = ["#0ea5e9", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6"];
 

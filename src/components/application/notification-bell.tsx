@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { useSnapshot } from "valtio";
+import { workspaceStore } from "@/stores/workspace.store";
 import {
   Bell,
   Settings,
@@ -110,6 +112,9 @@ const CATEGORY_ICONS: Record<string, any> = {
 };
 
 export function NotificationBell() {
+  const workspaceSnap = useSnapshot(workspaceStore);
+  const activeWorkspaceId = workspaceSnap.activeWorkspaceId;
+
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
   const [preferences, setPreferences] = useState<PreferencesSettings | null>(null);
@@ -124,7 +129,10 @@ export function NotificationBell() {
   const fetchNotifications = async () => {
     try {
       setLoading(true);
-      const res = await fetch("/api/personal/notifications");
+      const url = activeWorkspaceId
+        ? `/api/personal/notifications?workspaceId=${activeWorkspaceId}`
+        : "/api/personal/notifications";
+      const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
         setNotifications(data);
@@ -158,7 +166,7 @@ export function NotificationBell() {
 
     window.addEventListener("fcm-message-received", handleNewMessage);
     return () => window.removeEventListener("fcm-message-received", handleNewMessage);
-  }, []);
+  }, [activeWorkspaceId]);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
@@ -201,7 +209,10 @@ export function NotificationBell() {
   const handleMarkAllAsRead = async () => {
     try {
       setMarkingAll(true);
-      const res = await fetch("/api/personal/notifications", {
+      const url = activeWorkspaceId
+        ? `/api/personal/notifications?workspaceId=${activeWorkspaceId}`
+        : "/api/personal/notifications";
+      const res = await fetch(url, {
         method: "PATCH"
       });
       if (res.ok) {
@@ -218,7 +229,10 @@ export function NotificationBell() {
   const handleClearHistory = async () => {
     try {
       setClearing(true);
-      const res = await fetch("/api/personal/notifications", {
+      const url = activeWorkspaceId
+        ? `/api/personal/notifications?workspaceId=${activeWorkspaceId}`
+        : "/api/personal/notifications";
+      const res = await fetch(url, {
         method: "DELETE"
       });
       if (res.ok) {

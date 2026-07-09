@@ -46,6 +46,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { EngageInline } from "@/components/engage/engage-renderer";
 
 // Grid container stagger animation
 const containerVariants = {
@@ -134,11 +135,49 @@ export default function StudentDashboardPage() {
     workoutsOfTheWeek,
     todayWorkouts = [],
     studentName,
+    planEndDate,
+    trainerWhatsApp,
+    trainerName = "Personal Trainer",
   } = data;
 
   const daysOfWeekLabels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
   const currentDayOfWeek = new Date().getDay();
   const selectedDayWorkouts = workoutsOfTheWeek.filter((w: any) => w.dayOfWeek === selectedDayIdx);
+
+  // Expiration calculations
+  let daysRemaining: number | null = null;
+  let showExpirationAlert = false;
+  let isExpired = false;
+
+  if (planEndDate) {
+    const expirationDate = new Date(planEndDate);
+    const today = new Date();
+    expirationDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+
+    const timeDiff = expirationDate.getTime() - today.getTime();
+    daysRemaining = Math.ceil(timeDiff / (1000 * 3600 * 24));
+    
+    if (daysRemaining <= 7) {
+      showExpirationAlert = true;
+    }
+    if (daysRemaining <= 0) {
+      isExpired = true;
+    }
+  }
+
+  const handleWhatsAppRenewalClick = () => {
+    if (trainerWhatsApp) {
+      const cleanPhone = trainerWhatsApp.replace(/\D/g, "");
+      const message = isExpired
+        ? `Olá, ${trainerName}! Meu plano no AtlasFit venceu e gostaria de renová-lo.`
+        : `Olá, ${trainerName}! Meu plano no AtlasFit está próximo do vencimento e gostaria de renová-lo.`;
+      const encodedMsg = encodeURIComponent(message);
+      window.open(`https://wa.me/55${cleanPhone}?text=${encodedMsg}`, "_blank");
+    } else {
+      toast.error("O WhatsApp do seu Personal Trainer não está cadastrado.");
+    }
+  };
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-4xl mx-auto">
@@ -158,6 +197,57 @@ export default function StudentDashboardPage() {
           <span>Membro Elite · {data.workspace.name}</span>
         </div>
       </div>
+
+      {/* Plan Expiration Warning Card */}
+      {showExpirationAlert && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <Card className={cn(
+            "p-5 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 border shadow-md relative overflow-hidden",
+            isExpired 
+              ? "border-rose-500/30 bg-rose-500/10 text-rose-200" 
+              : "border-amber-500/25 bg-amber-500/5 text-amber-200/90"
+          )}>
+            <div className="flex items-center gap-4">
+              <div className={cn(
+                "size-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm",
+                isExpired ? "bg-rose-500/20 text-rose-500" : "bg-amber-500/20 text-amber-500"
+              )}>
+                <AlertTriangle className="size-5 shrink-0" />
+              </div>
+              <div className="space-y-1 text-center sm:text-left">
+                <h4 className="font-extrabold text-sm tracking-tight text-white">
+                  {isExpired ? "Acesso Expirado" : "Seu plano está vencendo"}
+                </h4>
+                <p className="text-xs text-muted-foreground leading-relaxed max-w-md">
+                  {isExpired 
+                    ? "Seu plano no AtlasFit venceu. Renove agora para continuar acessando seus treinos sem interrupção."
+                    : `Restam apenas ${daysRemaining} ${daysRemaining === 1 ? "dia" : "dias"} de validade no seu plano atual.`}
+                </p>
+              </div>
+            </div>
+            <Button
+              onClick={handleWhatsAppRenewalClick}
+              className={cn(
+                "font-bold text-xs h-10 px-5 rounded-xl flex items-center gap-2 cursor-pointer transition-all active:scale-95 shadow-md w-full sm:w-auto justify-center shrink-0",
+                isExpired 
+                  ? "bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/10" 
+                  : "bg-amber-500 hover:bg-amber-600 text-zinc-950 shadow-amber-500/10"
+              )}
+            >
+              <MessageSquare className="size-4" />
+              Mandar mensagem no WhatsApp
+            </Button>
+          </Card>
+        </motion.div>
+      )}
+
+      {/* Engage Experiences (Banners & Cards) */}
+      <EngageInline format="BANNER" workspaceId={activeWs?.id} />
+      <EngageInline format="CARD" workspaceId={activeWs?.id} />
 
       {/* 2. Today's Workout Card */}
       {todayWorkouts.length === 0 ? (

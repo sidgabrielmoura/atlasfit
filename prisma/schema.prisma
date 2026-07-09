@@ -73,7 +73,9 @@ model User {
   workoutLogs            WorkoutLog[]
   studentTasks           TrainerTask[]               @relation("StudentTasks")
   dailyFeedbacks         DailyFeedback[]
-  campaignViews          CampaignView[]
+  createdExperiences     EngageExperience[]          @relation("CreatedExperiences")
+  engageStatuses         EngageUserStatus[]
+  engageEventLogs        EngageEventLog[]
   leads                  Lead[]
   notificationDevices    NotificationDevice[]
   notifications          Notification[]
@@ -106,6 +108,8 @@ model Workspace {
   leads           Lead[]
   tags            Tag[]
   customFields    CustomFieldDefinition[]
+  notifications   Notification[]
+  engageExperiences EngageExperience[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
 }
@@ -125,6 +129,23 @@ model WorkspaceMember {
   workspace   Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
+
+  // Recurrence financial configuration fields
+  billingControlType         String    @default("MANUAL") // "MANUAL", "CONFIRMATION", "AUTOMATIC"
+  billingPrice               Float     @default(0.0)
+  billingPeriodicity         String    @default("MENSAL") // "MENSAL", "QUINZENAL", "SEMANAL", "ANUAL", "PERSONALIZADA"
+  billingCustomIntervalCount Int?      @default(1)
+  billingCustomIntervalUnit  String?   @default("meses") // "dias", "semanas", "meses", "anos"
+  billingDueDay              Int?      @default(10)
+  billingFirstDueDate        DateTime?
+  billingStartDate           DateTime?
+  billingLastGeneratedDate   DateTime?
+  billingNextDueDate         DateTime?
+  billingDescription         String?   @default("Mensalidade de Assessoria")
+  billingCategory            String?   @default("Mensalidade")
+  billingPaymentMethod       String?   @default("PIX")
+  billingIsActive            Boolean   @default(true)
+  planEndDate                DateTime?
 
   @@unique([userId, workspaceId])
 }
@@ -415,6 +436,17 @@ model WorkspacePayment {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // Recurrence tracking columns
+  billingOrigin     String    @default("MANUAL") // "MANUAL", "RECURRENCE"
+  billingMode       String    @default("MANUAL") // "MANUAL", "CONFIRMATION", "AUTOMATIC"
+  generatedAt       DateTime?
+  paidAt            DateTime?
+  paidBy            String?
+  actionType        String? // "AUTOMATIC", "MANUAL"
+  reopenedAt        DateTime?
+  reopenedBy        String?
+  isAutomaticBilled Boolean   @default(false)
+
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 }
 
@@ -629,50 +661,107 @@ model WorkoutExerciseGroup {
   updatedAt  DateTime          @updatedAt
 }
 
-enum CampaignType {
-  PROMOTION
-  ANNOUNCEMENT
-  UPDATE
+enum EngageStatus {
+  DRAFT
+  ACTIVE
+  COMPLETED
+  ARCHIVED
 }
 
-enum CampaignTarget {
-  PERSONAL
-  STUDENT
-  ALL
+enum EngageFormat {
+  BANNER
+  CARD
+  DRAWER
+  MODAL
+  FULLSCREEN
 }
 
-model Campaign {
-  id           String         @id @default(cuid())
+enum EngageUserStatusType {
+  NOT_VIEWED
+  VIEWED
+  INTERACTED
+  PARTICIPATING
+  COMPLETED
+  ARCHIVED
+}
+
+enum EngageEventType {
+  VIEW
+  CLICK
+  DISMISS
+  JOIN
+  COMPLETE
+}
+
+model EngageExperience {
+  id           String        @id @default(cuid())
   title        String
-  description  String         @db.Text
-  imageUrl     String?
-  imageKey     String?
-  type         CampaignType
-  targetRole   CampaignTarget
+  category     String        // Ex: "Conteúdo", "Desafio", "Pesquisa", "Aviso", "Campanha"
+  format       EngageFormat
+  status       EngageStatus  @default(DRAFT)
+  priority     Int           @default(0)
   startDate    DateTime
   endDate      DateTime
-  buttonText   String?
-  buttonLink   String?
-  showOnlyOnce Boolean        @default(false)
-  isActive     Boolean        @default(true)
-  priority     Int            @default(0)
-  createdAt    DateTime       @default(now())
-  updatedAt    DateTime       @updatedAt
-  views        CampaignView[]
+  showOnlyOnce Boolean       @default(false)
+  
+  // Árvore de blocos dinâmica (JSON Array)
+  // Ex: [ { id: "1", type: "TITLE", content: "Super Desafio" }, { id: "2", type: "CTA", content: { text: "Participar", action: "JOIN_CHALLENGE" } } ]
+  blocks       Json
 
-  @@index([isActive, targetRole])
+  // Critérios de segmentação estruturados (JSON Object)
+  // Ex: { roles: ["STUDENT"], plans: ["Mensal"], tags: ["Ativo"], objective: "Hipertrofia" }
+  segmentation Json
+
+  // Relações e Tenant Isolation
+  workspaceId  String?
+  workspace    Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creatorId    String
+  creator      User          @relation("CreatedExperiences", fields: [creatorId], references: [id], onDelete: Cascade)
+  
+  userStatuses EngageUserStatus[]
+  eventLogs    EngageEventLog[]
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+
+  @@index([workspaceId])
+  @@index([status])
   @@index([startDate, endDate])
 }
 
-model CampaignView {
-  id         String   @id @default(cuid())
-  campaignId String
-  userId     String
-  viewedAt   DateTime @default(now())
-  campaign   Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+model EngageUserStatus {
+  id           String               @id @default(cuid())
+  experienceId String
+  userId       String
+  status       EngageUserStatusType @default(NOT_VIEWED)
+  
+  firstViewedAt     DateTime?
+  lastInteractedAt  DateTime?
+  completedAt       DateTime?
+  
+  experience   EngageExperience     @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  @@unique([campaignId, userId])
+  updatedAt    DateTime             @updatedAt
+
+  @@unique([experienceId, userId])
+  @@index([userId])
+  @@index([experienceId])
+}
+
+model EngageEventLog {
+  id           String           @id @default(cuid())
+  experienceId String
+  userId       String
+  eventType    EngageEventType
+  metadata     Json?            // Ex: link clicado, ID do treino aberto
+  createdAt    DateTime         @default(now())
+
+  experience   EngageExperience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([experienceId])
+  @@index([userId])
 }
 
 model Lead {
@@ -829,9 +918,12 @@ model Notification {
   updatedAt   DateTime  @updatedAt
   readAt      DateTime?
   user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([isRead])
+  @@index([workspaceId])
 }
 
 model NotificationPreference {

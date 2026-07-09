@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 
+import { processRecurringPayments } from "@/lib/recurrence";
+
 export async function GET(req: Request) {
   const session = await auth();
   if (!session?.user) {
@@ -27,6 +29,9 @@ export async function GET(req: Request) {
     if (!memberCheck) {
       return new NextResponse("Acesso negado a este workspace.", { status: 403 });
     }
+
+    // Process all active recurrence subscriptions for the workspace
+    await processRecurringPayments(workspaceId);
 
     // 1. Fetch active students to calculate active plan counts
     const activeStudents = await prisma.workspaceMember.findMany({
@@ -94,6 +99,39 @@ export async function GET(req: Request) {
       });
     }
 
+    // 6.5. Fetch all students to return their recurrence configs
+    const recurrenceMembers = await prisma.workspaceMember.findMany({
+      where: {
+        workspaceId,
+        role: "STUDENT",
+        isActive: true,
+      },
+      include: {
+        user: true,
+      },
+    });
+
+    const recurrences = recurrenceMembers.map((m) => ({
+      id: m.id,
+      studentId: m.userId,
+      studentName: m.user.name || "Sem Nome",
+      studentEmail: m.user.email || "",
+      billingControlType: m.billingControlType,
+      billingPrice: m.billingPrice,
+      billingPeriodicity: m.billingPeriodicity,
+      billingCustomIntervalCount: m.billingCustomIntervalCount,
+      billingCustomIntervalUnit: m.billingCustomIntervalUnit,
+      billingDueDay: m.billingDueDay,
+      billingFirstDueDate: m.billingFirstDueDate ? m.billingFirstDueDate.toISOString() : null,
+      billingStartDate: m.billingStartDate ? m.billingStartDate.toISOString() : null,
+      billingDescription: m.billingDescription,
+      billingCategory: m.billingCategory,
+      billingPaymentMethod: m.billingPaymentMethod,
+      billingIsActive: m.billingIsActive,
+      planEndDate: m.planEndDate ? m.planEndDate.toISOString() : null,
+      billingNextDueDate: m.billingNextDueDate ? m.billingNextDueDate.toISOString() : null,
+    }));
+
     // 7. Build the response payload
     const payload = {
       metrics: {
@@ -115,7 +153,11 @@ export async function GET(req: Request) {
         status: p.status,
         method: p.method,
         date: p.createdAt.toISOString(),
+        billingOrigin: p.billingOrigin,
+        billingMode: p.billingMode,
+        isAutomaticBilled: p.isAutomaticBilled,
       })),
+      recurrences,
     };
 
     return NextResponse.json(payload);

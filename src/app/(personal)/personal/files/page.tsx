@@ -555,9 +555,9 @@ export default function PersonalFilesPage() {
             initial={{ opacity: 0, scale: 0.98 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.98 }}
-            className="text-center"
+            className="text-center w-full"
           >
-            <Card className="border border-dashed border-white/6 bg-neutral-900/10 p-12 text-center rounded-2xl max-w-lg mx-auto shadow-xl">
+            <Card className="border min-w-full border-dashed border-white/6 bg-neutral-900/10 p-12 text-center rounded-2xl max-w-lg mx-auto shadow-xl">
               <FolderOpen className="size-12 mx-auto text-neutral-700 animate-pulse" />
               <div className="space-y-1">
                 <h3 className="text-base font-bold text-white">Nenhum arquivo publicado</h3>

@@ -148,7 +148,8 @@ export async function PATCH(
         title: "Treino Atualizado 🔄",
         description: `Seu treino "${updatedWorkout.name}" foi atualizado pelo personal.`,
         deepLink: "/student/workouts",
-        source: "TRAINING"
+        source: "TRAINING",
+        workspaceId: updatedWorkout.workspaceId || undefined
       });
     }
 

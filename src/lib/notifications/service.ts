@@ -57,6 +57,7 @@ export class NotificationService {
     payload?: Record<string, any>;
     deepLink?: string;
     source?: string;
+    workspaceId?: string;
   }) {
     const {
       userId,
@@ -69,7 +70,8 @@ export class NotificationService {
       priority = NotificationPriority.NORMAL,
       payload,
       deepLink,
-      source
+      source,
+      workspaceId
     } = params;
 
     const prefs = await this.getUserPreferences(userId);
@@ -92,7 +94,8 @@ export class NotificationService {
           deepLink: deepLink || null,
           source: source || null,
           isRead: false,
-          delivered: false
+          delivered: false,
+          workspaceId: workspaceId || null
         }
       });
       notificationId = created.id;

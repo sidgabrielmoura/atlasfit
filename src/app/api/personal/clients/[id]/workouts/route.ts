@@ -331,7 +331,8 @@ export async function POST(
         title: "Novo Treino Prescrito! 🏋️‍♂️",
         description: `Seu personal trainer prescreveu o treino "${createdWorkout.name}".`,
         deepLink: "/student/workouts",
-        source: "TRAINING"
+        source: "TRAINING",
+        workspaceId
       });
     }
 

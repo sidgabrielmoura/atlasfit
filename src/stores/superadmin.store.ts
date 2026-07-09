@@ -40,19 +40,6 @@ interface SuperAdminState {
   coupons: any[];
   muscleGroups: any[];
   financeData: any;
-  campaigns: any[];
-  campaignFilters: {
-    search: string;
-    type: string;
-    targetRole: string;
-    isActive: string;
-    page: number;
-    limit: number;
-  };
-  campaignPagination: {
-    total: number;
-    pages: number;
-  };
   logFilters: {
     search: string;
     userId: string;
@@ -93,19 +80,6 @@ const initialState: SuperAdminState = {
   coupons: [],
   muscleGroups: [],
   financeData: null,
-  campaigns: [],
-  campaignFilters: {
-    search: "",
-    type: "all",
-    targetRole: "all",
-    isActive: "all",
-    page: 1,
-    limit: 10,
-  },
-  campaignPagination: {
-    total: 0,
-    pages: 1,
-  },
   logFilters: {
     search: "",
     userId: "all",
@@ -515,58 +489,6 @@ export const superAdminActions = {
       superAdminStore.muscleGroups = res.data;
     } catch (err: any) {
       superAdminStore.error = err.message;
-    }
-  },
-  async fetchCampaigns() {
-    superAdminStore.isLoading = true;
-    try {
-      const { search, type, targetRole, isActive, page, limit } = superAdminStore.campaignFilters;
-      const params = new URLSearchParams();
-      if (search) params.append("search", search);
-      if (type && type !== "all") params.append("type", type);
-      if (targetRole && targetRole !== "all") params.append("targetRole", targetRole);
-      if (isActive && isActive !== "all") params.append("isActive", isActive);
-      params.append("page", String(page));
-      params.append("limit", String(limit));
-
-      const { data } = await api.get(`/superadmin/campaigns?${params.toString()}`);
-      superAdminStore.campaigns = data.data || [];
-      superAdminStore.campaignPagination = {
-        total: data.total || 0,
-        pages: data.pages || 1,
-      };
-    } catch (err: any) {
-      superAdminStore.error = err.message;
-    } finally {
-      superAdminStore.isLoading = false;
-    }
-  },
-  setCampaignFilters(filters: Partial<SuperAdminState["campaignFilters"]>) {
-    superAdminStore.campaignFilters = { ...superAdminStore.campaignFilters, ...filters };
-    superAdminActions.fetchCampaigns();
-  },
-  async createCampaign(data: any) {
-    try {
-      await api.post("/superadmin/campaigns", data);
-      await superAdminActions.fetchCampaigns();
-    } catch (err: any) {
-      throw new Error(err.response?.data || err.message);
-    }
-  },
-  async updateCampaign(id: string, data: any) {
-    try {
-      await api.patch(`/superadmin/campaigns/${id}`, data);
-      await superAdminActions.fetchCampaigns();
-    } catch (err: any) {
-      throw new Error(err.response?.data || err.message);
-    }
-  },
-  async deleteCampaign(id: string) {
-    try {
-      await api.delete(`/superadmin/campaigns/${id}`);
-      await superAdminActions.fetchCampaigns();
-    } catch (err: any) {
-      throw new Error(err.response?.data || err.message);
     }
   },
 };

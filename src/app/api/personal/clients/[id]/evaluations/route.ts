@@ -260,7 +260,8 @@ export async function POST(req: Request, { params }: RouteParams) {
         title: "Sua Avaliação Física está Pronta! 📊",
         description: "Seu personal trainer liberou uma nova avaliação física para você.",
         deepLink: "/student/assessments",
-        source: "ASSESSMENT"
+        source: "ASSESSMENT",
+        workspaceId
       });
     }
 

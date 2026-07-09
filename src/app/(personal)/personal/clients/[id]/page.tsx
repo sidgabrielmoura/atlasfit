@@ -410,6 +410,26 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   const [submittingPayment, setSubmittingPayment] = useState(false);
   const [submittingDeletePayment, setSubmittingDeletePayment] = useState(false);
 
+  // ==================== NEW STATES: INDIVIDUAL CLIENT FINANCIALS RECURRENCE ====================
+  const [recurrence, setRecurrence] = useState<any>(null);
+  const [submittingRecurrence, setSubmittingRecurrence] = useState(false);
+  const [isReopenPaymentAlertOpen, setIsReopenPaymentAlertOpen] = useState(false);
+  const [paymentToReopen, setPaymentToReopen] = useState<any>(null);
+
+  // Recurrence form fields
+  const [recControlType, setRecControlType] = useState("MANUAL"); // MANUAL, CONFIRMATION, AUTOMATIC
+  const [recPrice, setRecPrice] = useState("0");
+  const [recPeriodicity, setRecPeriodicity] = useState("MENSAL");
+  const [recCustomCount, setRecCustomCount] = useState("1");
+  const [recCustomUnit, setRecCustomUnit] = useState("meses");
+  const [recDueDay, setRecDueDay] = useState("10");
+  const [recFirstDueDate, setRecFirstDueDate] = useState(getLocalDateString);
+  const [recStartDate, setRecStartDate] = useState(getLocalDateString);
+  const [recDescription, setRecDescription] = useState("Mensalidade de Assessoria");
+  const [recCategory, setRecCategory] = useState("Mensalidade");
+  const [recPaymentMethod, setRecPaymentMethod] = useState("PIX");
+  const [recIsActive, setRecIsActive] = useState(true);
+
   const [paymentPlanName, setPaymentPlanName] = useState("");
   const [paymentAmount, setPaymentAmount] = useState("");
   const [paymentStatus, setPaymentStatus] = useState("pendente");
@@ -1159,6 +1179,21 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
         const data = await res.json();
         setPayments(data.payments);
         setPaymentMetrics(data.metrics);
+        setRecurrence(data.recurrence);
+        if (data.recurrence) {
+          setRecControlType(data.recurrence.billingControlType || "MANUAL");
+          setRecPrice(String(data.recurrence.billingPrice || 0));
+          setRecPeriodicity(data.recurrence.billingPeriodicity || "MENSAL");
+          setRecCustomCount(String(data.recurrence.billingCustomIntervalCount || 1));
+          setRecCustomUnit(data.recurrence.billingCustomIntervalUnit || "meses");
+          setRecDueDay(String(data.recurrence.billingDueDay || 10));
+          setRecFirstDueDate(data.recurrence.billingFirstDueDate || new Date().toISOString().split("T")[0]);
+          setRecStartDate(data.recurrence.billingStartDate || new Date().toISOString().split("T")[0]);
+          setRecDescription(data.recurrence.billingDescription || "Mensalidade de Assessoria");
+          setRecCategory(data.recurrence.billingCategory || "Mensalidade");
+          setRecPaymentMethod(data.recurrence.billingPaymentMethod || "PIX");
+          setRecIsActive(data.recurrence.billingIsActive ?? true);
+        }
       } else {
         toast.error("Erro ao carregar histórico financeiro.");
       }
@@ -1713,6 +1748,70 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
       toast.error(error.message || "Falha ao excluir faturamento.");
     } finally {
       setSubmittingDeletePayment(false);
+    }
+  };
+
+  const handleSaveRecurrence = async (e: React.FormEvent) => {
+    e.preventDefault();
+    try {
+      setSubmittingRecurrence(true);
+      const res = await fetch(`/api/personal/clients/${studentId}/finance`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          workspaceId: activeWorkspaceId,
+          billingControlType: recControlType,
+          billingPrice: parseFloat(recPrice) || 0,
+          billingPeriodicity: recPeriodicity,
+          billingCustomIntervalCount: parseInt(recCustomCount) || 1,
+          billingCustomIntervalUnit: recCustomUnit,
+          billingDueDay: parseInt(recDueDay) || 10,
+          billingFirstDueDate: recFirstDueDate ? new Date(recFirstDueDate).toISOString() : null,
+          billingStartDate: recStartDate ? new Date(recStartDate).toISOString() : null,
+          billingDescription: recDescription,
+          billingCategory: recCategory,
+          billingPaymentMethod: recPaymentMethod,
+          billingIsActive: recIsActive,
+          planEndDate: recControlType !== "MANUAL" ? new Date(recFirstDueDate).toISOString() : null,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(await res.text() || "Erro ao salvar recorrência.");
+      }
+
+      toast.success("Configuração de recorrência atualizada!");
+      fetchStudentPayments();
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "Erro ao salvar recorrência.");
+    } finally {
+      setSubmittingRecurrence(false);
+    }
+  };
+
+  const handleReopenPaymentConfirm = async () => {
+    if (!paymentToReopen) return;
+    try {
+      const res = await fetch(`/api/personal/finance/payments/${paymentToReopen.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "pendente",
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(await res.text() || "Erro ao reabrir faturamento.");
+      }
+
+      toast.success("Cobrança reaberta com sucesso!");
+      setIsReopenPaymentAlertOpen(false);
+      setPaymentToReopen(null);
+      fetchStudentPayments();
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "Falha ao reabrir faturamento.");
     }
   };
 
@@ -3418,6 +3517,23 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                   </Card>
                 ))}
               </div>
+              {/* Recurrence Skeleton */}
+              <Card className="border border-border/50 dark:border-white/[0.06] bg-muted/20 dark:bg-zinc-950/20 backdrop-blur-md rounded-2xl p-6 space-y-4">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="size-10 rounded-xl bg-muted dark:bg-zinc-800/80" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-48 bg-muted dark:bg-zinc-800/80 rounded" />
+                    <Skeleton className="h-3 w-64 bg-muted dark:bg-zinc-800/80 rounded" />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-4">
+                  <Skeleton className="h-10 w-full bg-muted dark:bg-zinc-800/80 rounded-xl" />
+                  <Skeleton className="h-10 w-full bg-muted dark:bg-zinc-800/80 rounded-xl" />
+                  <Skeleton className="h-10 w-full bg-muted dark:bg-zinc-800/80 rounded-xl" />
+                </div>
+              </Card>
+
+              {/* Transactions Skeleton */}
               <Card className="border border-border/50 dark:border-white/[0.06] bg-muted/20 dark:bg-zinc-950/20 backdrop-blur-md rounded-2xl p-6 space-y-4">
                 <div className="flex justify-between items-center pb-2">
                   <Skeleton className="h-5 w-40 bg-muted dark:bg-zinc-800/80 rounded" />
@@ -3483,6 +3599,208 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                 </Card>
               </div>
 
+              {/* Recorrência Card */}
+              <Card className="border border-border/50 dark:border-white/[0.04] bg-card/30 dark:bg-zinc-950/30 backdrop-blur-md p-6 rounded-2xl relative overflow-hidden group transition-all duration-500">
+                <div className="absolute top-0 right-0 w-32 h-32 rounded-full bg-emerald-500/[0.01] blur-3xl pointer-events-none" />
+                <div className="flex items-start gap-4 mb-6">
+                  <div className="size-10 bg-emerald-500/10 border border-emerald-500/20 rounded-xl flex items-center justify-center text-emerald-500 shrink-0">
+                    <RefreshCw className="size-5" />
+                  </div>
+                  <div>
+                    <h3 className="text-base font-bold text-white">Controle de Recorrência Financeira</h3>
+                    <p className="text-xs text-muted-foreground mt-0.5">Automatize e programe a geração de faturas para este aluno.</p>
+                  </div>
+                </div>
+
+                <form onSubmit={handleSaveRecurrence} className="space-y-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1.5">
+                      <Label htmlFor="recControlType" className="text-xs font-bold text-muted-foreground">Tipo de Controle</Label>
+                      <Select value={recControlType} onValueChange={(val) => setRecControlType(val)}>
+                        <SelectTrigger id="recControlType" className="bg-muted/50 w-full dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl text-white">
+                          <SelectValue placeholder="Selecione o tipo" />
+                        </SelectTrigger>
+                        <SelectContent className="bg-muted dark:bg-zinc-900 border-border/60 dark:border-white/[0.08]">
+                          <SelectItem value="MANUAL" className="text-xs">Manual (Sem automação)</SelectItem>
+                          <SelectItem value="CONFIRMATION" className="text-xs">Recorrência com confirmação</SelectItem>
+                          <SelectItem value="AUTOMATIC" className="text-xs">Recorrência automática (Baixa auto)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    {recControlType !== "MANUAL" && (
+                      <>
+                        <div className="space-y-1.5">
+                          <Label htmlFor="recPrice" className="text-xs font-bold text-muted-foreground">Valor Recorrente (R$)</Label>
+                          <Input
+                            id="recPrice"
+                            type="number"
+                            step="0.01"
+                            placeholder="0.00"
+                            className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl text-white focus-visible:ring-0 focus-visible:ring-offset-0"
+                            value={recPrice}
+                            onChange={(e) => setRecPrice(e.target.value)}
+                            required
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label htmlFor="recPaymentMethod" className="text-xs font-bold text-muted-foreground">Método de Pagamento</Label>
+                          <Select value={recPaymentMethod} onValueChange={(val) => setRecPaymentMethod(val)}>
+                            <SelectTrigger id="recPaymentMethod" className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl text-white">
+                              <SelectValue placeholder="Método" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-muted dark:bg-zinc-900 border-border/60 dark:border-white/[0.08]">
+                              <SelectItem value="PIX" className="text-xs">PIX</SelectItem>
+                              <SelectItem value="CREDIT_CARD" className="text-xs">Cartão de Crédito</SelectItem>
+                              <SelectItem value="BOLETO" className="text-xs">Boleto</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </>
+                    )}
+                  </div>
+
+                  {recControlType === "MANUAL" ? (
+                    <div className="p-4 bg-muted/20 dark:bg-zinc-950/20 border border-border/50 dark:border-white/[0.04] rounded-xl text-xs text-muted-foreground">
+                      O controle financeiro está definido como <strong>Manual</strong>. O sistema não gerará faturas automaticamente para este aluno. Utilize o botão "Registrar Lançamento" acima para cadastrar transações manualmente.
+                    </div>
+                  ) : (
+                    <div className="space-y-4 pt-2 border-t border-border/40 dark:border-white/[0.04]">
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="recPeriodicity" className="text-xs font-bold text-muted-foreground">Periodicidade</Label>
+                          <Select value={recPeriodicity} onValueChange={(val) => setRecPeriodicity(val)}>
+                            <SelectTrigger id="recPeriodicity" className="bg-muted/50 w-full dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl text-white">
+                              <SelectValue placeholder="Periodicidade" />
+                            </SelectTrigger>
+                            <SelectContent className="bg-muted dark:bg-zinc-900 border-border/60 dark:border-white/[0.08]">
+                              <SelectItem value="MENSAL" className="text-xs">Mensal</SelectItem>
+                              <SelectItem value="QUINZENAL" className="text-xs">Quinzenal</SelectItem>
+                              <SelectItem value="SEMANAL" className="text-xs">Semanal</SelectItem>
+                              <SelectItem value="ANUAL" className="text-xs">Anual</SelectItem>
+                              <SelectItem value="PERSONALIZADA" className="text-xs">Personalizada</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        {recPeriodicity === "PERSONALIZADA" && (
+                          <div className="grid grid-cols-2 gap-2">
+                            <div className="space-y-1.5">
+                              <Label htmlFor="recCustomCount" className="text-xs font-bold text-muted-foreground">A cada</Label>
+                              <Input
+                                id="recCustomCount"
+                                type="number"
+                                min="1"
+                                className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl text-white"
+                                value={recCustomCount}
+                                onChange={(e) => setRecCustomCount(e.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-1.5">
+                              <Label htmlFor="recCustomUnit" className="text-xs font-bold text-muted-foreground">Unidade</Label>
+                              <Select value={recCustomUnit} onValueChange={(val) => setRecCustomUnit(val)}>
+                                <SelectTrigger id="recCustomUnit" className="bg-muted/50 w-full dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-12 text-xs rounded-xl text-white">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-muted dark:bg-zinc-900 border-border/60 dark:border-white/[0.08]">
+                                  <SelectItem value="dias" className="text-xs">dias</SelectItem>
+                                  <SelectItem value="semanas" className="text-xs">semanas</SelectItem>
+                                  <SelectItem value="meses" className="text-xs">meses</SelectItem>
+                                  <SelectItem value="anos" className="text-xs">anos</SelectItem>
+                                </SelectContent>
+                              </Select>
+                            </div>
+                          </div>
+                        )}
+
+                        {(recPeriodicity === "MENSAL" || recPeriodicity === "ANUAL" || (recPeriodicity === "PERSONALIZADA" && (recCustomUnit === "meses" || recCustomUnit === "anos"))) && (
+                          <div className="space-y-1.5">
+                            <Label htmlFor="recDueDay" className="text-xs font-bold text-muted-foreground">Dia do Vencimento (1 a 31)</Label>
+                            <Input
+                              id="recDueDay"
+                              type="number"
+                              min="1"
+                              max="31"
+                              className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl text-white"
+                              value={recDueDay}
+                              onChange={(e) => setRecDueDay(e.target.value)}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="recFirstDueDate" className="text-xs font-bold text-muted-foreground">Data da Primeira Cobrança</Label>
+                          <Input
+                            id="recFirstDueDate"
+                            type="date"
+                            className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl text-white"
+                            value={recFirstDueDate}
+                            onChange={(e) => setRecFirstDueDate(e.target.value)}
+                            required
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label htmlFor="recStartDate" className="text-xs font-bold text-muted-foreground">Início da Recorrência</Label>
+                          <Input
+                            id="recStartDate"
+                            type="date"
+                            className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl text-white"
+                            value={recStartDate}
+                            onChange={(e) => setRecStartDate(e.target.value)}
+                            required
+                          />
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <Label htmlFor="recDescription" className="text-xs font-bold text-muted-foreground">Descrição da Cobrança</Label>
+                          <Input
+                            id="recDescription"
+                            placeholder="Ex: Mensalidade de Assessoria"
+                            className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl text-white"
+                            value={recDescription}
+                            onChange={(e) => setRecDescription(e.target.value)}
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between p-4 bg-muted/20 dark:bg-zinc-950/20 border border-border/50 dark:border-white/[0.04] rounded-xl">
+                        <div className="space-y-0.5">
+                          <span className="block text-xs font-bold text-white">Recorrência Ativa</span>
+                          <span className="block text-[10px] text-muted-foreground">Se desmarcado, novas faturas recorrentes não serão geradas.</span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          className="size-4 accent-emerald-500 rounded cursor-pointer"
+                          checked={recIsActive}
+                          onChange={(e) => setRecIsActive(e.target.checked)}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="flex justify-end pt-2">
+                    <Button
+                      type="submit"
+                      disabled={submittingRecurrence}
+                      className="bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold rounded-xl text-xs h-9 px-6 transition-all duration-300 shadow-md shadow-emerald-500/10"
+                    >
+                      {submittingRecurrence ? (
+                        <>
+                          <Loader2 className="animate-spin size-3.5 mr-2" />
+                          Salvando...
+                        </>
+                      ) : (
+                        "Salvar Configuração de Recorrência"
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </Card>
+
               {/* Transactions list */}
               {payments.length === 0 ? (
                 <Card className="border border-border/50 dark:border-white/[0.04] p-8 text-center bg-muted/20 dark:bg-zinc-950/20 backdrop-blur-md rounded-2xl">
@@ -3547,6 +3865,18 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end" className="bg-popover border border-border text-foreground rounded-xl">
+                                    {payment.status === "pago" && payment.billingOrigin === "RECURRENCE" && (
+                                      <>
+                                        <DropdownMenuItem onClick={() => {
+                                          setPaymentToReopen(payment);
+                                          setIsReopenPaymentAlertOpen(true);
+                                        }} className="gap-2 cursor-pointer focus:bg-muted dark:focus:bg-white/5 focus:text-white rounded-lg py-2">
+                                          <RefreshCw className="size-3.5 text-amber-500" />
+                                          Reabrir Cobrança
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator className="bg-white/[0.06]" />
+                                      </>
+                                    )}
                                     <DropdownMenuItem onClick={() => handleTriggerEditPayment(payment)} className="gap-2 cursor-pointer focus:bg-muted dark:focus:bg-white/5 focus:text-white rounded-lg py-2">
                                       <Edit2 className="size-3.5 text-blue-400" />
                                       Editar Lançamento
@@ -3584,6 +3914,18 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="bg-popover border border-border text-foreground rounded-xl">
+                              {payment.status === "pago" && payment.billingOrigin === "RECURRENCE" && (
+                                <>
+                                  <DropdownMenuItem onClick={() => {
+                                    setPaymentToReopen(payment);
+                                    setIsReopenPaymentAlertOpen(true);
+                                  }} className="gap-2 cursor-pointer focus:bg-muted dark:focus:bg-white/5 focus:text-white rounded-lg py-2 text-xs">
+                                    <RefreshCw className="size-3.5 text-amber-500" />
+                                    Reabrir Cobrança
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator className="bg-white/[0.06]" />
+                                </>
+                              )}
                               <DropdownMenuItem onClick={() => handleTriggerEditPayment(payment)} className="gap-2 cursor-pointer focus:bg-muted dark:focus:bg-white/5 focus:text-white rounded-lg py-2 text-xs">
                                 <Edit2 className="size-3.5 text-blue-400" />
                                 Editar Lançamento
@@ -6665,7 +7007,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               <div className="space-y-1.5">
                 <Label htmlFor="paymentMethod" className="text-xs font-bold text-muted-foreground">Método de Pagamento</Label>
                 <Select value={paymentMethod} onValueChange={(val) => setPaymentMethod(val)} disabled={submittingPayment}>
-                  <SelectTrigger id="paymentMethod" className="bg-muted dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl text-white w-full min-w-0 max-w-full focus:ring-0 focus:ring-offset-0">
+                  <SelectTrigger id="paymentMethod" className="bg-muted w-full! dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-12 text-xs rounded-xl text-white min-w-0 max-w-full focus:ring-0 focus:ring-offset-0">
                     <SelectValue placeholder="Selecione o método" />
                   </SelectTrigger>
                   <SelectContent className="bg-muted dark:bg-zinc-900 border-border/60 dark:border-white/[0.08]">
@@ -6865,6 +7207,42 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               ) : (
                 "Sim, Excluir Lançamento"
               )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* ==================== ALERT DIALOG: CONFIRM REOPEN PAYMENT ==================== */}
+      <AlertDialog open={isReopenPaymentAlertOpen} onOpenChange={setIsReopenPaymentAlertOpen}>
+        <AlertDialogContent className="bg-card dark:bg-zinc-950 border border-border/60 dark:border-white/[0.08] text-foreground rounded-2xl shadow-2xl">
+          <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-amber-500/20 to-transparent" />
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
+              <RefreshCw className="size-5 text-amber-500 shrink-0 animate-spin" /> Reabrir Cobrança?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground text-xs leading-relaxed">
+              Tem certeza que deseja reabrir a cobrança <strong className="text-white font-semibold">{paymentToReopen?.planName}</strong> no valor de <strong className="text-white font-semibold">{(paymentToReopen?.amount || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>?
+              O status do pagamento voltará para <span className="text-amber-500 font-semibold">Pendente</span> e a baixa automática ou manual anterior será revogada, mantendo o histórico de criação intacto.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2 mt-2">
+            <AlertDialogCancel
+              className="border-border/60 dark:border-white/[0.08] hover:bg-muted dark:bg-zinc-900 text-muted-foreground hover:text-white rounded-xl text-xs"
+              onClick={() => {
+                setIsReopenPaymentAlertOpen(false);
+                setPaymentToReopen(null);
+              }}
+            >
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="bg-amber-500 hover:bg-amber-600 text-zinc-950 font-bold rounded-xl text-xs"
+              onClick={(e) => {
+                e.preventDefault();
+                handleReopenPaymentConfirm();
+              }}
+            >
+              Sim, Reabrir Cobrança
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

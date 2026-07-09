@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { verifyAndDecayWorkspaceMemberStreak } from "@/lib/streak-helper";
+import { processRecurringPaymentsForMember } from "@/lib/recurrence";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -11,7 +12,7 @@ export async function GET(req: Request) {
 
   try {
     // 1. Find active student membership
-    const member = await prisma.workspaceMember.findFirst({
+    let member = await prisma.workspaceMember.findFirst({
       where: {
         userId: session.user.id,
         role: "STUDENT",
@@ -26,6 +27,30 @@ export async function GET(req: Request) {
     if (!member) {
       return new NextResponse("Membro do workspace não encontrado.", { status: 404 });
     }
+
+    // Process recurring payments for this member to sync invoices and planEndDate
+    await processRecurringPaymentsForMember(member.id);
+
+    // Re-fetch member to have the latest planEndDate after recurrence processing
+    const updatedMember = await prisma.workspaceMember.findUnique({
+      where: { id: member.id },
+      include: {
+        workspace: true,
+        user: true,
+      }
+    });
+    if (updatedMember) {
+      member = updatedMember;
+    }
+
+    // Fetch trainer (workspace owner) details for contact info
+    const trainer = await prisma.user.findUnique({
+      where: { id: member.workspace.ownerId },
+      select: {
+        name: true,
+        whatsapp: true,
+      }
+    });
 
     const workspaceId = member.workspaceId;
     const now = new Date();
@@ -421,6 +446,9 @@ export async function GET(req: Request) {
         status: paymentStatus,
         pendingAmount: pendingPaymentAmount,
       },
+      planEndDate: member.planEndDate ? member.planEndDate.toISOString() : null,
+      trainerWhatsApp: trainer?.whatsapp || null,
+      trainerName: trainer?.name || "Personal Trainer",
       workoutsOfTheWeek: workouts.map(w => ({
         id: w.id,
         name: w.name,

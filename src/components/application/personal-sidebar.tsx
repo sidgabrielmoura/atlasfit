@@ -27,6 +27,7 @@ import {
   FolderOpen,
   Target,
   ClipboardCheck,
+  Megaphone,
 } from "lucide-react";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 import {
@@ -73,6 +74,7 @@ const mainNavItems = [
   { title: "Dashboard", href: "/personal/dashboard", icon: LayoutDashboard },
   { title: "Alunos", href: "/personal/clients", icon: Users },
   { title: "CRM", href: "/personal/crm", icon: Target },
+  { title: "Atlas Engage", href: "/personal/engage", icon: Megaphone },
   { title: "Treinos e Exercícios", href: "/personal/workouts", icon: Dumbbell },
   { title: "Avaliações", href: "/personal/assessments", icon: ClipboardCheck },
   { title: "Financeiro", href: "/personal/finance", icon: DollarSign },

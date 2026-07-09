@@ -1247,7 +1247,7 @@ export default function CRMPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-2">
         <Card
           onClick={() => {
             setSearchQuery("");
@@ -1486,7 +1486,7 @@ export default function CRMPage() {
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, col.id)}
                       className={cn(
-                        "flex flex-col shrink-0 w-100 bg-neutral-900/35 border border-border/30 rounded-2xl p-4 transition-all duration-200",
+                        "flex flex-col shrink-0 w-70 bg-neutral-900/35 border border-border/30 rounded-2xl p-4 transition-all duration-200",
                         isOver && "border-primary bg-primary/5 ring-1 ring-primary/20"
                       )}
                     >
@@ -1500,7 +1500,7 @@ export default function CRMPage() {
                         </Badge>
                       </div>
 
-                      <div className="flex flex-col gap-3.5 mt-4 min-h-[300px] overflow-y-auto max-h-[600px] scrollbar-none">
+                      <div className="flex flex-col gap-3.5 mt-4 min-h-75 overflow-y-auto max-h-150 scrollbar-none">
                         {colLeads.map((lead) => {
                           const hasOverdueTask = lead.tasks.some(
                             (t) => t.status === "PENDING" && t.dueDate && new Date(t.dueDate) < new Date()
@@ -1515,7 +1515,7 @@ export default function CRMPage() {
                               draggable
                               onDragStart={(e) => handleDragStart(e, lead.id)}
                               onClick={() => handleOpenDetail(lead.id)}
-                              className="group border border-border/40 hover:border-primary/50 bg-card/60 hover:bg-card rounded-xl p-4 cursor-grab active:cursor-grabbing transition-all duration-150 relative space-y-3"
+                              className="group border border-border/40 hover:border-primary/50 bg-card/60 hover:bg-card rounded-xl p-3 cursor-grab active:cursor-grabbing transition-all duration-150 relative space-y-1"
                             >
                               {isInactive && lead.status !== "won" && lead.status !== "lost" && (
                                 <Badge className="absolute top-2 right-2 bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] uppercase font-extrabold py-0 px-1">
@@ -1534,16 +1534,18 @@ export default function CRMPage() {
                                     {getInitials(lead.name)}
                                   </AvatarFallback>
                                 </Avatar>
-                                <div className="min-w-0">
-                                  <span className="font-extrabold text-xs block text-foreground truncate">{lead.name}</span>
-                                  <span className="text-[10px] text-muted-foreground">{lead.email || "Sem e-mail"}</span>
-                                </div>
+                                <section className="flex justify-between items-center w-full">
+                                  <div className="min-w-0 max-w-30">
+                                    <h1 className="font-extrabold text-xs block text-foreground truncate">{lead.name}</h1>
+                                    <h1 className="text-[10px] text-muted-foreground truncate">{lead.email || "Sem e-mail"}</h1>
+                                  </div>
+                                  <Badge className={cn("text-[9px] font-bold uppercase tracking-wider px-1 py-0.5 rounded border shrink-0", getSourceBadgeColor(lead.source))}>
+                                    {lead.source || "Outro"}
+                                  </Badge>
+                                </section>
                               </div>
 
                               <div className="flex flex-wrap gap-1">
-                                <Badge className={cn("text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0", getSourceBadgeColor(lead.source))}>
-                                  {lead.source || "Outro"}
-                                </Badge>
                                 {lead.tags.slice(0, 2).map((t) => (
                                   <Badge key={t.id} className={cn("text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0", t.color)}>
                                     {t.name}
@@ -1551,7 +1553,7 @@ export default function CRMPage() {
                                 ))}
                               </div>
 
-                              <div className="space-y-1.5 text-[10px] text-muted-foreground pt-1">
+                              <div className="space-y-1.5 text-[10px] text-muted-foreground pt-1 flex justify-between">
                                 {lead.goal && (
                                   <div className="flex items-center gap-1.5">
                                     <Target className="size-3.5 text-primary shrink-0" />

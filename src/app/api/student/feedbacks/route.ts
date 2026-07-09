@@ -193,7 +193,8 @@ export async function POST(req: Request) {
         title: "Feedback Diário Recebido 📋",
         description: `O aluno "${session.user.name || "Aluno"}" preencheu o feedback diário: Energia ${energy}%, Fadiga ${fatigue}%, Humor ${humor}%.`,
         deepLink: `/personal/clients/${userId}`,
-        source: "CRM"
+        source: "CRM",
+        workspaceId
       });
     }
 

@@ -44,7 +44,20 @@ export async function PATCH(req: Request, { params }: RouteParams) {
     if (studentName !== undefined) updateData.studentName = studentName;
     if (planName !== undefined) updateData.planName = planName;
     if (amount !== undefined) updateData.amount = parseFloat(amount);
-    if (status !== undefined) updateData.status = status;
+    if (status !== undefined) {
+      updateData.status = status;
+      if (status === "pago" && payment.status !== "pago") {
+        updateData.paidAt = new Date();
+        updateData.paidBy = session.user.id;
+        updateData.actionType = "MANUAL";
+      } else if (status === "pendente" && payment.status === "pago") {
+        updateData.paidAt = null;
+        updateData.paidBy = null;
+        updateData.reopenedAt = new Date();
+        updateData.reopenedBy = session.user.id;
+        updateData.actionType = "MANUAL";
+      }
+    }
     if (method !== undefined) updateData.method = method;
     if (createdAt !== undefined) updateData.createdAt = new Date(createdAt);
 
@@ -52,6 +65,18 @@ export async function PATCH(req: Request, { params }: RouteParams) {
       where: { id },
       data: updateData,
     });
+
+    if (updatedPayment.status === "pendente" && payment.status === "pago") {
+      await prisma.auditLog.create({
+        data: {
+          action: `Cobrança ${updatedPayment.id} reaberta manualmente pelo usuário ${session.user.name || session.user.id}.`,
+          entity: "Recurrence",
+          entityId: updatedPayment.id,
+          userId: session.user.id,
+          severity: "info",
+        },
+      });
+    }
 
     if (updatedPayment.status === "pago" && payment.status !== "pago") {
       const studentMember = await prisma.workspaceMember.findFirst({
@@ -70,7 +95,8 @@ export async function PATCH(req: Request, { params }: RouteParams) {
           title: "Pagamento Confirmado! ✅",
           description: `Seu pagamento referente ao plano "${updatedPayment.planName}" foi confirmado.`,
           deepLink: "/student/finance",
-          source: "FINANCE"
+          source: "FINANCE",
+          workspaceId: payment.workspaceId
         });
       }
     }

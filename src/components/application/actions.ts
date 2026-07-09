@@ -82,6 +82,13 @@ export async function getTrainerWorkspaceLimit() {
   const session = await auth();
   if (!session?.user) return null;
 
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { isTestAccount: true },
+  });
+
+  const isTestAccount = user?.isTestAccount || false;
+
   const sub = await prisma.subscription.findUnique({
     where: { userId: session.user.id },
     include: { plan: true },
@@ -97,8 +104,9 @@ export async function getTrainerWorkspaceLimit() {
 
   return {
     current: count,
-    limit: sub?.plan?.maxWorkspaces || 1,
-    planName: sub?.plan?.name || "Free Trial",
+    limit: isTestAccount ? 999999 : (sub?.plan?.maxWorkspaces || 1),
+    isTestAccount,
+    planName: isTestAccount ? "Conta de Teste" : (sub?.plan?.name || "Free Trial"),
     primaryDomain: domainSetting?.value || "atlasfit.app",
   };
 }
@@ -131,6 +139,13 @@ export async function createWorkspace(data: {
       return { error: "Este endereço (slug) já está em uso por outro workspace." };
     }
 
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { isTestAccount: true },
+    });
+
+    const isTestAccount = user?.isTestAccount || false;
+
     // Query active user subscription and limit
     const sub = await prisma.subscription.findUnique({
       where: { userId: session.user.id },
@@ -148,7 +163,7 @@ export async function createWorkspace(data: {
       where: { ownerId: session.user.id },
     });
 
-    if (ownedCount >= maxWorkspaces) {
+    if (!isTestAccount && ownedCount >= maxWorkspaces) {
       if (isTrialActive) {
         return { error: "Durante o período de Free Trial, você só pode criar no máximo 1 workspace." };
       }

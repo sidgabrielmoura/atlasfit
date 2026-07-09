@@ -24,6 +24,7 @@ import {
 import { cn } from "@/lib/utils";
 import { useSession } from "next-auth/react";
 import { personalInfo } from "@/lib/mock-data";
+import { EngageInline } from "@/components/engage/engage-renderer";
 
 const container = {
   hidden: { opacity: 0 },
@@ -236,6 +237,12 @@ export default function DashboardPage() {
           {metrics.studentsMetrics.totalActive} alunos ativos
         </Badge>
       </motion.div>
+
+      {/* Engage Experiences (Banners & Cards) */}
+      <div className="space-y-4">
+        <EngageInline format="BANNER" workspaceId={workspaceSnap.activeWorkspaceId || undefined} />
+        <EngageInline format="CARD" workspaceId={workspaceSnap.activeWorkspaceId || undefined} />
+      </div>
 
       {/* KPI Cards */}
       <motion.div variants={container} initial="hidden" animate="show" className="flex items-center flex-wrap gap-3 md:gap-4">
