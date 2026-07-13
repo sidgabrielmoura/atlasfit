@@ -591,9 +591,13 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
 
   // 7. Handle Audio voice recording completion
   const handleAudioRecordingComplete = async (blob: Blob, durationSeconds: number) => {
+    setIsRecordingAudio(false);
+    setAudioStream(null);
     if (!activeConversationId || !activeWorkspaceId) return;
     const fileId = `audio-${Date.now()}`;
-    const fileName = `voice-message-${Date.now()}.webm`;
+    const mimeType = blob.type || "audio/webm";
+    const extension = mimeType.split("/")[1]?.split(";")[0] || "webm";
+    const fileName = `voice-message-${Date.now()}.${extension}`;
 
     try {
       const res = await fetch("/api/storage/presigned", {
@@ -603,7 +607,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
           workspaceId: activeWorkspaceId,
           fileName,
           fileSize: blob.size,
-          contentType: "audio/webm",
+          contentType: mimeType,
           targetType: "chat_attachment",
         }),
       });
@@ -614,11 +618,11 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
 
       const xhr = new XMLHttpRequest();
       xhr.open("PUT", uploadUrl, true);
-      xhr.setRequestHeader("Content-Type", "audio/webm");
+      xhr.setRequestHeader("Content-Type", mimeType);
 
       chatActions.addUpload({
         fileId,
-        name: "Gravação de voz.webm",
+        name: `Gravação de voz.${extension}`,
         size: blob.size,
         progress: 0,
         cancelUpload: () => xhr.abort(),
@@ -636,9 +640,9 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
         if (xhr.status === 200) {
           const attMetadata = {
             url: fileUrl,
-            name: "Mensagem de voz.webm",
+            name: `Mensagem de voz.${extension}`,
             size: blob.size,
-            mimeType: "audio/webm",
+            mimeType: mimeType,
             duration: durationSeconds,
           };
 
@@ -756,26 +760,12 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
   const handleStartAudioRecording = async () => {
     try {
       if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        toast.error("Seu navegador não suporta gravação de áudio.");
+        toast.error("Seu navegador não suporta gravação de áudio ou a origem não é segura (HTTP sem ser localhost).");
         return;
       }
 
-      if (navigator.permissions && navigator.permissions.query) {
-        try {
-          const permissionStatus = await navigator.permissions.query({ name: "microphone" as PermissionName });
-          if (permissionStatus.state === "denied") {
-            toast.error(
-              "Acesso ao microfone bloqueado. Clique no ícone de cadeado na barra de endereços para liberar o acesso."
-            );
-            return;
-          }
-        } catch (e) {
-          // Fallback to getUserMedia directly
-        }
-      }
-
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach((track) => track.stop());
+      setAudioStream(stream);
       setIsRecordingAudio(true);
     } catch (err: any) {
       console.error("Microphone permission denied:", err);
@@ -784,7 +774,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
           "Permissão de microfone negada. Clique no ícone de cadeado (ao lado da URL) para liberar o acesso ao microfone."
         );
       } else {
-        toast.error("Não foi possível acessar o microfone. Verifique suas conexões e tente novamente.");
+        toast.error(`Não foi possível acessar o microfone (${err.name || "Erro"}): ${err.message || "Erro desconhecido"}`);
       }
     }
   };
@@ -803,6 +793,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
   const typingList = Object.values(activeTypingMap);
 
   const [isRecordingAudio, setIsRecordingAudio] = useState(false);
+  const [audioStream, setAudioStream] = useState<MediaStream | null>(null);
 
   // Group messages by date
   const groupMessagesByDate = (msgList: readonly any[]) => {
@@ -1418,10 +1409,15 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
               )}
 
               <form onSubmit={handleSendMessage} className="flex items-center gap-2">
-                {isRecordingAudio ? (
+                {isRecordingAudio && audioStream ? (
                   <AudioRecorder
+                    stream={audioStream}
                     onRecordingComplete={handleAudioRecordingComplete}
-                    onCancel={() => setIsRecordingAudio(false)}
+                    onCancel={() => {
+                      audioStream.getTracks().forEach((track) => track.stop());
+                      setIsRecordingAudio(false);
+                      setAudioStream(null);
+                    }}
                   />
                 ) : (
                   <>

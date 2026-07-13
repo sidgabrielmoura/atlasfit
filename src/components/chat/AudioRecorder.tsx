@@ -8,9 +8,10 @@ import { toast } from "sonner";
 interface AudioRecorderProps {
   onRecordingComplete: (blob: Blob, durationSeconds: number) => void;
   onCancel: () => void;
+  stream: MediaStream;
 }
 
-export function AudioRecorder({ onRecordingComplete, onCancel }: AudioRecorderProps) {
+export function AudioRecorder({ onRecordingComplete, onCancel, stream }: AudioRecorderProps) {
   const [isRecording, setIsRecording] = useState(false);
   const [duration, setDuration] = useState(0);
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
@@ -25,18 +26,20 @@ export function AudioRecorder({ onRecordingComplete, onCancel }: AudioRecorderPr
     };
   }, []);
 
-  const startRecording = async () => {
+  const startRecording = () => {
     try {
-      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-        toast.error("Seu navegador não suporta gravação de áudio.");
-        onCancel();
-        return;
+      let options = {};
+      if (typeof MediaRecorder.isTypeSupported === "function") {
+        if (MediaRecorder.isTypeSupported("audio/webm")) {
+          options = { mimeType: "audio/webm" };
+        } else if (MediaRecorder.isTypeSupported("audio/mp4")) {
+          options = { mimeType: "audio/mp4" };
+        } else if (MediaRecorder.isTypeSupported("audio/aac")) {
+          options = { mimeType: "audio/aac" };
+        }
       }
 
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      const mediaRecorder = new MediaRecorder(stream, {
-        mimeType: "audio/webm",
-      });
+      const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
 
@@ -47,7 +50,8 @@ export function AudioRecorder({ onRecordingComplete, onCancel }: AudioRecorderPr
       };
 
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunksRef.current, { type: "audio/webm" });
+        const mimeType = mediaRecorder.mimeType || "audio/webm";
+        const audioBlob = new Blob(audioChunksRef.current, { type: mimeType });
         // Stop all tracks to release microphone
         stream.getTracks().forEach((track) => track.stop());
 
@@ -62,9 +66,10 @@ export function AudioRecorder({ onRecordingComplete, onCancel }: AudioRecorderPr
       mediaRecorder.start(200); // chunk data every 200ms
       setIsRecording(true);
       startTimer();
-    } catch (err) {
-      console.error("Error accessing microphone:", err);
-      toast.error("Permissão de microfone negada ou erro ao iniciar gravação.");
+    } catch (err: any) {
+      console.error("Error starting MediaRecorder:", err);
+      toast.error(`Erro ao iniciar gravação de áudio (${err.name || "Erro"}): ${err.message || "Erro desconhecido"}`);
+      stream.getTracks().forEach((track) => track.stop());
       onCancel();
     }
   };
