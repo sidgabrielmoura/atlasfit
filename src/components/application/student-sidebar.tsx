@@ -54,6 +54,7 @@ import { layoutStore } from "@/stores/layout";
 
 const mainNavItems = [
   { title: "Início", href: "/student/dashboard", icon: LayoutDashboard },
+  { title: "Chat", href: "/student/chat", icon: MessageSquare },
   { title: "Meus Treinos", href: "/student/workouts", icon: Dumbbell },
   { title: "Evolução", href: "/student/evolution", icon: LineChart },
   { title: "Avaliações Físicas", href: "/student/assessments", icon: Activity },

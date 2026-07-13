@@ -163,9 +163,9 @@ export function ExercisePreviewModal({ exercise, open, onOpenChange }: ExerciseP
   const youtubeSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(exercise.name + " execução correta")}`;
 
   const renderContent = () => (
-    <div className="space-y-5 p-4 md:p-6 bg-zinc-950 text-foreground">
+    <div className="space-y-5 p-4 md:p-6 bg-card text-foreground">
       {/* Aspect-Ratio video preview block */}
-      <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-zinc-900 border border-white/[0.08] shadow-2xl flex items-center justify-center">
+      <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-secondary border border-border shadow-2xl flex items-center justify-center">
         {embedUrl ? (
           <iframe
             src={embedUrl}
@@ -205,15 +205,15 @@ export function ExercisePreviewModal({ exercise, open, onOpenChange }: ExerciseP
             playsInline
           />
         ) : (
-          <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-center p-6 bg-zinc-900/30">
-            <HelpCircle className="size-12 text-zinc-500 animate-bounce" />
+          <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-center p-6 bg-muted/30">
+            <HelpCircle className="size-12 text-muted-foreground animate-bounce" />
             <div className="space-y-1 max-w-sm">
-              <p className="text-sm font-bold text-white">Nenhum vídeo cadastrado</p>
-              <p className="text-xs text-zinc-400">Este exercício não possui uma URL direta de execução registrada no sistema.</p>
+              <p className="text-sm font-bold text-foreground">Nenhum vídeo cadastrado</p>
+              <p className="text-xs text-muted-foreground">Este exercício não possui uma URL direta de execução registrada no sistema.</p>
             </div>
             <Button variant="outline" size="sm" className="mt-2 text-xs gap-1.5 rounded-xl" asChild>
               <a href={youtubeSearchUrl} target="_blank" rel="noopener noreferrer">
-                <Search className="size-3.5 text-zinc-400" /> Buscar Ajuda no YouTube <ArrowRight className="size-3.5 ml-0.5" />
+                <Search className="size-3.5 text-muted-foreground" /> Buscar Ajuda no YouTube <ArrowRight className="size-3.5 ml-0.5" />
               </a>
             </Button>
           </div>
@@ -222,18 +222,18 @@ export function ExercisePreviewModal({ exercise, open, onOpenChange }: ExerciseP
 
       {/* Structured Exercise details cards */}
       <div className="grid grid-cols-2 gap-3">
-        <div className="p-4 rounded-2xl bg-zinc-900/30 border border-white/[0.04] flex flex-col gap-1 shadow-sm">
-          <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Grupo Muscular</span>
-          <span className="font-extrabold text-sm text-white truncate">
+        <div className="p-4 rounded-2xl bg-secondary border border-border/50 flex flex-col gap-1 shadow-sm">
+          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Grupo Muscular</span>
+          <span className="font-extrabold text-sm text-foreground truncate">
             {exercise.muscleGroups && exercise.muscleGroups.length > 0
               ? exercise.muscleGroups.map((g: any) => g.name).join(", ")
               : (exercise.muscleGroup?.name || "Geral")}
           </span>
         </div>
 
-        <div className="p-4 rounded-2xl bg-zinc-900/30 border border-white/[0.04] flex flex-col gap-1 shadow-sm">
-          <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Categoria</span>
-          <span className="font-extrabold text-sm text-white flex items-center gap-1.5">
+        <div className="p-4 rounded-2xl bg-secondary border border-border/50 flex flex-col gap-1 shadow-sm">
+          <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Categoria</span>
+          <span className="font-extrabold text-sm text-foreground flex items-center gap-1.5">
             {exercise.isOfficial ? (
               <>
                 <Award className="size-4 text-primary shrink-0" /> Oficial
@@ -247,9 +247,9 @@ export function ExercisePreviewModal({ exercise, open, onOpenChange }: ExerciseP
         </div>
 
         {exercise.usage !== undefined && (
-          <div className="p-4 rounded-2xl bg-zinc-900/30 border border-white/[0.04] flex flex-col gap-1 shadow-sm col-span-2">
-            <span className="text-[10px] text-zinc-500 uppercase font-bold tracking-wider">Uso no Workspace</span>
-            <span className="font-extrabold text-sm text-white">
+          <div className="p-4 rounded-2xl bg-secondary border border-border/50 flex flex-col gap-1 shadow-sm col-span-2">
+            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Uso no Workspace</span>
+            <span className="font-extrabold text-sm text-foreground">
               Este exercício é utilizado em <strong className="text-primary font-black">{exercise.usage}</strong> {exercise.usage === 1 ? "treino" : "treinos"} do sistema.
             </span>
           </div>
@@ -261,27 +261,27 @@ export function ExercisePreviewModal({ exercise, open, onOpenChange }: ExerciseP
   if (isMobile) {
     return (
       <Drawer open={open} onOpenChange={onOpenChange}>
-        <DrawerContent className="bg-zinc-950 border-t border-white/[0.08] text-foreground rounded-t-3xl overflow-hidden p-0 max-h-[92vh]">
-          <div className="mx-auto mt-4 h-1.5 w-[60px] rounded-full bg-zinc-800 shrink-0" />
-          <DrawerHeader className="p-4 border-b border-white/[0.04] text-left">
+        <DrawerContent className="bg-card border-t border-border text-foreground rounded-t-3xl overflow-hidden p-0 max-h-[92vh]">
+          <div className="mx-auto mt-4 h-1.5 w-[60px] rounded-full bg-muted shrink-0" />
+          <DrawerHeader className="p-4 border-b border-border/50 text-left">
             <div className="flex flex-wrap items-center gap-2 mb-1">
               <Badge className="bg-primary/10 text-primary border border-primary/20 rounded-md px-1.5 py-0.5 text-[10px] font-bold">
                 Biblioteca de Exercícios
               </Badge>
               {exercise.muscleGroups && exercise.muscleGroups.length > 0 ? (
                 exercise.muscleGroups.map((g: any) => (
-                  <Badge key={g.name} variant="outline" className="border-white/[0.06] text-zinc-400 text-[10px] px-1.5 py-0.5 rounded-md">
+                  <Badge key={g.name} variant="outline" className="border-border text-muted-foreground text-[10px] px-1.5 py-0.5 rounded-md">
                     {g.name}
                   </Badge>
                 ))
               ) : exercise.muscleGroup?.name ? (
-                <Badge variant="outline" className="border-white/[0.06] text-zinc-400 text-[10px] px-1.5 py-0.5 rounded-md">
+                <Badge variant="outline" className="border-border text-muted-foreground text-[10px] px-1.5 py-0.5 rounded-md">
                   {exercise.muscleGroup.name}
                 </Badge>
               ) : null}
             </div>
-            <DrawerTitle className="text-xl font-black text-white">{exercise.name}</DrawerTitle>
-            <DrawerDescription className="text-zinc-500 text-xs mt-0.5">
+            <DrawerTitle className="text-xl font-black text-foreground">{exercise.name}</DrawerTitle>
+            <DrawerDescription className="text-muted-foreground text-xs mt-0.5">
               Visualize a demonstração técnica para correta execução do movimento.
             </DrawerDescription>
           </DrawerHeader>
@@ -290,9 +290,9 @@ export function ExercisePreviewModal({ exercise, open, onOpenChange }: ExerciseP
             {renderContent()}
           </div>
 
-          <DrawerFooter className="p-4 border-t border-white/[0.04] flex flex-row items-center gap-2">
+          <DrawerFooter className="p-4 border-t border-border/50 flex flex-row items-center gap-2">
             <DrawerClose asChild>
-              <Button variant="outline" className="flex-1 rounded-xl h-11 border-white/[0.06]">
+              <Button variant="outline" className="flex-1 rounded-xl h-11 border-border">
                 Fechar
               </Button>
             </DrawerClose>
@@ -311,10 +311,10 @@ export function ExercisePreviewModal({ exercise, open, onOpenChange }: ExerciseP
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-2xl bg-zinc-950 border border-white/[0.08] text-foreground rounded-2xl! overflow-y-auto! shadow-2xl overflow-hidden p-0">
+      <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-2xl bg-card border border-border text-foreground rounded-2xl! overflow-y-auto! shadow-2xl overflow-hidden p-0">
         <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-primary/20 to-transparent" />
 
-        <DialogHeader className="p-4 md:p-5 flex flex-row items-center justify-between border-b border-white/[0.04] space-y-0 pb-3">
+        <DialogHeader className="p-4 md:p-5 flex flex-row items-center justify-between border-b border-border/50 space-y-0 pb-3">
           <div>
             <div className="flex items-center gap-2 mb-1">
               <Badge className="bg-primary/10 text-primary border border-primary/20 rounded-md px-1.5 py-0.5 text-[10px] font-bold">
@@ -322,20 +322,20 @@ export function ExercisePreviewModal({ exercise, open, onOpenChange }: ExerciseP
               </Badge>
               {exercise.muscleGroups && exercise.muscleGroups.length > 0 ? (
                 exercise.muscleGroups.map((g: any) => (
-                  <Badge key={g.name} variant="outline" className="border-white/[0.06] text-zinc-400 text-[10px] px-1.5 py-0.5 rounded-md">
+                  <Badge key={g.name} variant="outline" className="border-border text-muted-foreground text-[10px] px-1.5 py-0.5 rounded-md">
                     {g.name}
                   </Badge>
                 ))
               ) : exercise.muscleGroup?.name ? (
-                <Badge variant="outline" className="border-white/[0.06] text-zinc-400 text-[10px] px-1.5 py-0.5 rounded-md">
+                <Badge variant="outline" className="border-border text-muted-foreground text-[10px] px-1.5 py-0.5 rounded-md">
                   {exercise.muscleGroup.name}
                 </Badge>
               ) : null}
             </div>
-            <DialogTitle className="text-base md:text-lg font-extrabold text-white flex items-center gap-2">
+            <DialogTitle className="text-base md:text-lg font-extrabold text-foreground flex items-center gap-2">
               <Dumbbell className="size-4.5 text-primary shrink-0" /> {exercise.name}
             </DialogTitle>
-            <DialogDescription className="text-zinc-500 text-[10px] md:text-xs">
+            <DialogDescription className="text-muted-foreground text-[10px] md:text-xs">
               Demonstração técnica e execução correta do exercício.
             </DialogDescription>
           </div>

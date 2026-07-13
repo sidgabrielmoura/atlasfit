@@ -807,7 +807,7 @@ export default function NewWorkoutPage() {
                                       type="button"
                                       disabled={isAdded}
                                       onClick={() => handleToggleTempSelected(exercise)}
-                                      className="shrink-0 flex items-center justify-center size-5 rounded-md border border-neutral-700 bg-neutral-950 disabled:cursor-not-allowed"
+                                      className="shrink-0 flex items-center justify-center size-5 rounded-md border border-border bg-card disabled:cursor-not-allowed"
                                     >
                                       {(isAdded || isChecked) && (
                                         <Check className={cn("size-3.5", isAdded ? "text-muted-foreground" : "text-primary")} />
@@ -1052,7 +1052,7 @@ export default function NewWorkoutPage() {
                                     <TooltipTrigger asChild>
                                       <Info className="size-3 text-muted-foreground hover:text-foreground cursor-pointer shrink-0" />
                                     </TooltipTrigger>
-                                    <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800 text-white p-2.5 rounded-xl shadow-xl">
+                                    <TooltipContent className="max-w-xs bg-card border border-border text-foreground p-2.5 rounded-xl shadow-xl">
                                       Se não for atribuída uma carga, o próprio aluno que vai colocar quando estiver treinando.
                                     </TooltipContent>
                                   </Tooltip>
@@ -1151,7 +1151,7 @@ export default function NewWorkoutPage() {
                                   <TooltipTrigger asChild>
                                     <Info className="size-3 text-muted-foreground hover:text-foreground cursor-pointer shrink-0" />
                                   </TooltipTrigger>
-                                  <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800 text-white p-2.5 rounded-xl shadow-xl">
+                                  <TooltipContent className="max-w-xs bg-card border border-border text-foreground p-2.5 rounded-xl shadow-xl">
                                     Se não for atribuída uma carga, o próprio aluno que vai colocar quando estiver treinando.
                                   </TooltipContent>
                                 </Tooltip>

@@ -55,6 +55,7 @@ const superAdminNavItems = [
   { title: "Usuários", href: "/superadmin/users", icon: Users },
   { title: "Workspaces", href: "/superadmin/workspaces", icon: Building2 },
   { title: "Financeiro", href: "/superadmin/finance", icon: DollarSign },
+  { title: "Solicitações de Saque", href: "/superadmin/finance/payouts", icon: BadgeCheck },
 ];
 
 const platformNavItems = [

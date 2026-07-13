@@ -622,57 +622,57 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
     return (
       <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 max-w-4xl mx-auto">
         <div className="flex items-center gap-4">
-          <Skeleton className="h-9 w-9 bg-neutral-900 rounded-lg animate-pulse" />
+          <Skeleton className="h-9 w-9 bg-muted rounded-lg animate-pulse" />
           <div className="space-y-1.5">
-            <Skeleton className="h-7 w-48 bg-neutral-900 rounded-lg animate-pulse" />
-            <Skeleton className="h-4 w-64 bg-neutral-900 rounded animate-pulse" />
+            <Skeleton className="h-7 w-48 bg-muted rounded-lg animate-pulse" />
+            <Skeleton className="h-4 w-64 bg-muted rounded animate-pulse" />
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <div className="md:col-span-1 space-y-6">
-            <Card className="border border-neutral-800 bg-neutral-950/40">
+            <Card className="border border-border bg-card/45">
               <CardContent className="p-5 space-y-4">
                 <div className="space-y-2">
-                  <Skeleton className="h-4 w-20 bg-neutral-900 rounded animate-pulse" />
-                  <Skeleton className="h-10 w-full bg-neutral-900 rounded-xl animate-pulse" />
+                  <Skeleton className="h-4 w-20 bg-muted rounded animate-pulse" />
+                  <Skeleton className="h-10 w-full bg-muted rounded-xl animate-pulse" />
                 </div>
                 <div className="space-y-2">
-                  <Skeleton className="h-4 w-20 bg-neutral-900 rounded animate-pulse" />
-                  <Skeleton className="h-10 w-full bg-neutral-900 rounded-xl animate-pulse" />
+                  <Skeleton className="h-4 w-20 bg-muted rounded animate-pulse" />
+                  <Skeleton className="h-10 w-full bg-muted rounded-xl animate-pulse" />
                 </div>
                 <div className="space-y-2">
-                  <Skeleton className="h-4 w-24 bg-neutral-900 rounded animate-pulse" />
-                  <Skeleton className="h-10 w-full bg-neutral-900 rounded-xl animate-pulse" />
+                  <Skeleton className="h-4 w-24 bg-muted rounded animate-pulse" />
+                  <Skeleton className="h-10 w-full bg-muted rounded-xl animate-pulse" />
                 </div>
                 <div className="space-y-2">
-                  <Skeleton className="h-4 w-20 bg-neutral-900 rounded animate-pulse" />
-                  <Skeleton className="h-10 w-full bg-neutral-900 rounded-xl animate-pulse" />
+                  <Skeleton className="h-4 w-20 bg-muted rounded animate-pulse" />
+                  <Skeleton className="h-10 w-full bg-muted rounded-xl animate-pulse" />
                 </div>
               </CardContent>
             </Card>
           </div>
 
           <div className="md:col-span-2 space-y-6">
-            <Card className="border border-neutral-800 bg-neutral-950/40">
+            <Card className="border border-border bg-card/45">
               <CardHeader className="flex flex-row items-center justify-between">
                 <div className="space-y-1.5">
-                  <Skeleton className="h-6 w-36 bg-neutral-900 rounded-lg animate-pulse" />
-                  <Skeleton className="h-3.5 w-48 bg-neutral-900 rounded animate-pulse" />
+                  <Skeleton className="h-6 w-36 bg-muted rounded-lg animate-pulse" />
+                  <Skeleton className="h-3.5 w-48 bg-muted rounded animate-pulse" />
                 </div>
-                <Skeleton className="h-9 w-32 bg-neutral-900 rounded-lg animate-pulse" />
+                <Skeleton className="h-9 w-32 bg-muted rounded-lg animate-pulse" />
               </CardHeader>
               <CardContent className="space-y-3">
                 {[1, 2].map((n) => (
-                  <div key={n} className="p-4 rounded-xl border border-neutral-900 bg-neutral-900/10 flex items-center justify-between gap-4">
+                  <div key={n} className="p-4 rounded-xl border border-border bg-muted/10 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3">
-                      <Skeleton className="size-8 bg-neutral-900 rounded animate-pulse" />
+                      <Skeleton className="size-8 bg-muted rounded animate-pulse" />
                       <div className="space-y-2">
-                        <Skeleton className="h-5 w-32 bg-neutral-900 rounded animate-pulse" />
-                        <Skeleton className="h-3.5 w-20 bg-neutral-900 rounded animate-pulse" />
+                        <Skeleton className="h-5 w-32 bg-muted rounded animate-pulse" />
+                        <Skeleton className="h-3.5 w-20 bg-muted rounded animate-pulse" />
                       </div>
                     </div>
-                    <Skeleton className="h-8 w-24 bg-neutral-900 rounded animate-pulse" />
+                    <Skeleton className="h-8 w-24 bg-muted rounded animate-pulse" />
                   </div>
                 ))}
               </CardContent>
@@ -951,7 +951,7 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
                                       type="button"
                                       disabled={isAdded}
                                       onClick={() => handleToggleTempSelected(exercise)}
-                                      className="shrink-0 flex items-center justify-center size-5 rounded-md border border-neutral-700 bg-neutral-950 disabled:cursor-not-allowed"
+                                      className="shrink-0 flex items-center justify-center size-5 rounded-md border border-border bg-card disabled:cursor-not-allowed"
                                     >
                                       {(isAdded || isChecked) && (
                                         <Check className={cn("size-3.5", isAdded ? "text-muted-foreground" : "text-primary")} />
@@ -1196,7 +1196,7 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
                                     <TooltipTrigger asChild>
                                       <Info className="size-3 text-muted-foreground hover:text-foreground cursor-pointer shrink-0" />
                                     </TooltipTrigger>
-                                    <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800 text-white p-2.5 rounded-xl shadow-xl">
+                                    <TooltipContent className="max-w-xs bg-card border border-border text-foreground p-2.5 rounded-xl shadow-xl">
                                       Se não for atribuída uma carga, o próprio aluno que vai colocar quando estiver treinando.
                                     </TooltipContent>
                                   </Tooltip>
@@ -1295,7 +1295,7 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
                                   <TooltipTrigger asChild>
                                     <Info className="size-3 text-muted-foreground hover:text-foreground cursor-pointer shrink-0" />
                                   </TooltipTrigger>
-                                  <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800 text-white p-2.5 rounded-xl shadow-xl">
+                                  <TooltipContent className="max-w-xs bg-card border border-border text-foreground p-2.5 rounded-xl shadow-xl">
                                     Se não for atribuída uma carga, o próprio aluno que vai colocar quando estiver treinando.
                                   </TooltipContent>
                                 </Tooltip>

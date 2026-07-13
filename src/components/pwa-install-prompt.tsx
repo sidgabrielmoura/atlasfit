@@ -89,11 +89,11 @@ export function PWAInstallPrompt() {
 
         {/* Icon & Brand */}
         <div className="flex items-center gap-3">
-          <div className="size-11 rounded-xl bg-orange-500/10 flex items-center justify-center shrink-0 border border-orange-500/20">
-            <Download className="size-5 text-orange-500" />
+          <div className="size-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
+            <Download className="size-5 text-primary" />
           </div>
           <div>
-            <span className="text-[9px] text-orange-500 font-bold uppercase tracking-wider">Web App</span>
+            <span className="text-[9px] text-primary font-bold uppercase tracking-wider">Web App</span>
             <h4 className="text-sm font-bold text-white tracking-tight leading-tight">AtlasFit App</h4>
           </div>
         </div>

@@ -93,7 +93,8 @@ const ACTIVE_CATEGORIES: Array<keyof PreferencesSettings> = [
   "TRAINING",
   "ASSESSMENT",
   "CRM",
-  "FINANCE"
+  "FINANCE",
+  "MESSAGE"
 ];
 
 
@@ -478,7 +479,7 @@ export function NotificationBell() {
       </Popover>
 
       <Dialog open={isPrefsOpen} onOpenChange={setIsPrefsOpen}>
-        <DialogContent className="sm:max-w-lg p-0 overflow-hidden border-border/50 bg-card/95 rounded-2xl! gap-0">
+        <DialogContent className="sm:max-w-lg p-0 overflow-hidden border-border/50 bg-card/95 rounded-2xl! overflow-y-auto! gap-0">
           <div className="px-6 pt-6 pb-4">
             <DialogTitle className="text-xl font-bold tracking-tight">Preferências de Notificação</DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground mt-1">

@@ -28,6 +28,7 @@ import {
   Target,
   ClipboardCheck,
   Megaphone,
+  Gift,
 } from "lucide-react";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 import {
@@ -74,11 +75,13 @@ const mainNavItems = [
   { title: "Dashboard", href: "/personal/dashboard", icon: LayoutDashboard },
   { title: "Alunos", href: "/personal/clients", icon: Users },
   { title: "CRM", href: "/personal/crm", icon: Target },
+  { title: "Chat", href: "/personal/chat", icon: MessageSquare },
   { title: "Atlas Engage", href: "/personal/engage", icon: Megaphone },
   { title: "Treinos e Exercícios", href: "/personal/workouts", icon: Dumbbell },
   { title: "Avaliações", href: "/personal/assessments", icon: ClipboardCheck },
   { title: "Financeiro", href: "/personal/finance", icon: DollarSign },
   { title: "Arquivos", href: "/personal/files", icon: FolderOpen },
+  { title: "Indique e Ganhe", href: "/personal/rewards", icon: Gift, isHighlight: true },
   { title: "Link de Captação", href: "#capture", icon: QrCode, isModal: true },
 ];
 
@@ -167,7 +170,7 @@ export function PersonalSidebar() {
                           </SidebarMenuButton>
                         </DialogTrigger>
                       </SidebarMenuItem>
-                      <DialogContent className="sm:max-w-md p-0 overflow-hidden border-border/50 bg-card/95 backdrop-blur-xl shadow-2xl rounded-2xl gap-0">
+                      <DialogContent className="sm:max-w-md p-0 overflow-hidden border-border/50 bg-card/95 backdrop-blur-xl shadow-2xl rounded-2xl! gap-0">
                         <div className="px-6 pt-8 pb-4 text-center">
                           <DialogTitle className="text-2xl font-bold tracking-tight mb-2">Captação de Alunos</DialogTitle>
                           <DialogDescription className="text-[15px]">
@@ -226,13 +229,26 @@ export function PersonalSidebar() {
                       isActive={isActive}
                       tooltip={item.title}
                       className={cn(
-                        isActive && "bg-primary/10! text-primary hover:bg-primary/10!",
+                        isActive && !item.isHighlight && "bg-primary/10! text-primary hover:bg-primary/10!",
+                        item.isHighlight && !isActive && "bg-linear-to-br from-blue-600/90 to-indigo-650/90 hover:from-blue-600 hover:to-indigo-650 text-white! font-bold shadow-[0_8px_32px_0_rgba(48,82,235,0.2)] backdrop-blur-md relative overflow-hidden group",
+                        item.isHighlight && isActive && "bg-linear-to-br from-blue-500! to-indigo-600! text-white! font-black border border-white/20 shadow-[0_8px_32px_0_rgba(48,82,235,0.4)] backdrop-blur-md relative overflow-hidden group",
                         "transition-all"
                       )}
                     >
                       <Link href={item.href}>
-                        <item.icon className={cn("size-4", isActive && "text-primary")} />
-                        <span>{item.title}</span>
+                        {item.isHighlight && <div className="animate-apple-sweep" />}
+                        <item.icon className={cn(
+                          "size-4 z-10",
+                          isActive && !item.isHighlight && "text-primary",
+                          item.isHighlight && "text-white font-bold"
+                        )} />
+                        <span className={cn(item.isHighlight && "text-white font-bold z-10")}>{item.title}</span>
+                        {item.isHighlight && (
+                          <span className="relative flex h-1.5 w-1.5 ml-auto z-10">
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-300 opacity-75"></span>
+                            <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
+                          </span>
+                        )}
                       </Link>
                     </SidebarMenuButton>
                   </SidebarMenuItem>

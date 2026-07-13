@@ -23,7 +23,7 @@ import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
 import { PwaFcmInit } from "@/components/pwa-fcm-init";
 
 export const viewport = {
-  themeColor: "#ea580c",
+  themeColor: "#3052EB",
   width: "device-width",
   initialScale: 1,
 };

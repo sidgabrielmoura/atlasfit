@@ -1,5 +1,6 @@
 import { AuthLayout } from "@/components/auth/auth-layout";
 import { RegisterForm } from "./register-form";
+import { Suspense } from "react";
 
 export default function TrainerRegisterPage() {
   return (
@@ -7,7 +8,10 @@ export default function TrainerRegisterPage() {
       backgroundImage="/auth-bgs/trainer.png" 
       role="personal"
     >
-      <RegisterForm />
+      <Suspense fallback={<div className="text-center text-sm py-4">Carregando...</div>}>
+        <RegisterForm />
+      </Suspense>
     </AuthLayout>
   );
 }
+

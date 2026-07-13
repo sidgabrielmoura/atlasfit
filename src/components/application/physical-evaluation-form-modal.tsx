@@ -625,7 +625,7 @@ export function PhysicalEvaluationFormModal({
       <DialogContent className="w-full gap-0 max-w-[calc(100%-1.5rem)] md:max-w-4xl bg-card dark:bg-neutral-950 border border-border dark:border-neutral-900 text-foreground h-[92vh] md:h-[85vh] max-h-200 rounded-2xl! shadow-2xl p-0 flex flex-col overflow-hidden">
         <DialogHeader className="p-6 border-b border-border dark:border-neutral-900 shrink-0">
           <DialogTitle className="text-lg font-black flex items-center gap-2">
-            <ClipboardCheck className="size-5 text-orange-500" />
+            <ClipboardCheck className="size-5 text-primary" />
             Avaliação Física de Alta Precisão
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
@@ -647,7 +647,7 @@ export function PhysicalEvaluationFormModal({
                     type="button"
                     onClick={() => setActiveTab(t.id)}
                     className={`flex items-center gap-2 px-3 py-2 text-xs font-semibold rounded-xl transition-all text-left whitespace-nowrap md:w-full ${activeTab === t.id
-                      ? "bg-orange-500/10 text-orange-500 dark:bg-orange-500/20"
+                      ? "bg-primary/10 text-primary dark:bg-primary/20"
                       : "text-muted-foreground hover:bg-muted dark:hover:bg-neutral-900"
                       }`}
                   >
@@ -665,7 +665,7 @@ export function PhysicalEvaluationFormModal({
                 <TabsContent value="anamnese" className="space-y-4 outline-none mt-0">
                   <div className="border-b border-border/50 dark:border-neutral-900 pb-2">
                     <h3 className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
-                      <ClipboardCheck className="size-4 text-orange-500" /> 1. Questionário de Anamnese (Obrigatório)
+                      <ClipboardCheck className="size-4 text-primary" /> 1. Questionário de Anamnese (Obrigatório)
                     </h3>
                   </div>
 
@@ -818,7 +818,7 @@ export function PhysicalEvaluationFormModal({
                 <TabsContent value="antropometria" className="space-y-4 outline-none mt-0">
                   <div className="border-b border-border/50 dark:border-neutral-900 pb-2">
                     <h3 className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
-                      <Ruler className="size-4 text-orange-500" /> 2. Antropometria Básica & Circunferências Corporais
+                      <Ruler className="size-4 text-primary" /> 2. Antropometria Básica & Circunferências Corporais
                     </h3>
                   </div>
 
@@ -1028,9 +1028,9 @@ export function PhysicalEvaluationFormModal({
                 <TabsContent value="dobras" className="space-y-4 outline-none mt-0">
                   <div className="border-b border-border/50 dark:border-neutral-900 pb-2 flex flex-col items-start">
                     <h3 className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
-                      <Flame className="size-4 text-orange-500" /> 3. Dobras Cutâneas (Protocolo Pollock 3 Dobras)
+                      <Flame className="size-4 text-primary" /> 3. Dobras Cutâneas (Protocolo Pollock 3 Dobras)
                     </h3>
-                    <Badge variant="outline" className="bg-orange-500/10 mt-1 text-orange-500 border border-orange-500/20 text-[10px] font-bold py-0.5 px-2">
+                    <Badge variant="outline" className="bg-primary/10 mt-1 text-primary border border-primary/20 text-[10px] font-bold py-0.5 px-2">
                       Fórmula Ativa: {anamneseGender === "male" ? "Jackson-Pollock Masculino" : "Jackson-Pollock Feminino"}
                     </Badge>
                   </div>
@@ -1159,7 +1159,7 @@ export function PhysicalEvaluationFormModal({
                 <TabsContent value="postural" className="space-y-4 outline-none mt-0">
                   <div className="border-b border-border/50 dark:border-neutral-900 pb-2">
                     <h3 className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
-                      <Activity className="size-4 text-orange-500" /> 4. Avaliação Postural & Relatório Visual
+                      <Activity className="size-4 text-primary" /> 4. Avaliação Postural & Relatório Visual
                     </h3>
                   </div>
 
@@ -1395,7 +1395,7 @@ export function PhysicalEvaluationFormModal({
                 <TabsContent value="dor" className="space-y-4 outline-none mt-0">
                   <div className="border-b border-border/50 dark:border-neutral-900 pb-2">
                     <h3 className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
-                      <Heart className="size-4 text-orange-500" /> 5. Avaliação de Dor & Mobilidade
+                      <Heart className="size-4 text-primary" /> 5. Avaliação de Dor & Mobilidade
                     </h3>
                   </div>
 
@@ -1525,7 +1525,7 @@ export function PhysicalEvaluationFormModal({
                 <TabsContent value="testes" className="space-y-4 outline-none mt-0">
                   <div className="border-b border-border/50 dark:border-neutral-900 pb-2">
                     <h3 className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
-                      <FileText className="size-4 text-orange-500" /> 6. Testes Físicos (Flexibilidade, Cardio e Força)
+                      <FileText className="size-4 text-primary" /> 6. Testes Físicos (Flexibilidade, Cardio e Força)
                     </h3>
                   </div>
 
@@ -1533,7 +1533,7 @@ export function PhysicalEvaluationFormModal({
                     {/* Flexibilidade */}
                     <div className="bg-muted/30 dark:bg-neutral-900/30 border border-border dark:border-neutral-900 p-4 rounded-2xl space-y-3">
                       <h4 className="text-xs font-extrabold text-foreground uppercase tracking-wider flex items-center gap-1.5">
-                        <Activity className="size-4 text-orange-500" /> Flexibilidade
+                        <Activity className="size-4 text-primary" /> Flexibilidade
                       </h4>
                       <div className="space-y-2">
                         <div className="space-y-1.5">
@@ -1724,7 +1724,7 @@ export function PhysicalEvaluationFormModal({
                 <Button
                   type="submit"
                   disabled={submitting}
-                  className="h-9 font-bold bg-orange-600 hover:bg-orange-500 text-white text-xs rounded-xl active:scale-95 transition-all shadow-md shrink-0"
+                  className="h-9 font-bold bg-primary hover:bg-primary/95 text-white text-xs rounded-xl active:scale-95 transition-all shadow-md shrink-0"
                 >
                   {submitting ? (
                     <>

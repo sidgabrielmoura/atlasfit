@@ -6,6 +6,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider } from "./providers/auth-provider";
 import { Toaster } from "@/components/ui/sonner";
 import { DynamicBranding } from "@/components/application/dynamic-branding";
+import { AblyProvider } from "@/providers/ably-provider";
 import dynamic from "next/dynamic";
 
 const EngageRenderer = dynamic(
@@ -33,10 +34,12 @@ export function Providers({ children }: { children: React.ReactNode }) {
         enableColorScheme={false}
       >
         <TooltipProvider delayDuration={0}>
-          <DynamicBranding />
-          {children}
-          <EngageRenderer />
-          <Toaster position="top-right" richColors />
+          <AblyProvider>
+            <DynamicBranding />
+            {children}
+            <EngageRenderer />
+            <Toaster position="top-right" richColors />
+          </AblyProvider>
         </TooltipProvider>
       </NextThemesProvider>
     </AuthProvider>

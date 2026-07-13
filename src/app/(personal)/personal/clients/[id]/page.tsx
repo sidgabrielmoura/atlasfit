@@ -1880,7 +1880,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                 <div className="absolute inset-0 bg-linear-to-tr from-emerald-500 to-blue-500 rounded-full blur-sm opacity-15 group-hover:opacity-25 transition-opacity duration-500" />
                 <Avatar className="size-20 border border-border dark:border-border/80 dark:border-white/8 shadow-2xl relative z-10 bg-muted dark:bg-zinc-900">
                   <AvatarImage src={student?.image} />
-                  <AvatarFallback className="bg-linear-to-tr from-muted to-muted/80 text-foreground dark:from-zinc-900 dark:to-zinc-950 dark:text-white font-medium text-2xl tracking-wide flex items-center justify-center">
+                  <AvatarFallback className="bg-linear-to-tr from-muted to-muted/80 text-foreground dark:from-zinc-900 dark:to-zinc-950 dark: font-medium text-2xl tracking-wide flex items-center justify-center">
                     {student?.avatarFallback}
                   </AvatarFallback>
                 </Avatar>
@@ -2001,7 +2001,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               <p className="text-sm text-muted-foreground">Distribua os treinos do aluno ao longo da semana para acompanhamento fácil.</p>
             </div>
             <Button
-              className="gap-2 max-sm:w-full font-bold px-4 shadow-md bg-blue-600 hover:bg-blue-500 text-white border-none shrink-0 cursor-pointer"
+              className="gap-2 max-sm:w-full font-bold px-4 shadow-md bg-blue-600 hover:bg-blue-500  border-none shrink-0 cursor-pointer"
               onClick={() => {
                 loadMuscleGroups();
                 setAssignDayOfWeek(String(selectedPlanningDay));
@@ -2682,8 +2682,8 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                             className={cn(
                               "absolute bottom-2 right-2 p-1.5 rounded-full border shadow-md active:scale-90 transition-all backdrop-blur-sm",
                               p.trainerLiked
-                                ? "bg-red-500 border-red-400 text-white"
-                                : "bg-card dark:bg-neutral-950/70 border-border dark:border-neutral-800 text-muted-foreground hover:text-white"
+                                ? "bg-red-500 border-red-400 "
+                                : "bg-card dark:bg-neutral-950/70 border-border dark:border-neutral-800 text-muted-foreground hover:"
                             )}
                             title={p.trainerLiked ? "Remover curtida" : "Curtir evolução"}
                           >
@@ -3162,7 +3162,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               <div className="space-y-6">
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border/30 pb-4">
                   <div>
-                    <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+                    <h2 className="text-xl font-bold tracking-tight  flex items-center gap-2">
                       <ClipboardCheck className="size-5 text-yellow-600 dark:text-yellow-500" />
                       Avaliações Físicas e Anamneses
                     </h2>
@@ -3375,7 +3375,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                         <Button
                                           variant="outline"
                                           size="sm"
-                                          className="h-8 font-semibold border-border/60 dark:border-white/[0.08] hover:bg-muted dark:bg-zinc-900 text-xs text-muted-foreground hover:text-white rounded-lg px-2.5 active:scale-95 transition-all"
+                                          className="h-8 font-semibold border-border/60 dark:border-white/[0.08] hover:bg-muted dark:bg-zinc-900 text-xs text-muted-foreground hover: rounded-lg px-2.5 active:scale-95 transition-all"
                                           onClick={() => {
                                             setSelectedEval(ev);
                                             setIsEvalDetailModalOpen(true);
@@ -3444,7 +3444,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                 <div className="grid grid-cols-3 gap-2.5 text-xs">
                                   <div className="bg-muted/40 dark:bg-muted dark:bg-zinc-900/40 p-2 rounded-xl border border-border/50 dark:border-white/[0.04]">
                                     <span className="text-[9px] text-muted-foreground block uppercase font-bold tracking-wider mb-0.5">Peso</span>
-                                    <span className="font-extrabold text-white">{ev.weight} kg</span>
+                                    <span className="font-extrabold ">{ev.weight} kg</span>
                                   </div>
                                   <div className="bg-muted/40 dark:bg-muted dark:bg-zinc-900/40 p-2 rounded-xl border border-border/50 dark:border-white/[0.04]">
                                     <span className="text-[9px] text-muted-foreground block uppercase font-bold tracking-wider mb-0.5">Gordura (BF)</span>
@@ -3481,7 +3481,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
         <TabsContent value="financeiro" className="space-y-6 outline-none focus-visible:ring-0">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/50 dark:border-white/[0.06] pb-4">
             <div>
-              <h2 className="text-xl font-bold tracking-tight text-white flex items-center gap-2">
+              <h2 className="text-xl font-bold tracking-tight  flex items-center gap-2">
                 <DollarSign className="size-5 text-emerald-500" />
                 Histórico Financeiro
               </h2>
@@ -3607,7 +3607,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                     <RefreshCw className="size-5" />
                   </div>
                   <div>
-                    <h3 className="text-base font-bold text-white">Controle de Recorrência Financeira</h3>
+                    <h3 className="text-base font-bold">Controle de Recorrência Financeira</h3>
                     <p className="text-xs text-muted-foreground mt-0.5">Automatize e programe a geração de faturas para este aluno.</p>
                   </div>
                 </div>
@@ -3617,7 +3617,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                     <div className="space-y-1.5">
                       <Label htmlFor="recControlType" className="text-xs font-bold text-muted-foreground">Tipo de Controle</Label>
                       <Select value={recControlType} onValueChange={(val) => setRecControlType(val)}>
-                        <SelectTrigger id="recControlType" className="bg-muted/50 w-full dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl text-white">
+                        <SelectTrigger id="recControlType" className="bg-muted/50 w-full dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl">
                           <SelectValue placeholder="Selecione o tipo" />
                         </SelectTrigger>
                         <SelectContent className="bg-muted dark:bg-zinc-900 border-border/60 dark:border-white/[0.08]">
@@ -3637,7 +3637,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                             type="number"
                             step="0.01"
                             placeholder="0.00"
-                            className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl text-white focus-visible:ring-0 focus-visible:ring-offset-0"
+                            className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl focus-visible:ring-0 focus-visible:ring-offset-0"
                             value={recPrice}
                             onChange={(e) => setRecPrice(e.target.value)}
                             required
@@ -3647,7 +3647,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                         <div className="space-y-1.5">
                           <Label htmlFor="recPaymentMethod" className="text-xs font-bold text-muted-foreground">Método de Pagamento</Label>
                           <Select value={recPaymentMethod} onValueChange={(val) => setRecPaymentMethod(val)}>
-                            <SelectTrigger id="recPaymentMethod" className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl text-white">
+                            <SelectTrigger id="recPaymentMethod" className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl">
                               <SelectValue placeholder="Método" />
                             </SelectTrigger>
                             <SelectContent className="bg-muted dark:bg-zinc-900 border-border/60 dark:border-white/[0.08]">
@@ -3671,7 +3671,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                         <div className="space-y-1.5">
                           <Label htmlFor="recPeriodicity" className="text-xs font-bold text-muted-foreground">Periodicidade</Label>
                           <Select value={recPeriodicity} onValueChange={(val) => setRecPeriodicity(val)}>
-                            <SelectTrigger id="recPeriodicity" className="bg-muted/50 w-full dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl text-white">
+                            <SelectTrigger id="recPeriodicity" className="bg-muted/50 w-full dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl">
                               <SelectValue placeholder="Periodicidade" />
                             </SelectTrigger>
                             <SelectContent className="bg-muted dark:bg-zinc-900 border-border/60 dark:border-white/[0.08]">
@@ -3692,7 +3692,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                 id="recCustomCount"
                                 type="number"
                                 min="1"
-                                className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl text-white"
+                                className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl "
                                 value={recCustomCount}
                                 onChange={(e) => setRecCustomCount(e.target.value)}
                               />
@@ -3700,7 +3700,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                             <div className="space-y-1.5">
                               <Label htmlFor="recCustomUnit" className="text-xs font-bold text-muted-foreground">Unidade</Label>
                               <Select value={recCustomUnit} onValueChange={(val) => setRecCustomUnit(val)}>
-                                <SelectTrigger id="recCustomUnit" className="bg-muted/50 w-full dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-12 text-xs rounded-xl text-white">
+                                <SelectTrigger id="recCustomUnit" className="bg-muted/50 w-full dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-12 text-xs rounded-xl ">
                                   <SelectValue />
                                 </SelectTrigger>
                                 <SelectContent className="bg-muted dark:bg-zinc-900 border-border/60 dark:border-white/[0.08]">
@@ -3722,7 +3722,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                               type="number"
                               min="1"
                               max="31"
-                              className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl text-white"
+                              className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl "
                               value={recDueDay}
                               onChange={(e) => setRecDueDay(e.target.value)}
                             />
@@ -3736,7 +3736,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                           <Input
                             id="recFirstDueDate"
                             type="date"
-                            className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl text-white"
+                            className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl "
                             value={recFirstDueDate}
                             onChange={(e) => setRecFirstDueDate(e.target.value)}
                             required
@@ -3748,7 +3748,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                           <Input
                             id="recStartDate"
                             type="date"
-                            className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl text-white"
+                            className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl "
                             value={recStartDate}
                             onChange={(e) => setRecStartDate(e.target.value)}
                             required
@@ -3760,7 +3760,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                           <Input
                             id="recDescription"
                             placeholder="Ex: Mensalidade de Assessoria"
-                            className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl text-white"
+                            className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl "
                             value={recDescription}
                             onChange={(e) => setRecDescription(e.target.value)}
                           />
@@ -3769,7 +3769,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
                       <div className="flex items-center justify-between p-4 bg-muted/20 dark:bg-zinc-950/20 border border-border/50 dark:border-white/[0.04] rounded-xl">
                         <div className="space-y-0.5">
-                          <span className="block text-xs font-bold text-white">Recorrência Ativa</span>
+                          <span className="block text-xs font-bold ">Recorrência Ativa</span>
                           <span className="block text-[10px] text-muted-foreground">Se desmarcado, novas faturas recorrentes não serão geradas.</span>
                         </div>
                         <input
@@ -3860,7 +3860,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                               <td className="py-4 px-6 text-right">
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" className="size-8 p-0 rounded-lg hover:bg-muted dark:hover:bg-white/5 text-muted-foreground hover:text-white transition-colors">
+                                    <Button variant="ghost" className="size-8 p-0 rounded-lg hover:bg-muted dark:hover:bg-white/5 text-muted-foreground hover: transition-colors">
                                       <MoreVertical className="size-4" />
                                     </Button>
                                   </DropdownMenuTrigger>
@@ -3870,14 +3870,14 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                         <DropdownMenuItem onClick={() => {
                                           setPaymentToReopen(payment);
                                           setIsReopenPaymentAlertOpen(true);
-                                        }} className="gap-2 cursor-pointer focus:bg-muted dark:focus:bg-white/5 focus:text-white rounded-lg py-2">
+                                        }} className="gap-2 cursor-pointer focus:bg-muted dark:focus:bg-white/5 focus: rounded-lg py-2">
                                           <RefreshCw className="size-3.5 text-amber-500" />
                                           Reabrir Cobrança
                                         </DropdownMenuItem>
                                         <DropdownMenuSeparator className="bg-white/[0.06]" />
                                       </>
                                     )}
-                                    <DropdownMenuItem onClick={() => handleTriggerEditPayment(payment)} className="gap-2 cursor-pointer focus:bg-muted dark:focus:bg-white/5 focus:text-white rounded-lg py-2">
+                                    <DropdownMenuItem onClick={() => handleTriggerEditPayment(payment)} className="gap-2 cursor-pointer focus:bg-muted dark:focus:bg-white/5 focus: rounded-lg py-2">
                                       <Edit2 className="size-3.5 text-blue-400" />
                                       Editar Lançamento
                                     </DropdownMenuItem>
@@ -3909,7 +3909,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                           {/* Compact Action Menu */}
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="size-8 p-0 rounded-lg hover:bg-muted dark:hover:bg-white/5 text-muted-foreground hover:text-white transition-colors shrink-0">
+                              <Button variant="ghost" className="size-8 p-0 rounded-lg hover:bg-muted dark:hover:bg-white/5 text-muted-foreground hover: transition-colors shrink-0">
                                 <MoreVertical className="size-4" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -3919,14 +3919,14 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                   <DropdownMenuItem onClick={() => {
                                     setPaymentToReopen(payment);
                                     setIsReopenPaymentAlertOpen(true);
-                                  }} className="gap-2 cursor-pointer focus:bg-muted dark:focus:bg-white/5 focus:text-white rounded-lg py-2 text-xs">
+                                  }} className="gap-2 cursor-pointer focus:bg-muted dark:focus:bg-white/5 focus: rounded-lg py-2 text-xs">
                                     <RefreshCw className="size-3.5 text-amber-500" />
                                     Reabrir Cobrança
                                   </DropdownMenuItem>
                                   <DropdownMenuSeparator className="bg-white/[0.06]" />
                                 </>
                               )}
-                              <DropdownMenuItem onClick={() => handleTriggerEditPayment(payment)} className="gap-2 cursor-pointer focus:bg-muted dark:focus:bg-white/5 focus:text-white rounded-lg py-2 text-xs">
+                              <DropdownMenuItem onClick={() => handleTriggerEditPayment(payment)} className="gap-2 cursor-pointer focus:bg-muted dark:focus:bg-white/5 focus: rounded-lg py-2 text-xs">
                                 <Edit2 className="size-3.5 text-blue-400" />
                                 Editar Lançamento
                               </DropdownMenuItem>
@@ -4965,7 +4965,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                   <Activity className="size-4 text-primary group-hover/thumb:scale-110 transition-transform" />
                                   {ex.videoUrl && (
                                     <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity rounded-lg">
-                                      <Play className="size-3 fill-white text-white" />
+                                      <Play className="size-3 fill-white " />
                                     </div>
                                   )}
                                 </button>
@@ -5076,7 +5076,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                           <TooltipTrigger asChild>
                                             <Info className="size-3 text-muted-foreground hover:text-foreground cursor-pointer shrink-0" />
                                           </TooltipTrigger>
-                                          <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800 text-white p-2.5 rounded-xl shadow-xl">
+                                          <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800  p-2.5 rounded-xl shadow-xl">
                                             Se não for atribuída uma carga, o próprio aluno que vai colocar quando estiver treinando.
                                           </TooltipContent>
                                         </Tooltip>
@@ -5175,7 +5175,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                         <TooltipTrigger asChild>
                                           <Info className="size-3 text-muted-foreground hover:text-foreground cursor-pointer shrink-0" />
                                         </TooltipTrigger>
-                                        <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800 text-white p-2.5 rounded-xl shadow-xl">
+                                        <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800  p-2.5 rounded-xl shadow-xl">
                                           Se não for atribuída uma carga, o próprio aluno que vai colocar quando estiver treinando.
                                         </TooltipContent>
                                       </Tooltip>
@@ -5453,7 +5453,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                               <Activity className="size-4 text-primary group-hover/thumb:scale-110 transition-transform" />
                               {ex.videoUrl && (
                                 <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover/thumb:opacity-100 transition-opacity rounded-lg">
-                                  <Play className="size-3 fill-white text-white" />
+                                  <Play className="size-3 fill-white " />
                                 </div>
                               )}
                             </button>
@@ -5577,7 +5577,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                       <TooltipTrigger asChild>
                                         <Info className="size-3 text-muted-foreground hover:text-foreground cursor-pointer shrink-0" />
                                       </TooltipTrigger>
-                                      <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800 text-white p-2.5 rounded-xl shadow-xl">
+                                      <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800  p-2.5 rounded-xl shadow-xl">
                                         Se não for atribuída uma carga, o próprio aluno que vai colocar quando estiver treinando.
                                       </TooltipContent>
                                     </Tooltip>
@@ -5675,7 +5675,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                     <TooltipTrigger asChild>
                                       <Info className="size-3 text-muted-foreground hover:text-foreground cursor-pointer shrink-0" />
                                     </TooltipTrigger>
-                                    <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800 text-white p-2.5 rounded-xl shadow-xl">
+                                    <TooltipContent className="max-w-xs bg-neutral-900 border border-neutral-800  p-2.5 rounded-xl shadow-xl">
                                       Se não for atribuída uma carga, o próprio aluno que vai colocar quando estiver treinando.
                                     </TooltipContent>
                                   </Tooltip>
@@ -5960,7 +5960,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive hover:bg-destructive/85 text-white font-bold"
+              className="bg-destructive hover:bg-destructive/85  font-bold"
               disabled={submittingDelete}
               onClick={(e) => {
                 e.preventDefault();
@@ -6350,9 +6350,8 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
         </DialogContent>
       </Dialog>
 
-      {/* ==================== DIALOG 4: REGISTRAR MEDIDAS ==================== */}
       <Dialog open={isProgressModalOpen} onOpenChange={setIsProgressModalOpen}>
-        <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-3xl bg-popover border border-border text-foreground max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-3xl bg-popover border border-border text-foreground max-h-[90vh] overflow-y-auto!">
           <DialogHeader>
             <DialogTitle className="text-xl font-extrabold flex items-center gap-2 text-foreground">
               <Scale className="size-5 text-primary" /> Registrar Novas Medidas Corporais
@@ -6711,7 +6710,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                     <button
                       type="button"
                       onClick={() => setNewPhotoUrl("")}
-                      className="absolute top-1.5 right-1.5 p-1 rounded-full bg-neutral-950/80 text-white hover:bg-red-500 transition-colors active:scale-90"
+                      className="absolute top-1.5 right-1.5 p-1 rounded-full bg-neutral-950/80  hover:bg-red-500 transition-colors active:scale-90"
                       title="Remover imagem"
                     >
                       <X className="size-3.5" />
@@ -6782,7 +6781,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
       {/* ==================== ALERT DIALOG: CONFIRM DELETE MEASUREMENT ==================== */}
       <AlertDialog open={isDeleteProgressAlertOpen} onOpenChange={setIsDeleteProgressAlertOpen}>
-        <AlertDialogContent className="bg-card dark:bg-neutral-950 border border-border dark:border-neutral-850 text-foreground">
+        <AlertDialogContent className="bg-card border border-border text-foreground rounded-2xl shadow-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-lg font-bold text-foreground">Excluir Registro de Medidas?</AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground">
@@ -6792,7 +6791,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">
             <AlertDialogCancel
-              className="border-border dark:border-neutral-800 hover:bg-muted dark:bg-neutral-900 text-foreground"
+              className="border-border hover:bg-muted text-foreground"
               disabled={submittingDeleteProgress}
               onClick={() => {
                 setIsDeleteProgressAlertOpen(false);
@@ -6802,7 +6801,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive hover:bg-destructive/85 text-white font-bold"
+              className="bg-destructive hover:bg-destructive/85  font-bold"
               disabled={submittingDeleteProgress}
               onClick={(e) => {
                 e.preventDefault();
@@ -6824,7 +6823,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
       {/* ==================== ALERT DIALOG: CONFIRM DELETE PHOTO ==================== */}
       <AlertDialog open={isDeletePhotoAlertOpen} onOpenChange={setIsDeletePhotoAlertOpen}>
-        <AlertDialogContent className="bg-card dark:bg-neutral-950 border border-border dark:border-neutral-850 text-foreground">
+        <AlertDialogContent className="bg-card border border-border text-foreground rounded-2xl shadow-2xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-lg font-bold text-foreground">Remover Foto da Linha do Tempo?</AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground">
@@ -6834,7 +6833,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2">
             <AlertDialogCancel
-              className="border-border dark:border-neutral-800 hover:bg-muted dark:bg-neutral-900 text-foreground"
+              className="border-border hover:bg-muted text-foreground"
               disabled={submittingDeletePhoto}
               onClick={() => {
                 setIsDeletePhotoAlertOpen(false);
@@ -6844,7 +6843,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-destructive hover:bg-destructive/85 text-white font-bold"
+              className="bg-destructive hover:bg-destructive/85  font-bold"
               disabled={submittingDeletePhoto}
               onClick={(e) => {
                 e.preventDefault();
@@ -6886,20 +6885,20 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
       {/* ==================== ALERT DIALOG: CONFIRM DELETE PHYSICAL EVALUATION ==================== */}
       <AlertDialog open={isDeleteEvalAlertOpen} onOpenChange={setIsDeleteEvalAlertOpen}>
-        <AlertDialogContent className="bg-card dark:bg-zinc-950 border border-border/60 dark:border-white/[0.08] text-foreground rounded-2xl shadow-2xl">
+        <AlertDialogContent className="bg-card border border-border text-foreground rounded-2xl shadow-2xl">
           <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-red-500/20 to-transparent" />
           <AlertDialogHeader>
             <AlertDialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
               <AlertTriangle className="size-5 text-rose-500 shrink-0 animate-bounce" /> Excluir Registro de Avaliação Física?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground text-xs leading-relaxed">
-              Você tem certeza que deseja remover a avaliação física registrada no dia <strong className="text-white font-semibold">{evalToDelete ? new Date(evalToDelete.date).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : ""}</strong>?
-              Esta ação é <span className="text-rose-600 dark:text-rose-600 dark:text-rose-400 font-semibold underline">totalmente irreversível</span> e removerá permanentemente os valores associados de peso ({evalToDelete?.weight} kg), percentual de gordura ({evalToDelete?.bodyFat}%) e todos os históricos e dados antropométricos.
+              Você tem certeza que deseja remover a avaliação física registrada no dia <strong className="text-foreground font-semibold">{evalToDelete ? new Date(evalToDelete.date).toLocaleDateString("pt-BR", { timeZone: "UTC" }) : ""}</strong>?
+              Esta ação é <span className="text-rose-600 dark:text-rose-455 font-semibold underline">totalmente irreversível</span> e removerá permanentemente os valores associados de peso ({evalToDelete?.weight} kg), percentual de gordura ({evalToDelete?.bodyFat}%) e todos os históricos e dados antropométricos.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 mt-2">
             <AlertDialogCancel
-              className="border-border/60 dark:border-white/[0.08] hover:bg-muted dark:bg-zinc-900 text-muted-foreground hover:text-white rounded-xl text-xs"
+              className="border-border hover:bg-muted text-muted-foreground hover:text-foreground rounded-xl text-xs"
               disabled={submittingDeleteEval}
               onClick={() => {
                 setIsDeleteEvalAlertOpen(false);
@@ -6909,7 +6908,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs"
+              className="bg-rose-600 hover:bg-rose-500  font-bold rounded-xl text-xs"
               disabled={submittingDeleteEval}
               onClick={(e) => {
                 e.preventDefault();
@@ -6931,10 +6930,10 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
       {/* ==================== DIALOG: REGISTRAR LANÇAMENTO ==================== */}
       <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
-        <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-md bg-card dark:bg-zinc-950 border border-border/60 dark:border-white/[0.08] text-foreground rounded-2xl shadow-2xl overflow-y-auto max-h-[90vh]">
+        <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-md bg-card border border-border text-foreground rounded-2xl shadow-2xl overflow-y-auto max-h-[90vh]">
           <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent" />
           <DialogHeader>
-            <DialogTitle className="text-xl font-extrabold flex items-center gap-2 text-white">
+            <DialogTitle className="text-xl font-extrabold flex items-center gap-2 text-foreground">
               <DollarSign className="size-5 text-emerald-600 dark:text-emerald-400" /> Registrar Lançamento
             </DialogTitle>
             <DialogDescription className="text-muted-foreground text-xs">
@@ -6949,7 +6948,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               <Input
                 id="paymentPlanName"
                 placeholder="Ex: Mensalidade - Plano Trimestral"
-                className="bg-muted dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] focus:border-emerald-500/50 h-10 text-xs rounded-xl text-white focus-visible:ring-0 focus-visible:ring-offset-0"
+                className="bg-secondary/50 border-border focus:border-emerald-500/50 h-10 text-xs rounded-xl text-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
                 value={paymentPlanName}
                 onChange={(e) => setPaymentPlanName(e.target.value)}
                 disabled={submittingPayment}
@@ -6966,7 +6965,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                   type="number"
                   step="0.01"
                   placeholder="0,00"
-                  className="bg-muted dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] focus:border-emerald-500/50 h-10 text-xs rounded-xl text-white focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="bg-secondary/50 border-border focus:border-emerald-500/50 h-10 text-xs rounded-xl text-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
                   value={paymentAmount}
                   onChange={(e) => setPaymentAmount(e.target.value)}
                   disabled={submittingPayment}
@@ -6979,7 +6978,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                 <Input
                   id="paymentDate"
                   type="date"
-                  className="bg-muted dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] focus:border-emerald-500/50 h-10 text-xs rounded-xl text-white focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="bg-secondary/50 border-border focus:border-emerald-500/50 h-10 text-xs rounded-xl text-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
                   value={paymentDate}
                   onChange={(e) => setPaymentDate(e.target.value)}
                   disabled={submittingPayment}
@@ -6993,10 +6992,10 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               <div className="space-y-1.5">
                 <Label htmlFor="paymentStatus" className="text-xs font-bold text-muted-foreground">Status de Pagamento</Label>
                 <Select value={paymentStatus} onValueChange={(val) => setPaymentStatus(val as any)} disabled={submittingPayment}>
-                  <SelectTrigger id="paymentStatus" className="bg-muted dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl text-white w-full min-w-0 max-w-full focus:ring-0 focus:ring-offset-0">
+                  <SelectTrigger id="paymentStatus" className="bg-secondary/50 border-border h-10 text-xs rounded-xl text-foreground w-full min-w-0 max-w-full focus:ring-0 focus:ring-offset-0">
                     <SelectValue placeholder="Selecione o status" />
                   </SelectTrigger>
-                  <SelectContent className="bg-muted dark:bg-zinc-900 border-border/60 dark:border-white/[0.08]">
+                  <SelectContent className="bg-popover border-border">
                     <SelectItem value="pago" className="text-xs">Pago</SelectItem>
                     <SelectItem value="pendente" className="text-xs">Pendente</SelectItem>
                     <SelectItem value="atrasado" className="text-xs">Atrasado</SelectItem>
@@ -7007,10 +7006,10 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               <div className="space-y-1.5">
                 <Label htmlFor="paymentMethod" className="text-xs font-bold text-muted-foreground">Método de Pagamento</Label>
                 <Select value={paymentMethod} onValueChange={(val) => setPaymentMethod(val)} disabled={submittingPayment}>
-                  <SelectTrigger id="paymentMethod" className="bg-muted w-full! dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-12 text-xs rounded-xl text-white min-w-0 max-w-full focus:ring-0 focus:ring-offset-0">
+                  <SelectTrigger id="paymentMethod" className="bg-secondary/50 w-full! border-border h-12 text-xs rounded-xl text-foreground min-w-0 max-w-full focus:ring-0 focus:ring-offset-0">
                     <SelectValue placeholder="Selecione o método" />
                   </SelectTrigger>
-                  <SelectContent className="bg-muted dark:bg-zinc-900 border-border/60 dark:border-white/[0.08]">
+                  <SelectContent className="bg-popover border-border">
                     <SelectItem value="PIX" className="text-xs">PIX</SelectItem>
                     <SelectItem value="CREDIT_CARD" className="text-xs">Cartão de Crédito</SelectItem>
                     <SelectItem value="BOLETO" className="text-xs">Boleto</SelectItem>
@@ -7019,11 +7018,11 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               </div>
             </div>
 
-            <DialogFooter className="gap-2 mt-4 pt-4 border-t border-border/50 dark:border-white/[0.04]">
+            <DialogFooter className="gap-2 mt-4 pt-4 border-t border-border">
               <Button
                 type="button"
                 variant="outline"
-                className="border-border/60 dark:border-white/[0.08] hover:bg-muted dark:bg-zinc-900 text-xs rounded-xl text-muted-foreground hover:text-white"
+                className="border-border hover:bg-muted text-xs rounded-xl text-muted-foreground hover:text-foreground"
                 onClick={() => setIsPaymentModalOpen(false)}
                 disabled={submittingPayment}
               >
@@ -7050,10 +7049,10 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
       {/* ==================== DIALOG: EDITAR LANÇAMENTO ==================== */}
       <Dialog open={isEditPaymentModalOpen} onOpenChange={setIsEditPaymentModalOpen}>
-        <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-md bg-card dark:bg-zinc-950 border border-border/60 dark:border-white/[0.08] text-foreground rounded-2xl shadow-2xl overflow-y-auto max-h-[90vh]">
+        <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-md bg-card border border-border text-foreground rounded-2xl shadow-2xl overflow-y-auto max-h-[90vh]">
           <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-blue-500/20 to-transparent" />
           <DialogHeader>
-            <DialogTitle className="text-xl font-extrabold flex items-center gap-2 text-white">
+            <DialogTitle className="text-xl font-extrabold flex items-center gap-2 text-foreground">
               <Edit2 className="size-4 text-blue-400" /> Editar Lançamento
             </DialogTitle>
             <DialogDescription className="text-muted-foreground text-xs">
@@ -7068,7 +7067,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               <Input
                 id="editPaymentPlanName"
                 placeholder="Ex: Mensalidade - Plano Trimestral"
-                className="bg-muted dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] focus:border-blue-500/50 h-10 text-xs rounded-xl text-white focus-visible:ring-0 focus-visible:ring-offset-0"
+                className="bg-secondary/50 border-border focus:border-blue-500/50 h-10 text-xs rounded-xl text-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
                 value={paymentPlanName}
                 onChange={(e) => setPaymentPlanName(e.target.value)}
                 disabled={submittingPayment}
@@ -7085,7 +7084,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                   type="number"
                   step="0.01"
                   placeholder="0,00"
-                  className="bg-muted dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] focus:border-blue-500/50 h-10 text-xs rounded-xl text-white focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="bg-secondary/50 border-border focus:border-blue-500/50 h-10 text-xs rounded-xl text-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
                   value={paymentAmount}
                   onChange={(e) => setPaymentAmount(e.target.value)}
                   disabled={submittingPayment}
@@ -7098,7 +7097,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                 <Input
                   id="editPaymentDate"
                   type="date"
-                  className="bg-muted dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] focus:border-blue-500/50 h-10 text-xs rounded-xl text-white focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="bg-secondary/50 border-border focus:border-blue-500/50 h-10 text-xs rounded-xl text-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
                   value={paymentDate}
                   onChange={(e) => setPaymentDate(e.target.value)}
                   disabled={submittingPayment}
@@ -7112,10 +7111,10 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               <div className="space-y-1.5">
                 <Label htmlFor="editPaymentStatus" className="text-xs font-bold text-muted-foreground">Status de Pagamento</Label>
                 <Select value={paymentStatus} onValueChange={(val) => setPaymentStatus(val as any)} disabled={submittingPayment}>
-                  <SelectTrigger id="editPaymentStatus" className="bg-muted dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl text-white w-full min-w-0 max-w-full focus:ring-0 focus:ring-offset-0">
+                  <SelectTrigger id="editPaymentStatus" className="bg-secondary/50 border-border h-10 text-xs rounded-xl text-foreground w-full min-w-0 max-w-full focus:ring-0 focus:ring-offset-0">
                     <SelectValue placeholder="Selecione o status" />
                   </SelectTrigger>
-                  <SelectContent className="bg-muted dark:bg-zinc-900 border-border/60 dark:border-white/[0.08]">
+                  <SelectContent className="bg-popover border-border">
                     <SelectItem value="pago" className="text-xs">Pago</SelectItem>
                     <SelectItem value="pendente" className="text-xs">Pendente</SelectItem>
                     <SelectItem value="atrasado" className="text-xs">Atrasado</SelectItem>
@@ -7126,10 +7125,10 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               <div className="space-y-1.5">
                 <Label htmlFor="editPaymentMethod" className="text-xs font-bold text-muted-foreground">Método de Pagamento</Label>
                 <Select value={paymentMethod} onValueChange={(val) => setPaymentMethod(val)} disabled={submittingPayment}>
-                  <SelectTrigger id="editPaymentMethod" className="bg-muted dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl text-white w-full min-w-0 max-w-full focus:ring-0 focus:ring-offset-0">
+                  <SelectTrigger id="editPaymentMethod" className="bg-secondary/50 border-border h-10 text-xs rounded-xl text-foreground w-full min-w-0 max-w-full focus:ring-0 focus:ring-offset-0">
                     <SelectValue placeholder="Selecione o método" />
                   </SelectTrigger>
-                  <SelectContent className="bg-muted dark:bg-zinc-900 border-border/60 dark:border-white/[0.08]">
+                  <SelectContent className="bg-popover border-border">
                     <SelectItem value="PIX" className="text-xs">PIX</SelectItem>
                     <SelectItem value="CREDIT_CARD" className="text-xs">Cartão de Crédito</SelectItem>
                     <SelectItem value="BOLETO" className="text-xs">Boleto</SelectItem>
@@ -7138,11 +7137,11 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               </div>
             </div>
 
-            <DialogFooter className="gap-2 mt-4 pt-4 border-t border-border/50 dark:border-white/[0.04]">
+            <DialogFooter className="gap-2 mt-4 pt-4 border-t border-border">
               <Button
                 type="button"
                 variant="outline"
-                className="border-border/60 dark:border-white/[0.08] hover:bg-muted dark:bg-zinc-900 text-xs rounded-xl text-muted-foreground hover:text-white"
+                className="border-border hover:bg-muted text-xs rounded-xl text-muted-foreground hover:text-foreground"
                 onClick={() => setIsEditPaymentModalOpen(false)}
                 disabled={submittingPayment}
               >
@@ -7150,7 +7149,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               </Button>
               <Button
                 type="submit"
-                className="bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition-all"
+                className="bg-blue-600 hover:bg-blue-500  font-bold text-xs rounded-xl transition-all"
                 disabled={submittingPayment}
               >
                 {submittingPayment ? (
@@ -7169,20 +7168,20 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
       {/* ==================== ALERT DIALOG: CONFIRM DELETE PAYMENT ==================== */}
       <AlertDialog open={isDeletePaymentAlertOpen} onOpenChange={setIsDeletePaymentAlertOpen}>
-        <AlertDialogContent className="bg-card dark:bg-zinc-950 border border-border/60 dark:border-white/[0.08] text-foreground rounded-2xl shadow-2xl">
+        <AlertDialogContent className="bg-card border border-border text-foreground rounded-2xl shadow-2xl">
           <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-red-500/20 to-transparent" />
           <AlertDialogHeader>
             <AlertDialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
               <AlertTriangle className="size-5 text-rose-500 shrink-0 animate-bounce" /> Excluir Lançamento Financeiro?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground text-xs leading-relaxed">
-              Você tem certeza que deseja remover o lançamento <strong className="text-white font-semibold">{paymentToDelete?.planName}</strong> no valor de <strong className="text-white font-semibold">{(paymentToDelete?.amount || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>?
-              Esta ação é <span className="text-rose-600 dark:text-rose-600 dark:text-rose-400 font-semibold underline">totalmente irreversível</span> e removerá permanentemente o lançamento da ficha financeira e do histórico do aluno.
+              Você tem certeza que deseja remover o lançamento <strong className="text-foreground font-semibold">{paymentToDelete?.planName}</strong> no valor de <strong className="text-foreground font-semibold">{(paymentToDelete?.amount || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>?
+              Esta ação é <span className="text-rose-600 dark:text-rose-455 font-semibold underline">totalmente irreversível</span> e removerá permanentemente o lançamento da ficha financeira e do histórico do aluno.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 mt-2">
             <AlertDialogCancel
-              className="border-border/60 dark:border-white/[0.08] hover:bg-muted dark:bg-zinc-900 text-muted-foreground hover:text-white rounded-xl text-xs"
+              className="border-border hover:bg-muted text-muted-foreground hover:text-foreground rounded-xl text-xs"
               disabled={submittingDeletePayment}
               onClick={() => {
                 setIsDeletePaymentAlertOpen(false);
@@ -7192,7 +7191,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs"
+              className="bg-rose-600 hover:bg-rose-500  font-bold rounded-xl text-xs"
               disabled={submittingDeletePayment}
               onClick={(e) => {
                 e.preventDefault();
@@ -7214,20 +7213,20 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
       {/* ==================== ALERT DIALOG: CONFIRM REOPEN PAYMENT ==================== */}
       <AlertDialog open={isReopenPaymentAlertOpen} onOpenChange={setIsReopenPaymentAlertOpen}>
-        <AlertDialogContent className="bg-card dark:bg-zinc-950 border border-border/60 dark:border-white/[0.08] text-foreground rounded-2xl shadow-2xl">
+        <AlertDialogContent className="bg-card border border-border text-foreground rounded-2xl shadow-2xl">
           <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-amber-500/20 to-transparent" />
           <AlertDialogHeader>
             <AlertDialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
               <RefreshCw className="size-5 text-amber-500 shrink-0 animate-spin" /> Reabrir Cobrança?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground text-xs leading-relaxed">
-              Tem certeza que deseja reabrir a cobrança <strong className="text-white font-semibold">{paymentToReopen?.planName}</strong> no valor de <strong className="text-white font-semibold">{(paymentToReopen?.amount || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>?
+              Tem certeza que deseja reabrir a cobrança <strong className="text-foreground font-semibold">{paymentToReopen?.planName}</strong> no valor de <strong className="text-foreground font-semibold">{(paymentToReopen?.amount || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>?
               O status do pagamento voltará para <span className="text-amber-500 font-semibold">Pendente</span> e a baixa automática ou manual anterior será revogada, mantendo o histórico de criação intacto.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 mt-2">
             <AlertDialogCancel
-              className="border-border/60 dark:border-white/[0.08] hover:bg-muted dark:bg-zinc-900 text-muted-foreground hover:text-white rounded-xl text-xs"
+              className="border-border hover:bg-muted text-muted-foreground hover:text-foreground rounded-xl text-xs"
               onClick={() => {
                 setIsReopenPaymentAlertOpen(false);
                 setPaymentToReopen(null);
@@ -7250,10 +7249,10 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
       {/* ==================== DIALOG: COMPARTILHAR ARQUIVO ==================== */}
       <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
-        <DialogContent className="w-full bg-card dark:bg-zinc-950 border text-foreground rounded-2xl shadow-2xl overflow-y-auto max-h-[90vh]">
+        <DialogContent className="w-full bg-card border border-border text-foreground rounded-2xl! shadow-2xl overflow-y-auto! max-h-[90vh]">
           <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-primary/20 to-transparent" />
           <DialogHeader>
-            <DialogTitle className="text-xl font-extrabold flex items-center gap-2 text-white">
+            <DialogTitle className="text-xl font-extrabold flex items-center gap-2 text-foreground">
               <Folder className="size-5 text-primary" /> Compartilhar Novo Arquivo
             </DialogTitle>
             <DialogDescription className="text-muted-foreground text-xs">
@@ -7268,7 +7267,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               <Input
                 id="uploadName"
                 placeholder="Ex: Exame de Sangue - Check-up Junho"
-                className="bg-muted dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] focus:border-primary/50 h-10 text-xs rounded-xl text-white focus-visible:ring-0 focus-visible:ring-offset-0"
+                className="bg-secondary/50 border-border/50 focus:border-primary/50 h-10 text-xs rounded-xl text-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
                 value={uploadName}
                 onChange={(e) => setUploadName(e.target.value)}
                 disabled={submittingUpload}
@@ -7280,10 +7279,10 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
             <div className="space-y-1.5">
               <Label htmlFor="uploadCategory" className="text-xs font-bold text-muted-foreground">Categoria</Label>
               <Select value={uploadCategory} onValueChange={(val) => setUploadCategory(val)} disabled={submittingUpload}>
-                <SelectTrigger id="uploadCategory" className="bg-muted dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl text-white w-full min-w-0 max-w-full focus:ring-0 focus:ring-offset-0">
+                <SelectTrigger id="uploadCategory" className="bg-secondary/50 border-border/50 h-10 text-xs rounded-xl text-foreground w-full min-w-0 max-w-full focus:ring-0 focus:ring-offset-0">
                   <SelectValue placeholder="Selecione a categoria" />
                 </SelectTrigger>
-                <SelectContent className="bg-muted dark:bg-zinc-900 border-border/60 dark:border-white/[0.08]">
+                <SelectContent className="bg-popover border-border">
                   <SelectItem value="exames" className="text-xs">Exame / Laudo Médico</SelectItem>
                   <SelectItem value="dieta_treino" className="text-xs">Plano de Treino / Dieta</SelectItem>
                   <SelectItem value="outros" className="text-xs">Outros / Geral</SelectItem>
@@ -7294,13 +7293,13 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
             {/* Origem: Arquivo Local ou Link Nuvem */}
             <div className="space-y-1.5">
               <Label className="text-xs font-bold text-muted-foreground">Origem do Arquivo</Label>
-              <div className="grid grid-cols-2 p-1 bg-muted dark:bg-zinc-900 border border-border/50 dark:border-white/[0.06] rounded-xl gap-1">
+              <div className="grid grid-cols-2 p-1 bg-secondary border border-border/50 rounded-xl gap-1">
                 <button
                   type="button"
                   className={cn(
                     "py-1.5 text-xs font-semibold rounded-lg transition-all text-center flex items-center justify-center gap-1.5",
                     uploadType === "file"
-                      ? "bg-muted dark:bg-zinc-800 text-white shadow-sm"
+                      ? "bg-card text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
                   )}
                   onClick={() => setUploadType("file")}
@@ -7313,7 +7312,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                   className={cn(
                     "py-1.5 text-xs font-semibold rounded-lg transition-all text-center flex items-center justify-center gap-1.5",
                     uploadType === "link"
-                      ? "bg-muted dark:bg-zinc-800 text-white shadow-sm"
+                      ? "bg-card text-foreground shadow-sm"
                       : "text-muted-foreground hover:text-foreground"
                   )}
                   onClick={() => setUploadType("link")}
@@ -7335,7 +7334,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                     }
                   }}
                   className={cn(
-                    "border border-dashed border-border/60 dark:border-white/[0.08] hover:border-primary/40 rounded-xl p-6 text-center cursor-pointer transition-all bg-muted/30 dark:bg-muted dark:bg-zinc-900/30 hover:bg-muted dark:bg-zinc-900/60 flex flex-col items-center justify-center gap-2 group select-none",
+                    "border border-dashed border-border/60 hover:border-primary/40 rounded-xl p-6 text-center cursor-pointer transition-all bg-muted/30 hover:bg-muted/60 flex flex-col items-center justify-center gap-2 group select-none",
                     uploadFileName ? "border-emerald-500/30 bg-emerald-500/[0.02]" : ""
                   )}
                 >
@@ -7373,7 +7372,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                     </>
                   ) : (
                     <>
-                      <div className="p-2 bg-muted dark:bg-zinc-900/80 border border-border/50 dark:border-white/[0.06] text-muted-foreground rounded-lg group-hover:text-primary group-hover:border-primary/20 transition-all">
+                      <div className="p-2 bg-secondary border border-border/50 text-muted-foreground rounded-lg group-hover:text-primary group-hover:border-primary/20 transition-all">
                         <Plus className="size-6 shrink-0" />
                       </div>
                       <div>
@@ -7394,7 +7393,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                   <Input
                     id="uploadUrl"
                     placeholder="https://docs.google.com/spreadsheets/d/... ou Notion"
-                    className="bg-muted dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] focus:border-primary/50 h-10 text-xs rounded-xl text-white focus-visible:ring-0 focus-visible:ring-offset-0 pl-8"
+                    className="bg-secondary/50 border-border/50 focus:border-primary/50 h-10 text-xs rounded-xl text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 pl-8"
                     value={uploadUrl}
                     onChange={(e) => setUploadUrl(e.target.value)}
                     disabled={submittingUpload}
@@ -7414,18 +7413,18 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                 id="uploadNotes"
                 placeholder="Adicione observações, lembretes clínicos ou instruções importantes para este documento..."
                 rows={3}
-                className="bg-muted dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] focus:border-primary/50 w-full p-3 text-xs rounded-xl text-white focus:outline-none focus:ring-0 focus:ring-offset-0 resize-none font-sans"
+                className="bg-secondary/50 border-border/50 focus:border-primary/50 w-full p-3 text-xs rounded-xl text-foreground focus:outline-none focus:ring-0 focus:ring-offset-0 resize-none font-sans"
                 value={uploadNotes}
                 onChange={(e) => setUploadNotes(e.target.value)}
                 disabled={submittingUpload}
               />
             </div>
 
-            <DialogFooter className="gap-2 mt-4 pt-4 border-t border-border/50 dark:border-white/[0.04]">
+            <DialogFooter className="gap-2 mt-4 pt-4 border-t border-border">
               <Button
                 type="button"
                 variant="outline"
-                className="border-border/60 dark:border-white/[0.08] hover:bg-muted dark:bg-zinc-900 text-xs rounded-xl text-muted-foreground hover:text-white"
+                className="border-border hover:bg-muted text-xs rounded-xl text-muted-foreground hover:text-foreground"
                 onClick={() => {
                   setIsUploadModalOpen(false);
                   setUploadName("");
@@ -7461,20 +7460,20 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
       {/* ==================== ALERT DIALOG: CONFIRM DELETE FILE ==================== */}
       <AlertDialog open={isDeleteFileAlertOpen} onOpenChange={setIsDeleteFileAlertOpen}>
-        <AlertDialogContent className="bg-card dark:bg-zinc-950 border border-border/60 dark:border-white/[0.08] text-foreground rounded-2xl shadow-2xl">
+        <AlertDialogContent className="bg-card border border-border text-foreground rounded-2xl shadow-2xl">
           <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-red-500/20 to-transparent" />
           <AlertDialogHeader>
             <AlertDialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
               <AlertTriangle className="size-5 text-rose-500 shrink-0 animate-bounce" /> Excluir Arquivo Permanentemente?
             </AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground text-xs leading-relaxed">
-              Você tem certeza que deseja remover o arquivo <strong className="text-white font-semibold">{fileToDelete?.name}</strong>?
-              Esta ação é <span className="text-rose-600 dark:text-rose-600 dark:text-rose-400 font-semibold underline">totalmente irreversível</span>. O arquivo será removido da central e o aluno não terá mais acesso a ele.
+              Você tem certeza que deseja remover o arquivo <strong className="text-foreground font-semibold">{fileToDelete?.name}</strong>?
+              Esta ação é <span className="text-rose-600 dark:text-rose-655 font-semibold underline">totalmente irreversível</span>. O arquivo será removido da central e o aluno não terá mais acesso a ele.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 mt-2">
             <AlertDialogCancel
-              className="border-border/60 dark:border-white/[0.08] hover:bg-muted dark:bg-zinc-900 text-muted-foreground hover:text-white rounded-xl text-xs"
+              className="border-border hover:bg-muted text-muted-foreground hover:text-foreground rounded-xl text-xs"
               disabled={submittingDeleteFile}
               onClick={() => {
                 setIsDeleteFileAlertOpen(false);
@@ -7484,7 +7483,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               Cancelar
             </AlertDialogCancel>
             <AlertDialogAction
-              className="bg-rose-600 hover:bg-rose-500 text-white font-bold rounded-xl text-xs"
+              className="bg-rose-600 hover:bg-rose-500  font-bold rounded-xl text-xs"
               disabled={submittingDeleteFile}
               onClick={(e) => {
                 e.preventDefault();

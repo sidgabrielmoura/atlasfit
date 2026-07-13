@@ -164,7 +164,7 @@ export function ExperienceBuilder({ blocks, onChange, format, onFileSelect, isAd
           <p className="text-[10px] text-muted-foreground font-semibold uppercase">Clique nos blocos para editá-los ou ordene-os.</p>
         </div>
 
-        <div className="bg-zinc-950/20 border border-border/40 p-4 rounded-2xl space-y-3 min-h-[250px] shadow-inner bg-background">
+        <div className="bg-muted/10 border border-border/40 p-4 rounded-2xl space-y-3 min-h-[250px] shadow-inner bg-background">
           {blocks.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-8 text-center text-muted-foreground h-[200px] border border-dashed border-border/30 rounded-xl">
               <Type className="size-8 mb-2 opacity-50" />
@@ -461,19 +461,19 @@ export function ExperienceBuilder({ blocks, onChange, format, onFileSelect, isAd
           <Label className="text-[10px] font-black uppercase tracking-widest text-primary">Simulador Mobile Live</Label>
         </div>
 
-        <div className="relative mx-auto w-full max-w-[280px] sm:max-w-[320px] aspect-[9/16] rounded-[36px] border-8 border-zinc-800 bg-zinc-950 p-3 shadow-2xl flex flex-col justify-between select-none overflow-hidden animate-in fade-in zoom-in-95 duration-300">
+        <div className="relative mx-auto w-full max-w-[280px] sm:max-w-[320px] aspect-[9/16] rounded-[36px] border-8 border-muted bg-background p-3 shadow-2xl flex flex-col justify-between select-none overflow-hidden animate-in fade-in zoom-in-95 duration-300">
           {/* Top Notch Simulator */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-4 bg-zinc-800 rounded-b-xl z-20 flex items-center justify-center">
-            <span className="size-1.5 rounded-full bg-zinc-900 mr-2" />
-            <span className="w-8 h-1 rounded bg-zinc-900" />
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-28 h-4 bg-muted rounded-b-xl z-20 flex items-center justify-center">
+            <span className="size-1.5 rounded-full bg-muted-foreground/30 mr-2" />
+            <span className="w-8 h-1 rounded bg-muted-foreground/30" />
           </div>
 
           <div className="flex-1 w-full h-full flex flex-col justify-center items-center overflow-hidden z-10 pt-4">
             {format === "BANNER" && (
-              <div className="w-full bg-gradient-to-br from-zinc-900 via-zinc-900/60 to-zinc-950 border border-white/10 p-3 rounded-2xl flex flex-col gap-3.5 scale-[0.95] translate-y-[-10%] animate-in slide-in-from-top-4 duration-300 shadow-xl">
+              <div className="w-full bg-gradient-to-br from-card to-card/90 border border-border p-3 rounded-2xl flex flex-col gap-3.5 scale-[0.95] translate-y-[-10%] animate-in slide-in-from-top-4 duration-300 shadow-xl">
                 {/* Extract first image or video block for simulator thumbnail */}
                 {blocks.some(b => b.type === "IMAGE" && b.content.imageUrl) ? (
-                  <div className="w-full aspect-video rounded-xl overflow-hidden border border-white/5 bg-zinc-950/40 relative shadow-inner">
+                  <div className="w-full aspect-video rounded-xl overflow-hidden border border-border bg-secondary/40 relative shadow-inner">
                     <img 
                       src={blocks.find(b => b.type === "IMAGE")?.content.imageUrl} 
                       className="size-full object-cover" 
@@ -481,13 +481,13 @@ export function ExperienceBuilder({ blocks, onChange, format, onFileSelect, isAd
                     />
                   </div>
                 ) : blocks.some(b => b.type === "VIDEO" && b.content.videoUrl) ? (
-                  <div className="w-full aspect-video rounded-xl overflow-hidden border border-white/5 bg-zinc-950/40 flex items-center justify-center relative bg-zinc-900 shadow-inner">
+                  <div className="w-full aspect-video rounded-xl overflow-hidden border border-border bg-secondary/40 flex items-center justify-center relative shadow-inner">
                     <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
                       <div className="size-5 rounded-full bg-white/20 backdrop-blur-xs flex items-center justify-center border border-white/30 text-white shadow-xs">
                         <Play className="size-2.5 fill-white ml-0.5" />
                       </div>
                     </div>
-                    <Video className="size-4.5 text-zinc-500" />
+                    <Video className="size-4.5 text-muted-foreground" />
                   </div>
                 ) : null}
 
@@ -497,10 +497,10 @@ export function ExperienceBuilder({ blocks, onChange, format, onFileSelect, isAd
                   </span>
                   {blocks.map(b => {
                     if (b.type === "TITLE") {
-                      return <h4 key={b.id} className="text-xs font-black tracking-tight text-white leading-snug">{b.content.text || "Novo Título"}</h4>;
+                      return <h4 key={b.id} className="text-xs font-black tracking-tight text-foreground leading-snug">{b.content.text || "Novo Título"}</h4>;
                     }
                     if (b.type === "TEXT") {
-                      return <p key={b.id} className="text-[10px] font-medium text-zinc-400 line-clamp-2 leading-relaxed">{b.content.text || "Mensagem do banner..."}</p>;
+                      return <p key={b.id} className="text-[10px] font-medium text-muted-foreground line-clamp-2 leading-relaxed">{b.content.text || "Mensagem do banner..."}</p>;
                     }
                     return null;
                   })}
@@ -526,21 +526,21 @@ export function ExperienceBuilder({ blocks, onChange, format, onFileSelect, isAd
             )}
 
             {format === "CARD" && (
-              <div className="w-full bg-secondary/15 border border-border/20 p-3 rounded-2xl space-y-2 scale-[0.95] animate-in fade-in duration-300 shadow-inner">
+              <div className="w-full bg-card border border-border p-3 rounded-2xl space-y-2 scale-[0.95] animate-in fade-in duration-300 shadow-inner">
                 {renderPreviewBlocks(blocks)}
               </div>
             )}
 
             {(format === "MODAL" || format === "DRAWER" || format === "FULLSCREEN") && (
               <div className={cn(
-                "w-full bg-zinc-900 border border-white/10 p-4 flex flex-col text-left space-y-3.5 shadow-2xl",
+                "w-full bg-card border border-border p-4 flex flex-col text-left space-y-3.5 shadow-2xl",
                 format === "MODAL" && "rounded-2xl scale-[0.95] max-h-[85%] overflow-y-auto",
                 format === "DRAWER" && "rounded-t-2xl mt-auto translate-y-[10%] border-b-0 max-h-[85%] overflow-y-auto",
                 format === "FULLSCREEN" && "h-full rounded-[24px] border-0 max-h-full overflow-y-auto pt-8"
               )}>
-                <div className="flex items-center justify-between text-[7px] text-zinc-500 uppercase tracking-widest font-black">
+                <div className="flex items-center justify-between text-[7px] text-muted-foreground uppercase tracking-widest font-black">
                   <span>Comunicado</span>
-                  <span className="px-1.5 py-0.5 rounded border border-white/5 bg-white/5 cursor-pointer">Fechar</span>
+                  <span className="px-1.5 py-0.5 rounded border border-border bg-secondary cursor-pointer">Fechar</span>
                 </div>
                 {renderPreviewBlocks(blocks)}
               </div>
@@ -554,7 +554,7 @@ export function ExperienceBuilder({ blocks, onChange, format, onFileSelect, isAd
 
 function renderPreviewBlocks(blocks: EngageBlock[]) {
   if (blocks.length === 0) {
-    return <div className="text-[10px] text-center text-zinc-600 font-bold py-4">Estrutura Vazia</div>;
+    return <div className="text-[10px] text-center text-muted-foreground font-bold py-4">Estrutura Vazia</div>;
   }
 
   return (
@@ -563,27 +563,27 @@ function renderPreviewBlocks(blocks: EngageBlock[]) {
         switch (block.type) {
           case "TITLE":
             return (
-              <h4 key={block.id} className="text-xs sm:text-sm font-black tracking-tight text-white leading-snug">
+              <h4 key={block.id} className="text-xs sm:text-sm font-black tracking-tight text-foreground leading-snug">
                 {block.content.text || "Novo Título"}
               </h4>
             );
           case "TEXT":
             return (
-              <p key={block.id} className="text-[10px] sm:text-xs text-zinc-400 font-medium leading-relaxed">
+              <p key={block.id} className="text-[10px] sm:text-xs text-muted-foreground font-medium leading-relaxed">
                 {block.content.text || "Escreva a mensagem..."}
               </p>
             );
           case "IMAGE":
             return block.content.imageUrl ? (
-              <div key={block.id} className="relative w-full aspect-[21/9] rounded-lg overflow-hidden border border-white/5 bg-zinc-950">
+              <div key={block.id} className="relative w-full aspect-[21/9] rounded-lg overflow-hidden border border-border bg-secondary">
                 <img src={block.content.imageUrl} className="size-full object-cover" alt="Preview banner" />
               </div>
             ) : null;
           case "VIDEO":
             if (!block.content.videoUrl) {
               return (
-                <div key={block.id} className="w-full aspect-video rounded-lg bg-zinc-900 border border-white/5 flex items-center justify-center">
-                  <Video className="size-5 text-zinc-600 animate-pulse" />
+                <div key={block.id} className="w-full aspect-video rounded-lg bg-secondary border border-border flex items-center justify-center">
+                  <Video className="size-5 text-muted-foreground animate-pulse" />
                 </div>
               );
             }
@@ -593,7 +593,7 @@ function renderPreviewBlocks(blocks: EngageBlock[]) {
               block.content.videoUrl.includes("campaign_banner") ||
               block.content.videoUrl.includes("/api/storage/file");
             return (
-              <div key={block.id} className="relative w-full aspect-video rounded-lg overflow-hidden border border-white/5 bg-zinc-950">
+              <div key={block.id} className="relative w-full aspect-video rounded-lg overflow-hidden border border-border bg-secondary">
                 {isDirectVideoPreview ? (
                   <video src={block.content.videoUrl} controls className="absolute inset-0 size-full object-cover" />
                 ) : (
@@ -612,7 +612,7 @@ function renderPreviewBlocks(blocks: EngageBlock[]) {
               <div key={block.id} className="w-full border border-dashed border-emerald-500/30 bg-emerald-500/5 p-2 rounded-lg text-center flex items-center justify-between gap-2">
                 <Ticket className="size-3.5 text-emerald-500 shrink-0" />
                 <span className="text-[10px] font-black tracking-widest text-emerald-500 uppercase flex-1">{block.content.code || "CUPOM"}</span>
-                <span className="text-[7px] font-bold text-zinc-400 border border-zinc-700 bg-zinc-800 px-1 py-0.5 rounded uppercase">Copiar</span>
+                <span className="text-[7px] font-bold text-muted-foreground border border-border bg-secondary px-1 py-0.5 rounded uppercase">Copiar</span>
               </div>
             );
           case "CHALLENGE":
@@ -621,18 +621,18 @@ function renderPreviewBlocks(blocks: EngageBlock[]) {
                 <div className="flex items-center justify-between gap-1.5">
                   <div className="flex items-center gap-1.5">
                     <Trophy className="size-3.5 text-yellow-500" />
-                    <span className="text-[10px] font-black tracking-tight text-white leading-none">{block.content.title || "Novo Desafio"}</span>
+                    <span className="text-[10px] font-black tracking-tight text-foreground leading-none">{block.content.title || "Novo Desafio"}</span>
                   </div>
                   <span className="text-[8px] font-black text-yellow-500">+{block.content.points || 0} XP</span>
                 </div>
-                <div className="w-full h-1 bg-zinc-800 rounded-full overflow-hidden">
+                <div className="w-full h-1 bg-muted rounded-full overflow-hidden">
                   <div className="h-full bg-yellow-500 rounded-full w-[40%]" />
                 </div>
-                <span className="text-[7px] font-bold text-zinc-500 uppercase leading-none">Progresso: 2 / {block.content.goal || 5}</span>
+                <span className="text-[7px] font-bold text-muted-foreground uppercase leading-none">Progresso: 2 / {block.content.goal || 5}</span>
               </div>
             );
           case "SEPARATOR":
-            return <Minus key={block.id} className="w-full h-0.5 text-zinc-800 opacity-30 my-0.5" />;
+            return <div key={block.id} className="w-full h-px bg-border my-2" />;
           case "SPACER":
             return <div key={block.id} style={{ height: `${block.content.height || 16}px` }} />;
           default:

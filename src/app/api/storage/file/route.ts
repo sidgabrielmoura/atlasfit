@@ -53,29 +53,44 @@ export async function GET(req: Request) {
         });
 
         if (!isTrainer) {
-          // If not trainer, is the user the student associated with the specific file?
-          // Find studentId from path: "students/{studentId}"
-          const studentsIndex = parts.indexOf("students");
-          let isSelfStudent = false;
-
-          if (studentsIndex !== -1 && parts[studentsIndex + 1]) {
-            const studentId = parts[studentsIndex + 1];
-            isSelfStudent = userId === studentId;
-          } else {
-            // Check if key exists in StudentFile database and matches user
-            const dbFile = await prisma.studentFile.findFirst({
+          // If the key is a chat attachment, allow active members of the workspace
+          const isChatAttachment = key.includes("/chat/");
+          if (isChatAttachment) {
+            const isWorkspaceMember = await prisma.workspaceMember.findFirst({
               where: {
-                objectKey: key,
-                studentId: userId,
+                userId,
+                workspaceId,
+                isActive: true,
               },
             });
-            if (dbFile) {
-              isSelfStudent = true;
+            if (!isWorkspaceMember) {
+              return new NextResponse("Acesso negado para este arquivo do chat.", { status: 403 });
             }
-          }
+          } else {
+            // If not trainer, is the user the student associated with the specific file?
+            // Find studentId from path: "students/{studentId}"
+            const studentsIndex = parts.indexOf("students");
+            let isSelfStudent = false;
 
-          if (!isSelfStudent) {
-            return new NextResponse("Acesso negado para este arquivo.", { status: 403 });
+            if (studentsIndex !== -1 && parts[studentsIndex + 1]) {
+              const studentId = parts[studentsIndex + 1];
+              isSelfStudent = userId === studentId;
+            } else {
+              // Check if key exists in StudentFile database and matches user
+              const dbFile = await prisma.studentFile.findFirst({
+                where: {
+                  objectKey: key,
+                  studentId: userId,
+                },
+              });
+              if (dbFile) {
+                isSelfStudent = true;
+              }
+            }
+
+            if (!isSelfStudent) {
+              return new NextResponse("Acesso negado para este arquivo.", { status: 403 });
+            }
           }
         }
       } else {

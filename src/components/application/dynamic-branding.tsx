@@ -8,14 +8,14 @@ export function DynamicBranding() {
   const snap = useSnapshot(workspaceStore);
   const pathname = usePathname();
   
-  let color = snap.activeWorkspace?.primaryColor || "#ea580c";
-  if (color === "#0ea5e9") {
-    color = "#ea580c";
+  let color = snap.activeWorkspace?.primaryColor || "#3052EB";
+  if (color === "#0ea5e9" || color === "#ea580c") {
+    color = "#3052EB";
   }
 
-  // Na área de SuperAdmin, sempre force a cor premium laranja (#ea580c)
+  // Na área de SuperAdmin, sempre force a cor premium azul (#3052EB)
   if (pathname?.startsWith("/superadmin")) {
-    color = "#ea580c";
+    color = "#3052EB";
   }
 
   return (

@@ -745,7 +745,7 @@ export function PhysicalEvaluationDetailModal({
             <div>
               <span className="text-[9px] text-muted-foreground font-black uppercase tracking-wider block mb-0.5">Relatório Físico Detalhado</span>
               <DialogTitle className="text-lg font-black text-foreground flex items-center gap-2">
-                <ClipboardCheck className="size-5 text-orange-500" />
+                <ClipboardCheck className="size-5 text-primary" />
                 Avaliação de {formatDate(evaluation.date)}
               </DialogTitle>
             </div>
@@ -757,7 +757,7 @@ export function PhysicalEvaluationDetailModal({
                 onClick={handlePrintEvaluation}
                 className="border-border dark:border-neutral-850 hover:bg-muted dark:hover:bg-neutral-900 text-xs font-bold rounded-xl h-9 gap-1.5"
               >
-                <Printer className="size-4 text-orange-500" />
+                <Printer className="size-4 text-primary" />
                 <span>Exportar PDF</span>
               </Button>
               <Badge variant="outline" className="bg-muted dark:bg-neutral-900 text-muted-foreground border-border dark:border-neutral-800 text-[10px] font-bold py-1 px-3">
@@ -776,7 +776,7 @@ export function PhysicalEvaluationDetailModal({
                     type="button"
                     onClick={() => setActiveTab(t.id)}
                     className={`flex items-center gap-2 px-3 py-2 text-xs font-bold rounded-xl transition-all text-left whitespace-nowrap md:w-full ${activeTab === t.id
-                      ? "bg-orange-500/10 text-orange-500 dark:bg-orange-500/20"
+                      ? "bg-primary/10 text-primary dark:bg-primary/20"
                       : "text-muted-foreground hover:bg-muted dark:hover:bg-neutral-900"
                       }`}
                   >
@@ -794,7 +794,7 @@ export function PhysicalEvaluationDetailModal({
                 <div className="space-y-4">
                   <div className="border-b border-border/50 dark:border-neutral-900 pb-2">
                     <h3 className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
-                      <User className="size-4 text-orange-500" /> Histórico Clínico & Anamnese
+                      <User className="size-4 text-primary" /> Histórico Clínico & Anamnese
                     </h3>
                   </div>
 
@@ -815,7 +815,7 @@ export function PhysicalEvaluationDetailModal({
                         </Card>
                         <Card className="border border-border/50 dark:border-neutral-900 bg-muted/20 p-3">
                           <span className="text-[9px] text-muted-foreground block uppercase font-bold tracking-wider mb-0.5">Nível de Atividade</span>
-                          <span className="font-extrabold text-orange-500 text-xs uppercase">{anamnese.activityLevel || "Moderado"}</span>
+                          <span className="font-extrabold text-primary text-xs uppercase">{anamnese.activityLevel || "Moderado"}</span>
                         </Card>
                       </div>
 
@@ -863,7 +863,7 @@ export function PhysicalEvaluationDetailModal({
                 <div className="space-y-6">
                   <div className="border-b border-border/50 dark:border-neutral-900 pb-2">
                     <h3 className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
-                      <Scale className="size-4 text-orange-500" /> Fatores Antropométricos e Perímetros
+                      <Scale className="size-4 text-primary" /> Fatores Antropométricos e Perímetros
                     </h3>
                   </div>
 
@@ -957,7 +957,7 @@ export function PhysicalEvaluationDetailModal({
                 <div className="space-y-6">
                   <div className="border-b border-border/50 dark:border-neutral-900 pb-2">
                     <h3 className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
-                      <Flame className="size-4 text-orange-500" /> Dobras Cutâneas Pollock
+                      <Flame className="size-4 text-primary" /> Dobras Cutâneas Pollock
                     </h3>
                   </div>
 
@@ -1029,7 +1029,7 @@ export function PhysicalEvaluationDetailModal({
                 <div className="space-y-6">
                   <div className="border-b border-border/50 dark:border-neutral-900 pb-2">
                     <h3 className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
-                      <Activity className="size-4 text-orange-500" /> Relatório Postural
+                      <Activity className="size-4 text-primary" /> Relatório Postural
                     </h3>
                   </div>
 
@@ -1045,7 +1045,7 @@ export function PhysicalEvaluationDetailModal({
                             <button
                               type="button"
                               onClick={() => setLightboxPhoto(url as string)}
-                              className="text-white hover:text-orange-500 transition-colors p-1"
+                              className="text-white hover:text-primary transition-colors p-1"
                               title="Expandir foto"
                             >
                               <Maximize2 className="size-3.5" />
@@ -1104,7 +1104,7 @@ export function PhysicalEvaluationDetailModal({
                 <div className="space-y-6">
                   <div className="border-b border-border/50 dark:border-neutral-900 pb-2">
                     <h3 className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
-                      <Heart className="size-4 text-orange-500" /> Relatório de Dor & Limitações de Movimento
+                      <Heart className="size-4 text-primary" /> Relatório de Dor & Limitações de Movimento
                     </h3>
                   </div>
 
@@ -1191,7 +1191,7 @@ export function PhysicalEvaluationDetailModal({
                 <div className="space-y-6">
                   <div className="border-b border-border/50 dark:border-neutral-900 pb-2">
                     <h3 className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
-                      <FileText className="size-4 text-orange-500" /> Resultados dos Testes de Aptidão Física
+                      <FileText className="size-4 text-primary" /> Resultados dos Testes de Aptidão Física
                     </h3>
                   </div>
 

@@ -280,8 +280,8 @@ export default function CalendarPage() {
     <div className="flex-1 flex flex-col space-y-8 p-4 md:p-8 pt-6 overflow-hidden w-full h-full min-h-[calc(100vh-2rem)] bg-background">
       <div className="flex flex-col max-sm:gap-4 sm:flex-row items-start sm:items-center justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-white">Tarefas Diárias</h2>
-          <p className="text-neutral-400 mt-1 text-sm">Gerencie sua rotina operacional, atendimentos e lembretes importantes.</p>
+          <h2 className="text-3xl font-bold tracking-tight text-foreground">Tarefas Diárias</h2>
+          <p className="text-muted-foreground mt-1 text-sm">Gerencie sua rotina operacional, atendimentos e lembretes importantes.</p>
         </div>
 
         <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
@@ -291,48 +291,48 @@ export default function CalendarPage() {
               Nova Tarefa
             </Button>
           </DialogTrigger>
-          <DialogContent className="sm:max-w-md bg-neutral-950 border border-neutral-800 text-white rounded-3xl shadow-2xl">
+          <DialogContent className="sm:max-w-md bg-card border border-border text-foreground rounded-3xl shadow-2xl">
             <DialogHeader>
-              <DialogTitle className="text-lg font-bold text-white">Nova Tarefa Diária</DialogTitle>
-              <DialogDescription className="text-neutral-400 text-xs">
+              <DialogTitle className="text-lg font-bold text-foreground">Nova Tarefa Diária</DialogTitle>
+              <DialogDescription className="text-muted-foreground text-xs">
                 Crie um compromisso ou lembrete importante para {date ? format(date, "dd/MM/yyyy") : "a data selecionada"}.
               </DialogDescription>
             </DialogHeader>
             <form onSubmit={handleCreateTask} className="space-y-4 pt-2">
               <div className="space-y-2">
-                <Label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Título da Tarefa</Label>
+                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Título da Tarefa</Label>
                 <Input
                   type="text"
                   required
                   value={newTask.title}
                   onChange={(e) => setNewTask({ ...newTask, title: e.target.value })}
                   placeholder="Ex: Avaliação Física - João Silva"
-                  className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-xl placeholder-neutral-500 focus-visible:ring-primary/50"
+                  className="w-full bg-muted/50 border border-border text-foreground rounded-xl placeholder-muted-foreground focus-visible:ring-primary/50"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Horário</Label>
+                  <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Horário</Label>
                   <Input
                     type="time"
                     required
                     value={newTask.time}
                     onChange={(e) => setNewTask({ ...newTask, time: e.target.value })}
-                    className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-xl focus-visible:ring-primary/50"
+                    className="w-full bg-muted/50 border border-border text-foreground rounded-xl focus-visible:ring-primary/50"
                   />
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Categoria</Label>
+                  <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Categoria</Label>
                   <Select
                     value={newTask.type}
                     onValueChange={(val) => setNewTask({ ...newTask, type: val })}
                   >
-                    <SelectTrigger className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-xl h-10 focus:ring-primary/50">
+                    <SelectTrigger className="w-full bg-muted/50 border border-border text-foreground rounded-xl h-10 focus:ring-primary/50">
                       <SelectValue placeholder="Selecione a categoria" />
                     </SelectTrigger>
-                    <SelectContent className="bg-neutral-950 border border-neutral-800 text-white rounded-xl">
+                    <SelectContent className="bg-popover border border-border text-foreground rounded-xl">
                       <SelectItem value="aula">Aula</SelectItem>
                       <SelectItem value="avaliação">Avaliação</SelectItem>
                       <SelectItem value="financeiro">Financeiro</SelectItem>
@@ -344,15 +344,15 @@ export default function CalendarPage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Aluno Relacionado (Opcional)</Label>
+                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Aluno Relacionado (Opcional)</Label>
                 <Select
                   value={newTask.studentId}
                   onValueChange={(val) => setNewTask({ ...newTask, studentId: val })}
                 >
-                  <SelectTrigger className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-xl h-10 focus:ring-primary/50">
+                  <SelectTrigger className="w-full bg-muted/50 border border-border text-foreground rounded-xl h-10 focus:ring-primary/50">
                     <SelectValue placeholder="Selecione um aluno (Opcional)" />
                   </SelectTrigger>
-                  <SelectContent className="bg-neutral-950 border border-neutral-800 text-white rounded-xl">
+                  <SelectContent className="bg-popover border border-border text-foreground rounded-xl">
                     <SelectItem value="none">Nenhum (Geral / Lembrete)</SelectItem>
                     {students.map((student) => (
                       <SelectItem key={student.id} value={student.id}>
@@ -368,14 +368,14 @@ export default function CalendarPage() {
                   type="button"
                   variant="outline"
                   onClick={() => setIsCreateModalOpen(false)}
-                  className="h-10 px-4 bg-transparent border-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-900 cursor-pointer rounded-xl transition-all"
+                  className="h-10 px-4 bg-transparent border-border text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer rounded-xl transition-all"
                 >
                   Cancelar
                 </Button>
                 <Button
                   type="submit"
                   disabled={isSubmittingCreate}
-                  className="h-10 px-4 bg-primary hover:bg-primary/90 text-white cursor-pointer rounded-xl transition-all flex items-center gap-1.5 font-semibold"
+                  className="h-10 px-4 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer rounded-xl transition-all flex items-center gap-1.5 font-semibold"
                 >
                   {isSubmittingCreate ? "Salvando..." : "Criar Tarefa"}
                 </Button>
@@ -392,20 +392,20 @@ export default function CalendarPage() {
       >
         {/* Calendário */}
         <div className="lg:col-span-5 flex flex-col h-full">
-          <Card className="flex-1 border-neutral-800 bg-neutral-950 shadow-sm flex flex-col rounded-2xl overflow-hidden">
+          <Card className="flex-1 border-border bg-card shadow-sm flex flex-col rounded-2xl overflow-hidden">
             <CardContent className="p-6 flex flex-1 items-center justify-center">
               <Calendar
                 mode="single"
                 selected={date}
                 onSelect={setDate}
                 locale={ptBR}
-                className="w-full flex justify-center scale-100 sm:scale-110 lg:scale-100 xl:scale-110 origin-center text-white"
+                className="w-full flex justify-center scale-100 sm:scale-110 lg:scale-100 xl:scale-110 origin-center text-foreground"
                 classNames={{
                   day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-                  day_today: "bg-neutral-800 text-foreground font-semibold rounded-md",
-                  head_cell: "text-neutral-500 font-medium text-[0.8rem] w-12",
-                  cell: "h-12 w-12 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-neutral-900 [&:has([aria-selected])]:bg-neutral-900 first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-                  day: cn("h-12 w-12 p-0 font-normal aria-selected:opacity-100 hover:bg-neutral-800 rounded-md cursor-pointer transition-colors"),
+                  day_today: "bg-accent text-accent-foreground font-semibold rounded-md",
+                  head_cell: "text-muted-foreground font-medium text-[0.8rem] w-12",
+                  cell: "h-12 w-12 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+                  day: cn("h-12 w-12 p-0 font-normal aria-selected:opacity-100 hover:bg-accent hover:text-accent-foreground rounded-md cursor-pointer transition-colors"),
                 }}
               />
             </CardContent>
@@ -414,10 +414,10 @@ export default function CalendarPage() {
 
         {/* Lista de Tarefas / Lembretes */}
         <div className="lg:col-span-7 flex flex-col h-full">
-          <Card className="flex-1 border-neutral-800 bg-neutral-950 shadow-sm flex flex-col rounded-2xl overflow-hidden">
-            <CardHeader className="pb-4 border-b border-neutral-900">
+          <Card className="flex-1 border-border bg-card shadow-sm flex flex-col rounded-2xl overflow-hidden">
+            <CardHeader className="pb-4 border-b border-border/40">
               <CardTitle className="flex items-center justify-between">
-                <span className="text-white text-lg">
+                <span className="text-foreground text-lg">
                   {date ? format(date, "EEEE, d 'de' MMMM", { locale: ptBR }) : "Selecione uma data"}
                 </span>
                 <Badge variant="secondary" className="font-semibold text-xs bg-primary/10 text-primary border border-primary/20">
@@ -432,17 +432,17 @@ export default function CalendarPage() {
                     {[1, 2, 3].map((n) => (
                       <div key={n} className="p-6 flex items-start gap-6 animate-pulse">
                         <div className="flex flex-col items-center mt-1 space-y-2">
-                          <Skeleton className="h-6 w-12 rounded bg-neutral-900" />
-                          <Skeleton className="h-3 w-8 rounded bg-neutral-900" />
+                          <Skeleton className="h-6 w-12 rounded bg-muted" />
+                          <Skeleton className="h-3 w-8 rounded bg-muted" />
                         </div>
-                        <div className="w-px h-12 bg-neutral-900 mx-2 hidden sm:block"></div>
+                        <div className="w-px h-12 bg-border mx-2 hidden sm:block"></div>
                         <div className="flex-1 space-y-3">
                           <div className="flex items-center justify-between">
-                            <Skeleton className="h-5 w-2/3 rounded bg-neutral-900" />
-                            <Skeleton className="h-4 w-16 rounded-full bg-neutral-900" />
+                            <Skeleton className="h-5 w-2/3 rounded bg-muted" />
+                            <Skeleton className="h-4 w-16 rounded-full bg-muted" />
                           </div>
                           <div className="flex items-center gap-4">
-                            <Skeleton className="h-3 w-24 rounded bg-neutral-900" />
+                            <Skeleton className="h-3 w-24 rounded bg-muted" />
                           </div>
                         </div>
                       </div>
@@ -454,17 +454,17 @@ export default function CalendarPage() {
                       <AlertCircle className="size-8" />
                     </div>
                     <div>
-                      <p className="text-base font-semibold text-white">Falha ao carregar as tarefas</p>
-                      <p className="text-sm text-neutral-500 mt-1 max-w-[280px] mx-auto">{error}</p>
-                      <Button variant="outline" size="sm" onClick={fetchTasks} className="mt-4 border-neutral-800 text-neutral-300 hover:text-white rounded-lg cursor-pointer">
+                      <p className="text-base font-semibold text-foreground">Falha ao carregar as tarefas</p>
+                      <p className="text-sm text-muted-foreground mt-1 max-w-[280px] mx-auto">{error}</p>
+                      <Button variant="outline" size="sm" onClick={fetchTasks} className="mt-4 border-border text-muted-foreground hover:text-foreground rounded-lg cursor-pointer">
                         Tentar Novamente
                       </Button>
                     </div>
                   </div>
                 ) : tasks.length > 0 ? (
-                  <div className="divide-y divide-neutral-900">
+                  <div className="divide-y divide-border/40">
                     {tasks.map((task) => (
-                      <div key={task.id} className="p-6 flex items-start gap-6 hover:bg-neutral-900/30 transition-colors group/task">
+                      <div key={task.id} className="p-6 flex items-start gap-6 hover:bg-secondary/30 transition-colors group/task">
                         <div className="flex items-center gap-4 shrink-0">
                           <Checkbox
                             checked={task.completed}
@@ -472,19 +472,19 @@ export default function CalendarPage() {
                             className="size-5 cursor-pointer rounded-md shrink-0"
                           />
                           <div className="flex flex-col items-center">
-                            <span className="text-lg font-bold text-white leading-none">{task.time}</span>
-                            <span className="text-[10px] text-neutral-500 uppercase mt-1 tracking-wider font-bold">Horário</span>
+                            <span className="text-lg font-bold text-foreground leading-none">{task.time}</span>
+                            <span className="text-[10px] text-muted-foreground uppercase mt-1 tracking-wider font-bold">Horário</span>
                           </div>
                         </div>
 
-                        <div className="w-px h-12 bg-neutral-900 mx-2 hidden sm:block"></div>
+                        <div className="w-px h-12 bg-border/40 mx-2 hidden sm:block"></div>
 
                         <div className="flex-1 min-w-0 space-y-2">
                           <div className="flex items-start justify-between gap-4">
                             <div className="min-w-0">
                               <h4 className={cn(
                                 "text-base font-semibold leading-tight truncate transition-colors",
-                                task.completed ? "text-neutral-500 line-through font-medium" : "text-neutral-200"
+                                task.completed ? "text-muted-foreground line-through font-medium" : "text-foreground"
                               )}>
                                 {task.title}
                               </h4>
@@ -492,7 +492,7 @@ export default function CalendarPage() {
                                 {typeConfig[task.type]?.label || task.type}
                               </Badge>
                               {task.student?.name && (
-                                <Badge variant="outline" className="text-[9px] uppercase tracking-wider font-bold mt-1.5 px-2 py-0.5 bg-neutral-900 border-neutral-800 text-neutral-400 ml-1.5">
+                                <Badge variant="outline" className="text-[9px] uppercase tracking-wider font-bold mt-1.5 px-2 py-0.5 bg-muted border-border text-muted-foreground ml-1.5">
                                   Aluno: {task.student.name}
                                 </Badge>
                               )}
@@ -504,7 +504,7 @@ export default function CalendarPage() {
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => handleEditClick(task)}
-                                className="size-8 text-neutral-500 hover:text-white hover:bg-neutral-800 rounded-lg cursor-pointer transition-all"
+                                className="size-8 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg cursor-pointer transition-all"
                               >
                                 <Pencil className="size-4" />
                               </Button>
@@ -512,13 +512,13 @@ export default function CalendarPage() {
                                 variant="ghost"
                                 size="icon"
                                 onClick={() => handleDeleteClick(task)}
-                                className="size-8 text-neutral-500 hover:text-red-400 hover:bg-red-500/10 rounded-lg cursor-pointer transition-all"
+                                className="size-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer transition-all"
                               >
                                 <Trash2 className="size-4" />
                               </Button>
                             </div>
                           </div>
-                          <div className="flex items-center gap-4 text-xs text-neutral-500 font-medium">
+                          <div className="flex items-center gap-4 text-xs text-muted-foreground font-medium">
                             <span className="flex items-center gap-1.5">
                               <Clock className="size-3.5" />
                               Duração est.: 1h
@@ -530,12 +530,12 @@ export default function CalendarPage() {
                   </div>
                 ) : (
                   <div className="flex flex-col items-center justify-center h-full text-center p-12 space-y-4">
-                    <div className="p-4 rounded-full bg-neutral-900 text-neutral-500 border border-neutral-800">
+                    <div className="p-4 rounded-full bg-muted text-muted-foreground border border-border">
                       <CalendarDays className="size-8 opacity-60" />
                     </div>
                     <div>
-                      <p className="text-base font-semibold text-white">Nenhum compromisso agendado</p>
-                      <p className="text-sm text-neutral-500 mt-1 max-w-[280px] mx-auto">
+                      <p className="text-base font-semibold text-foreground">Nenhum compromisso agendado</p>
+                      <p className="text-sm text-muted-foreground mt-1 max-w-[280px] mx-auto">
                         Você tem o dia livre. Clique em "Nova Tarefa" para adicionar um compromisso ou lembrete.
                       </p>
                     </div>
@@ -549,47 +549,47 @@ export default function CalendarPage() {
 
       {/* Modal de Edição de Tarefa */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="sm:max-w-md bg-neutral-950 border border-neutral-800 text-white rounded-3xl shadow-2xl">
+        <DialogContent className="sm:max-w-md bg-card border border-border text-foreground rounded-3xl shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-white">Editar Tarefa Diária</DialogTitle>
-            <DialogDescription className="text-neutral-400 text-xs">
+            <DialogTitle className="text-lg font-bold text-foreground">Editar Tarefa Diária</DialogTitle>
+            <DialogDescription className="text-muted-foreground text-xs">
               Atualize as informações operacionais desta tarefa.
             </DialogDescription>
           </DialogHeader>
           <form onSubmit={handleEditTask} className="space-y-4 pt-2">
             <div className="space-y-2">
-              <Label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Título da Tarefa</Label>
+              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Título da Tarefa</Label>
               <Input
                 type="text"
                 required
                 value={editTaskData.title}
                 onChange={(e) => setEditTaskData({ ...editTaskData, title: e.target.value })}
-                className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-xl placeholder-neutral-500 focus-visible:ring-primary/50"
+                className="w-full bg-muted/50 border border-border text-foreground rounded-xl placeholder-muted-foreground focus-visible:ring-primary/50"
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Horário</Label>
+                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Horário</Label>
                 <Input
                   type="time"
                   required
                   value={editTaskData.time}
                   onChange={(e) => setEditTaskData({ ...editTaskData, time: e.target.value })}
-                  className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-xl focus-visible:ring-primary/50"
+                  className="w-full bg-muted/50 border border-border text-foreground rounded-xl focus-visible:ring-primary/50"
                 />
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Categoria</Label>
+                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Categoria</Label>
                 <Select
                   value={editTaskData.type}
                   onValueChange={(val) => setEditTaskData({ ...editTaskData, type: val })}
                 >
-                  <SelectTrigger className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-xl h-10 focus:ring-primary/50">
+                  <SelectTrigger className="w-full bg-muted/50 border border-border text-foreground rounded-xl h-10 focus:ring-primary/50">
                     <SelectValue placeholder="Selecione a categoria" />
                   </SelectTrigger>
-                  <SelectContent className="bg-neutral-950 border border-neutral-800 text-white rounded-xl">
+                  <SelectContent className="bg-popover border border-border text-foreground rounded-xl">
                     <SelectItem value="aula">Aula</SelectItem>
                     <SelectItem value="avaliação">Avaliação</SelectItem>
                     <SelectItem value="financeiro">Financeiro</SelectItem>
@@ -601,15 +601,15 @@ export default function CalendarPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs font-bold text-neutral-400 uppercase tracking-wider">Aluno Relacionado (Opcional)</Label>
+              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Aluno Relacionado (Opcional)</Label>
               <Select
                 value={editTaskData.studentId}
                 onValueChange={(val) => setEditTaskData({ ...editTaskData, studentId: val })}
               >
-                <SelectTrigger className="w-full bg-neutral-900 border border-neutral-800 text-white rounded-xl h-10 focus:ring-primary/50">
+                <SelectTrigger className="w-full bg-muted/50 border border-border text-foreground rounded-xl h-10 focus:ring-primary/50">
                   <SelectValue placeholder="Selecione um aluno (Opcional)" />
                 </SelectTrigger>
-                <SelectContent className="bg-neutral-950 border border-neutral-800 text-white rounded-xl">
+                <SelectContent className="bg-popover border border-border text-foreground rounded-xl">
                   <SelectItem value="none">Nenhum (Geral / Lembrete)</SelectItem>
                   {students.map((student) => (
                     <SelectItem key={student.id} value={student.id}>
@@ -625,14 +625,14 @@ export default function CalendarPage() {
                 type="button"
                 variant="outline"
                 onClick={() => setIsEditModalOpen(false)}
-                className="h-10 px-4 bg-transparent border-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-900 cursor-pointer rounded-xl transition-all"
+                className="h-10 px-4 bg-transparent border-border text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer rounded-xl transition-all"
               >
                 Cancelar
               </Button>
               <Button
                 type="submit"
                 disabled={isSubmittingEdit}
-                className="h-10 px-4 bg-primary hover:bg-primary/90 text-white cursor-pointer rounded-xl transition-all flex items-center gap-1.5 font-semibold"
+                className="h-10 px-4 bg-primary hover:bg-primary/90 text-primary-foreground cursor-pointer rounded-xl transition-all flex items-center gap-1.5 font-semibold"
               >
                 {isSubmittingEdit ? "Salvando..." : "Salvar Alterações"}
               </Button>
@@ -643,10 +643,10 @@ export default function CalendarPage() {
 
       {/* Modal de Confirmação de Exclusão */}
       <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
-        <DialogContent className="sm:max-w-md bg-neutral-950 border border-neutral-800 text-white rounded-3xl shadow-2xl">
+        <DialogContent className="sm:max-w-md bg-card border border-border text-foreground rounded-3xl shadow-2xl">
           <DialogHeader>
-            <DialogTitle className="text-lg font-bold text-white">Tem certeza?</DialogTitle>
-            <DialogDescription className="text-neutral-400 text-xs">
+            <DialogTitle className="text-lg font-bold text-foreground">Tem certeza?</DialogTitle>
+            <DialogDescription className="text-muted-foreground text-xs">
               Esta ação não poderá ser desfeita. A tarefa diária <strong>"{taskToDelete?.title}"</strong> será excluída definitivamente de seus compromissos.
             </DialogDescription>
           </DialogHeader>
@@ -654,7 +654,7 @@ export default function CalendarPage() {
             <Button
               variant="outline"
               onClick={() => setIsDeleteModalOpen(false)}
-              className="h-10 px-4 bg-transparent border-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-900 cursor-pointer rounded-xl transition-all"
+              className="h-10 px-4 bg-transparent border-border text-muted-foreground hover:text-foreground hover:bg-secondary cursor-pointer rounded-xl transition-all"
             >
               Cancelar
             </Button>

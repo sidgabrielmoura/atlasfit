@@ -8,13 +8,15 @@ import { Eye, EyeOff, Mail, Lock, User, ArrowRight } from "lucide-react";
 import { useState } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { registerTrainer } from "./actions";
 
 export function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const referralCode = searchParams.get("ref") || "";
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -26,7 +28,8 @@ export function RegisterForm() {
     const password = formData.get("password") as string;
 
     try {
-      const result = await registerTrainer({ name, email, password });
+      const result = await registerTrainer({ name, email, password, referralCode });
+
 
       if (result?.error) {
         toast.error(result.error);

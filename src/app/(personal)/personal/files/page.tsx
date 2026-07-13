@@ -182,8 +182,8 @@ export default function PersonalFilesPage() {
     return (
       <div className="p-8 text-center max-w-xl mx-auto space-y-4 pt-20">
         <AlertTriangle className="size-12 mx-auto text-amber-500 animate-bounce" />
-        <h2 className="text-xl font-bold text-white">Nenhum Workspace Ativo</h2>
-        <p className="text-neutral-400">Por favor, selecione um workspace na barra superior para carregar seus arquivos.</p>
+        <h2 className="text-xl font-bold text-foreground">Nenhum Workspace Ativo</h2>
+        <p className="text-muted-foreground">Por favor, selecione um workspace na barra superior para carregar seus arquivos.</p>
       </div>
     );
   }
@@ -196,9 +196,9 @@ export default function PersonalFilesPage() {
     return (
       <div className="p-8 text-center max-w-xl mx-auto space-y-4 pt-20">
         <AlertTriangle className="size-12 mx-auto text-rose-500 animate-pulse" />
-        <h2 className="text-xl font-bold text-white">Erro de Sincronização</h2>
-        <p className="text-neutral-400">{error}</p>
-        <Button onClick={fetchWorkspaceFiles} variant="outline" className="gap-2 border-white/10 hover:bg-white/5">
+        <h2 className="text-xl font-bold text-foreground">Erro de Sincronização</h2>
+        <p className="text-muted-foreground">{error}</p>
+        <Button onClick={fetchWorkspaceFiles} variant="outline" className="gap-2 border-border hover:bg-secondary">
           Tentar Novamente
         </Button>
       </div>
@@ -407,23 +407,23 @@ export default function PersonalFilesPage() {
 
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-5 w-full max-w-7xl mx-auto">
-      <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-white/[0.04] pb-6 gap-4">
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-border/55 pb-6 gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
             <span className="px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-primary/10 text-primary border border-primary/20">
               Workspace PT
             </span>
           </div>
-          <h1 className="text-2xl md:text-3xl font-black tracking-tight text-white flex items-center gap-2">
+          <h1 className="text-2xl md:text-3xl font-black tracking-tight text-foreground flex items-center gap-2">
             Central de Arquivos do Personal
           </h1>
-          <p className="text-sm text-neutral-400 font-medium">
+          <p className="text-sm text-muted-foreground font-medium">
             Gerencie e compartilhe exames, laudos, dietas, rotinas de treino e links úteis de toda a sua base de alunos.
           </p>
         </div>
         <Button
           onClick={() => setIsUploadModalOpen(true)}
-          className="gap-2 font-bold px-5 max-sm:w-full h-11 bg-primary text-black hover:bg-primary/90 rounded-xl shrink-0 self-start md:self-center transition-transform active:scale-95 duration-150 shadow-lg shadow-primary/5"
+          className="gap-2 font-bold px-5 max-sm:w-full h-11 bg-primary text-primary-foreground hover:bg-primary/90 rounded-xl shrink-0 self-start md:self-center transition-transform active:scale-95 duration-150 shadow-lg shadow-primary/5"
         >
           <Plus className="size-4.5" /> Compartilhar Arquivo
         </Button>
@@ -432,66 +432,66 @@ export default function PersonalFilesPage() {
       {/* KPI Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Stat 1: Total */}
-        <Card className="bg-neutral-900/40 border-white/[0.04] p-4 rounded-2xl relative overflow-hidden select-none">
+        <Card className="bg-card border-border p-4 rounded-2xl relative overflow-hidden select-none">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Total Geral</span>
+            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Total Geral</span>
             <FolderOpen className="size-4 text-primary" />
           </div>
-          <div className="mt-3 text-3xl font-black text-white">{totalFiles}</div>
-          <p className="text-[10px] text-neutral-500 font-medium mt-1">Arquivos compartilhados</p>
+          <div className="mt-3 text-3xl font-black text-foreground">{totalFiles}</div>
+          <p className="text-[10px] text-muted-foreground/80 font-medium mt-1">Arquivos compartilhados</p>
         </Card>
 
         {/* Stat 2: Dietas e Treinos */}
-        <Card className="bg-neutral-900/40 border-white/[0.04] p-4 rounded-2xl relative overflow-hidden select-none">
+        <Card className="bg-card border-border p-4 rounded-2xl relative overflow-hidden select-none">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Dieta & Treino</span>
-            <Dumbbell className="size-4 text-emerald-400" />
+            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Dieta & Treino</span>
+            <Dumbbell className="size-4 text-emerald-500" />
           </div>
-          <div className="mt-3 text-3xl font-black text-white">{dietTrainFilesCount}</div>
-          <p className="text-[10px] text-neutral-500 font-medium mt-1">Planos de treino e nutrição</p>
+          <div className="mt-3 text-3xl font-black text-foreground">{dietTrainFilesCount}</div>
+          <p className="text-[10px] text-muted-foreground/80 font-medium mt-1">Planos de treino e nutrição</p>
         </Card>
 
         {/* Stat 3: Laudos e Exames */}
-        <Card className="bg-neutral-900/40 border-white/[0.04] p-4 rounded-2xl relative overflow-hidden select-none">
+        <Card className="bg-card border-border p-4 rounded-2xl relative overflow-hidden select-none">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Laudos & Exames</span>
-            <Activity className="size-4 text-cyan-400" />
+            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Laudos & Exames</span>
+            <Activity className="size-4 text-cyan-500" />
           </div>
-          <div className="mt-3 text-3xl font-black text-white">{examFilesCount}</div>
-          <p className="text-[10px] text-neutral-500 font-medium mt-1">Check-ups médicos e exames</p>
+          <div className="mt-3 text-3xl font-black text-foreground">{examFilesCount}</div>
+          <p className="text-[10px] text-muted-foreground/80 font-medium mt-1">Check-ups médicos e exames</p>
         </Card>
 
         {/* Stat 4: Outros */}
-        <Card className="bg-neutral-900/40 border-white/[0.04] p-4 rounded-2xl relative overflow-hidden select-none">
+        <Card className="bg-card border-border p-4 rounded-2xl relative overflow-hidden select-none">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-wider text-neutral-400">Outros</span>
-            <Info className="size-4 text-violet-400" />
+            <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Outros</span>
+            <Info className="size-4 text-violet-500" />
           </div>
-          <div className="mt-3 text-3xl font-black text-white">{othersFilesCount}</div>
-          <p className="text-[10px] text-neutral-500 font-medium mt-1">Tabelas e documentos diversos</p>
+          <div className="mt-3 text-3xl font-black text-foreground">{othersFilesCount}</div>
+          <p className="text-[10px] text-muted-foreground/80 font-medium mt-1">Tabelas e documentos diversos</p>
         </Card>
       </div>
 
       {/* Filter and Search Box */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-neutral-950/20 p-4 rounded-2xl border border-white/[0.03]">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-secondary/30 p-4 rounded-2xl border border-border">
         {/* Search */}
         <div className="relative md:col-span-1">
-          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-neutral-500" />
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             placeholder="Pesquisar por título, notas ou aluno..."
-            className="pl-10 h-11 bg-neutral-900/60 border-white/[0.05] rounded-xl focus-visible:ring-primary focus-visible:border-primary text-sm text-white placeholder-neutral-500"
+            className="pl-10 h-11 bg-background border-border rounded-xl focus-visible:ring-primary focus-visible:border-primary text-sm text-foreground placeholder:text-muted-foreground"
           />
         </div>
 
         {/* Student filter */}
         <div className="md:col-span-1">
           <Select value={selectedStudentFilter} onValueChange={setSelectedStudentFilter}>
-            <SelectTrigger className="h-11 max-sm:w-full bg-neutral-900/60 border-white/[0.05] rounded-xl text-xs text-white focus:ring-0 focus:ring-offset-0">
+            <SelectTrigger className="h-11 max-sm:w-full bg-background border-border rounded-xl text-xs text-foreground focus:ring-0 focus:ring-offset-0">
               <SelectValue placeholder="Filtrar por Aluno" />
             </SelectTrigger>
-            <SelectContent className="bg-neutral-900 border-white/[0.08]">
+            <SelectContent className="bg-popover border-border text-popover-foreground">
               <SelectItem value="all" className="text-xs">Todos os Alunos</SelectItem>
               {students.map(s => (
                 <SelectItem key={s.id} value={s.id} className="text-xs">{s.name || "Aluno sem nome"}</SelectItem>
@@ -507,8 +507,8 @@ export default function PersonalFilesPage() {
             className={cn(
               "px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider border shrink-0 transition-all active:scale-[0.97] duration-150",
               selectedCategory === "all"
-                ? "bg-primary text-black border-primary shadow-lg shadow-primary/10"
-                : "bg-neutral-900/40 text-neutral-400 border-white/[0.04] hover:text-white hover:bg-neutral-900"
+                ? "bg-primary text-primary-foreground border-primary shadow-lg shadow-primary/10"
+                : "bg-secondary text-muted-foreground border-border hover:text-foreground hover:bg-secondary/80"
             )}
           >
             Todos
@@ -519,7 +519,7 @@ export default function PersonalFilesPage() {
               "px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider border shrink-0 transition-all active:scale-[0.97] duration-150",
               selectedCategory === "dieta_treino"
                 ? "bg-emerald-500 text-black border-emerald-500 shadow-lg shadow-emerald-500/10"
-                : "bg-neutral-900/40 text-neutral-400 border-white/[0.04] hover:text-white hover:bg-neutral-900"
+                : "bg-secondary text-muted-foreground border-border hover:text-foreground hover:bg-secondary/80"
             )}
           >
             Dieta & Treino
@@ -530,7 +530,7 @@ export default function PersonalFilesPage() {
               "px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider border shrink-0 transition-all active:scale-[0.97] duration-150",
               selectedCategory === "exames"
                 ? "bg-cyan-500 text-black border-cyan-500 shadow-lg shadow-cyan-500/10"
-                : "bg-neutral-900/40 text-neutral-400 border-white/[0.04] hover:text-white hover:bg-neutral-900"
+                : "bg-secondary text-muted-foreground border-border hover:text-foreground hover:bg-secondary/80"
             )}
           >
             Exames Clínicos
@@ -540,8 +540,8 @@ export default function PersonalFilesPage() {
             className={cn(
               "px-4 py-2.5 rounded-xl text-xs font-bold uppercase tracking-wider border shrink-0 transition-all active:scale-[0.97] duration-150",
               selectedCategory === "outros"
-                ? "bg-violet-500 text-black border-violet-500 shadow-lg shadow-violet-500/10"
-                : "bg-neutral-900/40 text-neutral-400 border-white/[0.04] hover:text-white hover:bg-neutral-900"
+                ? "bg-violet-500 text-white border-violet-500 shadow-lg shadow-violet-500/10"
+                : "bg-secondary text-muted-foreground border-border hover:text-foreground hover:bg-secondary/80"
             )}
           >
             Outros
@@ -557,11 +557,11 @@ export default function PersonalFilesPage() {
             exit={{ opacity: 0, scale: 0.98 }}
             className="text-center w-full"
           >
-            <Card className="border min-w-full border-dashed border-white/6 bg-neutral-900/10 p-12 text-center rounded-2xl max-w-lg mx-auto shadow-xl">
-              <FolderOpen className="size-12 mx-auto text-neutral-700 animate-pulse" />
+            <Card className="border min-w-full border-dashed border-border bg-secondary/10 p-12 text-center rounded-2xl max-w-lg mx-auto shadow-xl">
+              <FolderOpen className="size-12 mx-auto text-muted-foreground animate-pulse" />
               <div className="space-y-1">
-                <h3 className="text-base font-bold text-white">Nenhum arquivo publicado</h3>
-                <p className="text-xs text-neutral-500 leading-relaxed font-medium">
+                <h3 className="text-base font-bold text-foreground">Nenhum arquivo publicado</h3>
+                <p className="text-xs text-muted-foreground leading-relaxed font-medium">
                   Não localizamos compartilhamentos sob estes termos. Use o botão no topo direito para enviar o primeiro arquivo!
                 </p>
               </div>
@@ -583,20 +583,20 @@ export default function PersonalFilesPage() {
 
               return (
                 <motion.div key={file.id} variants={itemVariants} layout className="h-full">
-                  <Card className="relative overflow-hidden bg-neutral-900/40 border-white/4 rounded-2xl h-full flex flex-col justify-between group hover:border-white/8 transition-all duration-300 p-4 gap-4">
+                  <Card className="relative overflow-hidden bg-card border-border rounded-2xl h-full flex flex-col justify-between group hover:border-primary/30 transition-all duration-300 p-4 gap-4">
                     <div className="space-y-3">
                       <div className="flex items-center justify-between gap-2">
                         <span className={cn("px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-wider border shrink-0", catInfo.class)}>
                           {catInfo.label}
                         </span>
-                        <span className="text-[10px] text-neutral-500 font-bold uppercase tracking-wider shrink-0">
+                        <span className="text-[10px] text-muted-foreground font-bold uppercase tracking-wider shrink-0">
                           {file.fileSize || "Link"}
                         </span>
                       </div>
 
-                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-neutral-950/40 rounded-xl border border-white/3 text-xs font-semibold text-neutral-300">
+                      <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-secondary/50 rounded-xl border border-border text-xs font-semibold text-muted-foreground">
                         <Users className="size-3.5 text-primary shrink-0" />
-                        <span className="truncate">Para: <strong className="text-white font-bold">{file.student?.name || "Aluno sem nome"}</strong></span>
+                        <span className="truncate">Para: <strong className="text-foreground font-bold">{file.student?.name || "Aluno sem nome"}</strong></span>
                       </div>
 
                       <div className="flex items-start gap-3 pt-1">
@@ -604,10 +604,10 @@ export default function PersonalFilesPage() {
                           <FileIcon className="size-4.5 shrink-0" />
                         </div>
                         <div className="space-y-0.5 min-w-0">
-                          <h3 className="text-sm font-bold text-white tracking-tight leading-tight group-hover:text-primary transition-colors truncate">
+                          <h3 className="text-sm font-bold text-foreground tracking-tight leading-tight group-hover:text-primary transition-colors truncate">
                             {file.name}
                           </h3>
-                          <span className="text-[10px] text-neutral-500 font-semibold flex items-center gap-1">
+                          <span className="text-[10px] text-muted-foreground font-semibold flex items-center gap-1">
                             <Calendar className="size-3" />
                             Compartilhado em {new Date(file.createdAt).toLocaleDateString("pt-BR")}
                           </span>
@@ -616,10 +616,10 @@ export default function PersonalFilesPage() {
                     </div>
 
                     {/* Footer Actions */}
-                    <div className="flex items-center justify-between border-t border-white/3 pt-3.5 text-[10px] text-neutral-400 font-bold">
+                    <div className="flex items-center justify-between border-t border-border pt-3.5 text-[10px] text-muted-foreground font-bold">
                       <button
                         onClick={() => setDeleteTargetFile(file)}
-                        className="text-neutral-500 hover:text-rose-400 transition-colors flex items-center gap-1 cursor-pointer active:scale-95 duration-100"
+                        className="text-muted-foreground hover:text-rose-500 transition-colors flex items-center gap-1 cursor-pointer active:scale-95 duration-100"
                       >
                         <Trash2 className="size-4 shrink-0" />
                         <span>Excluir</span>
@@ -628,28 +628,28 @@ export default function PersonalFilesPage() {
                       <div className="flex items-center gap-3">
                         {/* Trainer Notes Popover */}
                         {hasNotes && (
-                          <Popover>
-                            <PopoverTrigger asChild>
-                              <button className="text-neutral-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer active:scale-95 duration-100">
-                                <ClipboardList className="size-4 text-primary shrink-0" />
-                                <span>Notas</span>
-                              </button>
-                            </PopoverTrigger>
-                            <PopoverContent className="w-72 bg-neutral-950 border border-white/6 text-xs text-neutral-300 p-3.5 rounded-xl shadow-2xl">
-                              <div className="flex items-center gap-1.5 font-black text-white mb-2 uppercase tracking-widest text-[9px]">
-                                <ClipboardList className="size-3.5 text-primary shrink-0" />
-                                <span>Notas de Upload</span>
-                              </div>
-                              <p className="leading-relaxed font-semibold wrap-break-word text-left">{file.notes}</p>
-                            </PopoverContent>
-                          </Popover>
+                           <Popover>
+                             <PopoverTrigger asChild>
+                               <button className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 cursor-pointer active:scale-95 duration-100">
+                                 <ClipboardList className="size-4 text-primary shrink-0" />
+                                 <span>Notas</span>
+                               </button>
+                             </PopoverTrigger>
+                             <PopoverContent className="w-72 bg-popover border border-border text-xs text-popover-foreground p-3.5 rounded-xl shadow-2xl">
+                               <div className="flex items-center gap-1.5 font-black text-foreground mb-2 uppercase tracking-widest text-[9px]">
+                                 <ClipboardList className="size-3.5 text-primary shrink-0" />
+                                 <span>Notas de Upload</span>
+                               </div>
+                               <p className="leading-relaxed font-semibold wrap-break-word text-left">{file.notes}</p>
+                             </PopoverContent>
+                           </Popover>
                         )}
 
                         {/* File Preview */}
                         {previewAllowed && (
                           <button
                             onClick={() => setPreviewFile(file)}
-                            className="text-neutral-400 hover:text-white transition-colors flex items-center gap-1 cursor-pointer active:scale-95 duration-100"
+                            className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 cursor-pointer active:scale-95 duration-100"
                           >
                             <Eye className="size-4 shrink-0" />
                             <span>Visualizar</span>
@@ -683,13 +683,13 @@ export default function PersonalFilesPage() {
 
       {/* ==================== DIALOG: COMPARTILHAR ARQUIVO ==================== */}
       <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
-        <DialogContent className="w-full max-w-lg bg-neutral-950 border border-white/[0.06] text-foreground rounded-2xl shadow-2xl overflow-y-auto max-h-[90vh] p-6">
+        <DialogContent className="w-full max-w-lg bg-card border border-border text-foreground rounded-2xl! shadow-2xl overflow-y-auto! max-h-[90vh] p-6">
           <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-primary/20 to-transparent" />
-          <DialogHeader className="pb-2 border-b border-white/[0.04]">
-            <DialogTitle className="text-xl font-black flex items-center gap-2 text-white">
+          <DialogHeader className="pb-2 border-b border-border/40">
+            <DialogTitle className="text-xl font-black flex items-center gap-2 text-foreground">
               <FolderOpen className="size-5 text-primary" /> Compartilhar Novo Arquivo
             </DialogTitle>
-            <DialogDescription className="text-neutral-400 text-xs">
+            <DialogDescription className="text-muted-foreground text-xs">
               Selecione o aluno de destino e envie exames, PDF de dietas ou links de planejamento diretamente para o portal dele.
             </DialogDescription>
           </DialogHeader>
@@ -697,12 +697,12 @@ export default function PersonalFilesPage() {
           <form onSubmit={handleUploadSubmit} className="space-y-4 pt-4">
             {/* Aluno Selecionado dropdown */}
             <div className="space-y-1.5">
-              <Label htmlFor="uploadStudent" className="text-xs font-bold text-neutral-300">Aluno de Destino *</Label>
+              <Label htmlFor="uploadStudent" className="text-xs font-bold text-muted-foreground">Aluno de Destino *</Label>
               <Select value={uploadStudentId} onValueChange={setUploadStudentId} disabled={submittingUpload}>
-                <SelectTrigger id="uploadStudent" className="bg-neutral-900 border-white/[0.06] h-10 text-xs rounded-xl text-white w-full focus:ring-0 focus:ring-offset-0">
+                <SelectTrigger id="uploadStudent" className="bg-background border-border h-10 text-xs rounded-xl text-foreground w-full focus:ring-0 focus:ring-offset-0">
                   <SelectValue placeholder="Selecione o aluno" />
                 </SelectTrigger>
-                <SelectContent className="bg-neutral-900 border-white/[0.08]">
+                <SelectContent className="bg-popover border-border text-popover-foreground">
                   {students.map(student => (
                     <SelectItem key={student.id} value={student.id} className="text-xs">
                       {student.name || "Sem Nome"} ({student.email})
@@ -714,11 +714,11 @@ export default function PersonalFilesPage() {
 
             {/* Nome / Título */}
             <div className="space-y-1.5">
-              <Label htmlFor="uploadName" className="text-xs font-bold text-neutral-300">Título do Documento *</Label>
+              <Label htmlFor="uploadName" className="text-xs font-bold text-muted-foreground">Título do Documento *</Label>
               <Input
                 id="uploadName"
                 placeholder="Ex: Dieta Customizada - Hipertrofia Fase 1"
-                className="bg-neutral-900 border-white/[0.06] focus:border-primary/50 h-10 text-xs rounded-xl text-white focus-visible:ring-0 focus-visible:ring-offset-0"
+                className="bg-background border-border focus:border-primary/50 h-10 text-xs rounded-xl text-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
                 value={uploadName}
                 onChange={(e) => setUploadName(e.target.value)}
                 disabled={submittingUpload}
@@ -728,12 +728,12 @@ export default function PersonalFilesPage() {
 
             {/* Categoria */}
             <div className="space-y-1.5">
-              <Label htmlFor="uploadCategory" className="text-xs font-bold text-neutral-300">Categoria</Label>
+              <Label htmlFor="uploadCategory" className="text-xs font-bold text-muted-foreground">Categoria</Label>
               <Select value={uploadCategory} onValueChange={setUploadCategory} disabled={submittingUpload}>
-                <SelectTrigger id="uploadCategory" className="bg-neutral-900 border-white/[0.06] h-10 text-xs rounded-xl text-white w-full focus:ring-0 focus:ring-offset-0">
+                <SelectTrigger id="uploadCategory" className="bg-background border-border h-10 text-xs rounded-xl text-foreground w-full focus:ring-0 focus:ring-offset-0">
                   <SelectValue placeholder="Selecione a categoria" />
                 </SelectTrigger>
-                <SelectContent className="bg-neutral-900 border-white/[0.08]">
+                <SelectContent className="bg-popover border-border text-popover-foreground">
                   <SelectItem value="exames" className="text-xs">Exame / Laudo Médico</SelectItem>
                   <SelectItem value="dieta_treino" className="text-xs">Plano de Treino / Dieta</SelectItem>
                   <SelectItem value="outros" className="text-xs">Outros / Geral</SelectItem>
@@ -743,15 +743,15 @@ export default function PersonalFilesPage() {
 
             {/* Origem: Arquivo Local ou Link Nuvem */}
             <div className="space-y-1.5">
-              <Label className="text-xs font-bold text-neutral-300">Origem do Documento</Label>
-              <div className="grid grid-cols-2 p-1 bg-neutral-900 border border-white/[0.06] rounded-xl gap-1">
+              <Label className="text-xs font-bold text-muted-foreground">Origem do Documento</Label>
+              <div className="grid grid-cols-2 p-1 bg-secondary border border-border rounded-xl gap-1">
                 <button
                   type="button"
                   className={cn(
                     "py-1.5 text-xs font-semibold rounded-lg transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer",
                     uploadType === "file"
-                      ? "bg-zinc-800 text-white shadow-sm"
-                      : "text-neutral-400 hover:text-white"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                   onClick={() => setUploadType("file")}
                   disabled={submittingUpload}
@@ -763,8 +763,8 @@ export default function PersonalFilesPage() {
                   className={cn(
                     "py-1.5 text-xs font-semibold rounded-lg transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer",
                     uploadType === "link"
-                      ? "bg-zinc-800 text-white shadow-sm"
-                      : "text-neutral-400 hover:text-white"
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                   onClick={() => setUploadType("link")}
                   disabled={submittingUpload}
@@ -777,7 +777,7 @@ export default function PersonalFilesPage() {
             {/* Condicional de Upload de Arquivo Local */}
             {uploadType === "file" && (
               <div className="space-y-2">
-                <Label className="text-xs font-bold text-neutral-300">Arquivo Local *</Label>
+                <Label className="text-xs font-bold text-muted-foreground">Arquivo Local *</Label>
                 <div
                   onClick={() => {
                     if (!submittingUpload) {
@@ -785,7 +785,7 @@ export default function PersonalFilesPage() {
                     }
                   }}
                   className={cn(
-                    "border border-dashed border-white/[0.08] hover:border-primary/40 rounded-xl p-6 text-center cursor-pointer transition-all bg-neutral-900/30 hover:bg-neutral-900/60 flex flex-col items-center justify-center gap-2 group select-none",
+                    "border border-dashed border-border hover:border-primary/40 rounded-xl p-6 text-center cursor-pointer transition-all bg-secondary/20 hover:bg-secondary/40 flex flex-col items-center justify-center gap-2 group select-none",
                     uploadFileName ? "border-emerald-500/30 bg-emerald-500/[0.02]" : ""
                   )}
                 >
@@ -804,16 +804,16 @@ export default function PersonalFilesPage() {
                       }
                     }}
                   />
-                  <FileDown className={cn("size-8 text-neutral-500 transition-transform duration-300 group-hover:scale-110", uploadFileName && "text-emerald-400")} />
+                  <FileDown className={cn("size-8 text-muted-foreground transition-transform duration-300 group-hover:scale-110", uploadFileName && "text-emerald-500")} />
                   {uploadFileName ? (
                     <div className="space-y-0.5">
-                      <p className="text-xs font-bold text-emerald-400 truncate max-w-[250px]">{uploadFileName}</p>
-                      <p className="text-[10px] text-neutral-500 font-semibold">{uploadFileSize}</p>
+                      <p className="text-xs font-bold text-emerald-500 truncate max-w-[250px]">{uploadFileName}</p>
+                      <p className="text-[10px] text-muted-foreground font-semibold">{uploadFileSize}</p>
                     </div>
                   ) : (
                     <div className="space-y-0.5">
-                      <p className="text-xs font-bold text-neutral-300 group-hover:text-primary">Clique para selecionar</p>
-                      <p className="text-[10px] text-neutral-500 font-medium">PDF, DOC, JPG ou PNG (Máx. 10MB)</p>
+                      <p className="text-xs font-bold text-muted-foreground group-hover:text-primary">Clique para selecionar</p>
+                      <p className="text-[10px] text-muted-foreground font-medium">PDF, DOC, JPG ou PNG (Máx. 10MB)</p>
                     </div>
                   )}
                 </div>
@@ -823,11 +823,11 @@ export default function PersonalFilesPage() {
             {/* Condicional de Link Externo */}
             {uploadType === "link" && (
               <div className="space-y-1.5">
-                <Label htmlFor="uploadUrl" className="text-xs font-bold text-neutral-300">URL do Link Externo *</Label>
+                <Label htmlFor="uploadUrl" className="text-xs font-bold text-muted-foreground">URL do Link Externo *</Label>
                 <Input
                   id="uploadUrl"
                   placeholder="https://drive.google.com/..."
-                  className="bg-neutral-900 border-white/[0.06] focus:border-primary/50 h-10 text-xs rounded-xl text-white focus-visible:ring-0 focus-visible:ring-offset-0"
+                  className="bg-background border-border focus:border-primary/50 h-10 text-xs rounded-xl text-foreground focus-visible:ring-0 focus-visible:ring-offset-0"
                   value={uploadUrl}
                   onChange={(e) => setUploadUrl(e.target.value)}
                   disabled={submittingUpload}
@@ -838,22 +838,22 @@ export default function PersonalFilesPage() {
 
             {/* Observações / Anotações */}
             <div className="space-y-1.5">
-              <Label htmlFor="uploadNotes" className="text-xs font-bold text-neutral-300">Observações Clínicas / Recomendações</Label>
+              <Label htmlFor="uploadNotes" className="text-xs font-bold text-muted-foreground">Observações Clínicas / Recomendações</Label>
               <Textarea
                 id="uploadNotes"
                 placeholder="Adicione notas adicionais, orientações de consumo ou orientações clínicas sobre este arquivo."
-                className="bg-neutral-900 border-white/[0.06] focus:border-primary/50 text-xs rounded-xl text-white focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[80px]"
+                className="bg-background border-border focus:border-primary/50 text-xs rounded-xl text-foreground focus-visible:ring-0 focus-visible:ring-offset-0 min-h-[80px]"
                 value={uploadNotes}
                 onChange={(e) => setUploadNotes(e.target.value)}
                 disabled={submittingUpload}
               />
             </div>
 
-            <DialogFooter className="pt-4 border-t border-white/[0.04] flex flex-row justify-end gap-2">
+            <DialogFooter className="pt-4 border-t border-border/40 flex flex-row justify-end gap-2">
               <Button
                 type="button"
                 variant="outline"
-                className="h-10 rounded-xl border-white/[0.05] bg-neutral-900/40 text-neutral-300 hover:text-white hover:bg-neutral-900 text-xs font-bold"
+                className="h-10 rounded-xl border-border bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 text-xs font-bold"
                 onClick={() => setIsUploadModalOpen(false)}
                 disabled={submittingUpload}
               >
@@ -862,7 +862,7 @@ export default function PersonalFilesPage() {
               <Button
                 type="submit"
                 disabled={submittingUpload}
-                className="h-10 rounded-xl bg-primary text-black hover:bg-primary/90 text-xs font-bold gap-2 active:scale-95 transition-transform"
+                className="h-10 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold gap-2 active:scale-95 transition-transform"
               >
                 {submittingUpload ? "Enviando..." : "Compartilhar"}
               </Button>
@@ -873,15 +873,15 @@ export default function PersonalFilesPage() {
 
       {/* ==================== DIALOG: PREVIEW FILE ==================== */}
       <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
-        <DialogContent className="max-w-4xl h-[90vh] bg-neutral-950 border border-white/[0.06] rounded-2xl flex flex-col p-0 overflow-hidden shadow-2xl">
+        <DialogContent className="max-w-4xl h-[90vh] bg-card border border-border rounded-2xl flex flex-col p-0 overflow-hidden shadow-2xl">
           {previewFile && (
             <>
-              <DialogHeader className="p-4 border-b border-white/[0.04] bg-neutral-900/40 flex flex-row items-center justify-between space-y-0 gap-4 shrink-0">
+              <DialogHeader className="p-4 border-b border-border/40 bg-secondary/20 flex flex-row items-center justify-between space-y-0 gap-4 shrink-0">
                 <div className="space-y-0.5 min-w-0">
-                  <DialogTitle className="text-sm md:text-base font-black text-white truncate pr-6">
+                  <DialogTitle className="text-sm md:text-base font-black text-foreground truncate pr-6">
                     Visualizando: {previewFile.name}
                   </DialogTitle>
-                  <DialogDescription className="text-[10px] md:text-xs text-neutral-500 font-bold uppercase tracking-wider flex items-center gap-2">
+                  <DialogDescription className="text-[10px] md:text-xs text-muted-foreground font-bold uppercase tracking-wider flex items-center gap-2">
                     <span>Para: {previewFile.student?.name}</span>
                     <span>•</span>
                     <span>{getCategoryConfig(previewFile.category).label}</span>
@@ -893,14 +893,14 @@ export default function PersonalFilesPage() {
 
               {/* Trainer Notes Banner inside the Viewer */}
               {previewFile.notes && (
-                <div className="bg-neutral-900 border-b border-white/[0.04] p-3.5 text-xs text-neutral-300 font-semibold flex gap-2.5 items-start">
+                <div className="bg-secondary/40 border-b border-border p-3.5 text-xs text-muted-foreground font-semibold flex gap-2.5 items-start">
                   <ClipboardList className="size-4.5 text-primary shrink-0 mt-0.5" />
-                  <p className="leading-relaxed"><strong className="text-white font-bold block mb-0.5 text-[10px] uppercase tracking-wider">Notas de Compartilhamento:</strong> {previewFile.notes}</p>
+                  <p className="leading-relaxed"><strong className="text-foreground font-bold block mb-0.5 text-[10px] uppercase tracking-wider">Notas de Compartilhamento:</strong> {previewFile.notes}</p>
                 </div>
               )}
 
               {/* Viewer body */}
-              <div className="flex-grow min-h-0 bg-neutral-900/20 relative flex items-center justify-center p-2 md:p-4 overflow-auto">
+              <div className="flex-grow min-h-0 bg-secondary/10 relative flex items-center justify-center p-2 md:p-4 overflow-auto">
                 {isImageFile(previewFile) ? (
                   <motion.img
                     initial={{ opacity: 0, scale: 0.98 }}
@@ -912,24 +912,24 @@ export default function PersonalFilesPage() {
                 ) : (
                   <iframe
                     src={`${previewFile.url}#toolbar=0`}
-                    className="w-full h-full rounded-lg border border-white/[0.03] bg-neutral-950 shadow-2xl"
+                    className="w-full h-full rounded-lg border border-border bg-background shadow-2xl"
                     title={previewFile.name}
                   />
                 )}
               </div>
 
               {/* Viewer footer */}
-              <DialogFooter className="p-4 border-t border-white/[0.04] bg-neutral-900/40 flex flex-row items-center justify-end gap-2 shrink-0">
+              <DialogFooter className="p-4 border-t border-border/40 bg-secondary/20 flex flex-row items-center justify-end gap-2 shrink-0">
                 <Button
                   onClick={() => setPreviewFile(null)}
                   variant="outline"
-                  className="h-10 rounded-xl border-white/[0.05] bg-neutral-900/40 text-neutral-300 hover:text-white hover:bg-neutral-900 text-xs font-bold"
+                  className="h-10 rounded-xl border-border bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 text-xs font-bold"
                 >
                   Fechar
                 </Button>
                 <Button
                   asChild
-                  className="h-10 rounded-xl bg-primary text-black hover:bg-primary/90 text-xs font-bold gap-1.5 active:scale-95 transition-transform"
+                  className="h-10 rounded-xl bg-primary text-primary-foreground hover:bg-primary/90 text-xs font-bold gap-1.5 active:scale-95 transition-transform"
                 >
                   <a
                     href={previewFile.url}
@@ -949,18 +949,18 @@ export default function PersonalFilesPage() {
 
       {/* ==================== ALERTDIALOG: CONFIRM EXCLUSÃO ==================== */}
       <AlertDialog open={!!deleteTargetFile} onOpenChange={(open) => !open && setDeleteTargetFile(null)}>
-        <AlertDialogContent className="bg-neutral-950 border border-white/[0.08] text-foreground rounded-2xl p-6">
+        <AlertDialogContent className="bg-card border border-border text-foreground rounded-2xl p-6">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-lg font-black text-white flex items-center gap-2">
+            <AlertDialogTitle className="text-lg font-black text-foreground flex items-center gap-2">
               <AlertTriangle className="size-5 text-rose-500 animate-pulse" /> Tem certeza?
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-xs text-neutral-400 leading-relaxed font-semibold">
-              Esta ação removerá permanentemente o arquivo <strong className="text-white font-bold">"{deleteTargetFile?.name}"</strong> enviado para o portal do aluno <strong className="text-white font-bold">"{deleteTargetFile?.student?.name}"</strong>. O aluno perderá o acesso imediato a este documento.
+            <AlertDialogDescription className="text-xs text-muted-foreground leading-relaxed font-semibold">
+              Esta ação removerá permanentemente o arquivo <strong className="text-foreground font-bold">"{deleteTargetFile?.name}"</strong> enviado para o portal do aluno <strong className="text-foreground font-bold">"{deleteTargetFile?.student?.name}"</strong>. O aluno perderá o acesso imediato a este documento.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-4 flex gap-2">
             <AlertDialogCancel
-              className="h-10 rounded-xl border-white/[0.05] bg-neutral-900/40 text-neutral-300 hover:text-white hover:bg-neutral-900 text-xs font-bold cursor-pointer"
+              className="h-10 rounded-xl border-border bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80 text-xs font-bold cursor-pointer"
               disabled={deletingFile}
             >
               Cancelar
@@ -987,35 +987,35 @@ function TrainerFilesSkeleton() {
   return (
     <div className="p-4 md:p-6 lg:p-8 space-y-8 w-full max-w-7xl mx-auto animate-pulse">
       {/* Header Skeleton */}
-      <div className="space-y-2 border-b border-white/[0.04] pb-6">
-        <Skeleton className="h-4 w-32 bg-neutral-900" />
-        <Skeleton className="h-8 w-64 max-w-full bg-neutral-900" />
-        <Skeleton className="h-4 w-full max-w-md bg-neutral-900" />
+      <div className="space-y-2 border-b border-border/40 pb-6">
+        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-8 w-64 max-w-full" />
+        <Skeleton className="h-4 w-full max-w-md" />
       </div>
 
       {/* KPI Stats cards Skeleton */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         {[...Array(4)].map((_, i) => (
-          <Skeleton key={i} className="h-28 bg-neutral-900 rounded-2xl" />
+          <Skeleton key={i} className="h-28 rounded-2xl" />
         ))}
       </div>
 
       {/* Filters Skeleton */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-neutral-950/20 rounded-2xl border border-white/[0.03]">
-        <Skeleton className="h-11 bg-neutral-900 rounded-xl" />
-        <Skeleton className="h-11 bg-neutral-900 rounded-xl" />
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4 bg-secondary/10 rounded-2xl border border-border">
+        <Skeleton className="h-11 rounded-xl" />
+        <Skeleton className="h-11 rounded-xl" />
         <div className="md:col-span-2 flex gap-2">
-          <Skeleton className="h-10 w-20 bg-neutral-900 rounded-xl" />
-          <Skeleton className="h-10 w-32 bg-neutral-900 rounded-xl" />
-          <Skeleton className="h-10 w-32 bg-neutral-900 rounded-xl" />
-          <Skeleton className="h-10 w-24 bg-neutral-900 rounded-xl" />
+          <Skeleton className="h-10 w-20 rounded-xl" />
+          <Skeleton className="h-10 w-32 rounded-xl" />
+          <Skeleton className="h-10 w-32 rounded-xl" />
+          <Skeleton className="h-10 w-24 rounded-xl" />
         </div>
       </div>
 
       {/* Files Grid Skeleton */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {[...Array(6)].map((_, i) => (
-          <Skeleton key={i} className="h-56 bg-neutral-900 rounded-2xl" />
+          <Skeleton key={i} className="h-56 rounded-2xl" />
         ))}
       </div>
     </div>

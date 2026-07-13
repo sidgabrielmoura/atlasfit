@@ -18,6 +18,7 @@
     "@hugeicons/react": "^1.1.6",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
+    "ably": "^2.24.0",
     "axios": "^1.16.1",
     "bcryptjs": "^3.0.3",
     "class-variance-authority": "^0.7.1",

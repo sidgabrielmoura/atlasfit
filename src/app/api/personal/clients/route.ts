@@ -91,9 +91,10 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { workspaceId, name, email, whatsapp, plan } = body;
+    const { workspaceId, name, email, whatsapp } = body;
+    const plan = body.plan || "Mensal";
 
-    if (!workspaceId || !name || !email || !plan) {
+    if (!workspaceId || !name || !email) {
       return new NextResponse("Campos obrigatórios ausentes.", { status: 400 });
     }
 

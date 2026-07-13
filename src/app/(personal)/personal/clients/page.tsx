@@ -881,33 +881,15 @@ export default function ClientsPage() {
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="create-whatsapp">WhatsApp</Label>
-                <Input
-                  id="create-whatsapp"
-                  placeholder="(11) 99999-9999"
-                  className="bg-background border-border"
-                  value={whatsapp}
-                  onChange={handleWhatsAppChange}
-                />
-              </div>
-              <div className="space-y-1.5 flex flex-col">
-                <Label htmlFor="create-plan" className="mb-1.5">Plano</Label>
-                <Select value={plan} onValueChange={setPlan}>
-                  <SelectTrigger className="w-full h-9!">
-                    <SelectValue placeholder="Selecione um plano" />
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    {getPlanOptions(plan).map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="create-whatsapp">WhatsApp</Label>
+              <Input
+                id="create-whatsapp"
+                placeholder="(11) 99999-9999"
+                className="bg-background border-border"
+                value={whatsapp}
+                onChange={handleWhatsAppChange}
+              />
             </div>
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={createLoading}>
@@ -955,33 +937,15 @@ export default function ClientsPage() {
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="edit-whatsapp">WhatsApp</Label>
-                <Input
-                  id="edit-whatsapp"
-                  placeholder="(11) 99999-9999"
-                  className="bg-background border-border"
-                  value={whatsapp}
-                  onChange={handleWhatsAppChange}
-                />
-              </div>
-              <div className="space-y-1.5 flex flex-col">
-                <Label htmlFor="edit-plan" className="mb-1.5">Plano</Label>
-                <Select value={plan} onValueChange={setPlan}>
-                  <SelectTrigger className="w-full h-9!">
-                    <SelectValue placeholder="Selecione um plano" />
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    {getPlanOptions(plan).map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-whatsapp">WhatsApp</Label>
+              <Input
+                id="edit-whatsapp"
+                placeholder="(11) 99999-9999"
+                className="bg-background border-border"
+                value={whatsapp}
+                onChange={handleWhatsAppChange}
+              />
             </div>
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)} disabled={editLoading}>
@@ -1087,33 +1051,15 @@ export default function ClientsPage() {
                 onChange={(e) => setEmail(e.target.value)}
               />
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1.5">
-                <Label htmlFor="edit-pending-whatsapp">WhatsApp</Label>
-                <Input
-                  id="edit-pending-whatsapp"
-                  placeholder="(11) 99999-9999"
-                  className="bg-background border-border"
-                  value={whatsapp}
-                  onChange={handleWhatsAppChange}
-                />
-              </div>
-              <div className="space-y-1.5 flex flex-col">
-                <Label htmlFor="edit-pending-plan" className="mb-1.5">Plano</Label>
-                <Select value={plan} onValueChange={setPlan}>
-                  <SelectTrigger className="w-full h-9!">
-                    <SelectValue placeholder="Selecione um plano" />
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    {getPlanOptions(plan).map((option) => (
-                      <SelectItem key={option} value={option}>
-                        {option}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-pending-whatsapp">WhatsApp</Label>
+              <Input
+                id="edit-pending-whatsapp"
+                placeholder="(11) 99999-9999"
+                className="bg-background border-border"
+                value={whatsapp}
+                onChange={handleWhatsAppChange}
+              />
             </div>
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" onClick={() => setIsEditPendingOpen(false)} disabled={editPendingLoading}>

@@ -238,18 +238,18 @@ export function EngageRenderer() {
               }
               transition={{ type: "spring", damping: 30, stiffness: 350 }}
               className={cn(
-                "bg-zinc-950 border border-white/10 text-foreground relative z-10 w-full flex flex-col shadow-2xl overflow-hidden select-none",
+                "bg-card border border-border text-foreground relative z-10 w-full flex flex-col shadow-2xl overflow-hidden select-none",
                 isFullscreen && "h-full max-h-full rounded-none border-0 pt-12 p-6 md:p-12",
                 isDrawer && "mt-auto rounded-t-3xl max-h-[85vh] p-6 max-w-lg border-b-0",
                 !isFullscreen && !isDrawer && "max-w-md rounded-2xl p-6 m-4 max-h-[85vh] overflow-y-auto"
               )}
             >
               {/* Header row */}
-              <div className="flex items-center justify-between text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-4 border-b border-white/5 pb-2">
+              <div className="flex items-center justify-between text-[8px] font-black uppercase tracking-widest text-muted-foreground mb-4 border-b border-border pb-2">
                 <span>{exp.category}</span>
                 <button 
                   onClick={() => handleClose(true)} 
-                  className="p-1 rounded-md hover:bg-white/5 text-zinc-400 hover:text-white transition-colors cursor-pointer flex items-center gap-1 font-bold text-[9px]"
+                  className="p-1 rounded-md hover:bg-secondary text-muted-foreground hover:text-foreground transition-colors cursor-pointer flex items-center gap-1 font-bold text-[9px]"
                 >
                   FECHAR <X className="size-3.5" />
                 </button>
@@ -369,7 +369,7 @@ export function EngageInline({ format, workspaceId }: EngageInlineProps) {
             <>
               {/* Extract first image block if any */}
               {exp.blocks.some(b => b.type === "IMAGE" && b.content.imageUrl) ? (
-                <div className="shrink-0 w-full sm:w-36 aspect-video rounded-xl overflow-hidden border border-white/5 bg-zinc-950/40 relative shadow-inner">
+                <div className="shrink-0 w-full sm:w-36 aspect-video rounded-xl overflow-hidden border border-border bg-secondary/40 relative shadow-inner">
                   <img 
                     src={exp.blocks.find(b => b.type === "IMAGE")?.content.imageUrl} 
                     className="size-full object-cover" 
@@ -377,13 +377,13 @@ export function EngageInline({ format, workspaceId }: EngageInlineProps) {
                   />
                 </div>
               ) : exp.blocks.some(b => b.type === "VIDEO" && b.content.videoUrl) ? (
-                <div className="shrink-0 w-full sm:w-36 aspect-video rounded-xl overflow-hidden border border-white/5 bg-zinc-950/40 flex items-center justify-center relative bg-zinc-900 shadow-inner">
+                <div className="shrink-0 w-full sm:w-36 aspect-video rounded-xl overflow-hidden border border-border bg-secondary/40 flex items-center justify-center relative shadow-inner">
                   <div className="absolute inset-0 bg-black/45 flex items-center justify-center">
                     <div className="size-6 rounded-full bg-white/20 backdrop-blur-xs flex items-center justify-center border border-white/30 text-white shadow-xs">
                       <Play className="size-3 fill-white ml-0.5" />
                     </div>
                   </div>
-                  <Video className="size-5 text-zinc-500" />
+                  <Video className="size-5 text-muted-foreground" />
                 </div>
               ) : null}
 
@@ -465,7 +465,7 @@ function RenderBlock({ block, onAction }: { block: EngageBlock; onAction: (b: En
       );
     case "IMAGE":
       return block.content.imageUrl ? (
-        <div className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border border-white/5 bg-zinc-950">
+        <div className="relative w-full aspect-[21/9] rounded-xl overflow-hidden border border-border bg-secondary">
           <img src={block.content.imageUrl} className="size-full object-cover" alt="Campaign Banner" />
         </div>
       ) : null;
@@ -478,7 +478,7 @@ function RenderBlock({ block, onAction }: { block: EngageBlock; onAction: (b: En
         displayUrl.includes("/api/storage/file") ||
         /\.(mp4|webm|ogg|mov|m4v)(?:\?|$)/i.test(displayUrl);
       return (
-        <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-white/5 bg-zinc-950">
+        <div className="relative w-full aspect-video rounded-xl overflow-hidden border border-border bg-secondary">
           {isDirectVideo ? (
             <video 
               src={displayUrl} 
@@ -532,17 +532,17 @@ function RenderBlock({ block, onAction }: { block: EngageBlock; onAction: (b: En
           <div className="flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <Trophy className="size-5 text-yellow-500 shrink-0" />
-              <span className="text-sm font-black tracking-tight text-white leading-tight truncate">
+              <span className="text-sm font-black tracking-tight text-foreground leading-tight truncate">
                 {block.content.title || "Novo Desafio"}
               </span>
             </div>
             <span className="text-[10px] font-black text-yellow-500 whitespace-nowrap">+{block.content.points || 0} XP</span>
           </div>
-          <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
+          <div className="w-full h-1.5 bg-muted rounded-full overflow-hidden">
             <div className="h-full bg-yellow-500 rounded-full w-[15%]" />
           </div>
           <div className="flex justify-between items-center">
-            <span className="text-[9px] font-bold text-zinc-500 uppercase">Progresso: 0 / {block.content.goal || 5}</span>
+            <span className="text-[9px] font-bold text-muted-foreground uppercase">Progresso: 0 / {block.content.goal || 5}</span>
             <Button 
               size="sm"
               onClick={() => onAction(block)}

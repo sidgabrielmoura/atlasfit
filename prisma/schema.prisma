@@ -80,6 +80,17 @@ model User {
   notificationDevices    NotificationDevice[]
   notifications          Notification[]
   notificationPreference NotificationPreference?
+
+  // Affiliate / Referral fields
+  referralCode           String?                     @unique
+  referredById           String?
+  referredBy             User?                       @relation("UserReferrals", fields: [referredById], references: [id])
+  referrals              User[]                      @relation("UserReferrals")
+  commissionsReceived    ReferralCommission[]        @relation("ReferrerCommissions")
+  commissionsGenerated   ReferralCommission[]        @relation("ReferredCommissions")
+  payoutRequests         PayoutRequest[]
+  chatParticipations     ConversationParticipant[]
+  chatMessages           Message[]
 }
 
 model Workspace {
@@ -112,6 +123,7 @@ model Workspace {
   engageExperiences EngageExperience[]
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
+  conversations   Conversation[]
 }
 
 model WorkspaceMember {
@@ -195,6 +207,8 @@ model Transaction {
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  commissions   ReferralCommission[]
 }
 
 model Coupon {
@@ -934,5 +948,119 @@ model NotificationPreference {
   updatedAt DateTime @updatedAt
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
+
+model ReferralCommission {
+  id             String   @id @default(cuid())
+  referrerId     String
+  referredId     String
+  transactionId  String
+  amount         Float
+  percentage     Float
+  status         String   // "PENDENTE", "APROVADO", "CANCELADO"
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  referrer       User        @relation("ReferrerCommissions", fields: [referrerId], references: [id], onDelete: Cascade)
+  referred       User        @relation("ReferredCommissions", fields: [referredId], references: [id], onDelete: Cascade)
+  transaction    Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+
+  @@index([referrerId])
+  @@index([referredId])
+  @@index([transactionId])
+}
+
+model PayoutRequest {
+  id             String    @id @default(cuid())
+  userId         String
+  amount         Float
+  pixKey         String
+  pixKeyType     String
+  status         String    // "PENDENTE", "PAGO", "REJEITADO"
+  rejectedReason String?
+  paidAt         DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+enum ChatType {
+  DIRECT
+  GROUP
+  WHATSAPP
+  INSTAGRAM
+}
+
+enum MessageType {
+  TEXT
+  IMAGE
+  VIDEO
+  FILE
+  AUDIO
+}
+
+enum MessageStatus {
+  SENDING
+  SENT
+  DELIVERED
+  READ
+}
+
+model Conversation {
+  id             String                    @id @default(cuid())
+  workspaceId    String
+  type           ChatType                  @default(DIRECT)
+  lastMessage    String?                   @db.Text
+  lastMessageAt  DateTime?
+  createdAt      DateTime                  @default(now())
+  updatedAt      DateTime                  @updatedAt
+  workspace      Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  participants   ConversationParticipant[]
+  messages       Message[]
+
+  @@index([workspaceId])
+}
+
+model ConversationParticipant {
+  id             String       @id @default(cuid())
+  conversationId String
+  userId         String
+  role           String       @default("MEMBER")
+  unreadCount    Int          @default(0)
+  joinedAt       DateTime     @default(now())
+  leftAt         DateTime?
+  conversation   Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([conversationId, userId])
+  @@index([conversationId])
+  @@index([userId])
+}
+
+model Message {
+  id             String        @id @default(cuid())
+  conversationId String
+  senderId       String
+  type           MessageType   @default(TEXT)
+  content        String?       @db.Text
+  attachment     Json?
+  replyToId      String?
+  status         MessageStatus @default(SENDING)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender         User          @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  replyTo        Message?      @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies        Message[]     @relation("MessageReplies")
+
+  @@index([conversationId])
+  @@index([senderId])
+  @@index([replyToId])
+}
+
+
 
 

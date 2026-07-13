@@ -5,6 +5,7 @@ import { storageService } from "@/lib/storage.service";
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
+const MAX_CHAT_SIZE = 50 * 1024 * 1024; // 50MB
 
 const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/jpg", "image/png", "image/gif", "image/webp"];
 const ALLOWED_FILE_TYPES = [
@@ -15,6 +16,25 @@ const ALLOWED_FILE_TYPES = [
   "application/msword", // doc
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document", // docx
   "text/plain",
+];
+const ALLOWED_CHAT_TYPES = [
+  ...ALLOWED_FILE_TYPES,
+  "audio/webm",
+  "audio/ogg",
+  "audio/mp3",
+  "audio/wav",
+  "audio/m4a",
+  "audio/x-m4a",
+  "audio/mpeg",
+  "video/mp4",
+  "video/webm",
+  "video/ogg",
+  "video/quicktime",
+  "application/zip",
+  "application/x-zip-compressed",
+  "application/x-rar-compressed",
+  "application/octet-stream",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 ];
 
 export async function POST(req: Request) {
@@ -33,8 +53,10 @@ export async function POST(req: Request) {
 
     // 1. Validate size and MIME types
     const isImageTarget = ["logo", "watermark", "workout_cover", "avatar", "progress_photo", "campaign", "campaign_banner"].includes(targetType);
-    const sizeLimit = isImageTarget ? MAX_IMAGE_SIZE : MAX_FILE_SIZE;
-    const allowedTypes = isImageTarget ? ALLOWED_IMAGE_TYPES : ALLOWED_FILE_TYPES;
+    const isChatTarget = targetType === "chat_attachment";
+    const sizeLimit = isChatTarget ? MAX_CHAT_SIZE : (isImageTarget ? MAX_IMAGE_SIZE : MAX_FILE_SIZE);
+    const allowedTypes = isChatTarget ? ALLOWED_CHAT_TYPES : (isImageTarget ? ALLOWED_IMAGE_TYPES : ALLOWED_FILE_TYPES);
+
 
     if (fileSize > sizeLimit) {
       return new NextResponse(`O arquivo excede o tamanho limite permitido de ${sizeLimit / (1024 * 1024)}MB.`, { status: 400 });
@@ -50,21 +72,25 @@ export async function POST(req: Request) {
     // 2. Validate multi-tenant authorizations
     const userId = session.user.id;
 
-    if (["logo", "watermark", "workout_cover", "student_file"].includes(targetType)) {
+    if (["logo", "watermark", "workout_cover", "student_file", "chat_attachment"].includes(targetType)) {
       if (!workspaceId) {
         return new NextResponse("O workspaceId é obrigatório para este tipo de upload.", { status: 400 });
       }
-      // Logged user must be trainer or owner of the workspace
+      
+      const allowedRoles = targetType === "chat_attachment"
+        ? ["OWNER", "TRAINER", "ASSISTANT", "STUDENT"]
+        : ["OWNER", "TRAINER"];
+
       const member = await prisma.workspaceMember.findFirst({
         where: {
           userId,
           workspaceId,
-          role: { in: ["TRAINER", "OWNER"] },
+          role: { in: allowedRoles as any },
           isActive: true,
         },
       });
       if (!member) {
-        return new NextResponse("Você não possui permissão de treinador neste workspace.", { status: 403 });
+        return new NextResponse("Você não possui permissão de acesso neste workspace.", { status: 403 });
       }
     }
 
@@ -137,6 +163,9 @@ export async function POST(req: Request) {
         break;
       case "student_file":
         key = `workspace/${workspaceId}/files/file-${timestamp}-${safeFileName}`;
+        break;
+      case "chat_attachment":
+        key = `workspace/${workspaceId}/chat/attachment-${timestamp}-${safeFileName}`;
         break;
       case "campaign":
       case "campaign_banner":

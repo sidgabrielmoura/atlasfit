@@ -551,21 +551,21 @@ export default function WorkoutsPage() {
           {loadingWorkouts ? (
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 w-full">
               {[1, 2, 3].map((i) => (
-                <Card key={i} className="p-0 border border-neutral-800 bg-neutral-950/40 rounded-2xl">
+                <Card key={i} className="p-0 border border-border bg-card/45 rounded-2xl">
                   <CardContent className="p-5 flex flex-col justify-between gap-4 h-full min-h-[160px]">
                     <div className="space-y-3">
-                      <Skeleton className="h-6 w-2/3 rounded-lg bg-neutral-900 animate-pulse" />
+                      <Skeleton className="h-6 w-2/3 rounded-lg bg-muted animate-pulse" />
                       <div className="flex gap-2">
-                        <Skeleton className="h-5 w-20 rounded bg-neutral-900 animate-pulse" />
-                        <Skeleton className="h-5 w-24 rounded-full bg-neutral-900 animate-pulse" />
+                        <Skeleton className="h-5 w-20 rounded bg-muted animate-pulse" />
+                        <Skeleton className="h-5 w-24 rounded-full bg-muted animate-pulse" />
                       </div>
                     </div>
-                    <div className="border-t border-neutral-900/50 pt-4 flex justify-between items-center mt-2">
+                    <div className="border-t border-border/40 pt-4 flex justify-between items-center mt-2">
                       <div className="flex gap-3">
-                        <Skeleton className="h-4 w-12 rounded bg-neutral-900 animate-pulse" />
-                        <Skeleton className="h-4 w-12 rounded bg-neutral-900 animate-pulse" />
+                        <Skeleton className="h-4 w-12 rounded bg-muted animate-pulse" />
+                        <Skeleton className="h-4 w-12 rounded bg-muted animate-pulse" />
                       </div>
-                      <Skeleton className="h-8 w-16 rounded bg-neutral-900 animate-pulse" />
+                      <Skeleton className="h-8 w-16 rounded bg-muted animate-pulse" />
                     </div>
                   </CardContent>
                 </Card>
@@ -847,19 +847,19 @@ export default function WorkoutsPage() {
           {loadingDbExercises && dbExercises.length === 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {[1, 2, 3, 4, 5, 6].map((i) => (
-                <Card key={i} className="p-0 border border-neutral-800 bg-neutral-950/40 rounded-xl">
+                <Card key={i} className="p-0 border border-border bg-card/45 rounded-xl">
                   <CardContent className="p-4 flex items-center justify-between gap-4">
                     <div className="flex items-center gap-4 flex-1">
-                      <Skeleton className="size-12 rounded-xl bg-neutral-900 animate-pulse shrink-0" />
+                      <Skeleton className="size-12 rounded-xl bg-muted animate-pulse shrink-0" />
                       <div className="flex-1 space-y-2 min-w-0">
-                        <Skeleton className="h-4 w-3/4 rounded bg-neutral-900 animate-pulse" />
+                        <Skeleton className="h-4 w-3/4 rounded bg-muted animate-pulse" />
                         <div className="flex gap-3">
-                          <Skeleton className="h-3 w-16 rounded bg-neutral-900 animate-pulse" />
-                          <Skeleton className="h-3 w-24 rounded bg-neutral-900 animate-pulse" />
+                          <Skeleton className="h-3 w-16 rounded bg-muted animate-pulse" />
+                          <Skeleton className="h-3 w-24 rounded bg-muted animate-pulse" />
                         </div>
                       </div>
                     </div>
-                    <Skeleton className="h-8 w-20 rounded bg-neutral-900 animate-pulse shrink-0" />
+                    <Skeleton className="h-8 w-20 rounded bg-muted animate-pulse shrink-0" />
                   </CardContent>
                 </Card>
               ))}
@@ -890,7 +890,7 @@ export default function WorkoutsPage() {
                           >
                             <ExerciseThumbnail videoUrl={exercise.videoUrl} className="size-12 rounded-xl" />
                             <div className="min-w-0 flex-1">
-                              <h4 className="font-bold text-sm text-white truncate group-hover:text-primary transition-colors">{exercise.name}</h4>
+                              <h4 className="font-bold text-sm text-foreground truncate group-hover:text-primary transition-colors">{exercise.name}</h4>
                               <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-1 text-xs text-muted-foreground">
                                 <span className="flex items-center gap-1">
                                   <Activity className="size-3" />
@@ -934,19 +934,19 @@ export default function WorkoutsPage() {
                 {loadingMoreExercises && (
                   <>
                     {[1, 2, 3].map((i) => (
-                      <Card key={`more-skeleton-${i}`} className="p-0 border border-neutral-800 bg-neutral-950/40 rounded-xl">
+                      <Card key={`more-skeleton-${i}`} className="p-0 border border-border bg-card/45 rounded-xl">
                         <CardContent className="p-4 flex items-center justify-between gap-4 animate-pulse">
                           <div className="flex items-center gap-4 flex-1">
-                            <Skeleton className="size-12 rounded-xl bg-neutral-900 shrink-0" />
+                            <Skeleton className="size-12 rounded-xl bg-muted shrink-0" />
                             <div className="flex-1 space-y-2 min-w-0">
-                              <Skeleton className="h-4 w-3/4 rounded bg-neutral-900" />
+                              <Skeleton className="h-4 w-3/4 rounded bg-muted" />
                               <div className="flex gap-3">
-                                <Skeleton className="h-3 w-16 rounded bg-neutral-900" />
-                                <Skeleton className="h-3 w-24 rounded bg-neutral-900" />
+                                <Skeleton className="h-3 w-16 rounded bg-muted" />
+                                <Skeleton className="h-3 w-24 rounded bg-muted" />
                               </div>
                             </div>
                           </div>
-                          <Skeleton className="h-8 w-20 rounded bg-neutral-900 shrink-0" />
+                          <Skeleton className="h-8 w-20 rounded bg-muted shrink-0" />
                         </CardContent>
                       </Card>
                     ))}
@@ -1105,47 +1105,47 @@ export default function WorkoutsPage() {
           }
         }}
       >
-        <SheetContent side="right" className="max-w-2xl! w-full border-l border-white/8 bg-zinc-950/95 backdrop-blur-md flex flex-col h-full p-0 overflow-hidden text-foreground">
+        <SheetContent side="right" className="max-w-2xl! w-full border-l border-border bg-card/95 backdrop-blur-md flex flex-col h-full p-0 overflow-hidden text-foreground">
           {selectedAdjustment && (
             <>
-              <SheetHeader className="p-6 border-b border-white/4 bg-zinc-900/10">
+              <SheetHeader className="p-6 border-b border-border/40 bg-muted/10">
                 <SheetTitle className="flex items-center gap-3.5 justify-between">
-                  <span className="truncate text-white font-extrabold tracking-tight">Reajuste: {selectedAdjustment.exercise?.name}</span>
+                  <span className="truncate text-foreground font-extrabold tracking-tight">Reajuste: {selectedAdjustment.exercise?.name}</span>
                   <Badge
                     className={cn(
                       "text-[10px] px-2.5 py-0.5 rounded-full shrink-0 border font-bold bg-transparent shadow-none tracking-wider",
-                      selectedAdjustment.status === "PENDING" && "text-amber-400 border-amber-500/25 bg-amber-500/5",
-                      selectedAdjustment.status === "RESOLVED" && "text-emerald-400 border-emerald-500/25 bg-emerald-500/5"
+                      selectedAdjustment.status === "PENDING" && "text-amber-500 border-amber-500/25 bg-amber-500/5",
+                      selectedAdjustment.status === "RESOLVED" && "text-emerald-500 border-emerald-500/25 bg-emerald-500/5"
                     )}
                   >
                     {selectedAdjustment.status === "PENDING" ? "Em Aberto" : "Resolvido"}
                   </Badge>
                 </SheetTitle>
-                <SheetDescription className="text-xs text-zinc-400 mt-1 font-medium">
+                <SheetDescription className="text-xs text-muted-foreground mt-1 font-medium">
                   Criada em {new Date(selectedAdjustment.createdAt).toLocaleDateString("pt-BR")} às {new Date(selectedAdjustment.createdAt).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })}
                 </SheetDescription>
               </SheetHeader>
 
               {/* Chat Container */}
-              <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-zinc-950/20">
+              <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-muted/20">
                 {/* Motivo Original */}
-                <div className="flex flex-col gap-2 p-4 rounded-xl border border-white/[0.05] bg-zinc-900/40 backdrop-blur-sm shadow-inner">
-                  <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Motivo da Solicitação</span>
-                  <p className="text-sm text-zinc-200 leading-relaxed font-medium">{selectedAdjustment.description}</p>
+                <div className="flex flex-col gap-2 p-4 rounded-xl border border-border/45 bg-muted/40 backdrop-blur-sm shadow-inner">
+                  <span className="text-[10px] font-black text-primary uppercase tracking-widest">Motivo da Solicitação</span>
+                  <p className="text-sm text-foreground/90 leading-relaxed font-medium">{selectedAdjustment.description}</p>
                 </div>
 
                 <div className="relative flex items-center justify-center my-6">
                   <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-white/[0.04]" />
+                    <span className="w-full border-t border-border/20" />
                   </div>
-                  <span className="relative bg-zinc-950 px-4 text-[9px] font-black text-zinc-500 uppercase tracking-widest">
+                  <span className="relative bg-card px-4 text-[9px] font-black text-muted-foreground uppercase tracking-widest">
                     Conversa com o Administrador
                   </span>
                 </div>
 
                 {/* Messages Thread */}
                 {selectedAdjustment.messages.length === 0 ? (
-                  <div className="text-center py-8 text-xs text-zinc-500 font-medium italic">
+                  <div className="text-center py-8 text-xs text-muted-foreground font-medium italic">
                     Nenhuma mensagem enviada ainda. Aguarde a resposta do SuperAdmin.
                   </div>
                 ) : (
@@ -1159,7 +1159,7 @@ export default function WorkoutsPage() {
                             "flex flex-col max-w-[85%] rounded-2xl px-4 py-3 shadow-md text-sm leading-relaxed transition-all",
                             isMe
                               ? "bg-gradient-to-br from-blue-600 to-blue-700 text-white ml-auto rounded-tr-none shadow-blue-500/10"
-                              : "bg-zinc-900/90 border border-white/[0.04] text-zinc-100 mr-auto rounded-tl-none"
+                              : "bg-muted border border-border/40 text-foreground mr-auto rounded-tl-none"
                           )}
                         >
                           <span className="text-[9px] opacity-75 mb-1.5 font-bold uppercase tracking-wider">
@@ -1177,7 +1177,7 @@ export default function WorkoutsPage() {
               </div>
 
               {/* Footer / Input Bar */}
-              <div className="p-5 border-t border-white/[0.04] bg-zinc-900/10 flex flex-col gap-3">
+              <div className="p-5 border-t border-border/40 bg-muted/10 flex flex-col gap-3">
                 {selectedAdjustment.status === "PENDING" ? (
                   <>
                     <form onSubmit={handleSendMessage} className="flex gap-2">
@@ -1185,7 +1185,7 @@ export default function WorkoutsPage() {
                         placeholder="Digite sua resposta..."
                         value={newAdjustmentMessage}
                         onChange={(e) => setNewAdjustmentMessage(e.target.value)}
-                        className="bg-zinc-900/50 border-white/[0.06] focus:border-blue-500/50 h-10 flex-1 rounded-xl"
+                        className="bg-secondary/50 border-border focus:border-primary/50 h-10 flex-1 rounded-xl"
                         disabled={sendingMessage}
                       />
                       <Button type="submit" size="icon" className="h-10 w-10 shrink-0 bg-blue-600 hover:bg-blue-500 rounded-xl" disabled={sendingMessage}>
@@ -1215,16 +1215,16 @@ export default function WorkoutsPage() {
       </Sheet>
 
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-        <AlertDialogContent className="bg-neutral-950 border border-neutral-800 text-white rounded-3xl">
+        <AlertDialogContent className="bg-card border border-border text-foreground rounded-3xl">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white">Excluir Modelo de Treino?</AlertDialogTitle>
-            <AlertDialogDescription className="text-neutral-400">
+            <AlertDialogTitle>Excluir Modelo de Treino?</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
               Tem certeza que deseja excluir este modelo de treino? Essa ação não poderá ser desfeita e removerá permanentemente o modelo.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel className="bg-transparent border-neutral-800 text-neutral-400 hover:text-white hover:bg-neutral-900 rounded-xl">Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90 text-white rounded-xl">Excluir</AlertDialogAction>
+            <AlertDialogCancel className="bg-transparent border-border text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl">Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-xl">Excluir</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

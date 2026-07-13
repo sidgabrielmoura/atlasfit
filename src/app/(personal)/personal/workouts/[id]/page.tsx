@@ -532,14 +532,14 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
     return (
       <div className="flex-1 space-y-8 p-4 md:p-8 pt-6 max-w-7xl mx-auto relative overflow-hidden">
         {/* Glow ambient skeletons */}
-        <div className="absolute top-0 left-1/4 w-80 h-80 bg-neutral-900/10 rounded-full blur-3xl -z-10" />
+        <div className="absolute top-0 left-1/4 w-80 h-80 bg-muted/10 rounded-full blur-3xl -z-10" />
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between w-full">
-          <Skeleton className="h-10 w-full sm:w-44 bg-zinc-900 border border-white/[0.04] rounded-xl" />
+          <Skeleton className="h-10 w-full sm:w-44 bg-muted border border-border/40 rounded-xl" />
           <div className="grid grid-cols-3 gap-2 w-full sm:flex sm:w-auto sm:items-center">
-            <Skeleton className="h-10 w-full sm:w-28 bg-zinc-900 border border-white/[0.04] rounded-xl" />
-            <Skeleton className="h-10 w-full sm:w-20 bg-zinc-900 border border-white/[0.04] rounded-xl" />
-            <Skeleton className="h-10 w-full sm:w-20 bg-zinc-900 border border-white/[0.04] rounded-xl" />
+            <Skeleton className="h-10 w-full sm:w-28 bg-muted border border-border/40 rounded-xl" />
+            <Skeleton className="h-10 w-full sm:w-20 bg-muted border border-border/40 rounded-xl" />
+            <Skeleton className="h-10 w-full sm:w-20 bg-muted border border-border/40 rounded-xl" />
           </div>
         </div>
 
@@ -547,46 +547,46 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
           <div className="lg:col-span-2 space-y-6">
             {/* Hero card skeleton */}
-            <Card className="border border-white/[0.04] bg-zinc-950/20 backdrop-blur-md overflow-hidden rounded-3xl p-6 md:p-8">
+            <Card className="border border-border/45 bg-card/45 backdrop-blur-md overflow-hidden rounded-3xl p-6 md:p-8">
               <div className="space-y-4">
-                <Skeleton className="h-10 w-2/3 bg-zinc-900 rounded-xl" />
+                <Skeleton className="h-10 w-2/3 bg-muted rounded-xl" />
                 <div className="flex gap-2">
-                  <Skeleton className="h-6 w-24 bg-zinc-900 rounded-lg" />
-                  <Skeleton className="h-6 w-28 bg-zinc-900 rounded-lg" />
-                  <Skeleton className="h-6 w-20 bg-zinc-900 rounded-lg" />
+                  <Skeleton className="h-6 w-24 bg-muted rounded-lg" />
+                  <Skeleton className="h-6 w-28 bg-muted rounded-lg" />
+                  <Skeleton className="h-6 w-20 bg-muted rounded-lg" />
                 </div>
               </div>
             </Card>
 
             {/* Stats card skeleton inside left col (mobile layout) */}
             <div className="block lg:hidden">
-              <Card className="border border-white/[0.04] bg-zinc-950/20 backdrop-blur-md rounded-3xl p-6">
-                <Skeleton className="h-6 w-32 bg-zinc-900 rounded mb-4" />
+              <Card className="border border-border/45 bg-card/45 backdrop-blur-md rounded-3xl p-6">
+                <Skeleton className="h-6 w-32 bg-muted rounded mb-4" />
                 <div className="grid grid-cols-2 gap-4">
-                  <Skeleton className="h-20 bg-zinc-900/50 rounded-2xl col-span-1" />
-                  <Skeleton className="h-20 bg-zinc-900/50 rounded-2xl col-span-1" />
-                  <Skeleton className="h-20 bg-zinc-900/50 rounded-2xl col-span-2" />
-                  <Skeleton className="h-20 bg-zinc-900/50 rounded-2xl col-span-1" />
-                  <Skeleton className="h-20 bg-zinc-900/50 rounded-2xl col-span-1" />
+                  <Skeleton className="h-20 bg-muted/50 rounded-2xl col-span-1" />
+                  <Skeleton className="h-20 bg-muted/50 rounded-2xl col-span-1" />
+                  <Skeleton className="h-20 bg-muted/50 rounded-2xl col-span-2" />
+                  <Skeleton className="h-20 bg-muted/50 rounded-2xl col-span-1" />
+                  <Skeleton className="h-20 bg-muted/50 rounded-2xl col-span-1" />
                 </div>
               </Card>
             </div>
 
             {/* List header skeleton */}
             <div className="space-y-4 pt-2">
-              <Skeleton className="h-6 w-48 bg-zinc-900 rounded" />
+              <Skeleton className="h-6 w-48 bg-muted rounded" />
               {[1, 2, 3].map((n) => (
-                <div key={n} className="p-5 md:p-6 rounded-2xl border border-white/[0.04] bg-zinc-900/10 flex flex-col md:flex-row md:items-center justify-between gap-5 relative">
+                <div key={n} className="p-5 md:p-6 rounded-2xl border border-border/40 bg-muted/10 flex flex-col md:flex-row md:items-center justify-between gap-5 relative">
                   <div className="flex items-center gap-4 min-w-0 w-full md:w-auto">
-                    <Skeleton className="size-11 bg-zinc-900 rounded-xl shrink-0" />
+                    <Skeleton className="size-11 bg-muted rounded-xl shrink-0" />
                     <div className="space-y-2 min-w-0 flex-1">
-                      <Skeleton className="h-5 w-3/4 sm:w-48 bg-zinc-900 rounded" />
-                      <Skeleton className="h-3.5 w-20 bg-zinc-900 rounded-md" />
+                      <Skeleton className="h-5 w-3/4 sm:w-48 bg-muted rounded" />
+                      <Skeleton className="h-3.5 w-20 bg-muted rounded-md" />
                     </div>
                   </div>
-                  <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto border-t border-white/[0.04] md:border-none pt-4 md:pt-0">
-                    <Skeleton className="h-14 w-full sm:w-56 bg-zinc-900 rounded-xl" />
-                    <Skeleton className="h-10 w-full sm:w-32 bg-zinc-900 rounded-xl" />
+                  <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto border-t border-border/40 md:border-none pt-4 md:pt-0">
+                    <Skeleton className="h-14 w-full sm:w-56 bg-muted rounded-xl" />
+                    <Skeleton className="h-10 w-full sm:w-32 bg-muted rounded-xl" />
                   </div>
                 </div>
               ))}
@@ -596,28 +596,28 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
           <div className="space-y-6">
             {/* Stats card skeleton inside right col (desktop layout) */}
             <div className="hidden lg:block">
-              <Card className="border border-white/[0.04] bg-zinc-950/20 backdrop-blur-md rounded-3xl p-6">
-                <Skeleton className="h-6 w-32 bg-zinc-900 rounded mb-4" />
+              <Card className="border border-border/45 bg-card/45 backdrop-blur-md rounded-3xl p-6">
+                <Skeleton className="h-6 w-32 bg-muted rounded mb-4" />
                 <div className="grid grid-cols-2 gap-4">
-                  <Skeleton className="h-20 bg-zinc-900/50 rounded-2xl col-span-1" />
-                  <Skeleton className="h-20 bg-zinc-900/50 rounded-2xl col-span-1" />
-                  <Skeleton className="h-20 bg-zinc-900/50 rounded-2xl col-span-2" />
-                  <Skeleton className="h-20 bg-zinc-900/50 rounded-2xl col-span-1" />
-                  <Skeleton className="h-20 bg-zinc-900/50 rounded-2xl col-span-1" />
+                  <Skeleton className="h-20 bg-muted/50 rounded-2xl col-span-1" />
+                  <Skeleton className="h-20 bg-muted/50 rounded-2xl col-span-1" />
+                  <Skeleton className="h-20 bg-muted/50 rounded-2xl col-span-2" />
+                  <Skeleton className="h-20 bg-muted/50 rounded-2xl col-span-1" />
+                  <Skeleton className="h-20 bg-muted/50 rounded-2xl col-span-1" />
                 </div>
               </Card>
             </div>
             {/* Muscle coverage skeleton */}
-            <Card className="border border-white/[0.04] bg-zinc-950/20 backdrop-blur-md rounded-3xl p-6">
-              <Skeleton className="h-6 w-40 bg-zinc-900 rounded mb-4" />
+            <Card className="border border-border/45 bg-card/45 backdrop-blur-md rounded-3xl p-6">
+              <Skeleton className="h-6 w-40 bg-muted rounded mb-4" />
               <div className="space-y-3">
                 {[1, 2].map((n) => (
                   <div key={n} className="space-y-1">
                     <div className="flex justify-between">
-                      <Skeleton className="h-4 w-20 bg-zinc-900 rounded" />
-                      <Skeleton className="h-4 w-10 bg-zinc-900 rounded" />
+                      <Skeleton className="h-4 w-20 bg-muted rounded" />
+                      <Skeleton className="h-4 w-10 bg-muted rounded" />
                     </div>
-                    <Skeleton className="h-2.5 w-full bg-zinc-900 rounded-full" />
+                    <Skeleton className="h-2.5 w-full bg-muted rounded-full" />
                   </div>
                 ))}
               </div>
@@ -641,7 +641,7 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
         <Button
           variant="ghost"
           size="sm"
-          className="gap-2 w-full sm:w-auto bg-zinc-950/40 hover:bg-zinc-900/60 text-zinc-400 hover:text-zinc-100 border border-white/[0.06] backdrop-blur-md rounded-xl transition-all h-10 px-4 justify-center"
+          className="gap-2 w-full sm:w-auto bg-muted/40 hover:bg-muted/65 text-muted-foreground hover:text-foreground border border-border/40 backdrop-blur-md rounded-xl transition-all h-10 px-4 justify-center"
           asChild
         >
           <Link href="/personal/workouts">
@@ -653,18 +653,18 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
           <Button
             variant="outline"
             size="sm"
-            className="gap-2 h-10 rounded-xl bg-zinc-950/40 hover:bg-zinc-900/60 border-white/[0.06] hover:text-zinc-100 transition-all font-semibold px-2 sm:px-4 justify-center text-xs sm:text-sm"
+            className="gap-2 h-10 rounded-xl bg-muted/40 hover:bg-muted/65 border-border/40 text-muted-foreground hover:text-foreground transition-all font-semibold px-2 sm:px-4 justify-center text-xs sm:text-sm"
             onClick={() => handlePrintWorkout(workout)}
             disabled={isDuplicating || isDeleting}
           >
-            <Printer className="size-4 text-zinc-400 shrink-0" />
+            <Printer className="size-4 text-muted-foreground shrink-0" />
             <span className="truncate">Exportar PDF</span>
           </Button>
 
           <Button
             variant="outline"
             size="sm"
-            className="gap-2 h-10 rounded-xl bg-zinc-950/40 hover:bg-zinc-900/60 border-white/[0.06] hover:text-zinc-100 transition-all font-semibold px-2 sm:px-4 justify-center text-xs sm:text-sm"
+            className="gap-2 h-10 rounded-xl bg-muted/40 hover:bg-muted/65 border-border/40 text-muted-foreground hover:text-foreground transition-all font-semibold px-2 sm:px-4 justify-center text-xs sm:text-sm"
             onClick={handleDuplicate}
             disabled={isDuplicating || isDeleting}
           >
@@ -675,7 +675,7 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
               </>
             ) : (
               <>
-                <Copy className="size-4 text-zinc-400 shrink-0" />
+                <Copy className="size-4 text-muted-foreground shrink-0" />
                 <span className="truncate">Duplicar<span className="hidden sm:inline"> Modelo</span></span>
               </>
             )}
@@ -697,11 +697,11 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
           <Button
             variant="outline"
             size="sm"
-            className="gap-2 h-10 rounded-xl bg-rose-500/5 hover:bg-rose-500/10 border-rose-500/10 text-rose-400 hover:text-rose-400 transition-all font-semibold px-2 sm:px-4 justify-center text-xs sm:text-sm"
+            className="gap-2 h-10 rounded-xl bg-destructive/5 hover:bg-destructive/10 border-destructive/10 text-destructive hover:text-destructive transition-all font-semibold px-2 sm:px-4 justify-center text-xs sm:text-sm"
             onClick={() => setIsDeleteAlertOpen(true)}
             disabled={isDuplicating || isDeleting}
           >
-            <Trash2 className="size-4 text-rose-500/70 shrink-0" />
+            <Trash2 className="size-4 text-destructive/70 shrink-0" />
             <span className="truncate">Excluir</span>
           </Button>
         </div>
@@ -714,10 +714,10 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
         <div className="lg:col-span-2 space-y-8">
 
           {/* Main Glassmorphic Hero Card */}
-          <Card className="border border-white/[0.06] shadow-2xl bg-zinc-950/40 backdrop-blur-xl overflow-hidden rounded-3xl relative">
+          <Card className="border border-border shadow-2xl bg-card overflow-hidden rounded-3xl relative">
             {/* Visual glow ribbon top right */}
             <div className="absolute right-0 top-0 w-80 h-80 bg-gradient-to-bl from-primary/10 to-transparent blur-3xl pointer-events-none" />
-            <Dumbbell className="absolute -right-12 -bottom-12 size-60 text-zinc-900/15 pointer-events-none rotate-12" />
+            <Dumbbell className="absolute -right-12 -bottom-12 size-60 text-muted-foreground/10 pointer-events-none rotate-12" />
 
             <CardContent className="p-6 md:p-8 relative z-10">
               <div className="space-y-4">
@@ -726,13 +726,13 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
                     Ficha de Modelo
                   </Badge>
                   {workout.muscleGroupLabel && (
-                    <Badge variant="outline" className="border-white/[0.06] bg-zinc-900/40 text-zinc-300 font-semibold px-2.5 py-0.5 rounded-lg text-xs">
+                    <Badge variant="outline" className="border-border bg-secondary text-muted-foreground font-semibold px-2.5 py-0.5 rounded-lg text-xs">
                       {workout.muscleGroupLabel}
                     </Badge>
                   )}
                 </div>
 
-                <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-white leading-tight">
+                <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground leading-tight">
                   {workout.name}
                 </h1>
 
@@ -764,36 +764,36 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
 
           {/* Real consolidated metrics card inside left col (mobile layout) */}
           <div className="block lg:hidden">
-            <Card className="border border-white/[0.06] bg-zinc-950/40 backdrop-blur-xl rounded-3xl shadow-2xl relative overflow-hidden">
+            <Card className="border border-border bg-card rounded-3xl shadow-2xl relative overflow-hidden">
               <div className="absolute right-0 top-0 w-32 h-32 bg-primary/[0.02] rounded-full blur-2xl pointer-events-none" />
               <CardContent className="p-6 space-y-5">
-                <h3 className="font-extrabold text-lg text-white flex items-center gap-2">
+                <h3 className="font-extrabold text-lg text-foreground flex items-center gap-2">
                   <Gauge className="size-5 text-primary" /> Painel Consolidado
                 </h3>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 rounded-2xl bg-zinc-900/30 border border-white/[0.04] shadow-sm flex flex-col justify-between h-20 relative overflow-hidden group hover:border-white/[0.08] transition-all col-span-1">
+                  <div className="p-4 rounded-2xl bg-secondary border border-border shadow-sm flex flex-col justify-between h-20 relative overflow-hidden group hover:border-border transition-all col-span-1">
                     <Clock className="size-4 text-primary absolute right-3.5 top-3.5 opacity-40 group-hover:scale-110 transition-transform" />
-                    <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">Duração</span>
-                    <span className="font-black text-lg text-white">{workout.duration}</span>
+                    <span className="text-[10px] text-muted-foreground block uppercase font-bold tracking-wider">Duração</span>
+                    <span className="font-black text-lg text-foreground">{workout.duration}</span>
                   </div>
 
-                  <div className="p-4 rounded-2xl bg-zinc-900/30 border border-white/[0.04] shadow-sm flex flex-col justify-between h-20 relative overflow-hidden group hover:border-white/[0.08] transition-all col-span-1">
+                  <div className="p-4 rounded-2xl bg-secondary border border-border shadow-sm flex flex-col justify-between h-20 relative overflow-hidden group hover:border-border transition-all col-span-1">
                     <Dumbbell className="size-4 text-primary absolute right-3.5 top-3.5 opacity-40 group-hover:scale-110 transition-transform" />
-                    <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">Exercícios</span>
-                    <span className="font-black text-lg text-white">{totalExercises}</span>
+                    <span className="text-[10px] text-muted-foreground block uppercase font-bold tracking-wider">Exercícios</span>
+                    <span className="font-black text-lg text-foreground">{totalExercises}</span>
                   </div>
 
-                  <div className="p-4 rounded-2xl bg-zinc-900/30 border border-white/[0.04] shadow-sm flex flex-col justify-between h-20 relative overflow-hidden group hover:border-white/[0.08] transition-all col-span-1">
+                  <div className="p-4 rounded-2xl bg-secondary border border-border shadow-sm flex flex-col justify-between h-20 relative overflow-hidden group hover:border-border transition-all col-span-1">
                     <Activity className="size-4 text-primary absolute right-3.5 top-3.5 opacity-40 group-hover:scale-110 transition-transform animate-pulse" />
-                    <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">Volume Séries</span>
-                    <span className="font-black text-lg text-white">{totalSets} séries</span>
+                    <span className="text-[10px] text-muted-foreground block uppercase font-bold tracking-wider">Volume Séries</span>
+                    <span className="font-black text-lg text-foreground">{totalSets} séries</span>
                   </div>
 
-                  <div className="p-4 rounded-2xl bg-zinc-900/30 border border-white/[0.04] shadow-sm flex flex-col justify-between h-20 relative overflow-hidden group hover:border-white/[0.08] transition-all col-span-1">
+                  <div className="p-4 rounded-2xl bg-secondary border border-border shadow-sm flex flex-col justify-between h-20 relative overflow-hidden group hover:border-border transition-all col-span-1">
                     <Clock className="size-4 text-primary absolute right-3.5 top-3.5 opacity-40 group-hover:scale-110 transition-transform" />
-                    <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">Desc. Exercícios</span>
-                    <span className="font-black text-lg text-white">{workout.restBetweenExercises || "2 min"}</span>
+                    <span className="text-[10px] text-muted-foreground block uppercase font-bold tracking-wider">Desc. Exercícios</span>
+                    <span className="font-black text-lg text-foreground">{workout.restBetweenExercises || "2 min"}</span>
                   </div>
                 </div>
               </CardContent>
@@ -802,11 +802,11 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
 
           {/* Exercise Prescriptions flow */}
           <div className="space-y-5">
-            <div className="flex items-center justify-between pb-1 border-b border-white/[0.04]">
-              <h3 className="font-extrabold text-xl text-white flex items-center gap-2">
+            <div className="flex items-center justify-between pb-1 border-b border-border/40">
+              <h3 className="font-extrabold text-xl text-foreground flex items-center gap-2">
                 <Flame className="size-5.5 text-primary animate-pulse" /> Ficha de Exercícios
               </h3>
-              <Badge className="bg-zinc-900 border border-white/[0.06] text-zinc-300 font-bold px-2.5 py-1 rounded-lg">
+              <Badge className="bg-secondary border border-border text-muted-foreground font-bold px-2.5 py-1 rounded-lg">
                 {totalExercises} {totalExercises === 1 ? "Exercício" : "Exercícios"}
               </Badge>
             </div>
@@ -826,16 +826,16 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
                   const repsArr = String(we.reps || "").split(",").map(s => s.trim());
                   const loadArr = String(we.load || "").split(",").map(s => s.trim());
                   const restArr = String(we.rest || "").split(",").map(s => s.trim());
-                  const isIndividual = repsArr.length > 1 || loadArr.length > 1 || restArr.length > 1;
+                  const isIndividual = repsArr.length > 1 || loadArr.length > 1;
 
                   return (
                     <div
                       key={we.id}
-                      className="group relative overflow-hidden p-4 md:p-6 rounded-2xl border border-white/[0.04] bg-zinc-900/20 hover:bg-zinc-900/50 hover:border-white/[0.08] hover:shadow-[0_0_30px_-5px_rgba(var(--primary-rgb),0.1)] transition-all duration-300 backdrop-blur-md flex flex-col gap-4"
+                      className="group relative overflow-hidden p-4 md:p-6 rounded-2xl border border-border/40 bg-card hover:bg-secondary/40 hover:border-border hover:shadow-[0_0_30px_-5px_rgba(var(--primary-rgb),0.1)] transition-all duration-300 backdrop-blur-md flex flex-col gap-4"
                     >
                       <div className="flex flex-col gap-4 w-full">
                         {/* Visual Watermark number */}
-                        <span className="text-white/[0.02] group-hover:text-primary/[0.05] select-none transition-all duration-500 font-black text-6xl md:text-8xl absolute right-4 top-2 md:right-6 md:top-4 pointer-events-none">
+                        <span className="text-muted-foreground/[0.02] group-hover:text-primary/[0.05] select-none transition-all duration-500 font-black text-6xl md:text-8xl absolute right-4 top-2 md:right-6 md:top-4 pointer-events-none">
                           {String(index + 1).padStart(2, "0")}
                         </span>
 
@@ -856,18 +856,18 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
                             <ExerciseThumbnail videoUrl={we.exercise.videoUrl} className="size-11 rounded-xl" />
 
                             <div className="min-w-0 space-y-1">
-                              <h4 className="font-bold text-base md:text-lg text-white leading-snug group-hover:text-primary transition-colors break-words">
+                              <h4 className="font-bold text-base md:text-lg text-foreground leading-snug group-hover:text-primary transition-colors break-words">
                                 {we.exercise.name}
                               </h4>
                               <div className="flex flex-wrap items-center gap-2">
                                  {we.exercise.muscleGroups && we.exercise.muscleGroups.length > 0 ? (
                                    we.exercise.muscleGroups.map((g: any) => (
-                                     <Badge key={g.name} variant="outline" className="border-white/[0.04] bg-zinc-900/40 text-zinc-400 text-[10px] px-2 py-0.5 rounded-md font-bold tracking-wider uppercase">
+                                     <Badge key={g.name} variant="outline" className="border-border bg-secondary text-muted-foreground text-[10px] px-2 py-0.5 rounded-md font-bold tracking-wider uppercase">
                                        {g.name}
                                      </Badge>
                                    ))
                                  ) : (
-                                   <Badge variant="outline" className="border-white/[0.04] bg-zinc-900/40 text-zinc-400 text-[10px] px-2 py-0.5 rounded-md font-bold tracking-wider uppercase">
+                                   <Badge variant="outline" className="border-border bg-secondary text-muted-foreground text-[10px] px-2 py-0.5 rounded-md font-bold tracking-wider uppercase">
                                      {we.exercise.muscleGroup?.name || "Geral"}
                                    </Badge>
                                  )}
@@ -910,7 +910,7 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="h-10 rounded-xl text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/40 border border-dashed border-white/[0.06] transition-all flex items-center gap-2"
+                                className="h-10 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary border border-dashed border-border transition-all flex items-center gap-2"
                                 asChild
                               >
                                 <a
@@ -926,27 +926,27 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
                         </div>
 
                         {/* Row 2: Metrics Specs & Mobile Video Button */}
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-white/[0.04] w-full relative z-10">
+                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pt-3 border-t border-border/40 w-full relative z-10">
                           {/* Metric specs dials */}
-                          <div className="w-full sm:w-auto grid grid-cols-4 sm:flex sm:items-center gap-1 sm:gap-6 bg-zinc-950/60 p-2 sm:p-2.5 sm:px-4 rounded-xl border border-white/[0.04] shadow-inner">
+                          <div className="w-full sm:w-auto grid grid-cols-4 sm:flex sm:items-center gap-1 sm:gap-6 bg-muted p-2 sm:p-2.5 sm:px-4 rounded-xl border border-border/40 shadow-inner">
                             <div className="text-center sm:min-w-12">
-                              <span className="text-[9px] text-zinc-500 block uppercase font-extrabold tracking-wider">Séries</span>
-                              <span className="font-extrabold text-sm text-white">{we.sets}</span>
+                              <span className="text-[9px] text-muted-foreground block uppercase font-extrabold tracking-wider">Séries</span>
+                              <span className="font-extrabold text-sm text-foreground">{we.sets}</span>
                             </div>
-                            <div className="hidden sm:block w-px h-6 bg-white/[0.08]" />
+                            <div className="hidden sm:block w-px h-6 bg-border/60" />
                             <div className="text-center sm:min-w-12">
-                              <span className="text-[9px] text-zinc-500 block uppercase font-extrabold tracking-wider">Reps</span>
-                              <span className="font-extrabold text-sm text-white">{repsArr[0] || "10"}</span>
+                              <span className="text-[9px] text-muted-foreground block uppercase font-extrabold tracking-wider">Reps</span>
+                              <span className="font-extrabold text-sm text-foreground">{repsArr[0] || "10"}</span>
                             </div>
-                            <div className="hidden sm:block w-px h-6 bg-white/[0.08]" />
+                            <div className="hidden sm:block w-px h-6 bg-border/60" />
                             <div className="text-center sm:min-w-12">
-                              <span className="text-[9px] text-zinc-500 block uppercase font-extrabold tracking-wider">Carga</span>
-                              <span className="font-extrabold text-sm text-white">{loadArr[0] || "Auto"}</span>
+                              <span className="text-[9px] text-muted-foreground block uppercase font-extrabold tracking-wider">Carga</span>
+                              <span className="font-extrabold text-sm text-foreground">{loadArr[0] || "Auto"}</span>
                             </div>
-                            <div className="hidden sm:block w-px h-6 bg-white/[0.08]" />
+                            <div className="hidden sm:block w-px h-6 bg-border/60" />
                             <div className="text-center sm:min-w-12">
-                              <span className="text-[9px] text-zinc-500 block uppercase font-extrabold tracking-wider">Descanso</span>
-                              <span className="font-extrabold text-xs text-white whitespace-nowrap">{restArr[0] || "60s"}</span>
+                              <span className="text-[9px] text-muted-foreground block uppercase font-extrabold tracking-wider">Descanso</span>
+                              <span className="font-extrabold text-xs text-foreground whitespace-nowrap">{restArr[0] || "60s"}</span>
                             </div>
                           </div>
 
@@ -967,7 +967,7 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                className="w-full h-11 rounded-xl text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800/40 border border-dashed border-white/[0.06] transition-all flex items-center gap-2 justify-center"
+                                className="w-full h-11 rounded-xl text-muted-foreground hover:text-foreground hover:bg-secondary border border-dashed border-border transition-all flex items-center gap-2 justify-center"
                                 asChild
                               >
                                 <a
@@ -989,7 +989,7 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
                         <Button
                           variant="ghost"
                           size="sm"
-                          className="h-8 text-xs font-bold text-zinc-400 hover:text-zinc-200 hover:bg-white/[0.02] rounded-lg gap-1.5 px-2.5 -ml-2.5"
+                          className="h-8 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg gap-1.5 px-2.5 -ml-2.5"
                           onClick={(e) => {
                             e.stopPropagation();
                             setExpandedExercises(prev => ({ ...prev, [we.id]: !prev[we.id] }));
@@ -1007,24 +1007,24 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
                         </Button>
 
                         {expandedExercises[we.id] && (
-                          <div className="mt-3 flex flex-col! gap-2.5 p-3 rounded-xl bg-zinc-950/40 border border-white/4">
+                          <div className="mt-3 flex flex-col! gap-2.5 p-3 rounded-xl bg-muted border border-border/40">
                             {Array.from({ length: we.sets }).map((_, si) => (
-                              <div key={si} className="flex items-center justify-between gap-4 p-2 rounded-lg bg-zinc-900/30 border border-white/[0.02] text-xs">
-                                <span className="font-bold text-zinc-500">#{si + 1}</span>
+                              <div key={si} className="flex items-center justify-between gap-4 p-2 rounded-lg bg-secondary border border-border/40 text-xs">
+                                <span className="font-bold text-muted-foreground">#{si + 1}</span>
                                 <div className="flex items-center gap-3">
                                   <div>
-                                    <span className="text-[10px] text-zinc-500 block leading-none font-bold uppercase">Reps</span>
-                                    <span className="font-bold text-white">{repsArr[si] || repsArr[0] || "10"}</span>
+                                    <span className="text-[10px] text-muted-foreground block leading-none font-bold uppercase">Reps</span>
+                                    <span className="font-bold text-foreground">{repsArr[si] || repsArr[0] || "10"}</span>
                                   </div>
-                                  <div className="w-px h-5 bg-white/6" />
+                                  <div className="w-px h-5 bg-border" />
                                   <div>
-                                    <span className="text-[10px] text-zinc-500 block leading-none font-bold uppercase">Carga</span>
-                                    <span className="font-bold text-white">{loadArr[si] || loadArr[0] || "Auto"}</span>
+                                    <span className="text-[10px] text-muted-foreground block leading-none font-bold uppercase">Carga</span>
+                                    <span className="font-bold text-foreground">{loadArr[si] || loadArr[0] || "Auto"}</span>
                                   </div>
-                                  <div className="w-px h-5 bg-white/6" />
+                                  <div className="w-px h-5 bg-border" />
                                   <div>
-                                    <span className="text-[10px] text-zinc-500 block leading-none font-bold uppercase">Desc.</span>
-                                    <span className="font-bold text-white">{restArr[si] || restArr[0] || "60s"}</span>
+                                    <span className="text-[10px] text-muted-foreground block leading-none font-bold uppercase">Desc.</span>
+                                    <span className="font-bold text-foreground">{restArr[si] || restArr[0] || "60s"}</span>
                                   </div>
                                 </div>
                               </div>
@@ -1040,41 +1040,39 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
           </div>
         </div>
 
-        {/* COL 3: Quick Stats & Sideboards */}
+        {/* COL 3: Summary Dashboard widgets inside right col (desktop layout) */}
         <div className="space-y-6">
-
-          {/* Summary Dashboard widgets inside right col (desktop layout) */}
           <div className="hidden lg:block">
-            <Card className="border border-white/[0.06] bg-zinc-950/40 backdrop-blur-xl rounded-3xl shadow-2xl relative overflow-hidden">
+            <Card className="border border-border bg-card rounded-3xl shadow-2xl relative overflow-hidden">
               <div className="absolute right-0 top-0 w-32 h-32 bg-primary/[0.02] rounded-full blur-2xl pointer-events-none" />
               <CardContent className="p-6 space-y-5">
-                <h3 className="font-extrabold text-lg text-white flex items-center gap-2">
+                <h3 className="font-extrabold text-lg text-foreground flex items-center gap-2">
                   <Gauge className="size-5 text-primary" /> Painel Consolidado
                 </h3>
 
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="p-4 rounded-2xl bg-zinc-900/30 border border-white/[0.04] shadow-sm flex flex-col justify-between h-20 relative overflow-hidden group hover:border-white/[0.08] transition-all col-span-1">
+                  <div className="p-4 rounded-2xl bg-secondary border border-border shadow-sm flex flex-col justify-between h-20 relative overflow-hidden group hover:border-border transition-all col-span-1">
                     <Clock className="size-4 text-primary absolute right-3.5 top-3.5 opacity-40 group-hover:scale-110 transition-transform" />
-                    <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">Duração</span>
-                    <span className="font-black text-lg text-white">{workout.duration}</span>
+                    <span className="text-[10px] text-muted-foreground block uppercase font-bold tracking-wider">Duração</span>
+                    <span className="font-black text-lg text-foreground">{workout.duration}</span>
                   </div>
 
-                  <div className="p-4 rounded-2xl bg-zinc-900/30 border border-white/[0.04] shadow-sm flex flex-col justify-between h-20 relative overflow-hidden group hover:border-white/[0.08] transition-all col-span-1">
+                  <div className="p-4 rounded-2xl bg-secondary border border-border shadow-sm flex flex-col justify-between h-20 relative overflow-hidden group hover:border-border transition-all col-span-1">
                     <Dumbbell className="size-4 text-primary absolute right-3.5 top-3.5 opacity-40 group-hover:scale-110 transition-transform" />
-                    <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">Exercícios</span>
-                    <span className="font-black text-lg text-white">{totalExercises}</span>
+                    <span className="text-[10px] text-muted-foreground block uppercase font-bold tracking-wider">Exercícios</span>
+                    <span className="font-black text-lg text-foreground">{totalExercises}</span>
                   </div>
 
-                  <div className="p-4 rounded-2xl bg-zinc-900/30 border border-white/[0.04] shadow-sm flex flex-col justify-between h-20 relative overflow-hidden group hover:border-white/[0.08] transition-all col-span-1">
+                  <div className="p-4 rounded-2xl bg-secondary border border-border shadow-sm flex flex-col justify-between h-20 relative overflow-hidden group hover:border-border transition-all col-span-1">
                     <Activity className="size-4 text-primary absolute right-3.5 top-3.5 opacity-40 group-hover:scale-110 transition-transform animate-pulse" />
-                    <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">Volume Séries</span>
-                    <span className="font-black text-lg text-white">{totalSets} séries</span>
+                    <span className="text-[10px] text-muted-foreground block uppercase font-bold tracking-wider">Volume Séries</span>
+                    <span className="font-black text-lg text-foreground">{totalSets} séries</span>
                   </div>
 
-                  <div className="p-4 rounded-2xl bg-zinc-900/30 border border-white/[0.04] shadow-sm flex flex-col justify-between h-20 relative overflow-hidden group hover:border-white/[0.08] transition-all col-span-1">
+                  <div className="p-4 rounded-2xl bg-secondary border border-border shadow-sm flex flex-col justify-between h-20 relative overflow-hidden group hover:border-border transition-all col-span-1">
                     <Clock className="size-4 text-primary absolute right-3.5 top-3.5 opacity-40 group-hover:scale-110 transition-transform" />
-                    <span className="text-[10px] text-zinc-500 block uppercase font-bold tracking-wider">Desc. Exercícios</span>
-                    <span className="font-black text-lg text-white">{workout.restBetweenExercises || "2 min"}</span>
+                    <span className="text-[10px] text-muted-foreground block uppercase font-bold tracking-wider">Desc. Exercícios</span>
+                    <span className="font-black text-lg text-foreground">{workout.restBetweenExercises || "2 min"}</span>
                   </div>
                 </div>
               </CardContent>
@@ -1082,29 +1080,29 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
           </div>
 
           {/* Muscle Focus Coverage chart */}
-          <Card className="border border-white/[0.06] bg-zinc-950/40 backdrop-blur-xl rounded-3xl shadow-2xl relative overflow-hidden">
+          <Card className="border border-border bg-card rounded-3xl shadow-2xl relative overflow-hidden">
             <CardContent className="p-6 space-y-4">
-              <h3 className="font-extrabold text-lg text-white flex items-center gap-2">
+              <h3 className="font-extrabold text-lg text-foreground flex items-center gap-2">
                 <Target className="size-5 text-primary" /> Foco Muscular Estimado
               </h3>
 
               {muscleCoverage.length === 0 ? (
-                <div className="text-center text-xs text-zinc-500 py-6">
+                <div className="text-center text-xs text-muted-foreground py-6">
                   Nenhum músculo mapeado ainda.
                 </div>
               ) : (
                 <div className="space-y-4 pt-1">
                   {muscleCoverage.map((muscle) => (
                     <div key={muscle.name} className="space-y-1.5">
-                      <div className="flex justify-between items-center text-xs font-semibold text-zinc-300">
+                      <div className="flex justify-between items-center text-xs font-semibold text-muted-foreground">
                         <span className="flex items-center gap-1.5">
                           <span className="size-1.5 rounded-full bg-primary" /> {muscle.name}
                         </span>
-                        <span className="text-white text-[11px] bg-zinc-900 px-1.5 py-0.5 rounded border border-white/[0.04]">
+                        <span className="text-foreground text-[11px] bg-secondary px-1.5 py-0.5 rounded border border-border">
                           {muscle.percentage}% ({muscle.count} {muscle.count === 1 ? "ex" : "exs"})
                         </span>
                       </div>
-                      <div className="w-full h-2.5 bg-zinc-950/60 border border-white/[0.04] rounded-full overflow-hidden p-0.5">
+                      <div className="w-full h-2.5 bg-muted border border-border/40 rounded-full overflow-hidden p-0.5">
                         <div
                           className="h-full bg-primary rounded-full transition-all duration-1000 ease-out"
                           style={{ width: `${muscle.percentage}%` }}
@@ -1127,14 +1125,14 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
 
       {/* ALERT DIALOG: Permanent deletion confirmation */}
       <AlertDialog open={isDeleteAlertOpen} onOpenChange={setIsDeleteAlertOpen}>
-        <AlertDialogContent className="bg-zinc-950 border border-white/[0.08] text-white rounded-3xl max-w-[calc(100%-2rem)] sm:max-w-md overflow-hidden">
+        <AlertDialogContent className="bg-card border border-border text-foreground rounded-3xl max-w-[calc(100%-2rem)] sm:max-w-md overflow-hidden">
           <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-rose-500/20 to-transparent" />
 
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-white text-xl font-black flex items-center gap-2">
+            <AlertDialogTitle className="text-foreground text-xl font-black flex items-center gap-2">
               <Trash2 className="size-5 text-rose-500" /> Excluir Modelo de Treino?
             </AlertDialogTitle>
-            <AlertDialogDescription className="text-zinc-400 text-xs leading-relaxed pt-1.5">
+            <AlertDialogDescription className="text-muted-foreground text-xs leading-relaxed pt-1.5">
               Tem certeza que deseja excluir permanentemente o modelo <strong>&quot;{workout.name}&quot;</strong>?
               Esta ação é <span className="text-rose-400 font-bold">irreversível</span> e o template não poderá mais ser atribuído aos alunos.
             </AlertDialogDescription>
@@ -1142,7 +1140,7 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
 
           <AlertDialogFooter className="mt-4 gap-2">
             <AlertDialogCancel
-              className="bg-zinc-900 border-white/[0.04] text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-xl font-bold h-11"
+              className="bg-muted border-border text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl font-bold h-11"
               disabled={isDeleting}
             >
               Cancelar

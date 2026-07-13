@@ -116,27 +116,27 @@ function OrganizationSkeleton() {
       {/* 1. Quick Actions Skeleton */}
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         {[1, 2, 3, 4, 5].map((i) => (
-          <Skeleton key={i} className="h-14 bg-neutral-900 border border-neutral-800 rounded-xl" />
+          <Skeleton key={i} className="h-14 rounded-xl border border-border" />
         ))}
       </div>
 
       {/* 2. Intelligent Alerts Skeleton */}
-      <Card className="border-red-500/20 bg-neutral-950/40 overflow-hidden shadow-sm">
+      <Card className="border-red-500/20 bg-secondary/10 overflow-hidden shadow-sm">
         <CardHeader className="pb-3 flex flex-row items-center space-y-0 gap-2.5">
-          <Skeleton className="size-9 rounded-full bg-neutral-900" />
+          <Skeleton className="size-9 rounded-full" />
           <div className="space-y-2">
-            <Skeleton className="h-5 w-40 bg-neutral-900" />
-            <Skeleton className="h-3 w-64 bg-neutral-900" />
+            <Skeleton className="h-5 w-40" />
+            <Skeleton className="h-3 w-64" />
           </div>
         </CardHeader>
         <CardContent className="space-y-3">
           {[1, 2].map((i) => (
-            <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-neutral-900/40 border border-neutral-800/60">
+            <div key={i} className="flex items-center justify-between p-3 rounded-xl bg-secondary/20 border border-border/50">
               <div className="flex items-center gap-3">
-                <Skeleton className="size-4 bg-neutral-900" />
-                <Skeleton className="h-4 w-60 bg-neutral-900" />
+                <Skeleton className="size-4" />
+                <Skeleton className="h-4 w-60" />
               </div>
-              <Skeleton className="h-8 w-20 bg-neutral-900 rounded-lg animate-pulse" />
+              <Skeleton className="h-8 w-20 rounded-lg animate-pulse" />
             </div>
           ))}
         </CardContent>
@@ -144,37 +144,37 @@ function OrganizationSkeleton() {
 
       {/* 3. Agenda & Pending Tasks Skeleton */}
       <div className="grid md:grid-cols-2 gap-6">
-        <Card className="bg-neutral-950 border-neutral-800/80">
-          <CardHeader className="border-b border-neutral-900 pb-4 space-y-2">
+        <Card className="bg-card border-border">
+          <CardHeader className="border-b border-border pb-4 space-y-2">
             <div className="flex items-center justify-between">
-              <Skeleton className="h-5 w-32 bg-neutral-900" />
-              <Skeleton className="size-7 bg-neutral-900 rounded-lg" />
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="size-7 rounded-lg" />
             </div>
-            <Skeleton className="h-3 w-24 bg-neutral-900" />
+            <Skeleton className="h-3 w-24" />
           </CardHeader>
           <CardContent className="pt-4 space-y-3">
             {[1, 2, 3].map((i) => (
               <div key={i} className="flex items-center gap-4 py-1.5 px-2 rounded-xl">
-                <Skeleton className="size-5 bg-neutral-900 rounded" />
-                <Skeleton className="h-4 w-8 bg-neutral-900" />
-                <Skeleton className="h-4 w-40 bg-neutral-900" />
+                <Skeleton className="size-5 rounded" />
+                <Skeleton className="h-4 w-8" />
+                <Skeleton className="h-4 w-40" />
               </div>
             ))}
           </CardContent>
         </Card>
 
-        <Card className="bg-neutral-950 border-neutral-800/80">
-          <CardHeader className="border-b border-neutral-900 pb-4 space-y-2">
-            <Skeleton className="h-5 w-40 bg-neutral-900" />
+        <Card className="bg-card border-border">
+          <CardHeader className="border-b border-border pb-4 space-y-2">
+            <Skeleton className="h-5 w-40" />
           </CardHeader>
           <CardContent className="pt-4 space-y-3">
             {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-neutral-800/60 bg-neutral-900/30">
+              <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-border bg-secondary/15">
                 <div className="flex items-center gap-3">
-                  <Skeleton className="size-8 bg-neutral-900 rounded-lg" />
-                  <Skeleton className="h-4 w-28 bg-neutral-900" />
+                  <Skeleton className="size-8 rounded-lg" />
+                  <Skeleton className="h-4 w-28" />
                 </div>
-                <Skeleton className="h-5 w-8 bg-neutral-900 rounded-full" />
+                <Skeleton className="h-5 w-8 rounded-full" />
               </div>
             ))}
           </CardContent>
@@ -182,25 +182,25 @@ function OrganizationSkeleton() {
       </div>
 
       {/* 4. Smart Students List Skeleton */}
-      <Card className="border-neutral-800/80 bg-neutral-950">
-        <CardHeader className="border-b border-neutral-900 bg-neutral-900/20 pb-4 space-y-2">
-          <Skeleton className="h-5 w-48 bg-neutral-900" />
-          <Skeleton className="h-3 w-80 bg-neutral-900" />
+      <Card className="border-border bg-card">
+        <CardHeader className="border-b border-border bg-secondary/10 pb-4 space-y-2">
+          <Skeleton className="h-5 w-48" />
+          <Skeleton className="h-3 w-80" />
         </CardHeader>
-        <CardContent className="p-0 divide-y divide-neutral-900">
+        <CardContent className="p-0 divide-y divide-border">
           {[1, 2, 3].map((i) => (
             <div key={i} className="flex items-center justify-between p-4">
               <div className="flex items-center gap-4">
-                <Skeleton className="size-10 rounded-full bg-neutral-900" />
+                <Skeleton className="size-10 rounded-full" />
                 <div className="space-y-2">
-                  <Skeleton className="h-4 w-32 bg-neutral-900" />
-                  <Skeleton className="h-3 w-48 bg-neutral-900" />
+                  <Skeleton className="h-4 w-32" />
+                  <Skeleton className="h-3 w-48" />
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                <Skeleton className="h-4 w-16 bg-neutral-900" />
-                <Skeleton className="h-6 w-32 bg-neutral-900 rounded-full" />
-                <Skeleton className="size-8 bg-neutral-900 rounded-lg" />
+                <Skeleton className="h-4 w-16" />
+                <Skeleton className="h-6 w-32 rounded-full" />
+                <Skeleton className="size-8 rounded-lg" />
               </div>
             </div>
           ))}

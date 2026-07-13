@@ -82,14 +82,14 @@ function FinanceSkeleton() {
       {/* Metric Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {[1, 2, 3, 4].map((i) => (
-          <Card key={i} className="border-border/50 bg-neutral-950/40">
+          <Card key={i} className="border-border bg-card">
             <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <Skeleton className="h-4 w-32 bg-neutral-800" />
-              <Skeleton className="size-8 rounded-full bg-neutral-800" />
+              <Skeleton className="h-4 w-32" />
+              <Skeleton className="size-8 rounded-full" />
             </CardHeader>
             <CardContent className="space-y-2">
-              <Skeleton className="h-7 w-24 bg-neutral-800" />
-              <Skeleton className="h-3 w-36 bg-neutral-800" />
+              <Skeleton className="h-7 w-24" />
+              <Skeleton className="h-3 w-36" />
             </CardContent>
           </Card>
         ))}
@@ -99,35 +99,35 @@ function FinanceSkeleton() {
       <div className="grid gap-6 lg:grid-cols-3">
         <div className="space-y-6 lg:col-span-2">
           {/* Revenue Chart Skeleton */}
-          <Card className="border-border/50 bg-neutral-950/40">
+          <Card className="border-border bg-card">
             <CardHeader className="space-y-2">
-              <Skeleton className="h-5 w-48 bg-neutral-800" />
-              <Skeleton className="h-4 w-72 bg-neutral-800" />
+              <Skeleton className="h-5 w-48" />
+              <Skeleton className="h-4 w-72" />
             </CardHeader>
             <CardContent>
-              <Skeleton className="h-[300px] w-full rounded-xl bg-neutral-800" />
+              <Skeleton className="h-[300px] w-full rounded-xl" />
             </CardContent>
           </Card>
 
           {/* Recent Payments Skeleton */}
-          <Card className="border-border/50 bg-neutral-950/40">
+          <Card className="border-border bg-card">
             <CardHeader className="space-y-2">
-              <Skeleton className="h-5 w-48 bg-neutral-800" />
-              <Skeleton className="h-4 w-72 bg-neutral-800" />
+              <Skeleton className="h-5 w-48" />
+              <Skeleton className="h-4 w-72" />
             </CardHeader>
             <CardContent className="space-y-4">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-secondary/10">
+                <div key={i} className="flex items-center justify-between p-4 rounded-xl border border-border bg-secondary/10">
                   <div className="flex items-center gap-4">
-                    <Skeleton className="size-10 rounded-full bg-neutral-800" />
+                    <Skeleton className="size-10 rounded-full" />
                     <div className="space-y-2">
-                      <Skeleton className="h-4 w-32 bg-neutral-800" />
-                      <Skeleton className="h-3 w-20 bg-neutral-800" />
+                      <Skeleton className="h-4 w-32" />
+                      <Skeleton className="h-3 w-20" />
                     </div>
                   </div>
                   <div className="space-y-2 flex flex-col items-end">
-                    <Skeleton className="h-4 w-20 bg-neutral-800" />
-                    <Skeleton className="h-4 w-12 bg-neutral-800" />
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-4 w-12" />
                   </div>
                 </div>
               ))}
@@ -137,22 +137,22 @@ function FinanceSkeleton() {
 
         {/* Right Side: Alerts Widget Skeleton */}
         <div className="space-y-6">
-          <Card className="border-border/50 bg-neutral-950/40 h-full">
+          <Card className="border-border bg-card h-full">
             <CardHeader className="space-y-2">
-              <Skeleton className="h-5 w-32 bg-neutral-800" />
-              <Skeleton className="h-4 w-48 bg-neutral-800" />
+              <Skeleton className="h-5 w-32" />
+              <Skeleton className="h-4 w-48" />
             </CardHeader>
             <CardContent className="space-y-4">
               {[1, 2, 3].map((i) => (
-                <div key={i} className="p-4 rounded-xl border border-border/50 space-y-3">
+                <div key={i} className="p-4 rounded-xl border border-border space-y-3">
                   <div className="flex justify-between items-center">
-                    <Skeleton className="h-4 w-24 bg-neutral-800" />
-                    <Skeleton className="h-4 w-16 bg-neutral-800" />
+                    <Skeleton className="h-4 w-24" />
+                    <Skeleton className="h-4 w-16" />
                   </div>
-                  <Skeleton className="h-3 w-32 bg-neutral-800" />
+                  <Skeleton className="h-3 w-32" />
                   <div className="flex gap-2 pt-2">
-                    <Skeleton className="h-8 flex-1 rounded-lg bg-neutral-800" />
-                    <Skeleton className="h-8 w-8 rounded-lg bg-neutral-800" />
+                    <Skeleton className="h-8 flex-1 rounded-lg" />
+                    <Skeleton className="h-8 w-8 rounded-lg" />
                   </div>
                 </div>
               ))}
@@ -599,8 +599,8 @@ export default function FinancePage() {
       <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 bg-background">
         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
           <div className="space-y-2">
-            <h2 className="text-3xl font-bold tracking-tight text-white">Financeiro</h2>
-            <Skeleton className="h-4 w-48 bg-neutral-800" />
+            <h2 className="text-3xl font-bold tracking-tight text-foreground">Financeiro</h2>
+            <Skeleton className="h-4 w-48" />
           </div>
         </div>
         <FinanceSkeleton />
@@ -613,17 +613,17 @@ export default function FinancePage() {
       {/* Header */}
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight text-white">Financeiro</h2>
+          <h2 className="text-3xl font-bold tracking-tight text-foreground">Financeiro</h2>
           <p className="text-muted-foreground mt-1">
             Gestão manual de receitas e mensalidades de <strong className="text-foreground">{workspaceSnap.activeWorkspace?.name}</strong>.
           </p>
         </div>
         <div className="flex items-center gap-3">
-          <Button variant="outline" className="gap-2 border-neutral-800 hover:bg-neutral-900 text-neutral-300 hover:text-white" onClick={() => fetchFinanceData()}>
+          <Button variant="outline" className="gap-2 border-border hover:bg-secondary text-muted-foreground hover:text-foreground" onClick={() => fetchFinanceData()}>
             <Loader2 className={cn("size-4", isLoading && "animate-spin")} />
             <span>Atualizar</span>
           </Button>
-          <Button className="gap-2 bg-primary hover:bg-primary/90 text-white font-semibold" onClick={handleOpenCreateModal}>
+          <Button className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold" onClick={handleOpenCreateModal}>
             <Plus className="size-4" />
             <span>Registrar Receita</span>
           </Button>
@@ -780,7 +780,7 @@ export default function FinancePage() {
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-4">
-                    <div className="flex gap-1 p-1 bg-neutral-900/60 border border-neutral-800/80 rounded-xl w-fit">
+                    <div className="flex gap-1 p-1 bg-secondary border border-border rounded-xl w-fit">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -788,8 +788,8 @@ export default function FinancePage() {
                         className={cn(
                           "text-xs font-bold px-4 h-8 rounded-lg transition-colors cursor-pointer",
                           activeSection === "historico"
-                            ? "bg-zinc-800 text-white"
-                            : "text-muted-foreground hover:text-white"
+                            ? "bg-background text-foreground shadow-xs"
+                            : "text-muted-foreground hover:text-foreground"
                         )}
                       >
                         Histórico de Lançamentos
@@ -801,8 +801,8 @@ export default function FinancePage() {
                         className={cn(
                           "text-xs font-bold px-4 h-8 rounded-lg transition-colors cursor-pointer",
                           activeSection === "recorrencias"
-                            ? "bg-zinc-800 text-white"
-                            : "text-muted-foreground hover:text-white"
+                            ? "bg-background text-foreground shadow-xs"
+                            : "text-muted-foreground hover:text-foreground"
                         )}
                       >
                         Controle de Recorrência ({recurrences.length})
@@ -816,7 +816,7 @@ export default function FinancePage() {
                             <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
                             <Input
                               placeholder="Buscar por aluno ou serviço..."
-                              className="pl-9 bg-neutral-900/50 border-neutral-800"
+                              className="pl-9 bg-background border-border text-foreground"
                               value={searchQuery}
                               onChange={(e) => setSearchQuery(e.target.value)}
                             />
@@ -831,8 +831,8 @@ export default function FinancePage() {
                                 className={cn(
                                   "text-xs capitalize font-medium px-3 h-9 rounded-lg transition-colors border",
                                   activeTabFilter === tab
-                                    ? "bg-primary text-white border-primary"
-                                    : "text-muted-foreground border-neutral-800 hover:text-white hover:bg-neutral-900"
+                                    ? "bg-primary text-primary-foreground border-primary"
+                                    : "text-muted-foreground border-border hover:text-foreground hover:bg-secondary"
                                 )}
                               >
                                 {tab === "todos" ? "Todos" : tab}
@@ -849,7 +849,7 @@ export default function FinancePage() {
                             </div>
                           ) : (
                             filteredPayments.map((tx) => (
-                              <div key={tx.id} className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-secondary/20 hover:bg-secondary/40 transition-all gap-4 min-w-0">
+                              <div key={tx.id} className="flex items-center justify-between p-4 rounded-xl border border-border bg-secondary/20 hover:bg-secondary/40 transition-all gap-4 min-w-0">
                                 <div className="flex items-center gap-3 min-w-0 flex-1">
                                   <div className={cn(
                                     "size-10 rounded-full flex items-center justify-center shrink-0 border",
@@ -862,23 +862,23 @@ export default function FinancePage() {
                                         <Clock className="size-5" />}
                                   </div>
                                   <div className="flex flex-col gap-1 min-w-0 flex-1">
-                                    <p className="font-semibold text-sm leading-tight text-white truncate">{tx.student}</p>
+                                    <p className="font-semibold text-sm leading-tight text-foreground truncate">{tx.student}</p>
                                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                                       <span className="truncate max-w-[120px]">{tx.plan}</span>
-                                      <span className="text-[10px] text-zinc-700 select-none">•</span>
+                                      <span className="text-[10px] text-border select-none">•</span>
                                       <span className="flex items-center gap-1 shrink-0">
                                         <Calendar className="size-3" />
                                         {new Date(tx.date).toLocaleDateString("pt-BR")}
                                       </span>
-                                      <span className="text-[10px] text-zinc-700 select-none">•</span>
-                                      <span className="uppercase font-bold text-[9px] px-1.5 py-0.5 bg-secondary border border-border/50 rounded shrink-0">{tx.method}</span>
+                                      <span className="text-[10px] text-border select-none">•</span>
+                                      <span className="uppercase font-bold text-[9px] px-1.5 py-0.5 bg-secondary border border-border rounded shrink-0">{tx.method}</span>
                                     </div>
                                   </div>
                                 </div>
 
                                 <div className="flex items-center gap-3 shrink-0 ml-auto">
                                   <div className="text-right">
-                                    <p className="font-bold text-sm text-white">
+                                    <p className="font-bold text-sm text-foreground">
                                       {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.amount)}
                                     </p>
                                     <div className="mt-1 flex justify-end">
@@ -891,7 +891,7 @@ export default function FinancePage() {
                                       <Button
                                         variant="ghost"
                                         size="icon"
-                                        className="size-8 rounded-lg hover:bg-neutral-800 text-muted-foreground hover:text-white cursor-pointer shrink-0"
+                                        className="size-8 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
                                       >
                                         <MoreHorizontal className="size-4" />
                                       </Button>
@@ -941,14 +941,14 @@ export default function FinancePage() {
                             <Search className="absolute left-3 top-2.5 size-4 text-muted-foreground" />
                             <Input
                               placeholder="Buscar aluno..."
-                              className="pl-9 bg-neutral-900/50 border-neutral-800"
+                              className="pl-9 bg-background border-border text-foreground"
                               value={searchQuery}
                               onChange={(e) => setSearchQuery(e.target.value)}
                             />
                           </div>
                           <Button 
                             onClick={handleOpenCreateRecurrenceModal}
-                            className="gap-2 bg-primary hover:bg-primary/90 text-white font-semibold rounded-xl text-xs h-10 px-4 cursor-pointer shrink-0"
+                            className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl text-xs h-10 px-4 cursor-pointer shrink-0"
                           >
                             <Plus className="size-4" />
                             <span>Nova Recorrência</span>
@@ -969,7 +969,7 @@ export default function FinancePage() {
                               const isConfirm = rec.billingControlType === "CONFIRMATION";
 
                               return (
-                                <div key={rec.id} className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-secondary/20 hover:bg-secondary/40 transition-all gap-4 min-w-0">
+                                <div key={rec.id} className="flex items-center justify-between p-4 rounded-xl border border-border bg-secondary/20 hover:bg-secondary/40 transition-all gap-4 min-w-0">
                                   <div className="flex items-center gap-3 min-w-0 flex-1">
                                     <div className={cn(
                                       "size-10 rounded-full flex items-center justify-center shrink-0 border",
@@ -983,7 +983,7 @@ export default function FinancePage() {
 
                                     <div className="flex flex-col gap-1 min-w-0 flex-1">
                                       <div className="flex items-center gap-2">
-                                        <p className="font-semibold text-sm leading-tight text-white truncate">{rec.studentName}</p>
+                                        <p className="font-semibold text-sm leading-tight text-foreground truncate">{rec.studentName}</p>
                                         {!isManual && (
                                           <span className="flex h-2 w-2 relative shrink-0">
                                             <span className={cn("animate-ping absolute inline-flex h-full w-full rounded-full opacity-75", isPaused ? "bg-rose-400" : "bg-emerald-400")} />
@@ -996,7 +996,7 @@ export default function FinancePage() {
                                           {isManual ? "Controle Manual" :
                                             isConfirm ? "Recorrência com Confirmação" : "Recorrência Automática"}
                                         </span>
-                                        <span className="text-[10px] text-zinc-700 select-none">•</span>
+                                        <span className="text-[10px] text-border select-none">•</span>
                                         {isManual ? (
                                           <span>Sem automação ativa</span>
                                         ) : (
@@ -1013,7 +1013,7 @@ export default function FinancePage() {
                                     <div className="text-right">
                                       {!isManual ? (
                                         <>
-                                          <p className="font-bold text-sm text-white">
+                                          <p className="font-bold text-sm text-foreground">
                                             {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(rec.billingPrice || 0)}
                                           </p>
                                           <span className="text-[10px] text-muted-foreground capitalize mt-0.5 block">
@@ -1029,7 +1029,7 @@ export default function FinancePage() {
                                       size="sm"
                                       variant="outline"
                                       onClick={() => handleOpenRecurrenceModal(rec)}
-                                      className="h-9 gap-1.5 border-neutral-800 hover:bg-neutral-800 text-xs font-bold text-neutral-300 hover:text-white rounded-xl cursor-pointer"
+                                      className="h-9 gap-1.5 border-border hover:bg-secondary text-xs font-bold text-muted-foreground hover:text-foreground rounded-xl cursor-pointer"
                                     >
                                       <Settings className="size-3.5" />
                                       <span>Configurar</span>
@@ -1050,7 +1050,7 @@ export default function FinancePage() {
             {/* Right Side: Alerts Widget */}
             <div className="space-y-6">
               <motion.div variants={item as any}>
-                <Card className="border-border/50 bg-neutral-950/40">
+                <Card className="border-border bg-card">
                   <CardHeader>
                     <div className="flex items-center gap-2">
                       <AlertCircle className="size-5 text-destructive animate-pulse" />
@@ -1072,13 +1072,13 @@ export default function FinancePage() {
                           <div
                             key={alert.id}
                             className={cn(
-                              "p-4 rounded-xl border space-y-3 bg-neutral-900/60 transition-all hover:bg-neutral-900",
+                              "p-4 rounded-xl border space-y-3 bg-secondary/20 border-border transition-all hover:bg-secondary/40",
                               isOverdue ? "border-destructive/30 hover:border-destructive/50" : "border-warning/30 hover:border-warning/50"
                             )}
                           >
                             <div className="flex justify-between items-start">
                               <div>
-                                <h4 className="font-bold text-sm text-white">{alert.student}</h4>
+                                <h4 className="font-bold text-sm text-foreground">{alert.student}</h4>
                                 <p className="text-xs text-muted-foreground mt-0.5">{alert.plan}</p>
                               </div>
                               {getStatusBadge(alert.status)}
@@ -1092,9 +1092,9 @@ export default function FinancePage() {
                               </span>
                             </div>
 
-                            <div className="flex items-center justify-between text-xs border-t border-neutral-800/80 pt-2">
+                            <div className="flex items-center justify-between text-xs border-t border-border pt-2">
                               <span className="text-muted-foreground">Valor total:</span>
-                              <span className="font-bold text-white">
+                              <span className="font-bold text-foreground">
                                 {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(alert.amount)}
                               </span>
                             </div>
@@ -1103,7 +1103,7 @@ export default function FinancePage() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="flex-1 text-xs gap-1.5 h-8 border-neutral-800 hover:bg-neutral-800 hover:text-white"
+                                className="flex-1 text-xs gap-1.5 h-8 border-border hover:bg-secondary hover:text-foreground"
                                 onClick={() => handleQuickMarkAsPaid(alert.id)}
                                 disabled={isUpdatingStatusId === alert.id}
                               >
@@ -1138,10 +1138,10 @@ export default function FinancePage() {
 
       {/* Payment Create/Edit Dialog */}
       <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
-        <DialogContent className="sm:max-w-[480px] bg-neutral-950 border-neutral-800 text-white">
+        <DialogContent className="sm:max-w-[480px] bg-card border-border text-foreground">
           <form onSubmit={handleSavePayment}>
             <DialogHeader>
-              <DialogTitle className="text-white text-lg font-bold">
+              <DialogTitle className="text-foreground text-lg font-bold">
                 {editingPayment ? "Editar Lançamento Financeiro" : "Registrar Nova Receita"}
               </DialogTitle>
               <DialogDescription className="text-muted-foreground">
@@ -1153,18 +1153,18 @@ export default function FinancePage() {
               {/* Selector to type or choose student */}
               {!editingPayment && (
                 <div className="space-y-2">
-                  <Label className="text-xs text-neutral-400">Origem do Aluno</Label>
-                  <div className="grid grid-cols-2 gap-2 bg-neutral-900 p-1 rounded-lg border border-neutral-800">
+                  <Label className="text-xs text-muted-foreground">Origem do Aluno</Label>
+                  <div className="grid grid-cols-2 gap-2 bg-secondary p-1 rounded-lg border border-border">
                     <button
                       type="button"
-                      className={cn("py-1 text-xs font-semibold rounded-md transition-colors", studentType === "registered" ? "bg-primary text-white" : "text-muted-foreground hover:text-white")}
+                      className={cn("py-1 text-xs font-semibold rounded-md transition-colors", studentType === "registered" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
                       onClick={() => setStudentType("registered")}
                     >
                       Aluno do Sistema
                     </button>
                     <button
                       type="button"
-                      className={cn("py-1 text-xs font-semibold rounded-md transition-colors", studentType === "manual" ? "bg-primary text-white" : "text-muted-foreground hover:text-white")}
+                      className={cn("py-1 text-xs font-semibold rounded-md transition-colors", studentType === "manual" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground")}
                       onClick={() => setStudentType("manual")}
                     >
                       Preenchimento Manual
@@ -1175,12 +1175,12 @@ export default function FinancePage() {
 
               {studentType === "registered" && students.length > 0 && !editingPayment ? (
                 <div className="space-y-2">
-                  <Label htmlFor="studentSelect" className="text-xs text-neutral-300">Aluno Cadastrado *</Label>
+                  <Label htmlFor="studentSelect" className="text-xs text-muted-foreground">Aluno Cadastrado *</Label>
                   <Select value={selectedStudentId} onValueChange={setSelectedStudentId}>
-                    <SelectTrigger id="studentSelect" className="w-full bg-neutral-900 border-neutral-800 text-white">
+                    <SelectTrigger id="studentSelect" className="w-full bg-background border-border text-foreground">
                       <SelectValue placeholder="Selecione o aluno..." />
                     </SelectTrigger>
-                    <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                    <SelectContent className="bg-popover border-border text-popover-foreground">
                       {students.map((s) => (
                         <SelectItem key={s.id} value={s.id}>
                           {s.name} ({s.email || "Sem e-mail"})
@@ -1191,11 +1191,11 @@ export default function FinancePage() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  <Label htmlFor="manualName" className="text-xs text-neutral-300">Nome Completo do Aluno *</Label>
+                  <Label htmlFor="manualName" className="text-xs text-muted-foreground">Nome Completo do Aluno *</Label>
                   <Input
                     id="manualName"
                     placeholder="Ex: Gabriel Moura"
-                    className="bg-neutral-900 border-neutral-800 text-white"
+                    className="bg-background border-border text-foreground"
                     value={manualStudentName}
                     onChange={(e) => setManualStudentName(e.target.value)}
                     required={studentType === "manual" || editingPayment}
@@ -1205,11 +1205,11 @@ export default function FinancePage() {
               )}
 
               <div className="space-y-2">
-                <Label htmlFor="desc" className="text-xs text-neutral-300">Descrição / Serviço prestado *</Label>
+                <Label htmlFor="desc" className="text-xs text-muted-foreground">Descrição / Serviço prestado *</Label>
                 <Input
                   id="desc"
                   placeholder="Ex: Mensalidade de Treino, Consultoria VIP Premium"
-                  className="bg-neutral-900 border-neutral-800 text-white"
+                  className="bg-background border-border text-foreground"
                   value={paymentDescription}
                   onChange={(e) => setPaymentDescription(e.target.value)}
                   required
@@ -1218,13 +1218,13 @@ export default function FinancePage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="price" className="text-xs text-neutral-300">Valor (R$) *</Label>
+                  <Label htmlFor="price" className="text-xs text-muted-foreground">Valor (R$) *</Label>
                   <Input
                     id="price"
                     type="number"
                     step="0.01"
                     placeholder="Ex: 150.00"
-                    className="bg-neutral-900 border-neutral-800 text-white"
+                    className="bg-background border-border text-foreground"
                     value={paymentAmount}
                     onChange={(e) => setPaymentAmount(e.target.value)}
                     required
@@ -1232,11 +1232,11 @@ export default function FinancePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="date" className="text-xs text-neutral-300">Data de Vencimento / Pagamento *</Label>
+                  <Label htmlFor="date" className="text-xs text-muted-foreground">Data de Vencimento / Pagamento *</Label>
                   <Input
                     id="date"
                     type="date"
-                    className="bg-neutral-900 border-neutral-800 text-white"
+                    className="bg-background border-border text-foreground"
                     value={paymentDate}
                     onChange={(e) => setPaymentDate(e.target.value)}
                     required
@@ -1246,12 +1246,12 @@ export default function FinancePage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="statusSelect" className="text-xs text-neutral-300">Status do Pagamento *</Label>
+                  <Label htmlFor="statusSelect" className="text-xs text-muted-foreground">Status do Pagamento *</Label>
                   <Select value={paymentStatus} onValueChange={setPaymentStatus}>
-                    <SelectTrigger id="statusSelect" className="w-full bg-neutral-900 border-neutral-800 text-white">
+                    <SelectTrigger id="statusSelect" className="w-full bg-background border-border text-foreground">
                       <SelectValue placeholder="Selecione..." />
                     </SelectTrigger>
-                    <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                    <SelectContent className="bg-popover border-border text-popover-foreground">
                       <SelectItem value="pago">Confirmado (Pago)</SelectItem>
                       <SelectItem value="pendente">Pendente (Aguardando)</SelectItem>
                       <SelectItem value="atrasado">Atrasado (Vencido)</SelectItem>
@@ -1260,12 +1260,12 @@ export default function FinancePage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="methodSelect" className="text-xs text-neutral-300">Método de Pagamento *</Label>
+                  <Label htmlFor="methodSelect" className="text-xs text-muted-foreground">Método de Pagamento *</Label>
                   <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                    <SelectTrigger id="methodSelect" className="w-full bg-neutral-900 border-neutral-800 text-white">
+                    <SelectTrigger id="methodSelect" className="w-full bg-background border-border text-foreground">
                       <SelectValue placeholder="Selecione..." />
                     </SelectTrigger>
-                    <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                    <SelectContent className="bg-popover border-border text-popover-foreground">
                       <SelectItem value="PIX">PIX</SelectItem>
                       <SelectItem value="CREDIT_CARD">Cartão de Crédito</SelectItem>
                       <SelectItem value="BOLETO">Boleto Bancário</SelectItem>
@@ -1276,11 +1276,11 @@ export default function FinancePage() {
               </div>
             </div>
 
-            <DialogFooter className="border-t border-neutral-900 pt-4">
-              <Button type="button" variant="outline" className="border-neutral-800 text-white hover:bg-neutral-900" onClick={() => setIsPaymentModalOpen(false)}>
+            <DialogFooter className="border-t border-border pt-4">
+              <Button type="button" variant="outline" className="border-border bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80" onClick={() => setIsPaymentModalOpen(false)}>
                 Cancelar
               </Button>
-              <Button type="submit" disabled={isSavingPayment} className="gap-2 bg-primary text-white hover:bg-primary/95 font-semibold">
+              <Button type="submit" disabled={isSavingPayment} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/95 font-semibold">
                 {isSavingPayment && <Loader2 className="size-4 animate-spin" />}
                 <span>Salvar Receita</span>
               </Button>
@@ -1291,25 +1291,25 @@ export default function FinancePage() {
 
       {/* Delete Confirmation Dialog - complying with RULE[confirmationmodals.md] */}
       <Dialog open={isConfirmDeleteOpen} onOpenChange={setIsConfirmDeleteOpen}>
-        <DialogContent className="sm:max-w-[420px] bg-neutral-950 border-neutral-800 text-white">
+        <DialogContent className="sm:max-w-[420px] bg-card border-border text-foreground">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2 text-destructive font-bold text-lg">
               <Trash2 className="size-5" />
               <span>Excluir Lançamento Financeiro</span>
             </DialogTitle>
-            <DialogDescription className="pt-2 text-neutral-400">
-              Você tem certeza que deseja excluir o lançamento de <strong className="text-white">{paymentToDelete?.student}</strong> no valor de <strong className="text-white">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(paymentToDelete?.amount || 0)}</strong>?
+            <DialogDescription className="pt-2 text-muted-foreground">
+              Você tem certeza que deseja excluir o lançamento de <strong className="text-foreground">{paymentToDelete?.student}</strong> no valor de <strong className="text-foreground">{new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(paymentToDelete?.amount || 0)}</strong>?
               <br /><br />
               <span className="text-destructive font-semibold">Esta ação é irreversível e removerá este registro do faturamento e gráficos do financeiro.</span>
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="mt-4 gap-2 sm:gap-0 border-t border-neutral-900 pt-4">
+          <DialogFooter className="mt-4 gap-2 sm:gap-0 border-t border-border pt-4">
             <Button
               type="button"
               variant="outline"
               disabled={isDeleting}
               onClick={() => setIsConfirmDeleteOpen(false)}
-              className="border-neutral-800 text-white hover:bg-neutral-900"
+              className="border-border bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80"
             >
               Cancelar
             </Button>
@@ -1318,7 +1318,7 @@ export default function FinancePage() {
               variant="destructive"
               disabled={isDeleting}
               onClick={handleDeletePayment}
-              className="gap-2 bg-destructive hover:bg-destructive/90 text-white font-semibold"
+              className="gap-2 bg-destructive hover:bg-destructive/90 text-destructive-foreground font-semibold"
             >
               {isDeleting && <Loader2 className="size-4 animate-spin" />}
               <span>Excluir Registro</span>
@@ -1329,27 +1329,27 @@ export default function FinancePage() {
 
       {/* Recurrence Configuration Dialog */}
       <Dialog open={isRecurrenceModalOpen} onOpenChange={setIsRecurrenceModalOpen}>
-        <DialogContent className="sm:max-w-[550px] bg-neutral-950 border-neutral-800 text-white">
+        <DialogContent className="sm:max-w-[550px] bg-card border-border text-foreground">
           <form onSubmit={handleSaveRecurrence}>
             <DialogHeader>
-              <DialogTitle className="text-white text-lg font-bold flex items-center gap-2">
+              <DialogTitle className="text-foreground text-lg font-bold flex items-center gap-2">
                 <RefreshCw className="size-5 text-emerald-500 shrink-0" />
                 <span>Configurar Recorrência Financeira</span>
               </DialogTitle>
               <DialogDescription className="text-muted-foreground">
-                Ajuste os parâmetros de cobrança automática ou periódica para {selectedRecurrenceStudent ? <strong className="text-white">{selectedRecurrenceStudent.studentName}</strong> : "um aluno"}.
+                Ajuste os parâmetros de cobrança automática ou periódica para {selectedRecurrenceStudent ? <strong className="text-foreground">{selectedRecurrenceStudent.studentName}</strong> : "um aluno"}.
               </DialogDescription>
             </DialogHeader>
 
             <div className="space-y-4 py-4 max-h-[70vh] overflow-y-auto pr-1">
               {!selectedRecurrenceStudent ? (
                 <div className="space-y-1.5">
-                  <Label htmlFor="recStudentSelect" className="text-xs font-bold text-neutral-400">Aluno *</Label>
+                  <Label htmlFor="recStudentSelect" className="text-xs font-bold text-muted-foreground">Aluno *</Label>
                   <Select value={selectedStudentIdForRecurrence} onValueChange={setSelectedStudentIdForRecurrence}>
-                    <SelectTrigger id="recStudentSelect" className="w-full bg-neutral-900 border-neutral-800 text-white">
+                    <SelectTrigger id="recStudentSelect" className="w-full bg-background border-border text-foreground">
                       <SelectValue placeholder="Selecione o aluno..." />
                     </SelectTrigger>
-                    <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                    <SelectContent className="bg-popover border-border text-popover-foreground">
                       {students.map((s) => (
                         <SelectItem key={s.id} value={s.id}>
                           {s.name} ({s.email || "Sem e-mail"})
@@ -1359,13 +1359,13 @@ export default function FinancePage() {
                   </Select>
                 </div>
               ) : (
-                <div className="p-3 rounded-xl border border-neutral-800 bg-neutral-900/35 text-xs text-muted-foreground">
-                  Configurando recorrência para o aluno: <strong className="text-white">{selectedRecurrenceStudent.studentName}</strong>
+                <div className="p-3 rounded-xl border border-border bg-secondary/50 text-xs text-muted-foreground">
+                  Configurando recorrência para o aluno: <strong className="text-foreground">{selectedRecurrenceStudent.studentName}</strong>
                 </div>
               )}
-              <div className="flex items-center justify-between p-3 rounded-xl border border-neutral-800 bg-neutral-900/50">
+              <div className="flex items-center justify-between p-3 rounded-xl border border-border bg-secondary/30">
                 <div className="space-y-0.5">
-                  <Label htmlFor="recIsActive" className="text-xs text-neutral-300 font-bold block">Status da Recorrência</Label>
+                  <Label htmlFor="recIsActive" className="text-xs text-foreground font-bold block">Status da Recorrência</Label>
                   <span className="text-[10px] text-muted-foreground block">
                     {recIsActive ? "Ativa - Processamento automático habilitado" : "Pausada - Sem cobranças automáticas"}
                   </span>
@@ -1379,12 +1379,12 @@ export default function FinancePage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <Label htmlFor="recControlType" className="text-xs font-bold text-neutral-400">Tipo de Controle</Label>
+                  <Label htmlFor="recControlType" className="text-xs font-bold text-muted-foreground">Tipo de Controle</Label>
                   <Select value={recControlType} onValueChange={(val) => setRecControlType(val as any)}>
-                    <SelectTrigger id="recControlType" className="w-full bg-neutral-900 border-neutral-800 text-white">
+                    <SelectTrigger id="recControlType" className="w-full bg-background border-border text-foreground">
                       <SelectValue placeholder="Selecione o tipo..." />
                     </SelectTrigger>
-                    <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                    <SelectContent className="bg-popover border-border text-popover-foreground">
                       <SelectItem value="MANUAL">Manual (Sem automação)</SelectItem>
                       <SelectItem value="CONFIRMATION">Recorrência com Confirmação</SelectItem>
                       <SelectItem value="AUTOMATIC">Recorrência Automática (Baixa auto)</SelectItem>
@@ -1394,13 +1394,13 @@ export default function FinancePage() {
 
                 {recControlType !== "MANUAL" && (
                   <div className="space-y-1.5">
-                    <Label htmlFor="recPrice" className="text-xs font-bold text-neutral-400">Valor da Cobrança (R$) *</Label>
+                    <Label htmlFor="recPrice" className="text-xs font-bold text-muted-foreground">Valor da Cobrança (R$) *</Label>
                     <Input
                       id="recPrice"
                       type="number"
                       step="0.01"
                       placeholder="Ex: 150.00"
-                      className="bg-neutral-900 border-neutral-800 text-white"
+                      className="bg-background border-border text-foreground"
                       value={recPrice}
                       onChange={(e) => setRecPrice(e.target.value)}
                       required
@@ -1413,12 +1413,12 @@ export default function FinancePage() {
                 <>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-1.5">
-                      <Label htmlFor="recPaymentMethod" className="text-xs font-bold text-neutral-400">Método de Pagamento Principal</Label>
+                      <Label htmlFor="recPaymentMethod" className="text-xs font-bold text-muted-foreground">Método de Pagamento Principal</Label>
                       <Select value={recPaymentMethod} onValueChange={setRecPaymentMethod}>
-                        <SelectTrigger id="recPaymentMethod" className="w-full bg-neutral-900 border-neutral-800 text-white">
+                        <SelectTrigger id="recPaymentMethod" className="w-full bg-background border-border text-foreground">
                           <SelectValue placeholder="Selecione..." />
                         </SelectTrigger>
-                        <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                        <SelectContent className="bg-popover border-border text-popover-foreground">
                           <SelectItem value="PIX">PIX</SelectItem>
                           <SelectItem value="CREDIT_CARD">Cartão de Crédito</SelectItem>
                           <SelectItem value="BOLETO">Boleto Bancário</SelectItem>
@@ -1427,12 +1427,12 @@ export default function FinancePage() {
                     </div>
 
                     <div className="space-y-1.5">
-                      <Label htmlFor="recPeriodicity" className="text-xs font-bold text-neutral-400">Periodicidade</Label>
+                      <Label htmlFor="recPeriodicity" className="text-xs font-bold text-muted-foreground">Periodicidade</Label>
                       <Select value={recPeriodicity} onValueChange={setRecPeriodicity}>
-                        <SelectTrigger id="recPeriodicity" className="w-full bg-neutral-900 border-neutral-800 text-white">
+                        <SelectTrigger id="recPeriodicity" className="w-full bg-background border-border text-foreground">
                           <SelectValue placeholder="Selecione..." />
                         </SelectTrigger>
-                        <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                        <SelectContent className="bg-popover border-border text-popover-foreground">
                           <SelectItem value="MENSAL">Mensal</SelectItem>
                           <SelectItem value="QUINZENAL">Quinzenal</SelectItem>
                           <SelectItem value="SEMANAL">Semanal</SelectItem>
@@ -1444,14 +1444,14 @@ export default function FinancePage() {
                   </div>
 
                   {recPeriodicity === "PERSONALIZADA" && (
-                    <div className="grid grid-cols-2 gap-4 bg-neutral-900/40 p-3 rounded-xl border border-neutral-800">
+                    <div className="grid grid-cols-2 gap-4 bg-secondary/40 p-3 rounded-xl border border-border">
                       <div className="space-y-1.5">
-                        <Label htmlFor="recCustomCount" className="text-xs font-bold text-neutral-400">Frequência (A cada)</Label>
+                        <Label htmlFor="recCustomCount" className="text-xs font-bold text-muted-foreground">Frequência (A cada)</Label>
                         <Input
                           id="recCustomCount"
                           type="number"
                           min="1"
-                          className="bg-neutral-900 border-neutral-800 text-white"
+                          className="bg-background border-border text-foreground"
                           value={recCustomCount}
                           onChange={(e) => setRecCustomCount(e.target.value)}
                           required
@@ -1459,12 +1459,12 @@ export default function FinancePage() {
                       </div>
 
                       <div className="space-y-1.5">
-                        <Label htmlFor="recCustomUnit" className="text-xs font-bold text-neutral-400">Unidade de Tempo</Label>
+                        <Label htmlFor="recCustomUnit" className="text-xs font-bold text-muted-foreground">Unidade de Tempo</Label>
                         <Select value={recCustomUnit} onValueChange={setRecCustomUnit}>
-                          <SelectTrigger id="recCustomUnit" className="w-full bg-neutral-900 border-neutral-800 text-white">
+                          <SelectTrigger id="recCustomUnit" className="w-full bg-background border-border text-foreground">
                             <SelectValue />
                           </SelectTrigger>
-                          <SelectContent className="bg-neutral-900 border-neutral-800 text-white">
+                          <SelectContent className="bg-popover border-border text-popover-foreground">
                             <SelectItem value="dias">dias</SelectItem>
                             <SelectItem value="semanas">semanas</SelectItem>
                             <SelectItem value="meses">meses</SelectItem>
@@ -1478,14 +1478,14 @@ export default function FinancePage() {
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {(recPeriodicity === "MENSAL" || recPeriodicity === "ANUAL" || (recPeriodicity === "PERSONALIZADA" && (recCustomUnit === "meses" || recCustomUnit === "anos"))) && (
                       <div className="space-y-1.5">
-                        <Label htmlFor="recDueDay" className="text-xs font-bold text-neutral-400">Dia de Vencimento fixo (1-31)</Label>
+                        <Label htmlFor="recDueDay" className="text-xs font-bold text-muted-foreground">Dia de Vencimento fixo (1-31)</Label>
                         <Input
                           id="recDueDay"
                           type="number"
                           min="1"
                           max="31"
                           placeholder="Ex: 5"
-                          className="bg-neutral-900 border-neutral-800 text-white"
+                          className="bg-background border-border text-foreground"
                           value={recDueDay}
                           onChange={(e) => setRecDueDay(e.target.value)}
                           required
@@ -1494,11 +1494,11 @@ export default function FinancePage() {
                     )}
 
                     <div className="space-y-1.5">
-                      <Label htmlFor="recFirstDueDate" className="text-xs font-bold text-neutral-400 font-bold">Primeiro Vencimento *</Label>
+                      <Label htmlFor="recFirstDueDate" className="text-xs font-bold text-muted-foreground">Primeiro Vencimento *</Label>
                       <Input
                         id="recFirstDueDate"
                         type="date"
-                        className="bg-neutral-900 border-neutral-800 text-white"
+                        className="bg-background border-border text-foreground"
                         value={recFirstDueDate}
                         onChange={(e) => setRecFirstDueDate(e.target.value)}
                         required
@@ -1507,11 +1507,11 @@ export default function FinancePage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <Label htmlFor="recDescription" className="text-xs font-bold text-neutral-400">Descrição da Fatura</Label>
+                    <Label htmlFor="recDescription" className="text-xs font-bold text-muted-foreground">Descrição da Fatura</Label>
                     <Input
                       id="recDescription"
                       placeholder="Ex: Plano Trimestral Assessoria"
-                      className="bg-neutral-900 border-neutral-800 text-white"
+                      className="bg-background border-border text-foreground"
                       value={recDescription}
                       onChange={(e) => setRecDescription(e.target.value)}
                     />
@@ -1520,11 +1520,11 @@ export default function FinancePage() {
               )}
             </div>
 
-            <DialogFooter className="border-t border-neutral-900 pt-4 gap-2">
+            <DialogFooter className="border-t border-border pt-4 gap-2">
               <Button
                 type="button"
                 variant="outline"
-                className="border-neutral-800 text-white hover:bg-neutral-900"
+                className="border-border bg-secondary text-muted-foreground hover:text-foreground hover:bg-secondary/80"
                 onClick={() => setIsRecurrenceModalOpen(false)}
                 disabled={isSavingRecurrence}
               >
@@ -1533,7 +1533,7 @@ export default function FinancePage() {
               <Button
                 type="submit"
                 disabled={isSavingRecurrence}
-                className="gap-2 bg-primary text-white hover:bg-primary/95 font-semibold"
+                className="gap-2 bg-primary text-primary-foreground hover:bg-primary/95 font-semibold"
               >
                 {isSavingRecurrence && <Loader2 className="size-4 animate-spin" />}
                 <span>Salvar Configuração</span>

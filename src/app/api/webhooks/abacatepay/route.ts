@@ -175,6 +175,28 @@ export async function POST(req: Request) {
           }
         });
 
+        // Process referral commission if referrer exists
+        const payingUser = await tx.user.findUnique({
+          where: { id: userId },
+          select: { referredById: true }
+        });
+
+        if (payingUser?.referredById) {
+          const commissionRate = 0.20; // 20%
+          const commissionAmount = transaction.amount * commissionRate;
+
+          await tx.referralCommission.create({
+            data: {
+              referrerId: payingUser.referredById,
+              referredId: userId,
+              transactionId: transactionId,
+              amount: commissionAmount,
+              percentage: commissionRate * 100,
+              status: "APROVADO",
+            }
+          });
+        }
+
         if (!isPreSub) {
           await tx.auditLog.create({
             data: {

@@ -196,24 +196,25 @@ interface Metrics {
 }
 
 const COLUMNS = [
-  { id: "new", name: "Novos Leads", color: "bg-blue-500" },
-  { id: "contacted", name: "Contato Realizado", color: "bg-purple-500" },
-  { id: "scheduled", name: "Avaliação Agendada", color: "bg-indigo-500" },
-  { id: "proposal", name: "Proposta Enviada", color: "bg-pink-500" },
-  { id: "negotiation", name: "Negociação", color: "bg-amber-500" },
-  { id: "won", name: "Fechado", color: "bg-emerald-500" },
-  { id: "lost", name: "Perdido", color: "bg-rose-500" }
+  { id: "new", name: "Novos Leads", color: "bg-zinc-400 dark:bg-zinc-500" },
+  { id: "contacted", name: "Contato Realizado", color: "bg-zinc-400 dark:bg-zinc-500" },
+  { id: "scheduled", name: "Avaliação Agendada", color: "bg-zinc-400 dark:bg-zinc-500" },
+  { id: "proposal", name: "Proposta Enviada", color: "bg-zinc-400 dark:bg-zinc-500" },
+  { id: "negotiation", name: "Negociação", color: "bg-zinc-400 dark:bg-zinc-500" },
+  { id: "won", name: "Fechado", color: "bg-zinc-400 dark:bg-zinc-500" },
+  { id: "lost", name: "Perdido", color: "bg-zinc-400 dark:bg-zinc-500" }
 ];
 
 const TAG_COLORS = [
-  { class: "bg-red-500/10 text-red-400 border-red-500/20", colorName: "Vermelho" },
-  { class: "bg-blue-500/10 text-blue-400 border-blue-500/20", colorName: "Azul" },
-  { class: "bg-emerald-500/10 text-emerald-400 border-emerald-500/20", colorName: "Verde" },
-  { class: "bg-amber-500/10 text-amber-400 border-amber-500/20", colorName: "Laranja" },
-  { class: "bg-purple-500/10 text-purple-400 border-purple-500/20", colorName: "Roxo" },
-  { class: "bg-pink-500/10 text-pink-400 border-pink-500/20", colorName: "Rosa" },
-  { class: "bg-zinc-500/10 text-zinc-400 border-zinc-500/20", colorName: "Cinza" }
+  { class: "bg-secondary text-muted-foreground border-none rounded-full", colorName: "Cinza" },
+  { class: "bg-secondary text-muted-foreground border-none rounded-full", colorName: "Cinza" },
+  { class: "bg-secondary text-muted-foreground border-none rounded-full", colorName: "Cinza" },
+  { class: "bg-secondary text-muted-foreground border-none rounded-full", colorName: "Cinza" },
+  { class: "bg-secondary text-muted-foreground border-none rounded-full", colorName: "Cinza" },
+  { class: "bg-secondary text-muted-foreground border-none rounded-full", colorName: "Cinza" },
+  { class: "bg-secondary text-muted-foreground border-none rounded-full", colorName: "Cinza" }
 ];
+
 
 export default function CRMPage() {
   const router = useRouter();
@@ -1075,30 +1076,17 @@ export default function CRMPage() {
   };
 
   const getSourceBadgeColor = (source: string | null) => {
-    switch (source) {
-      case "Instagram":
-        return "bg-pink-500/10 text-pink-400 border-pink-500/20";
-      case "WhatsApp":
-        return "bg-emerald-500/10 text-emerald-400 border-emerald-500/20";
-      case "TikTok":
-        return "bg-zinc-800 text-zinc-300 border-zinc-700";
-      case "Google":
-        return "bg-blue-500/10 text-blue-400 border-blue-500/20";
-      case "Indicação":
-        return "bg-amber-500/10 text-amber-400 border-amber-500/20";
-      default:
-        return "bg-neutral-800 text-neutral-400 border-neutral-700";
-    }
+    return "bg-secondary text-muted-foreground border-none rounded-full";
   };
 
   const getPriorityBadgeColor = (priority: string) => {
     switch (priority) {
       case "ALTA":
-        return "bg-red-500/10 text-red-400 border-red-500/20";
+        return "bg-destructive/10 text-destructive border-none rounded-full";
       case "MEDIA":
-        return "bg-amber-500/10 text-amber-400 border-amber-500/20";
+        return "bg-warning/10 text-warning border-none rounded-full";
       default:
-        return "bg-zinc-500/10 text-zinc-400 border-zinc-500/20";
+        return "bg-secondary text-muted-foreground border-none rounded-full";
     }
   };
 
@@ -1206,7 +1194,7 @@ export default function CRMPage() {
     value,
   }));
 
-  const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8", "#82ca9d", "#ffc658"];
+  const COLORS = ["hsl(var(--primary))", "hsl(var(--primary)/0.85)", "hsl(var(--primary)/0.7)", "hsl(var(--primary)/0.55)", "hsl(var(--primary)/0.4)", "hsl(var(--primary)/0.25)", "hsl(var(--muted-foreground)/0.3)"];
 
   return (
     <div className="flex-1 min-w-0 w-full max-w-full overflow-x-hidden space-y-8 p-4 md:p-8 animate-in fade-in duration-300 select-none">
@@ -1221,25 +1209,25 @@ export default function CRMPage() {
         <div className="flex flex-wrap items-center gap-3">
           <Button
             variant="outline"
-            className="rounded-xl flex-1 min-w-fit border-border/60 text-xs font-bold gap-2 h-10 shrink-0"
+            className="rounded-lg flex-1 min-w-fit border-border text-xs font-semibold gap-2 h-9 shrink-0"
             onClick={() => setIsTagSettingsOpen(true)}
           >
-            <TagIcon className="size-4 text-primary" />
+            <TagIcon className="size-4 text-muted-foreground" />
             <span>Etiquetas</span>
           </Button>
 
           <Button
             variant="outline"
-            className="rounded-xl flex-1 min-w-fit border-border/60 text-xs font-bold gap-2 h-10 shrink-0"
+            className="rounded-lg flex-1 min-w-fit border-border text-xs font-semibold gap-2 h-9 shrink-0"
             onClick={() => setIsCustomFieldsSettingsOpen(true)}
           >
-            <Settings className="size-4 text-primary" />
+            <Settings className="size-4 text-muted-foreground" />
             <span>Campos Extra</span>
           </Button>
 
           <Button
             onClick={() => setIsCreateOpen(true)}
-            className="bg-primary flex-1 min-w-fit text-primary-foreground hover:bg-primary/95 rounded-xl font-black gap-2 h-10 px-4 shadow-lg shadow-primary/20 shrink-0"
+            className="bg-primary flex-1 min-w-fit text-primary-foreground hover:bg-primary/90 rounded-lg font-semibold gap-2 h-9 px-4 shrink-0"
           >
             <Plus className="size-4" />
             <span>Novo Lead</span>
@@ -1247,7 +1235,7 @@ export default function CRMPage() {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
         <Card
           onClick={() => {
             setSearchQuery("");
@@ -1255,14 +1243,14 @@ export default function CRMPage() {
             setGoalFilter("all");
             setTagFilter("all");
           }}
-          className="flex-1 min-w-fit border-border/30 bg-secondary/10 hover:bg-secondary/20 transition-all rounded-2xl cursor-pointer"
+          className="border border-border bg-card shadow-xs rounded-xl cursor-pointer hover:bg-secondary/40 transition-colors"
         >
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total de Leads</span>
-              <p className="text-2xl font-black leading-none">{metrics.totalLeads}</p>
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Total de Leads</span>
+              <p className="text-xl font-bold tracking-tight text-foreground">{metrics.totalLeads}</p>
             </div>
-            <Users className="size-8 text-blue-500/80" />
+            <Users className="size-5 text-muted-foreground/80 shrink-0" />
           </CardContent>
         </Card>
 
@@ -1274,14 +1262,14 @@ export default function CRMPage() {
             setTagFilter("all");
             setActiveMobileColumn("new");
           }}
-          className="flex-1 min-w-fit border-border/30 bg-secondary/10 hover:bg-secondary/20 transition-all rounded-2xl cursor-pointer"
+          className="border border-border bg-card shadow-xs rounded-xl cursor-pointer hover:bg-secondary/40 transition-colors"
         >
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Novos Leads</span>
-              <p className="text-2xl font-black leading-none">{metrics.newLeads}</p>
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Novos Leads</span>
+              <p className="text-xl font-bold tracking-tight text-foreground">{metrics.newLeads}</p>
             </div>
-            <PlusCircle className="size-8 text-purple-500/80" />
+            <PlusCircle className="size-5 text-muted-foreground/80 shrink-0" />
           </CardContent>
         </Card>
 
@@ -1293,14 +1281,14 @@ export default function CRMPage() {
             setTagFilter("all");
             setActiveMobileColumn("negotiation");
           }}
-          className="flex-1 min-w-fit border-border/30 bg-secondary/10 hover:bg-secondary/20 transition-all rounded-2xl cursor-pointer"
+          className="border border-border bg-card shadow-xs rounded-xl cursor-pointer hover:bg-secondary/40 transition-colors"
         >
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Em Negociação</span>
-              <p className="text-2xl font-black leading-none">{metrics.inNegotiation}</p>
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Em Negociação</span>
+              <p className="text-xl font-bold tracking-tight text-foreground">{metrics.inNegotiation}</p>
             </div>
-            <TrendingUp className="size-8 text-amber-500/80" />
+            <TrendingUp className="size-5 text-muted-foreground/80 shrink-0" />
           </CardContent>
         </Card>
 
@@ -1312,35 +1300,35 @@ export default function CRMPage() {
             setTagFilter("all");
             setActiveMobileColumn("won");
           }}
-          className="flex-1 min-w-fit border-border/30 bg-secondary/10 hover:bg-secondary/20 transition-all rounded-2xl cursor-pointer"
+          className="border border-border bg-card shadow-xs rounded-xl cursor-pointer hover:bg-secondary/40 transition-colors"
         >
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Conversão</span>
-              <p className="text-2xl font-black leading-none text-emerald-500">{metrics.conversionRate}%</p>
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Conversão</span>
+              <p className="text-xl font-bold tracking-tight text-emerald-500">{metrics.conversionRate}%</p>
             </div>
-            <UserCheck className="size-8 text-emerald-500/80" />
+            <UserCheck className="size-5 text-emerald-500/80 shrink-0" />
           </CardContent>
         </Card>
 
-        <Card className="flex-1 min-w-fit border-border/30 bg-secondary/10 rounded-2xl col-span-2 lg:col-span-1">
+        <Card className="border border-border bg-card shadow-xs rounded-xl col-span-2 md:col-span-1">
           <CardContent className="p-4 flex items-center justify-between">
             <div className="space-y-1">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Receita Fechada</span>
-              <p className="text-lg font-black leading-none text-emerald-500">R$ {metrics.closedRevenue}</p>
-              <span className="text-[9px] text-muted-foreground">Prevista: R$ {metrics.potentialRevenue}</span>
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Receita Fechada</span>
+              <p className="text-xl font-bold tracking-tight text-emerald-500">R$ {metrics.closedRevenue}</p>
+              <span className="text-[9px] text-muted-foreground block mt-0.5">Prevista: R$ {metrics.potentialRevenue}</span>
             </div>
-            <DollarSign className="size-8 text-emerald-500/80" />
+            <DollarSign className="size-5 text-emerald-500/80 shrink-0" />
           </CardContent>
         </Card>
       </div>
 
-      <div className="flex border-b border-border/30 w-full gap-8">
+      <div className="flex border-b border-border w-full gap-8">
         <button
           onClick={() => setCrmTab("board")}
           className={cn(
-            "pb-3 text-sm font-bold transition-all relative border-b-2 border-transparent",
-            crmTab === "board" ? "text-primary border-primary" : "text-muted-foreground hover:text-foreground"
+            "pb-3 text-sm font-semibold transition-all relative border-b-2 border-transparent",
+            crmTab === "board" ? "text-foreground border-primary" : "text-muted-foreground hover:text-foreground"
           )}
         >
           Funil Comercial
@@ -1348,8 +1336,8 @@ export default function CRMPage() {
         <button
           onClick={() => setCrmTab("analytics")}
           className={cn(
-            "pb-3 text-sm font-bold transition-all relative border-b-2 border-transparent",
-            crmTab === "analytics" ? "text-primary border-primary" : "text-muted-foreground hover:text-foreground"
+            "pb-3 text-sm font-semibold transition-all relative border-b-2 border-transparent",
+            crmTab === "analytics" ? "text-foreground border-primary" : "text-muted-foreground hover:text-foreground"
           )}
         >
           Análise e Relatórios
@@ -1358,12 +1346,12 @@ export default function CRMPage() {
 
       {crmTab === "board" ? (
         <>
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between bg-secondary/5 p-4 rounded-2xl border border-border/30">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between bg-card p-4 rounded-xl border border-border">
             <div className="relative flex-1 min-w-0">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
               <Input
                 placeholder="Pesquisar por nome, email, instagram..."
-                className="pl-9 h-10 rounded-xl border-border bg-background text-xs font-semibold"
+                className="pl-9 h-9 rounded-lg border-border bg-background text-xs"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
@@ -1372,10 +1360,10 @@ export default function CRMPage() {
             <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
               <div className="flex-1 min-w-30 lg:flex-none">
                 <Select value={originFilter} onValueChange={setOriginFilter}>
-                  <SelectTrigger className="rounded-xl h-10 w-full bg-background font-semibold text-xs">
+                  <SelectTrigger className="rounded-lg h-9 w-full bg-background text-xs">
                     <SelectValue placeholder="Origem" />
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl">
+                  <SelectContent className="rounded-lg">
                     <SelectItem value="all">Todas Origens</SelectItem>
                     <SelectItem value="Instagram">Instagram</SelectItem>
                     <SelectItem value="WhatsApp">WhatsApp</SelectItem>
@@ -1391,10 +1379,10 @@ export default function CRMPage() {
 
               <div className="flex-1 min-w-30 lg:flex-none">
                 <Select value={goalFilter} onValueChange={setGoalFilter}>
-                  <SelectTrigger className="rounded-xl h-10 w-full bg-background font-semibold text-xs">
+                  <SelectTrigger className="rounded-lg h-9 w-full bg-background text-xs">
                     <SelectValue placeholder="Objetivo" />
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl">
+                  <SelectContent className="rounded-lg">
                     <SelectItem value="all">Todos Objetivos</SelectItem>
                     <SelectItem value="Emagrecimento">Emagrecimento</SelectItem>
                     <SelectItem value="Hipertrofia">Hipertrofia</SelectItem>
@@ -1406,10 +1394,10 @@ export default function CRMPage() {
 
               <div className="flex-1 min-w-30 lg:flex-none">
                 <Select value={tagFilter} onValueChange={setTagFilter}>
-                  <SelectTrigger className="rounded-xl h-10 w-full bg-background font-semibold text-xs">
+                  <SelectTrigger className="rounded-lg h-9 w-full bg-background text-xs">
                     <SelectValue placeholder="Etiqueta" />
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl">
+                  <SelectContent className="rounded-lg">
                     <SelectItem value="all">Todas Etiquetas</SelectItem>
                     {availableTags.map((t) => (
                       <SelectItem key={t.id} value={t.name}>{t.name}</SelectItem>
@@ -1420,10 +1408,10 @@ export default function CRMPage() {
 
               <div className="flex-1 min-w-[120px] lg:flex-none">
                 <Select value={valueSort} onValueChange={setValueSort}>
-                  <SelectTrigger className="rounded-xl h-10 w-full bg-background font-semibold text-xs">
+                  <SelectTrigger className="rounded-lg h-9 w-full bg-background text-xs">
                     <SelectValue placeholder="Ordenar" />
                   </SelectTrigger>
-                  <SelectContent className="rounded-xl">
+                  <SelectContent className="rounded-lg">
                     <SelectItem value="all">Mais recente</SelectItem>
                     <SelectItem value="desc">Valor: Maior primeiro</SelectItem>
                     <SelectItem value="asc">Valor: Menor primeiro</SelectItem>
@@ -1464,11 +1452,11 @@ export default function CRMPage() {
               {[...Array(7)].map((_, idx) => (
                 <div key={idx} className="flex flex-col shrink-0 bg-secondary/5 border border-border/20 rounded-2xl p-4 gap-4">
                   <div className="flex items-center justify-between border-b border-border/30 pb-2">
-                    <Skeleton className="h-4 w-24 rounded bg-neutral-900" />
-                    <Skeleton className="h-4 w-8 rounded bg-neutral-900" />
+                    <Skeleton className="h-4 w-24 rounded" />
+                    <Skeleton className="h-4 w-8 rounded" />
                   </div>
-                  <Skeleton className="h-24 w-full rounded-xl bg-neutral-900" />
-                  <Skeleton className="h-24 w-full rounded-xl bg-neutral-900" />
+                  <Skeleton className="h-24 w-full rounded-xl" />
+                  <Skeleton className="h-24 w-full rounded-xl" />
                 </div>
               ))}
             </div>
@@ -1486,21 +1474,21 @@ export default function CRMPage() {
                       onDragLeave={handleDragLeave}
                       onDrop={(e) => handleDrop(e, col.id)}
                       className={cn(
-                        "flex flex-col shrink-0 w-70 bg-neutral-900/35 border border-border/30 rounded-2xl p-4 transition-all duration-200",
-                        isOver && "border-primary bg-primary/5 ring-1 ring-primary/20"
+                        "flex flex-col shrink-0 w-72 bg-secondary/10 rounded-xl p-3.5 transition-all duration-200",
+                        isOver && "bg-secondary/20"
                       )}
                     >
-                      <div className="flex items-center justify-between pb-3 border-b border-border/25">
-                        <div className="flex items-center gap-2">
-                          <span className={cn("size-2.5 rounded-full shrink-0", col.color)} />
-                          <span className="text-sm font-extrabold text-white leading-none">{col.name}</span>
+                      <div className="flex items-center justify-between pb-2 border-none">
+                        <div className="flex items-center gap-1.5">
+                          <span className={cn("size-2 rounded-full shrink-0", col.color)} />
+                          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{col.name}</span>
                         </div>
-                        <Badge variant="secondary" className="rounded-lg text-[10px] font-black tracking-widest px-2 py-0.5">
+                        <span className="bg-secondary/40 text-[10px] font-medium text-muted-foreground px-2 py-0.5 rounded-full">
                           {colLeads.length}
-                        </Badge>
+                        </span>
                       </div>
 
-                      <div className="flex flex-col gap-3.5 mt-4 min-h-75 overflow-y-auto max-h-150 scrollbar-none">
+                      <div className="flex flex-col gap-3 mt-3 min-h-75 overflow-y-auto max-h-150 scrollbar-none">
                         {colLeads.map((lead) => {
                           const hasOverdueTask = lead.tasks.some(
                             (t) => t.status === "PENDING" && t.dueDate && new Date(t.dueDate) < new Date()
@@ -1515,65 +1503,65 @@ export default function CRMPage() {
                               draggable
                               onDragStart={(e) => handleDragStart(e, lead.id)}
                               onClick={() => handleOpenDetail(lead.id)}
-                              className="group border border-border/40 hover:border-primary/50 bg-card/60 hover:bg-card rounded-xl p-3 cursor-grab active:cursor-grabbing transition-all duration-150 relative space-y-1"
+                              className="group border border-border/60 hover:border-border hover:shadow-xs bg-card rounded-xl p-3.5 cursor-grab active:cursor-grabbing transition-all duration-150 relative space-y-2.5"
                             >
                               {isInactive && lead.status !== "won" && lead.status !== "lost" && (
-                                <Badge className="absolute top-2 right-2 bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] uppercase font-extrabold py-0 px-1">
+                                <span className="absolute top-2.5 right-2.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[9px] font-semibold py-0.5 px-2 rounded-full">
                                   Sem Contato
-                                </Badge>
+                                </span>
                               )}
                               {hasOverdueTask && (
-                                <Badge className="absolute top-2 right-2 bg-red-500/10 text-red-400 border border-red-500/20 text-[9px] uppercase font-extrabold py-0 px-1">
+                                <span className="absolute top-2.5 right-2.5 bg-destructive/10 text-destructive text-[9px] font-semibold py-0.5 px-2 rounded-full">
                                   Atrasado
-                                </Badge>
+                                </span>
                               )}
 
                               <div className="flex items-center gap-2">
                                 <Avatar className="size-8 border border-border/30 shrink-0">
-                                  <AvatarFallback className="bg-primary/10 text-primary font-black text-xs">
+                                  <AvatarFallback className="bg-secondary text-muted-foreground font-semibold text-xs">
                                     {getInitials(lead.name)}
                                   </AvatarFallback>
                                 </Avatar>
-                                <section className="flex justify-between items-center w-full">
-                                  <div className="min-w-0 max-w-30">
-                                    <h1 className="font-extrabold text-xs block text-foreground truncate">{lead.name}</h1>
-                                    <h1 className="text-[10px] text-muted-foreground truncate">{lead.email || "Sem e-mail"}</h1>
+                                <section className="flex justify-between items-center w-full gap-2 min-w-0">
+                                  <div className="min-w-0 flex-1">
+                                    <h4 className="font-medium text-xs block text-foreground truncate leading-tight">{lead.name}</h4>
+                                    <p className="text-[10px] text-muted-foreground truncate mt-0.5">{lead.email || "Sem e-mail"}</p>
                                   </div>
-                                  <Badge className={cn("text-[9px] font-bold uppercase tracking-wider px-1 py-0.5 rounded border shrink-0", getSourceBadgeColor(lead.source))}>
+                                  <span className="text-[9px] font-medium tracking-wide bg-secondary text-muted-foreground/90 px-1.5 py-0.5 rounded-full shrink-0">
                                     {lead.source || "Outro"}
-                                  </Badge>
+                                  </span>
                                 </section>
                               </div>
 
                               <div className="flex flex-wrap gap-1">
                                 {lead.tags.slice(0, 2).map((t) => (
-                                  <Badge key={t.id} className={cn("text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border shrink-0", t.color)}>
+                                  <span key={t.id} className="text-[9px] font-medium bg-secondary/60 text-muted-foreground px-2 py-0.5 rounded-full shrink-0">
                                     {t.name}
-                                  </Badge>
+                                  </span>
                                 ))}
                               </div>
 
-                              <div className="space-y-1.5 text-[10px] text-muted-foreground pt-1 flex justify-between">
+                              <div className="space-y-1.5 text-[10px] text-muted-foreground/80 pt-1 flex flex-col">
                                 {lead.goal && (
                                   <div className="flex items-center gap-1.5">
-                                    <Target className="size-3.5 text-primary shrink-0" />
+                                    <Target className="size-3 text-muted-foreground shrink-0" />
                                     <span className="truncate">{lead.goal}</span>
                                   </div>
                                 )}
                                 {(lead.phone || lead.whatsapp) && (
                                   <div className="flex items-center gap-1.5">
-                                    <Phone className="size-3.5 text-muted-foreground shrink-0" />
+                                    <Phone className="size-3 text-muted-foreground shrink-0" />
                                     <span className="truncate">{lead.whatsapp || lead.phone}</span>
                                   </div>
                                 )}
                               </div>
 
-                              <div className="flex items-center justify-between pt-2 border-t border-border/20 text-[10px]">
+                              <div className="flex items-center justify-between pt-2 border-t border-border/50 text-[10px]">
                                 <span className="text-muted-foreground flex items-center gap-1">
-                                  <Clock className="size-3 shrink-0" />
+                                  <Clock className="size-3 text-muted-foreground/70 shrink-0" />
                                   {formatRelativeTime(lead.createdAt)}
                                 </span>
-                                <span className="font-black text-foreground">
+                                <span className="font-bold text-foreground">
                                   {lead.potentialValue !== null ? `R$ ${lead.potentialValue}` : "R$ 0"}
                                 </span>
                               </div>
@@ -1616,46 +1604,46 @@ export default function CRMPage() {
                           <Card
                             key={lead.id}
                             onClick={() => handleOpenDetail(lead.id)}
-                            className="border-border/40 bg-card rounded-xl relative"
+                            className="border-border bg-card rounded-lg relative hover:shadow-xs transition-shadow"
                           >
                             {isInactive && lead.status !== "won" && lead.status !== "lost" && (
-                              <Badge className="absolute top-2 right-2 bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] uppercase font-extrabold py-0 px-1">
+                              <span className="absolute top-2.5 right-2.5 bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[9px] font-semibold py-0.5 px-2 rounded-full">
                                 Sem Contato
-                              </Badge>
+                              </span>
                             )}
                             {hasOverdueTask && (
-                              <Badge className="absolute top-2 right-2 bg-red-500/10 text-red-400 border border-red-500/20 text-[9px] uppercase font-extrabold py-0 px-1">
+                              <span className="absolute top-2.5 right-2.5 bg-destructive/10 text-destructive text-[9px] font-semibold py-0.5 px-2 rounded-full">
                                 Atrasado
-                              </Badge>
+                              </span>
                             )}
 
                             <CardContent className="p-4 space-y-3">
                               <div className="flex items-start justify-between gap-2">
                                 <div className="flex items-center gap-2 min-w-0">
                                   <Avatar className="size-8 border border-border/30 shrink-0">
-                                    <AvatarFallback className="bg-primary/10 text-primary font-black text-xs">
+                                    <AvatarFallback className="bg-secondary text-muted-foreground font-semibold text-xs">
                                       {getInitials(lead.name)}
                                     </AvatarFallback>
                                   </Avatar>
-                                  <span className="font-bold text-xs truncate text-foreground leading-none">
+                                  <span className="font-semibold text-xs truncate text-foreground leading-none">
                                     {lead.name}
                                   </span>
                                 </div>
-                                <Badge className={cn("text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded border", getSourceBadgeColor(lead.source))}>
+                                <span className="text-[9px] font-medium tracking-wide bg-secondary text-muted-foreground px-1.5 py-0.5 rounded-full">
                                   {lead.source || "Outro"}
-                                </Badge>
+                                </span>
                               </div>
 
                               <div className="space-y-1.5 text-[11px] text-muted-foreground">
                                 {lead.goal && (
                                   <div className="flex items-center gap-1.5">
-                                    <Target className="size-3.5 text-primary shrink-0" />
+                                    <Target className="size-3 text-muted-foreground shrink-0" />
                                     <span className="truncate">{lead.goal}</span>
                                   </div>
                                 )}
                                 {(lead.phone || lead.whatsapp) && (
                                   <div className="flex items-center gap-1.5">
-                                    <Phone className="size-3.5 text-muted-foreground shrink-0" />
+                                    <Phone className="size-3 text-muted-foreground shrink-0" />
                                     <span className="truncate">{lead.whatsapp || lead.phone}</span>
                                   </div>
                                 )}
@@ -1667,7 +1655,7 @@ export default function CRMPage() {
                                   {formatRelativeTime(lead.createdAt)}
                                 </span>
                                 <div className="flex items-center gap-2">
-                                  <span className="font-black text-foreground mr-1">
+                                  <span className="font-bold text-foreground text-xs mr-1">
                                     {lead.potentialValue !== null ? `R$ ${lead.potentialValue}` : "R$ 0"}
                                   </span>
                                   <div className="flex items-center gap-1 border border-border/30 rounded-lg p-0.5 bg-secondary/15">
@@ -1675,7 +1663,7 @@ export default function CRMPage() {
                                       type="button"
                                       size="icon"
                                       variant="ghost"
-                                      className="h-6 w-6 rounded-md hover:bg-secondary/40 shrink-0"
+                                      className="h-6 w-6 rounded-lg hover:bg-secondary shrink-0"
                                       disabled={COLUMNS.findIndex((c) => c.id === lead.status) === 0}
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -1688,7 +1676,7 @@ export default function CRMPage() {
                                       type="button"
                                       size="icon"
                                       variant="ghost"
-                                      className="h-6 w-6 rounded-md hover:bg-secondary/40 shrink-0"
+                                      className="h-6 w-6 rounded-lg hover:bg-secondary shrink-0"
                                       disabled={COLUMNS.findIndex((c) => c.id === lead.status) === COLUMNS.length - 1}
                                       onClick={(e) => {
                                         e.stopPropagation();
@@ -1719,23 +1707,23 @@ export default function CRMPage() {
         </>
       ) : (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          <Card className="border-border/30 bg-card rounded-2xl p-6 space-y-4">
-            <h3 className="text-base font-extrabold">Distribuição por Etapa</h3>
+          <Card className="border border-border bg-card shadow-xs rounded-xl p-6 space-y-4">
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Distribuição por Etapa</h3>
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={chartData}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                  <XAxis dataKey="name" stroke="#888" fontSize={10} />
-                  <YAxis stroke="#888" fontSize={10} />
-                  <RechartsTooltip contentStyle={{ backgroundColor: "#171717", borderColor: "#333" }} />
-                  <Bar dataKey="leads" fill="#ea580c" radius={[4, 4, 0, 0]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border" style={{ stroke: "hsl(var(--border))" }} />
+                  <XAxis dataKey="name" stroke="currentColor" className="text-muted-foreground" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis stroke="currentColor" className="text-muted-foreground" fontSize={10} tickLine={false} axisLine={false} />
+                  <RechartsTooltip contentStyle={{ backgroundColor: "hsl(var(--popover))", borderColor: "hsl(var(--border))", color: "hsl(var(--popover-foreground))", borderRadius: "8px" }} />
+                  <Bar dataKey="leads" fill="currentColor" className="fill-primary text-primary" style={{ fill: "hsl(var(--primary))" }} radius={[4, 4, 0, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </Card>
 
-          <Card className="border-border/30 bg-card rounded-2xl p-6 space-y-4">
-            <h3 className="text-base font-extrabold">Origem dos Contatos</h3>
+          <Card className="border border-border bg-card shadow-xs rounded-xl p-6 space-y-4">
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Origem dos Contatos</h3>
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
@@ -1745,58 +1733,60 @@ export default function CRMPage() {
                     cy="50%"
                     labelLine={false}
                     outerRadius={80}
-                    fill="#8884d8"
+                    fill="currentColor"
+                    className="fill-primary text-primary"
+                    style={{ fill: "hsl(var(--primary))" }}
                     dataKey="value"
                     label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                   >
                     {originChartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      <Cell key={`cell-${index}`} fill="currentColor" style={{ fill: COLORS[index % COLORS.length] }} />
                     ))}
                   </Pie>
-                  <RechartsTooltip contentStyle={{ backgroundColor: "#171717", borderColor: "#333" }} />
+                  <RechartsTooltip contentStyle={{ backgroundColor: "hsl(var(--popover))", borderColor: "hsl(var(--border))", color: "hsl(var(--popover-foreground))", borderRadius: "8px" }} />
                 </PieChart>
               </ResponsiveContainer>
             </div>
           </Card>
 
-          <Card className="border-border/30 bg-card rounded-2xl p-6 space-y-4">
-            <h3 className="text-base font-extrabold">Principais Objetivos</h3>
+          <Card className="border border-border bg-card shadow-xs rounded-xl p-6 space-y-4">
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Principais Objetivos</h3>
             <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
                 <BarChart data={goalChartData} layout="vertical">
-                  <CartesianGrid strokeDasharray="3 3" stroke="#333" />
-                  <XAxis type="number" stroke="#888" fontSize={10} />
-                  <YAxis dataKey="name" type="category" stroke="#888" fontSize={10} width={100} />
-                  <RechartsTooltip contentStyle={{ backgroundColor: "#171717", borderColor: "#333" }} />
-                  <Bar dataKey="value" fill="#8884d8" radius={[0, 4, 4, 0]} />
+                  <CartesianGrid strokeDasharray="3 3" stroke="currentColor" className="text-border" style={{ stroke: "hsl(var(--border))" }} />
+                  <XAxis type="number" stroke="currentColor" className="text-muted-foreground" fontSize={10} tickLine={false} axisLine={false} />
+                  <YAxis dataKey="name" type="category" stroke="currentColor" className="text-muted-foreground" fontSize={10} width={100} tickLine={false} axisLine={false} />
+                  <RechartsTooltip contentStyle={{ backgroundColor: "hsl(var(--popover))", borderColor: "hsl(var(--border))", color: "hsl(var(--popover-foreground))", borderRadius: "8px" }} />
+                  <Bar dataKey="value" fill="currentColor" className="fill-primary/80 text-primary" style={{ fill: "hsl(var(--primary)/0.8)" }} radius={[0, 4, 4, 0]} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
           </Card>
 
-          <Card className="border-border/30 bg-card rounded-2xl p-6 flex flex-col justify-between gap-6">
+          <Card className="border border-border bg-card shadow-xs rounded-xl p-6 flex flex-col justify-between gap-6">
             <div className="space-y-4">
-              <h3 className="text-base font-extrabold">Indicadores Comerciais</h3>
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Indicadores Comerciais</h3>
               <div className="grid grid-cols-2 gap-4">
-                <div className="bg-secondary/15 p-4 rounded-xl border border-border/30 space-y-1">
+                <div className="bg-secondary/40 p-4 rounded-xl border border-border/50 space-y-1">
                   <span className="text-[10px] font-bold text-muted-foreground uppercase">Tempo Médio de Fechamento</span>
-                  <p className="text-2xl font-black">{metrics.averageConversionTime} dias</p>
+                  <p className="text-xl font-bold tracking-tight text-foreground">{metrics.averageConversionTime} dias</p>
                 </div>
-                <div className="bg-secondary/15 p-4 rounded-xl border border-border/30 space-y-1">
+                <div className="bg-secondary/40 p-4 rounded-xl border border-border/50 space-y-1">
                   <span className="text-[10px] font-bold text-muted-foreground uppercase">Leads Perdidos</span>
-                  <p className="text-2xl font-black text-rose-500">{metrics.lostLeads}</p>
+                  <p className="text-xl font-bold tracking-tight text-destructive">{metrics.lostLeads}</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-secondary/15 p-4 rounded-xl border border-border/30 space-y-4">
-              <h3 className="text-sm font-bold">Funil de Conversão Financeira</h3>
+            <div className="bg-secondary/40 p-4 rounded-xl border border-border/50 space-y-4">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Funil de Conversão Financeira</h3>
               <div className="space-y-2">
                 <div className="flex justify-between text-xs font-semibold">
                   <span>Receita Fechada</span>
                   <span className="text-emerald-500">R$ {metrics.closedRevenue}</span>
                 </div>
-                <div className="w-full bg-neutral-800 h-2.5 rounded-full overflow-hidden">
+                <div className="w-full bg-muted h-2.5 rounded-full overflow-hidden">
                   <div
                     className="bg-emerald-500 h-full rounded-full transition-all duration-300"
                     style={{
@@ -2149,7 +2139,7 @@ export default function CRMPage() {
                                   onClick={() => handleToggleTagOnLead(tag.name)}
                                   className={cn(
                                     "px-2.5 py-1 rounded-lg text-[10px] font-bold uppercase tracking-wider border transition-all flex items-center gap-1.5",
-                                    hasTag ? tag.color + "border-none!" : "bg-neutral-800 text-neutral-400 border-neutral-700 hover:bg-neutral-700",
+                                    hasTag ? cn(tag.color, "border-transparent!") : "bg-secondary text-muted-foreground border-border hover:bg-secondary/80",
                                     isToggling && "opacity-70 cursor-wait"
                                   )}
                                 >
@@ -2726,7 +2716,7 @@ export default function CRMPage() {
       </Dialog>
 
       <Dialog open={isCustomFieldsSettingsOpen} onOpenChange={setIsCustomFieldsSettingsOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl border-border/40 bg-card">
+        <DialogContent className="sm:max-w-md rounded-2xl! border-border/40 bg-card">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold">Campos Personalizados</DialogTitle>
             <DialogDescription>
