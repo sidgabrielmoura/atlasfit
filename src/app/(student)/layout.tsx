@@ -9,6 +9,7 @@ import { auth } from "@/auth";
 import { cookies } from "next/headers";
 import { StudentMobileNavbar } from "@/components/application/student-mobile-navbar";
 import { NotificationBell } from "@/components/application/notification-bell";
+import { WorkoutManager } from "@/components/application/WorkoutManager";
 
 export default async function StudentLayout({
   children,
@@ -134,6 +135,7 @@ export default async function StudentLayout({
           {children}
         </main>
         <StudentMobileNavbar />
+        <WorkoutManager />
       </SidebarInset>
     </SidebarProvider>
   );

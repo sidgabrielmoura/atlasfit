@@ -60,11 +60,13 @@ import {
   ShieldAlert,
   Printer,
   ExternalLink,
+  Minimize2,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ExerciseThumbnail, ExercisePreviewModal } from "@/components/application/exercise-preview-modal";
+import { workoutStore, workoutActions } from "@/stores/workout.store";
 
 // Animation Variants
 const containerVariants = {
@@ -173,17 +175,24 @@ export default function StudentWorkoutsPage() {
   const [previewExercise, setPreviewExercise] = useState<any>(null);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
 
-  // Workout Execution Modal (Overlay)
-  const [activeExecutionWorkout, setActiveExecutionWorkout] = useState<any | null>(null);
-  const [currentExecExerciseIdx, setCurrentExecExerciseIdx] = useState(0);
-  const [currentStepIdx, setCurrentStepIdx] = useState(0);
-  const [executionSteps, setExecutionSteps] = useState<any[]>([]);
-  const [setsWeights, setSetsWeights] = useState<string[]>([]);
-  const [setsReps, setSetsReps] = useState<string[]>([]);
-  const [setsDone, setSetsDone] = useState<boolean[]>([]);
-  const [allWorkoutLoads, setAllWorkoutLoads] = useState<Record<string, string[]>>({});
-  const [allWorkoutReps, setAllWorkoutReps] = useState<Record<string, string[]>>({});
-  const [allWorkoutSetsDone, setAllWorkoutSetsDone] = useState<Record<string, boolean[]>>({});
+  // Workout Execution via global Valtio store
+  const workoutSnap = useSnapshot(workoutStore);
+  const activeExecutionWorkout = workoutSnap.activeWorkout;
+  const currentStepIdx = workoutSnap.currentStepIdx;
+  const executionSteps = workoutSnap.executionSteps;
+  const allWorkoutLoads = workoutSnap.allWorkoutLoads;
+  const allWorkoutReps = workoutSnap.allWorkoutReps;
+  const allWorkoutSetsDone = workoutSnap.allWorkoutSetsDone;
+  const restTimer = workoutSnap.restTimer;
+  const isRestTimerActive = workoutSnap.isRestTimerActive;
+  const totalTimer = workoutSnap.totalTimer;
+  const isTotalTimerRunning = workoutSnap.isTotalTimerRunning;
+
+  // Local fallback variables for set execution (compatibility)
+  const currentExecExerciseIdx = 0;
+  const setsWeights: string[] = [];
+  const setsReps: string[] = [];
+  const setsDone: boolean[] = [];
 
   const isStepCompleted = (step: any) => {
     if (!step) return false;
@@ -192,20 +201,12 @@ export default function StudentWorkoutsPage() {
       const doneArr = allWorkoutSetsDone[exId];
       return doneArr ? doneArr.every((d: boolean) => d) : false;
     } else {
-      // group (Biset, Triset, Circuit)
-      // All exercises in the group must have all their sets completed
       return step.exercises.every((ex: any) => {
         const doneArr = allWorkoutSetsDone[ex.id];
         return doneArr ? doneArr.every((d: boolean) => d) : false;
       });
     }
   };
-
-  // Rest Timer States
-  const [restTimer, setRestTimer] = useState<number>(0);
-  const [isRestTimerActive, setIsRestTimerActive] = useState(false);
-  const [totalTimer, setTotalTimer] = useState<number>(0);
-  const [isTotalTimerRunning, setIsTotalTimerRunning] = useState(false);
 
   // Effort Evaluation State
   const [isEvaluating, setIsEvaluating] = useState(false);
@@ -615,36 +616,6 @@ export default function StudentWorkoutsPage() {
   const currentStep = executionSteps[currentStepIdx];
   const allSetsCompleted = currentStep ? isStepCompleted(currentStep) : false;
 
-  // Timer Effect
-  useEffect(() => {
-    let restInterval: NodeJS.Timeout;
-    let totalInterval: NodeJS.Timeout;
-
-    if (isRestTimerActive && restTimer > 0) {
-      restInterval = setInterval(() => {
-        setRestTimer((prev) => {
-          if (prev <= 1) {
-            setIsRestTimerActive(false);
-            toast.success("Tempo de descanso concluído! Prepare-se para a próxima série. 🔥");
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
-    }
-
-    if (isTotalTimerRunning) {
-      totalInterval = setInterval(() => {
-        setTotalTimer((prev) => prev + 1);
-      }, 1000);
-    }
-
-    return () => {
-      clearInterval(restInterval);
-      clearInterval(totalInterval);
-    };
-  }, [isRestTimerActive, restTimer, isTotalTimerRunning]);
-
   const formatTimer = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;
@@ -655,7 +626,7 @@ export default function StudentWorkoutsPage() {
     if (step.type !== "group") return;
 
     const exercises = step.exercises || [];
-    const nextDone = { ...allWorkoutSetsDone };
+    const nextDone = JSON.parse(JSON.stringify(workoutStore.allWorkoutSetsDone));
 
     // Determine if it's currently completed (based on first exercise as reference)
     const isCurrentlyDone = nextDone[exercises[0].id]?.[setIdx];
@@ -685,7 +656,7 @@ export default function StudentWorkoutsPage() {
       nextDone[ex.id][setIdx] = !isCurrentlyDone;
     });
 
-    setAllWorkoutSetsDone(nextDone);
+    workoutActions.updateSetsDone(nextDone);
 
     // If marked done, trigger rest timer
     if (!isCurrentlyDone) {
@@ -697,9 +668,7 @@ export default function StudentWorkoutsPage() {
         const restValueStr = exercises[0].rest || "60s";
         restSeconds = parseInt(restValueStr) || 60;
       }
-      setRestTimer(restSeconds);
-      setIsRestTimerActive(true);
-      toast.info(`Descanso iniciado: ${restSeconds} segundos.`);
+      workoutActions.startRestTimer(restSeconds);
     }
   };
 
@@ -707,6 +676,11 @@ export default function StudentWorkoutsPage() {
   const handleStartWorkout = (workout: any) => {
     if (!workout.isActive) {
       toast.error("Este treino está suspenso no momento pelo seu personal trainer.");
+      return;
+    }
+
+    if (workoutStore.activeWorkout && workoutStore.activeWorkout.id !== workout.id) {
+      toast.error("Você já possui um treino em andamento. Finalize ou cancele o treino atual antes de iniciar outro. ⚠️");
       return;
     }
 
@@ -720,13 +694,7 @@ export default function StudentWorkoutsPage() {
       return;
     }
 
-    setActiveExecutionWorkout(workout);
-    setCurrentExecExerciseIdx(0);
     const steps = getDisplayItems(workout.exercises, workout.exerciseGroups);
-    setExecutionSteps(steps);
-    setCurrentStepIdx(0);
-    setTotalTimer(0);
-    setIsTotalTimerRunning(true);
 
     // Initialize accumulated sets metrics for all exercises
     const initialLoads: Record<string, string[]> = {};
@@ -739,19 +707,8 @@ export default function StudentWorkoutsPage() {
       initialReps[we.id] = Array.from({ length: we.sets }, (_, si) => repsArr[si] || repsArr[0] || "10");
       initialDone[we.id] = new Array(we.sets).fill(false);
     });
-    setAllWorkoutLoads(initialLoads);
-    setAllWorkoutReps(initialReps);
-    setAllWorkoutSetsDone(initialDone);
 
-    // Initialize local sets arrays for fallback
-    const firstEx = workout.exercises[0];
-    if (firstEx) {
-      const firstRepsArr = String(firstEx.reps || "10").split(",").map(s => s.trim());
-      const firstLoadArr = String(firstEx.load || "").split(",").map(s => s.trim());
-      setSetsWeights(Array.from({ length: firstEx.sets }, (_, si) => firstLoadArr[si] || firstLoadArr[0] || ""));
-      setSetsReps(Array.from({ length: firstEx.sets }, (_, si) => firstRepsArr[si] || firstRepsArr[0] || "10"));
-      setSetsDone(new Array(firstEx.sets).fill(false));
-    }
+    workoutActions.startWorkout(workout, steps, initialLoads, initialReps, initialDone);
   };
 
   const searchParams = useSearchParams();
@@ -771,7 +728,7 @@ export default function StudentWorkoutsPage() {
 
   // Toggle set status
   const handleToggleSet = (idx: number, exercise: any) => {
-    const nextDone = { ...allWorkoutSetsDone };
+    const nextDone = JSON.parse(JSON.stringify(workoutStore.allWorkoutSetsDone));
     if (!nextDone[exercise.id]) {
       nextDone[exercise.id] = new Array(exercise.sets).fill(false);
     }
@@ -794,21 +751,14 @@ export default function StudentWorkoutsPage() {
       }
     }
 
-    nextDone[exercise.id][idx] = !nextDone[exercise.id][idx];
-    setAllWorkoutSetsDone(nextDone);
-
-    // Sync to local fallback setsDone for active exercise
-    const fallbackDone = [...setsDone];
-    fallbackDone[idx] = nextDone[exercise.id][idx];
-    setSetsDone(fallbackDone);
+    nextDone[exercise.id][idx] = !isCurrentlyDone;
+    workoutActions.updateSetsDone(nextDone);
 
     // If marked done, trigger rest timer
-    if (nextDone[exercise.id][idx]) {
+    if (!isCurrentlyDone) {
       const restValueStr = exercise.rest || "60s";
       const seconds = parseInt(restValueStr) || 60;
-      setRestTimer(seconds);
-      setIsRestTimerActive(true);
-      toast.info(`Descanso iniciado: ${seconds} segundos.`);
+      workoutActions.startRestTimer(seconds);
     }
   };
 
@@ -818,12 +768,11 @@ export default function StudentWorkoutsPage() {
 
     const nextIdx = currentStepIdx + 1;
     if (nextIdx < executionSteps.length) {
-      setCurrentStepIdx(nextIdx);
-      setIsRestTimerActive(false);
-      setRestTimer(0);
+      workoutActions.updateStepIdx(nextIdx);
+      workoutActions.cancelRestTimer();
     } else {
       // Completed all exercises, trigger effort evaluation!
-      setIsTotalTimerRunning(false);
+      workoutActions.setTotalTimerRunning(false);
       setIsEvaluating(true);
     }
   };
@@ -831,9 +780,8 @@ export default function StudentWorkoutsPage() {
   const handlePrevExercise = () => {
     const prevIdx = currentStepIdx - 1;
     if (prevIdx >= 0 && activeExecutionWorkout) {
-      setCurrentStepIdx(prevIdx);
-      setIsRestTimerActive(false);
-      setRestTimer(0);
+      workoutActions.updateStepIdx(prevIdx);
+      workoutActions.cancelRestTimer();
     }
   };
 
@@ -860,9 +808,7 @@ export default function StudentWorkoutsPage() {
 
       toast.success("Treino concluído com sucesso! 🏆");
       setIsEvaluating(false);
-      setActiveExecutionWorkout(null);
-      setCurrentStepIdx(0);
-      setExecutionSteps([]);
+      workoutActions.cancelWorkout();
       setShowConGrats(true);
       loadWorkoutsData(); // refresh logs list
     } catch (err: any) {
@@ -1521,34 +1467,31 @@ export default function StudentWorkoutsPage() {
       <AlertDialog open={isExitConfirmOpen} onOpenChange={setIsExitConfirmOpen}>
         <AlertDialogContent className="sm:max-w-md bg-background border border-border text-foreground rounded-2xl shadow-2xl">
           <AlertDialogHeader>
-            <AlertDialogTitle className="text-lg font-bold text-foreground">Sair do Treino?</AlertDialogTitle>
+            <AlertDialogTitle className="text-lg font-bold text-foreground">Cancelar Treino?</AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground text-sm">
-              Seu progresso atual neste treino não será salvo e o cronômetro será zerado.
+              O progresso atual será perdido. Esta ação não poderá ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-4 flex sm:justify-end gap-2">
             <AlertDialogCancel className="h-10 px-4 cursor-pointer rounded-xl transition-all border-border hover:bg-secondary/40 font-semibold">
-              Cancelar
+              Continuar Treinando
             </AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               onClick={() => {
                 setIsExitConfirmOpen(false);
-                setActiveExecutionWorkout(null);
-                setCurrentStepIdx(0);
-                setExecutionSteps([]);
-                setIsRestTimerActive(false);
+                workoutActions.cancelWorkout();
               }}
               className="h-10 px-4 cursor-pointer rounded-xl transition-all font-bold"
             >
-              Confirmar e Sair
+              Cancelar Treino
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
 
       {/* WORKOUT EXECUTION SHEET OVERLAY (TOUCH Gym workspace) */}
-      {activeExecutionWorkout && (
+      {activeExecutionWorkout && !workoutSnap.isMinimized && (
         <div className="fixed inset-0 bg-background z-50 overflow-y-auto flex flex-col">
           {/* Header Area */}
           <header className="sticky top-0 bg-background/95 backdrop-blur-xl border-b border-border/40 p-4 flex items-center justify-between z-10 shrink-0">
@@ -1564,14 +1507,27 @@ export default function StudentWorkoutsPage() {
               </div>
             </div>
 
-            <Button
-              onClick={() => setIsExitConfirmOpen(true)}
-              variant="destructive"
-              size="icon"
-              className="size-10 rounded-xl cursor-pointer"
-            >
-              <X className="size-5" />
-            </Button>
+            <div className="flex items-center gap-2">
+              {/* Minimize workout to floating tracker */}
+              <Button
+                onClick={() => workoutActions.minimize()}
+                variant="outline"
+                size="icon"
+                className="size-10 rounded-xl cursor-pointer border-border/60 hover:bg-secondary/40"
+                title="Minimizar Treino"
+              >
+                <Minimize2 className="size-4" />
+              </Button>
+
+              <Button
+                onClick={() => setIsExitConfirmOpen(true)}
+                variant="destructive"
+                size="icon"
+                className="size-10 rounded-xl cursor-pointer"
+              >
+                <X className="size-5" />
+              </Button>
+            </div>
           </header>
 
           {/* Active Workout exercise block */}
@@ -1739,12 +1695,12 @@ export default function StudentWorkoutsPage() {
                                       type="tel"
                                       value={allWorkoutLoads[execEx.id]?.[setIdx] || ""}
                                       onChange={(e) => {
-                                        const nextLoads = { ...allWorkoutLoads };
+                                        const nextLoads = JSON.parse(JSON.stringify(workoutStore.allWorkoutLoads));
                                         if (!nextLoads[execEx.id]) {
                                           nextLoads[execEx.id] = new Array(execEx.sets).fill("");
                                         }
                                         nextLoads[execEx.id][setIdx] = e.target.value;
-                                        setAllWorkoutLoads(nextLoads);
+                                        workoutActions.updateLoads(nextLoads);
                                       }}
                                       placeholder="ex: 60"
                                       className="h-10 text-center font-bold bg-transparent border-none focus-visible:ring-0 text-base"
@@ -1756,12 +1712,12 @@ export default function StudentWorkoutsPage() {
                                     type="tel"
                                     value={allWorkoutReps[execEx.id]?.[setIdx] || ""}
                                     onChange={(e) => {
-                                      const nextReps = { ...allWorkoutReps };
+                                      const nextReps = JSON.parse(JSON.stringify(workoutStore.allWorkoutReps));
                                       if (!nextReps[execEx.id]) {
                                         nextReps[execEx.id] = new Array(execEx.sets).fill("");
                                       }
                                       nextReps[execEx.id][setIdx] = e.target.value;
-                                      setAllWorkoutReps(nextReps);
+                                      workoutActions.updateReps(nextReps);
                                     }}
                                     placeholder="ex: 10"
                                     className="h-10 text-center font-bold bg-transparent border-none focus-visible:ring-0 text-base"
@@ -1951,12 +1907,12 @@ export default function StudentWorkoutsPage() {
                                                   type="tel"
                                                   value={allWorkoutLoads[ex.id]?.[setIdx] || ""}
                                                   onChange={(e) => {
-                                                    const nextLoads = { ...allWorkoutLoads };
+                                                    const nextLoads = JSON.parse(JSON.stringify(workoutStore.allWorkoutLoads));
                                                     if (!nextLoads[ex.id]) {
                                                       nextLoads[ex.id] = new Array(ex.sets).fill("");
                                                     }
                                                     nextLoads[ex.id][setIdx] = e.target.value;
-                                                    setAllWorkoutLoads(nextLoads);
+                                                    workoutActions.updateLoads(nextLoads);
                                                   }}
                                                   placeholder="ex: 60"
                                                   className="h-8 text-center font-bold bg-transparent border-b border-t-0 border-x-0 rounded-none focus-visible:ring-0 text-sm w-full"
@@ -1971,12 +1927,12 @@ export default function StudentWorkoutsPage() {
                                                 type="tel"
                                                 value={allWorkoutReps[ex.id]?.[setIdx] || ""}
                                                 onChange={(e) => {
-                                                  const nextReps = { ...allWorkoutReps };
+                                                  const nextReps = JSON.parse(JSON.stringify(workoutStore.allWorkoutReps));
                                                   if (!nextReps[ex.id]) {
                                                     nextReps[ex.id] = new Array(ex.sets).fill("");
                                                   }
                                                   nextReps[ex.id][setIdx] = e.target.value;
-                                                  setAllWorkoutReps(nextReps);
+                                                  workoutActions.updateReps(nextReps);
                                                 }}
                                                 placeholder="ex: 10"
                                                 className="h-8 text-center font-bold bg-transparent border-b border-t-0 border-x-0 rounded-none focus-visible:ring-0 text-sm"
@@ -2035,24 +1991,15 @@ export default function StudentWorkoutsPage() {
                 )}
               </div>
 
-              {/* Floating Rest Timer Display */}
+              {/* Rest Timer Mini Indicator — opens Drawer */}
               {restTimer > 0 && (
-                <div className="flex items-center gap-3 bg-secondary/40 border border-border/40 p-2.5 rounded-xl text-xs font-semibold select-none shadow-sm shrink-0">
-                  <div className="flex items-center gap-1.5">
-                    <Timer className={cn("size-4 text-primary", isRestTimerActive && "animate-pulse")} />
-                    <span className="font-mono text-sm">{formatTimer(restTimer)}</span>
-                  </div>
-                  <Button
-                    onClick={() => {
-                      setIsRestTimerActive(!isRestTimerActive);
-                    }}
-                    variant="ghost"
-                    size="icon"
-                    className="size-6 rounded-md hover:bg-secondary text-primary cursor-pointer"
-                  >
-                    <RotateCcw className="size-3.5" />
-                  </Button>
-                </div>
+                <button
+                  onClick={() => workoutActions.setIsRestDrawerOpen(true)}
+                  className="flex items-center gap-2 bg-primary/10 border border-primary/25 px-3 py-2 rounded-xl text-xs font-bold text-primary select-none shrink-0 hover:bg-primary/15 transition-all active:scale-95 cursor-pointer"
+                >
+                  <Timer className={cn("size-4", isRestTimerActive && "animate-pulse")} />
+                  <span className="font-mono tabular-nums">{formatTimer(restTimer)}</span>
+                </button>
               )}
 
             </div>
