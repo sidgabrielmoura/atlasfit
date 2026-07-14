@@ -24,6 +24,11 @@ export function AudioRecorder({ onRecordingComplete, onCancel, stream }: AudioRe
     startRecording();
     return () => {
       stopTimer();
+      if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
+        mediaRecorderRef.current.onstop = null;
+        mediaRecorderRef.current.ondataavailable = null;
+        mediaRecorderRef.current.stop();
+      }
     };
   }, []);
 
