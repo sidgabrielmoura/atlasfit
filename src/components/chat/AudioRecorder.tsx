@@ -17,6 +17,7 @@ export function AudioRecorder({ onRecordingComplete, onCancel, stream }: AudioRe
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioChunksRef = useRef<Blob[]>([]);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
+  const startTimeRef = useRef<number>(0);
 
   // Start recording on mount
   useEffect(() => {
@@ -42,6 +43,7 @@ export function AudioRecorder({ onRecordingComplete, onCancel, stream }: AudioRe
       const mediaRecorder = new MediaRecorder(stream, options);
       mediaRecorderRef.current = mediaRecorder;
       audioChunksRef.current = [];
+      startTimeRef.current = Date.now();
 
       mediaRecorder.ondataavailable = (event) => {
         if (event.data.size > 0) {
@@ -55,10 +57,12 @@ export function AudioRecorder({ onRecordingComplete, onCancel, stream }: AudioRe
         // Stop all tracks to release microphone
         stream.getTracks().forEach((track) => track.stop());
 
-        if (duration > 0.5) {
-          onRecordingComplete(audioBlob, duration);
+        const elapsedSeconds = (Date.now() - startTimeRef.current) / 1000;
+
+        if (elapsedSeconds >= 1.0) {
+          onRecordingComplete(audioBlob, Math.max(1, Math.round(elapsedSeconds)));
         } else {
-          toast.warning("Áudio muito curto para ser enviado.");
+          toast.warning("Áudio muito curto para ser enviado (mínimo de 1s).");
           onCancel();
         }
       };
