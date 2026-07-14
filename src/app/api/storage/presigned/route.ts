@@ -26,6 +26,8 @@ const ALLOWED_CHAT_TYPES = [
   "audio/m4a",
   "audio/x-m4a",
   "audio/mpeg",
+  "audio/mp4",
+  "audio/aac",
   "video/mp4",
   "video/webm",
   "video/ogg",
@@ -57,12 +59,13 @@ export async function POST(req: Request) {
     const sizeLimit = isChatTarget ? MAX_CHAT_SIZE : (isImageTarget ? MAX_IMAGE_SIZE : MAX_FILE_SIZE);
     const allowedTypes = isChatTarget ? ALLOWED_CHAT_TYPES : (isImageTarget ? ALLOWED_IMAGE_TYPES : ALLOWED_FILE_TYPES);
 
-
     if (fileSize > sizeLimit) {
       return new NextResponse(`O arquivo excede o tamanho limite permitido de ${sizeLimit / (1024 * 1024)}MB.`, { status: 400 });
     }
 
-    if (!allowedTypes.includes(contentType.toLowerCase())) {
+    const cleanContentType = contentType.split(";")[0].trim().toLowerCase();
+
+    if (!allowedTypes.includes(cleanContentType)) {
       return new NextResponse(`Tipo de arquivo não permitido (${contentType}).`, { status: 400 });
     }
 
