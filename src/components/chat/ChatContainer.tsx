@@ -909,10 +909,10 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
   return (
     <div
       className={cn(
-        "flex overflow-hidden rounded-2xl border border-border bg-card shadow-lg transition-all duration-300",
+        "flex overflow-hidden bg-card shadow-lg transition-all duration-300",
         isMaximized
-          ? "fixed inset-4 z-[999] h-[calc(100vh-2rem)] w-[calc(100vw-2rem)] md:inset-6 md:h-[calc(100vh-3rem)] md:w-[calc(100vw-3rem)]"
-          : "h-[calc(100vh-10rem)] w-full"
+          ? "fixed inset-0 z-[999] w-screen h-screen border-none rounded-none md:inset-6 md:h-[calc(100vh-3rem)] md:w-[calc(100vw-3rem)] md:rounded-2xl md:border md:border-border"
+          : "h-[calc(100vh-10rem)] w-full rounded-2xl border border-border"
       )}
     >
       <div
@@ -1307,7 +1307,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                             </div>
 
                             {!isSystem && editingMessageId !== m.id && (
-                              <div className="opacity-0 group-hover:opacity-100 flex items-center transition-all duration-200">
+                              <div className="opacity-100 md:opacity-0 md:group-hover:opacity-100 flex items-center transition-all duration-200">
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
                                     <Button
