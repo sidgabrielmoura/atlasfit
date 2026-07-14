@@ -86,7 +86,10 @@ export async function GET(req: Request) {
     const subscription = await prisma.subscription.findUnique({
       where: { userId }
     });
-    const isSubscriptionActive = subscription ? subscription.status.toLowerCase() === "active" : false;
+    const isSubscriptionActive = subscription 
+      ? (subscription.status.toLowerCase() === "active" || 
+         (subscription.status.toLowerCase() === "canceled" && subscription.endDate && new Date() < new Date(subscription.endDate)))
+      : false;
     const isLocked = !isSubscriptionActive && !user.isTestAccount;
 
     // Find the most expensive monthly plan in the database to use as simulator base price
@@ -147,7 +150,10 @@ export async function POST(req: Request) {
     const subscription = await prisma.subscription.findUnique({
       where: { userId }
     });
-    const isSubscriptionActive = subscription ? subscription.status.toLowerCase() === "active" : false;
+    const isSubscriptionActive = subscription 
+      ? (subscription.status.toLowerCase() === "active" || 
+         (subscription.status.toLowerCase() === "canceled" && subscription.endDate && new Date() < new Date(subscription.endDate)))
+      : false;
     const isLocked = !isSubscriptionActive && !user.isTestAccount;
 
     if (isLocked) {

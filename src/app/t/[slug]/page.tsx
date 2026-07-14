@@ -74,7 +74,10 @@ export default async function CapturePage({ params }: CapturePageProps) {
 
   // 3. Verify if owner has active trial or active subscription
   const isOwnerTrialActive = owner.freeTrial ? new Date() <= new Date(owner.freeTrial.endDate) : false;
-  const isOwnerSubscriptionActive = owner.subscription ? owner.subscription.status.toLowerCase() === "active" : false;
+  const isOwnerSubscriptionActive = owner.subscription 
+    ? (owner.subscription.status.toLowerCase() === "active" || 
+       (owner.subscription.status.toLowerCase() === "canceled" && owner.subscription.endDate && new Date() < new Date(owner.subscription.endDate)))
+    : false;
 
   if (!isOwnerTrialActive && !isOwnerSubscriptionActive) {
     return renderNotFound();

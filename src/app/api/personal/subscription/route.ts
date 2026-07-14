@@ -431,3 +431,96 @@ export async function POST(req: Request) {
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
 }
+
+export async function DELETE(req: Request) {
+  try {
+    const session = await auth();
+    if (!session?.user?.id) {
+      return new NextResponse("Não autorizado.", { status: 401 });
+    }
+
+    const userId = session.user.id;
+
+    // 1. Fetch current subscription
+    const subscription = await prisma.subscription.findUnique({
+      where: { userId },
+      include: { plan: true }
+    });
+
+    if (!subscription) {
+      return new NextResponse("Assinatura não encontrada.", { status: 404 });
+    }
+
+    if (subscription.status.toLowerCase() === "canceled") {
+      return new NextResponse("A assinatura já está cancelada.", { status: 400 });
+    }
+
+    // 2. Update subscription status in our database to "canceled"
+    // Keep endDate so they have access until renewal date
+    await prisma.subscription.update({
+      where: { userId },
+      data: {
+        status: "canceled"
+      }
+    });
+
+    // 3. Register activity
+    await prisma.subscriptionActivity.create({
+      data: {
+        userId,
+        planId: subscription.planId,
+        type: "CANCELLATION",
+        amount: 0,
+        status: "success"
+      }
+    });
+
+    // 4. Try to cancel the subscription in AbacatePay
+    const apiKey = process.env.ABACATEPAY_API_KEY;
+    if (apiKey && apiKey !== "abc_dev_placeholder") {
+      try {
+        const user = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { email: true }
+        });
+
+        if (user?.email) {
+          // List subscriptions from AbacatePay
+          const response = await fetch("https://api.abacatepay.com/v2/subscriptions/list", {
+            headers: {
+              "Authorization": `Bearer ${apiKey}`
+            }
+          });
+
+          if (response.ok) {
+            const result = await response.json();
+            const subscriptions = result.data || [];
+            const abacateSub = subscriptions.find((sub: any) => 
+              sub.customer?.email === user.email && 
+              ["active", "ACTIVE"].includes(sub.status)
+            );
+
+            if (abacateSub?.id) {
+              await fetch("https://api.abacatepay.com/v2/subscriptions/cancel", {
+                method: "POST",
+                headers: {
+                  "Authorization": `Bearer ${apiKey}`,
+                  "Content-Type": "application/json"
+                },
+                body: JSON.stringify({ id: abacateSub.id })
+              });
+              console.log(`Assinatura ${abacateSub.id} cancelada no AbacatePay.`);
+            }
+          }
+        }
+      } catch (err) {
+        console.error("Erro ao cancelar assinatura no AbacatePay:", err);
+      }
+    }
+
+    return NextResponse.json({ success: true });
+  } catch (error) {
+    await logSystemError({ action: "DELETE_SUBSCRIPTION_CANCEL", error, entity: "SUBSCRIPTION" });
+    return new NextResponse("Erro Interno do Servidor", { status: 500 });
+  }
+}

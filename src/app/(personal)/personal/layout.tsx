@@ -45,7 +45,10 @@ export default async function PersonalLayout({
   });
 
   const isTrialActive = freeTrial ? new Date() <= new Date(freeTrial.endDate) : false;
-  const isSubscriptionActive = subscription ? subscription.status.toLowerCase() === "active" : false;
+  const isSubscriptionActive = subscription 
+    ? (subscription.status.toLowerCase() === "active" || 
+       (subscription.status.toLowerCase() === "canceled" && subscription.endDate && new Date() < new Date(subscription.endDate)))
+    : false;
   const isTestAccount = user?.isTestAccount || false;
 
   if (!isTrialActive && !isSubscriptionActive && !isTestAccount) {
