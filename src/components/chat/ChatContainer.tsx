@@ -911,7 +911,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
       className={cn(
         "flex overflow-hidden bg-card shadow-lg transition-all duration-300",
         isMaximized
-          ? "fixed inset-0 z-[999] w-screen h-screen border-none rounded-none md:inset-6 md:h-[calc(100vh-3rem)] md:w-[calc(100vw-3rem)] md:rounded-2xl md:border md:border-border"
+          ? "fixed inset-0 z-40 w-screen h-screen border-none rounded-none md:inset-6 md:h-[calc(100vh-3rem)] md:w-[calc(100vw-3rem)] md:rounded-2xl md:border md:border-border"
           : "h-[calc(100vh-10rem)] w-full rounded-2xl border border-border"
       )}
     >
