@@ -1150,7 +1150,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                               <div
                                 className={cn(
                                   "relative rounded-2xl text-sm break-all font-medium max-w-full shadow-xs border",
-                                  m.type === "IMAGE"
+                                  ["IMAGE", "AUDIO"].includes(m.type)
                                     ? cn(
                                       "p-1 bg-white/15 dark:bg-black/45 backdrop-blur-md border-white/25 dark:border-white/10 text-foreground",
                                       isSelf ? "rounded-tr-none" : "rounded-tl-none"
@@ -1227,7 +1227,10 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                                     )}
 
                                     {m.type === "AUDIO" && m.attachment?.url && (
-                                      <AudioPlayer src={m.attachment.url} />
+                                      <AudioPlayer
+                                        src={m.attachment.url}
+                                        duration={m.attachment.duration}
+                                      />
                                     )}
 
                                     {m.type === "FILE" && m.attachment?.url && (

@@ -7,12 +7,13 @@ import { Slider } from "@/components/ui/slider";
 
 interface AudioPlayerProps {
   src: string;
+  duration?: number;
 }
 
-export function AudioPlayer({ src }: AudioPlayerProps) {
+export function AudioPlayer({ src, duration: durationProp }: AudioPlayerProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [duration, setDuration] = useState(durationProp && isFinite(durationProp) && !isNaN(durationProp) ? durationProp : 0);
   const audioRef = useRef<HTMLAudioElement | null>(null);
 
   useEffect(() => {
@@ -20,7 +21,10 @@ export function AudioPlayer({ src }: AudioPlayerProps) {
     audioRef.current = audio;
 
     const setAudioData = () => {
-      setDuration(audio.duration || 0);
+      const d = audio.duration;
+      if (d && isFinite(d) && !isNaN(d)) {
+        setDuration(d);
+      }
     };
 
     const setAudioTime = () => {
@@ -32,13 +36,20 @@ export function AudioPlayer({ src }: AudioPlayerProps) {
       setCurrentTime(0);
     };
 
-    audio.addEventListener("loadeddata", setAudioData);
+    audio.addEventListener("loadedmetadata", setAudioData);
+    audio.addEventListener("durationchange", setAudioData);
     audio.addEventListener("timeupdate", setAudioTime);
     audio.addEventListener("ended", handleEnded);
 
+    // Initial check in case it loaded instantly
+    if (audio.duration && isFinite(audio.duration) && !isNaN(audio.duration)) {
+      setDuration(audio.duration);
+    }
+
     return () => {
       audio.pause();
-      audio.removeEventListener("loadeddata", setAudioData);
+      audio.removeEventListener("loadedmetadata", setAudioData);
+      audio.removeEventListener("durationchange", setAudioData);
       audio.removeEventListener("timeupdate", setAudioTime);
       audio.removeEventListener("ended", handleEnded);
       audioRef.current = null;
@@ -65,19 +76,19 @@ export function AudioPlayer({ src }: AudioPlayerProps) {
   };
 
   const formatTime = (time: number) => {
-    if (isNaN(time)) return "00:00";
+    if (isNaN(time) || !isFinite(time) || time < 0) return "00:00";
     const mins = Math.floor(time / 60);
     const secs = Math.floor(time % 60);
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
   };
 
   return (
-    <div className="flex items-center gap-3 w-full max-w-[260px] p-2 bg-secondary/35 rounded-xl border border-border/40 select-none">
+    <div className="flex items-center gap-3 w-full min-w-[240px] max-w-[280px] p-2 bg-transparent select-none">
       <Button
         type="button"
         size="icon"
         onClick={togglePlay}
-        className="size-8 rounded-full bg-primary text-primary-foreground hover:bg-primary/95 shrink-0 shadow-sm"
+        className="size-8 rounded-full bg-primary text-primary-foreground hover:bg-primary/95 shrink-0 shadow-sm flex items-center justify-center"
       >
         {isPlaying ? (
           <Pause className="size-3.5 fill-current" />
@@ -95,7 +106,7 @@ export function AudioPlayer({ src }: AudioPlayerProps) {
           onValueChange={handleSliderChange}
           className="w-full cursor-pointer py-1"
         />
-        <div className="flex justify-between items-center text-[10px] font-medium text-muted-foreground">
+        <div className="flex justify-between items-center text-[10px] font-medium text-muted-foreground/80">
           <span>{formatTime(currentTime)}</span>
           <span>{formatTime(duration)}</span>
         </div>
