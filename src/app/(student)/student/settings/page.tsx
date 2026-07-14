@@ -31,6 +31,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "next-auth/react";
+import { cn } from "@/lib/utils";
 
 // Staggered grid animations
 const containerVariants = {
@@ -320,22 +321,22 @@ export default function StudentSettingsPage() {
 
       <Tabs defaultValue="profile" className="space-y-6">
         {/* Navigation list */}
-        <TabsList className="bg-muted dark:bg-neutral-900/60 p-1 border border-border dark:border-neutral-800 rounded-xl flex overflow-x-auto whitespace-nowrap md:w-fit gap-1 w-full justify-start scrollbar-none">
+        <TabsList className="bg-muted/65 dark:bg-neutral-900/60 p-1 border border-border/40 rounded-xl flex overflow-x-auto whitespace-nowrap md:w-fit gap-1 w-full justify-start scrollbar-none">
           <TabsTrigger
             value="profile"
-            className="gap-2 font-semibold text-xs sm:text-sm py-2 px-4 rounded-lg shrink-0 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:font-bold"
+            className="gap-2 font-semibold text-xs sm:text-sm py-2 px-4 rounded-lg shrink-0 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:font-bold cursor-pointer"
           >
             <User className="size-4" /> Dados Pessoais
           </TabsTrigger>
           <TabsTrigger
             value="physical"
-            className="gap-2 font-semibold text-xs sm:text-sm py-2 px-4 rounded-lg shrink-0 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:font-bold"
+            className="gap-2 font-semibold text-xs sm:text-sm py-2 px-4 rounded-lg shrink-0 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:font-bold cursor-pointer"
           >
             <Scale className="size-4" /> Dados Físicos
           </TabsTrigger>
           <TabsTrigger
             value="security"
-            className="gap-2 font-semibold text-xs sm:text-sm py-2 px-4 rounded-lg shrink-0 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:font-bold"
+            className="gap-2 font-semibold text-xs sm:text-sm py-2 px-4 rounded-lg shrink-0 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:font-bold cursor-pointer"
           >
             <Shield className="size-4" /> Conta e Segurança
           </TabsTrigger>
@@ -343,9 +344,10 @@ export default function StudentSettingsPage() {
 
         <TabsContent value="profile" className="outline-none focus-visible:ring-0">
           <form onSubmit={handleUpdateProfile}>
-            <Card className="border p-0 border-border dark:border-white/6 bg-card dark:bg-neutral-950/40 backdrop-blur-md rounded-2xl overflow-hidden">
-              <CardHeader className="bg-muted/50 dark:bg-neutral-900/30 border-b py-4! border-border dark:border-white/4">
-                <CardTitle className="text-sm font-black uppercase tracking-wider text-foreground flex items-center gap-2">
+            <Card className="border border-border/50 bg-card rounded-2xl overflow-hidden shadow-xs relative">
+              <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
+              <CardHeader className="pb-3 border-b border-border/40 bg-muted/10">
+                <CardTitle className="text-sm font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
                   <User className="size-4 text-primary" /> Informações do Meu Perfil
                 </CardTitle>
                 <CardDescription className="text-xs text-muted-foreground">
@@ -354,79 +356,82 @@ export default function StudentSettingsPage() {
               </CardHeader>
               <CardContent className="p-6 space-y-6">
                 {/* Profile Avatar Upload */}
-                <div className="flex flex-col sm:flex-row items-center gap-5 pb-6 border-b border-border dark:border-white/[0.04]">
-                  <div className="relative group size-24 rounded-full overflow-hidden border border-border dark:border-white/[0.08] bg-muted dark:bg-neutral-900 flex items-center justify-center">
+                <div className="flex flex-col sm:flex-row items-center gap-5 pb-6 border-b border-border/30">
+                  <div className="relative group size-20 rounded-full overflow-hidden border border-border/50 bg-muted dark:bg-neutral-900 flex items-center justify-center">
                     {avatarBase64 ? (
                       <img src={avatarBase64} alt="Foto de perfil" className="size-full object-cover" />
                     ) : (
-                      <User className="size-10 text-muted-foreground dark:text-neutral-500" />
+                      <User className="size-8 text-muted-foreground dark:text-neutral-500" />
                     )}
-                    <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all">
-                      <Camera className="size-5 text-white" />
-                      <span className="text-[9px] font-black uppercase text-white">Alterar</span>
-                      <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+                    <label className={cn("absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all", isUpdatingProfile && "pointer-events-none")}>
+                      <Camera className="size-4 text-white" />
+                      <span className="text-[8px] font-black uppercase text-white">Alterar</span>
+                      <input type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} disabled={isUpdatingProfile} />
                     </label>
                   </div>
                   <div className="space-y-1 text-center sm:text-left">
                     <h3 className="font-extrabold text-base text-foreground">{name || "Seu Nome"}</h3>
-                    <p className="text-xs text-muted-foreground dark:text-neutral-450">Clique no círculo para carregar uma nova foto de perfil (JPG ou PNG).</p>
+                    <p className="text-xs text-muted-foreground">Clique no círculo para carregar uma nova foto de perfil (JPG ou PNG).</p>
                   </div>
                 </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                   {/* Nome Completo */}
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold text-muted-foreground dark:text-neutral-300">Nome Completo</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-muted-foreground">Nome Completo</Label>
                     <Input
                       placeholder="Seu Nome Completo"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="bg-background dark:bg-neutral-900/60 border-border dark:border-white/[0.08] text-sm h-11 rounded-xl"
+                      disabled={isUpdatingProfile}
+                      className="bg-secondary/35 border-border/50 text-sm h-10 rounded-xl focus:bg-secondary/50 transition-all"
                     />
                   </div>
 
                   {/* E-mail (Disabled) */}
-                  <div className="space-y-2 relative">
+                  <div className="space-y-1.5 relative">
                     <Label className="text-xs font-bold text-muted-foreground flex items-center gap-1">
-                      E-mail Primário <Info className="size-3 text-muted-foreground" />
+                      E-mail Primário <Info className="size-3 text-muted-foreground/60" />
                     </Label>
                     <Input
                       value={email}
                       disabled
-                      className="bg-muted/30 dark:bg-neutral-900/30 border-border dark:border-white/[0.04] text-muted-foreground dark:text-neutral-500 text-sm h-11 rounded-xl cursor-not-allowed"
+                      className="bg-muted/30 border-border/40 text-muted-foreground text-sm h-10 rounded-xl cursor-not-allowed"
                     />
                   </div>
 
                   {/* WhatsApp */}
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold text-muted-foreground dark:text-neutral-300">WhatsApp (DDD + Celular)</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-muted-foreground">WhatsApp (DDD + Celular)</Label>
                     <Input
                       placeholder="(11) 99999-9999"
                       value={whatsapp}
                       onChange={(e) => setWhatsapp(e.target.value)}
-                      className="bg-background dark:bg-neutral-900/60 border-border dark:border-white/[0.08] text-sm h-11 rounded-xl"
+                      disabled={isUpdatingProfile}
+                      className="bg-secondary/35 border-border/50 text-sm h-10 rounded-xl focus:bg-secondary/50 transition-all"
                     />
                   </div>
 
                   {/* Cidade */}
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold text-muted-foreground dark:text-neutral-300">Cidade / UF</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-muted-foreground">Cidade / UF</Label>
                     <Input
                       placeholder="Ex: São Paulo - SP"
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
-                      className="bg-background dark:bg-neutral-900/60 border-border dark:border-white/[0.08] text-sm h-11 rounded-xl"
+                      disabled={isUpdatingProfile}
+                      className="bg-secondary/35 border-border/50 text-sm h-10 rounded-xl focus:bg-secondary/50 transition-all"
                     />
                   </div>
 
                   {/* Objetivos Pessoais Dropdown */}
-                  <div className="space-y-2 md:col-span-2">
-                    <Label className="text-xs font-bold text-muted-foreground dark:text-neutral-300">Objetivo Principal</Label>
-                    <Select value={objective} onValueChange={setObjective}>
-                      <SelectTrigger className="bg-background dark:bg-neutral-900/60 border-border w-full dark:border-white/8 h-11 rounded-xl text-sm">
+                  <div className="space-y-1.5 md:col-span-2">
+                    <Label className="text-xs font-bold text-muted-foreground">Objetivo Principal</Label>
+                    <Select value={objective} onValueChange={setObjective} disabled={isUpdatingProfile}>
+                      <SelectTrigger className="bg-secondary/35 border-border/50 w-full h-10 rounded-xl text-sm focus:bg-secondary/50 transition-all">
                         <SelectValue placeholder="Selecione seu objetivo" />
                       </SelectTrigger>
-                      <SelectContent className="bg-popover dark:bg-neutral-950 border border-border dark:border-white/8">
+                      <SelectContent className="bg-popover dark:bg-neutral-950 border border-border/50">
                         <SelectItem value="hipertrofia">Hipertrofia Muscular (Ganho de Massa) 💪</SelectItem>
                         <SelectItem value="definição corporal">Definição Corporal & Queima Adiposa ✨</SelectItem>
                         <SelectItem value="perda de peso">Perda de Peso / Emagrecimento 🏃</SelectItem>
@@ -437,15 +442,15 @@ export default function StudentSettingsPage() {
                   </div>
                 </div>
 
-                <div className="pt-4 flex justify-end">
+                <div className="pt-4 border-t border-border/30 flex justify-end">
                   <Button
                     type="submit"
                     disabled={isUpdatingProfile}
-                    className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/95 text-xs font-black uppercase rounded-xl px-8 h-11 cursor-pointer transition-all"
+                    className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/95 text-xs font-bold uppercase rounded-xl px-8 h-10 cursor-pointer transition-all"
                   >
                     {isUpdatingProfile ? (
                       <>
-                        <Loader2 className="size-4 animate-spin mr-2" /> Salvando...
+                        <Loader2 className="size-3.5 animate-spin mr-2" /> Salvando...
                       </>
                     ) : (
                       "Salvar Alterações"
@@ -460,9 +465,10 @@ export default function StudentSettingsPage() {
         {/* ==================== TAB 2: DADOS FÍSICOS BÁSICOS ==================== */}
         <TabsContent value="physical" className="outline-none focus-visible:ring-0">
           <form onSubmit={handleUpdatePhysical}>
-            <Card className="border p-0 border-border dark:border-white/6 bg-card dark:bg-neutral-950/40 backdrop-blur-md rounded-2xl overflow-hidden">
-              <CardHeader className="bg-muted/50 dark:bg-neutral-900/30 border-b py-4! border-border dark:border-white/4">
-                <CardTitle className="text-sm font-black uppercase tracking-wider text-foreground flex items-center gap-2">
+            <Card className="border border-border/50 bg-card rounded-2xl overflow-hidden shadow-xs relative">
+              <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
+              <CardHeader className="pb-3 border-b border-border/40 bg-muted/10">
+                <CardTitle className="text-sm font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
                   <Scale className="size-4 text-primary" /> Dados Físicos Básicos
                 </CardTitle>
                 <CardDescription className="text-xs text-muted-foreground">
@@ -470,68 +476,72 @@ export default function StudentSettingsPage() {
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-6 space-y-6">
-                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-5">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-5">
                   {/* Peso Corporal */}
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold text-muted-foreground dark:text-neutral-300">Peso Corporal (kg)</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-muted-foreground">Peso Corporal (kg)</Label>
                     <Input
                       type="number"
                       step="0.01"
                       placeholder="Ex: 78.5"
                       value={weight}
                       onChange={(e) => setWeight(e.target.value)}
-                      className="bg-background dark:bg-neutral-900/60 border-border dark:border-white/[0.08] text-sm h-11 rounded-xl"
+                      disabled={isUpdatingPhysical}
+                      className="bg-secondary/35 border-border/50 text-sm h-10 rounded-xl focus:bg-secondary/50 transition-all"
                     />
                   </div>
 
                   {/* Altura */}
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold text-muted-foreground dark:text-neutral-300">Altura (cm)</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-muted-foreground">Altura (cm)</Label>
                     <Input
                       type="number"
                       placeholder="Ex: 175"
                       value={height}
                       onChange={(e) => setHeight(e.target.value)}
-                      className="bg-background dark:bg-neutral-900/60 border-border dark:border-white/[0.08] text-sm h-11 rounded-xl"
+                      disabled={isUpdatingPhysical}
+                      className="bg-secondary/35 border-border/50 text-sm h-10 rounded-xl focus:bg-secondary/50 transition-all"
                     />
                   </div>
 
                   {/* Percentual de Gordura */}
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold text-muted-foreground dark:text-neutral-300">Gordura Corporal (BF %)</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-muted-foreground">Gordura Corporal (BF %)</Label>
                     <Input
                       type="number"
                       step="0.1"
                       placeholder="Ex: 12.4"
                       value={bodyFat}
                       onChange={(e) => setBodyFat(e.target.value)}
-                      className="bg-background dark:bg-neutral-900/60 border-border dark:border-white/[0.08] text-sm h-11 rounded-xl"
+                      disabled={isUpdatingPhysical}
+                      className="bg-secondary/35 border-border/50 text-sm h-10 rounded-xl focus:bg-secondary/50 transition-all"
                     />
                   </div>
 
                   {/* Massa Muscular */}
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold text-muted-foreground dark:text-neutral-300">Massa Muscular (%)</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-muted-foreground">Massa Muscular (%)</Label>
                     <Input
                       type="number"
                       step="0.1"
                       placeholder="Ex: 42.1"
                       value={muscleMass}
                       onChange={(e) => setMuscleMass(e.target.value)}
-                      className="bg-background dark:bg-neutral-900/60 border-border dark:border-white/[0.08] text-sm h-11 rounded-xl"
+                      disabled={isUpdatingPhysical}
+                      className="bg-secondary/35 border-border/50 text-sm h-10 rounded-xl focus:bg-secondary/50 transition-all"
                     />
                   </div>
                 </div>
 
-                <div className="pt-4 flex justify-end">
+                <div className="pt-4 border-t border-border/30 flex justify-end">
                   <Button
                     type="submit"
                     disabled={isUpdatingPhysical}
-                    className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/95 text-xs font-black uppercase rounded-xl px-8 h-11 cursor-pointer transition-all"
+                    className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/95 text-xs font-bold uppercase rounded-xl px-8 h-10 cursor-pointer transition-all"
                   >
                     {isUpdatingPhysical ? (
                       <>
-                        <Loader2 className="size-4 animate-spin mr-2" /> Atualizando...
+                        <Loader2 className="size-3.5 animate-spin mr-2" /> Atualizando...
                       </>
                     ) : (
                       "Atualizar Dados Físicos"
@@ -544,20 +554,21 @@ export default function StudentSettingsPage() {
         </TabsContent>
 
         <TabsContent value="security" className="outline-none focus-visible:ring-0 space-y-6">
-          <Card className="border p-0 border-border dark:border-white/6 bg-card dark:bg-neutral-950/40 backdrop-blur-md rounded-2xl overflow-hidden">
-            <CardHeader className="bg-muted/50 dark:bg-neutral-900/30 border-b py-4! border-border dark:border-white/4">
-              <CardTitle className="text-sm font-black uppercase tracking-wider text-foreground flex items-center gap-2">
+          <Card className="border border-border/50 bg-card rounded-2xl overflow-hidden shadow-xs relative">
+            <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
+            <CardHeader className="pb-3 border-b border-border/40 bg-muted/10">
+              <CardTitle className="text-sm font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
                 <Sun className="size-4 text-primary" /> Preferências do Aplicativo
               </CardTitle>
               <CardDescription className="text-xs text-muted-foreground">
                 Personalize o visual e comportamento padrão do seu portal do aluno.
               </CardDescription>
             </CardHeader>
-            <CardContent className="p-6 space-y-6">
-              <div className="flex items-center justify-between">
+            <CardContent className="p-6 space-y-5 text-xs">
+              <div className="flex items-center justify-between pb-3.5 border-b border-border/30">
                 <div className="space-y-0.5">
                   <Label className="text-sm font-bold text-foreground">Modo Escuro / Premium Dark</Label>
-                  <p className="text-[11px] text-muted-foreground dark:text-neutral-450 font-medium">Alternar o tema visual do sistema</p>
+                  <p className="text-[10px] text-muted-foreground font-medium">Alternar o tema visual do sistema</p>
                 </div>
                 <Switch
                   checked={theme === "dark"}
@@ -565,16 +576,16 @@ export default function StudentSettingsPage() {
                 />
               </div>
 
-              <div className="flex items-center justify-between pb-2">
+              <div className="flex items-center justify-between pb-3.5 border-b border-border/30">
                 <div className="space-y-0.5">
                   <Label className="text-sm font-bold text-foreground">Unidade de Medida de Peso</Label>
-                  <p className="text-[11px] text-muted-foreground dark:text-neutral-450 font-medium">Peso exibido nas cargas e no perfil</p>
+                  <p className="text-[10px] text-muted-foreground font-medium">Peso exibido nas cargas e no perfil</p>
                 </div>
                 <Select value={unit} onValueChange={setUnit}>
-                  <SelectTrigger className="w-[100px] h-9 rounded-lg bg-background dark:bg-neutral-900/80 border border-border dark:border-white/[0.08] text-xs font-bold">
+                  <SelectTrigger className="w-[100px] h-9 rounded-lg bg-secondary/35 border border-border/50 text-xs font-bold">
                     <SelectValue placeholder="Unid." />
                   </SelectTrigger>
-                  <SelectContent className="bg-popover dark:bg-neutral-950 border-border dark:border-white/[0.08]">
+                  <SelectContent className="bg-popover dark:bg-neutral-950 border border-border/50">
                     <SelectItem value="kg">Quilos (KG)</SelectItem>
                     <SelectItem value="lb">Libras (LB)</SelectItem>
                   </SelectContent>
@@ -584,7 +595,7 @@ export default function StudentSettingsPage() {
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label className="text-sm font-bold text-foreground">Auto-Timer de Descanso</Label>
-                  <p className="text-[11px] text-muted-foreground dark:text-neutral-450 font-medium">Iniciar cronômetro de descanso ao registrar séries</p>
+                  <p className="text-[10px] text-muted-foreground font-medium">Iniciar cronômetro de descanso ao registrar séries</p>
                 </div>
                 <Switch checked={autoTimer} onCheckedChange={setAutoTimer} />
               </div>
@@ -592,60 +603,64 @@ export default function StudentSettingsPage() {
           </Card>
 
           <form onSubmit={handleChangePassword}>
-            <Card className="border p-0 border-border dark:border-white/6 bg-card dark:bg-neutral-950/40 backdrop-blur-md rounded-2xl overflow-hidden">
-              <CardHeader className="bg-muted/50 py-4 dark:bg-neutral-900/30 border-b border-border dark:border-white/4">
-                <CardTitle className="text-sm font-black uppercase tracking-wider text-foreground flex items-center gap-2">
+            <Card className="border border-border/50 bg-card rounded-2xl overflow-hidden shadow-xs relative">
+              <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
+              <CardHeader className="pb-3 border-b border-border/40 bg-muted/10">
+                <CardTitle className="text-sm font-bold uppercase tracking-wider text-foreground flex items-center gap-2">
                   <Lock className="size-4 text-primary" /> Alterar Senha de Acesso
                 </CardTitle>
                 <CardDescription className="text-xs text-muted-foreground">
-                  Atualize sua senha periodicamente para manter sua conta segura.
+                  Atualize sua senha de acesso para manter sua conta protegida.
                 </CardDescription>
               </CardHeader>
               <CardContent className="p-6 space-y-6">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold text-muted-foreground dark:text-neutral-300">Senha Atual</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-muted-foreground">Senha Atual</Label>
                     <Input
                       type="password"
                       placeholder="Sua senha atual"
                       value={currentPassword}
                       onChange={(e) => setCurrentPassword(e.target.value)}
-                      className="bg-background dark:bg-neutral-900/60 border border-border dark:border-white/8 text-sm h-11 rounded-xl"
+                      disabled={isUpdatingPassword}
+                      className="bg-secondary/35 border border-border/50 text-sm h-10 rounded-xl focus:bg-secondary/50 transition-all"
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold text-muted-foreground dark:text-neutral-300">Nova Senha (mín. 6 dígitos)</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-muted-foreground">Nova Senha (mín. 6 dígitos)</Label>
                     <Input
                       type="password"
                       placeholder="Nova chave de acesso"
                       value={newPassword}
                       onChange={(e) => setNewPassword(e.target.value)}
-                      className="bg-background dark:bg-neutral-900/60 border border-border dark:border-white/8 text-sm h-11 rounded-xl"
+                      disabled={isUpdatingPassword}
+                      className="bg-secondary/35 border border-border/50 text-sm h-10 rounded-xl focus:bg-secondary/50 transition-all"
                     />
                   </div>
 
-                  <div className="space-y-2">
-                    <Label className="text-xs font-bold text-muted-foreground dark:text-neutral-300">Confirmar Nova Senha</Label>
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-muted-foreground">Confirmar Nova Senha</Label>
                     <Input
                       type="password"
                       placeholder="Repita a nova senha"
                       value={confirmPassword}
                       onChange={(e) => setConfirmPassword(e.target.value)}
-                      className="bg-background dark:bg-neutral-900/60 border border-border dark:border-white/8 text-sm h-11 rounded-xl"
+                      disabled={isUpdatingPassword}
+                      className="bg-secondary/35 border border-border/50 text-sm h-10 rounded-xl focus:bg-secondary/50 transition-all"
                     />
                   </div>
                 </div>
 
-                <div className="pt-4 flex justify-end">
+                <div className="pt-4 border-t border-border/30 flex justify-end">
                   <Button
                     type="submit"
                     disabled={isUpdatingPassword}
-                    className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/95 text-xs font-black uppercase rounded-xl px-8 h-11 cursor-pointer transition-all"
+                    className="w-full sm:w-auto bg-primary text-primary-foreground hover:bg-primary/95 text-xs font-bold uppercase rounded-xl px-8 h-10 cursor-pointer transition-all"
                   >
                     {isUpdatingPassword ? (
                       <>
-                        <Loader2 className="size-4 animate-spin mr-2" /> Alterando...
+                        <Loader2 className="size-3.5 animate-spin mr-2" /> Alterando...
                       </>
                     ) : (
                       "Atualizar Minha Senha"

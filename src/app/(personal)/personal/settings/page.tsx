@@ -9,12 +9,26 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, Paintbrush, Image as ImageIcon, UserCircle, Loader2, Palette } from "lucide-react";
+import { Save, Paintbrush, Image as ImageIcon, UserCircle, Loader2, Palette, CreditCard, XCircle, AlertTriangle, Calendar, AlertCircle } from "lucide-react";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { updateProfile, updateBrandSettings } from "./actions";
 import { useSnapshot } from "valtio";
 import { workspaceStore, workspaceActions } from "@/stores/workspace.store";
+import { cn } from "@/lib/utils";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+
 
 // Helper component for text URL input with live visual preview
 // Helper component for toggleable file upload / text URL input with live preview
@@ -175,6 +189,55 @@ function ImageInputWithToggle({
 
 export default function SettingsPage() {
   const [activeTab, setActiveTab] = useState("marca");
+
+  // Subscription Details State
+  const [subscription, setSubscription] = useState<any>(null);
+  const [isLoadingSub, setIsLoadingSub] = useState<boolean>(false);
+  const [isCancelDialogOpen, setIsCancelDialogOpen] = useState<boolean>(false);
+  const [isCanceling, setIsCanceling] = useState<boolean>(false);
+
+  const loadSubData = async () => {
+    setIsLoadingSub(true);
+    try {
+      const res = await fetch("/api/personal/subscription");
+      if (res.ok) {
+        const result = await res.json();
+        setSubscription(result.currentSubscription);
+      }
+    } catch (err) {
+      console.error("Erro ao buscar assinatura no settings:", err);
+    } finally {
+      setIsLoadingSub(false);
+    }
+  };
+
+  const handleCancelSubscription = async () => {
+    setIsCanceling(true);
+    const toastId = toast.loading("Processando cancelamento de assinatura...");
+    try {
+      const res = await fetch("/api/personal/subscription", {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || "Erro ao solicitar cancelamento.");
+      }
+
+      toast.success("Assinatura cancelada com sucesso!", { id: toastId });
+      setIsCancelDialogOpen(false);
+      await loadSubData();
+    } catch (err: any) {
+      console.error("Erro ao cancelar assinatura:", err);
+      toast.error(err.message || "Não foi possível cancelar a assinatura.", { id: toastId });
+    } finally {
+      setIsCanceling(false);
+    }
+  };
+
+  useEffect(() => {
+    loadSubData();
+  }, []);
 
   const { data: session, update } = useSession();
   const user = session?.user;
@@ -421,27 +484,29 @@ export default function SettingsPage() {
           <h2 className="text-3xl font-bold tracking-tight">Configurações</h2>
           <p className="text-muted-foreground mt-1">Personalize sua plataforma e gerencie suas informações.</p>
         </div>
-        <Button
-          className="shrink-0 gap-2 font-semibold cursor-pointer"
-          onClick={handleSave}
-          disabled={isSaving}
-        >
-          {isSaving ? (
-            <>
-              <Loader2 className="size-4 animate-spin" />
-              Salvando...
-            </>
-          ) : (
-            <>
-              <Save className="size-4" />
-              Salvar Alterações
-            </>
-          )}
-        </Button>
+        {activeTab !== "assinatura" && (
+          <Button
+            className="shrink-0 gap-2 font-semibold cursor-pointer"
+            onClick={handleSave}
+            disabled={isSaving}
+          >
+            {isSaving ? (
+              <>
+                <Loader2 className="size-4 animate-spin" />
+                Salvando...
+              </>
+            ) : (
+              <>
+                <Save className="size-4" />
+                Salvar Alterações
+              </>
+            )}
+          </Button>
+        )}
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 max-w-[400px] mb-8">
+        <TabsList className="grid w-full grid-cols-3 max-w-[500px] mb-8">
           <TabsTrigger value="marca" className="gap-2 cursor-pointer">
             <Paintbrush className="size-4" />
             Marca
@@ -449,6 +514,10 @@ export default function SettingsPage() {
           <TabsTrigger value="perfil" className="gap-2 cursor-pointer">
             <UserCircle className="size-4" />
             Perfil
+          </TabsTrigger>
+          <TabsTrigger value="assinatura" className="gap-2 cursor-pointer" onClick={loadSubData}>
+            <CreditCard className="size-4" />
+            Assinatura
           </TabsTrigger>
         </TabsList>
 
@@ -687,8 +756,193 @@ export default function SettingsPage() {
             </Card>
           </TabsContent>
 
+          <TabsContent value="assinatura" className="space-y-8 mt-0 outline-none">
+            {isLoadingSub && !subscription ? (
+              <Card className="border border-border/50 bg-card rounded-2xl p-6 space-y-4">
+                <div className="space-y-2">
+                  <Skeleton className="h-6 w-32 bg-muted/40" />
+                  <Skeleton className="h-4 w-48 bg-muted/40" />
+                </div>
+                <Skeleton className="h-20 w-full bg-muted/20 rounded-xl" />
+              </Card>
+            ) : subscription ? (
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-6 items-start">
+                <Card className="md:col-span-8 border border-border/50 bg-card rounded-2xl overflow-hidden shadow-xs relative">
+                  <div className="absolute top-0 left-0 w-1 h-full bg-primary" />
+                  <CardHeader className="pb-3 border-b border-border/40">
+                    <div className="flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Plano Atual</span>
+                        <CardTitle className="text-xl font-bold flex items-center gap-2">
+                          {subscription.status === "trial" ? "Período de Testes" : subscription.planName}
+                          <Badge 
+                            variant="outline" 
+                            className={cn(
+                              "text-[9px] font-bold px-2 py-0.5 uppercase tracking-wide",
+                              subscription.status === "active" 
+                                ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/20" 
+                                : subscription.status === "trial" || subscription.status === "canceled"
+                                ? "bg-amber-500/15 text-amber-500 border-amber-500/20"
+                                : "bg-red-500/15 text-red-500 border-red-500/20"
+                            )}
+                          >
+                            {subscription.status === "active" ? "Ativo" : subscription.status === "trial" ? "Teste Grátis" : subscription.status === "canceled" ? "Cancelado" : "Atrasado"}
+                          </Badge>
+                        </CardTitle>
+                      </div>
+                      {subscription.status !== "trial" && (
+                        <div className="text-right">
+                          <span className="text-lg font-extrabold text-foreground">R$ {subscription.planPrice}</span>
+                          <span className="text-[10px] text-muted-foreground block">/{subscription.billingCycle === "Mensal" ? "mês" : "ano"}</span>
+                        </div>
+                      )}
+                    </div>
+                  </CardHeader>
+
+                  <CardContent className="pt-5 space-y-5 text-xs">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-0.5">
+                        <span className="font-bold text-muted-foreground uppercase text-[9px] tracking-wider">Forma de Faturamento</span>
+                        <p className="font-semibold text-foreground flex items-center gap-1.5">
+                          <CreditCard className="size-3.5 text-primary shrink-0" />
+                          {subscription.paymentMethod || "Pix Automático"}
+                        </p>
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className="font-bold text-muted-foreground uppercase text-[9px] tracking-wider">Próxima Renovação</span>
+                        <p className="font-semibold text-foreground flex items-center gap-1.5">
+                          <Calendar className="size-3.5 text-primary shrink-0" />
+                          {subscription.isTestAccount 
+                            ? "Não expira" 
+                            : (subscription.nextBillingDate?.includes("-") 
+                               ? subscription.nextBillingDate.split("-").reverse().join("/") 
+                               : subscription.nextBillingDate)}
+                        </p>
+                      </div>
+                    </div>
+
+                    {/* Notification/Canceled status notice */}
+                    {subscription.status === "canceled" && (
+                      <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex gap-2">
+                        <AlertTriangle className="size-4 text-amber-500 shrink-0 mt-0.5" />
+                        <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-normal font-medium">
+                          <strong>Assinatura Cancelada:</strong> Seu acesso continua ativo até o dia <strong>
+                            {subscription.nextBillingDate?.includes("-") 
+                              ? subscription.nextBillingDate.split("-").reverse().join("/") 
+                              : subscription.nextBillingDate}
+                          </strong> (término do período já pago). Após essa data, nenhuma cobrança adicional será realizada no AbacatePay e o acesso será suspenso.
+                        </p>
+                      </div>
+                    )}
+
+                    {/* Cancel button inside personal configs */}
+                    {subscription.status !== "canceled" && !subscription.isTestAccount && (
+                      <div className="pt-4 border-t border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                        <div className="space-y-0.5">
+                          <h4 className="text-xs font-bold text-foreground">Cancelar Renovação Recorrente</h4>
+                          <p className="text-muted-foreground text-[10px] leading-normal max-w-sm">
+                            Ao cancelar, suas cobranças automáticas no AbacatePay serão suspensas, mas seu acesso continua liberado até a data de expiração do plano.
+                          </p>
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          onClick={() => setIsCancelDialogOpen(true)}
+                          className="hover:bg-red-500/10 hover:text-red-500 text-muted-foreground text-xs font-bold shrink-0 self-start sm:self-center cursor-pointer"
+                        >
+                          <XCircle className="size-3.5 mr-1.5" />
+                          Cancelar Assinatura
+                        </Button>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Micro usage statistics in Settings */}
+                <Card className="md:col-span-4 border border-border/50 bg-card rounded-2xl p-5 space-y-4">
+                  <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Estatísticas de Uso</span>
+                  
+                  <div className="space-y-3.5 text-xs">
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between font-semibold">
+                        <span className="text-muted-foreground">Alunos Cadastrados</span>
+                        <span>
+                          {subscription.usage?.students.current} <span className="text-muted-foreground font-normal">/ {subscription.usage?.students.limit >= 999999 ? "Ilimitado" : subscription.usage?.students.limit}</span>
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary rounded-full transition-all"
+                          style={{ width: `${Math.min(subscription.usage?.students.limit >= 999999 ? 5 : ((subscription.usage?.students.current / subscription.usage?.students.limit) * 100), 100)}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between font-semibold">
+                        <span className="text-muted-foreground">Armazenamento</span>
+                        <span>
+                          {subscription.usage?.storage.current} <span className="text-muted-foreground font-normal">/ {subscription.usage?.storage.limit} {subscription.usage?.storage.unit}</span>
+                        </span>
+                      </div>
+                      <div className="h-1.5 w-full bg-secondary rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary rounded-full transition-all"
+                          style={{ width: `${(subscription.usage?.storage.current / subscription.usage?.storage.limit) * 100}%` }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </Card>
+              </div>
+            ) : (
+              <Card className="border border-border/50 bg-card rounded-2xl p-6 text-center">
+                <p className="text-xs text-muted-foreground">Assinatura inativa ou não localizada.</p>
+              </Card>
+            )}
+          </TabsContent>
+
         </motion.div>
       </Tabs>
+
+      {/* Cancellation Confirmation Alert Dialog */}
+      <AlertDialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
+        <AlertDialogContent className="rounded-2xl max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base font-bold text-foreground">Tem certeza que deseja cancelar?</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-muted-foreground leading-normal">
+              Esta ação cancelará a renovação automática da sua assinatura no AbacatePay. 
+              <br />
+              <br />
+              Seu acesso continuará **totalmente liberado até o dia {
+                subscription?.nextBillingDate?.includes("-") 
+                  ? subscription.nextBillingDate.split("-").reverse().join("/") 
+                  : subscription?.nextBillingDate
+              }** (término do período já pago). Após esta data, nenhuma nova cobrança será realizada e seu acesso será interrompido.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel disabled={isCanceling} className="rounded-xl text-xs font-bold">
+              Manter Assinatura
+            </AlertDialogCancel>
+            <Button
+              variant="destructive"
+              onClick={handleCancelSubscription}
+              disabled={isCanceling}
+              className="rounded-xl text-xs font-bold cursor-pointer"
+            >
+              {isCanceling ? (
+                <>
+                  <Loader2 className="mr-2 size-3 animate-spin" />
+                  Cancelando...
+                </>
+              ) : (
+                "Confirmar Cancelamento"
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
