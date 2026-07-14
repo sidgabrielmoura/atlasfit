@@ -163,6 +163,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
   const [isMaximized, setIsMaximized] = useState(false);
   const [zoomScale, setZoomScale] = useState(1);
   const galleryViewportRef = useRef<HTMLDivElement | null>(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
 
   useEffect(() => {
     setZoomScale(1);
@@ -673,6 +674,17 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
     }
   };
 
+  const handleScrollToMessage = (messageId: string) => {
+    const el = document.getElementById(`message-${messageId}`);
+    if (el) {
+      el.scrollIntoView({ behavior: "smooth", block: "center" });
+      setHighlightedMessageId(messageId);
+      setTimeout(() => {
+        setHighlightedMessageId(null);
+      }, 1500);
+    }
+  };
+
   // 8. Edit / Delete / Reply message helpers
   const handleStartEdit = (message: Message) => {
     setEditingMessageId(message.id);
@@ -1122,7 +1134,11 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                         return (
                           <div
                             key={m.id}
-                            className={cn("flex gap-2 max-w-[80%] relative group animate-in slide-in-from-bottom-2 duration-200", isSelf ? "ml-auto flex-row-reverse" : "mr-auto")}
+                            id={`message-${m.id}`}
+                            className={cn(
+                              "flex gap-2 max-w-[80%] relative group animate-in slide-in-from-bottom-2 duration-200 transition-all",
+                              isSelf ? "ml-auto flex-row-reverse" : "mr-auto"
+                            )}
                           >
                             <Avatar className="size-7 mt-1 shrink-0 select-none">
                               {m.sender?.image && (
@@ -1135,7 +1151,10 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
 
                             <div className="flex flex-col gap-0.5 items-end max-w-full">
                               {m.replyTo && (
-                                <div className="w-full text-left p-2 rounded-lg bg-black/5 dark:bg-white/5 border-l-2 border-primary/60 text-xs mb-1 opacity-80 max-w-[280px] truncate">
+                                <div
+                                  onClick={() => m.replyToId && handleScrollToMessage(m.replyToId)}
+                                  className="w-full text-left p-2 rounded-lg bg-black/5 dark:bg-white/5 border-l-2 border-primary/60 text-xs mb-1 opacity-80 max-w-[280px] truncate cursor-pointer hover:bg-black/10 dark:hover:bg-white/10 transition-colors"
+                                >
                                   <span className="font-bold block text-[10px] text-primary">
                                     {m.replyTo.sender?.name}
                                   </span>
@@ -1149,7 +1168,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
 
                               <div
                                 className={cn(
-                                  "relative rounded-2xl text-sm break-all font-medium max-w-full shadow-xs border",
+                                  "relative rounded-2xl text-sm break-all font-medium max-w-full shadow-xs border transition-all duration-500",
                                   ["IMAGE", "AUDIO"].includes(m.type)
                                     ? cn(
                                       "p-1 bg-white/15 dark:bg-black/45 backdrop-blur-md border-white/25 dark:border-white/10 text-foreground",
@@ -1158,7 +1177,12 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                                     : isSelf
                                       ? "p-3 bg-primary text-primary-foreground border-primary/10 rounded-tr-none"
                                       : "p-3 bg-card text-foreground border-border/60 rounded-tl-none",
-                                  isSystem && "p-3 bg-secondary/25 border-none italic text-muted-foreground"
+                                  isSystem && "p-3 bg-secondary/25 border-none italic text-muted-foreground",
+                                  highlightedMessageId === m.id && (
+                                    isSelf
+                                      ? "ring-4 ring-white/80 scale-[1.03] z-10 duration-200"
+                                      : "ring-4 ring-primary/80 scale-[1.03] z-10 bg-primary/10 duration-200"
+                                  )
                                 )}
                               >
                                 {editingMessageId === m.id ? (
