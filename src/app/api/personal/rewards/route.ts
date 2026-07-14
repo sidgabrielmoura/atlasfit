@@ -49,7 +49,12 @@ export async function GET(req: Request) {
           select: {
             name: true,
             email: true,
-            createdAt: true
+            createdAt: true,
+            subscription: {
+              select: {
+                status: true
+              }
+            }
           }
         }
       }
@@ -62,8 +67,9 @@ export async function GET(req: Request) {
     });
 
     // Calculate balances
+    // Only approved commissions from referred users whose current subscription is "active" are eligible/approved for withdraw
     const totalApproved = commissions
-      .filter((c) => c.status === "APROVADO")
+      .filter((c) => c.status === "APROVADO" && c.referred?.subscription?.status?.toLowerCase() === "active")
       .reduce((sum, c) => sum + c.amount, 0);
 
     const totalPaid = payouts
@@ -171,9 +177,20 @@ export async function POST(req: Request) {
       return new NextResponse("Você já possui uma solicitação de saque em análise.", { status: 400 });
     }
 
-    // Calculate current available balance
+     // Calculate current available balance
     const commissions = await prisma.referralCommission.findMany({
-      where: { referrerId: userId }
+      where: { referrerId: userId },
+      include: {
+        referred: {
+          select: {
+            subscription: {
+              select: {
+                status: true
+              }
+            }
+          }
+        }
+      }
     });
 
     const payouts = await prisma.payoutRequest.findMany({
@@ -181,7 +198,7 @@ export async function POST(req: Request) {
     });
 
     const totalApproved = commissions
-      .filter((c) => c.status === "APROVADO")
+      .filter((c) => c.status === "APROVADO" && c.referred?.subscription?.status?.toLowerCase() === "active")
       .reduce((sum, c) => sum + c.amount, 0);
 
     const totalPaid = payouts
