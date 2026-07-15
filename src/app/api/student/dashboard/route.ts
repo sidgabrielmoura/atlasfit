@@ -213,6 +213,19 @@ export async function GET(req: Request) {
       }
     }
 
+    // Buscar a notificação de solicitação de foto pendente mais recente
+    const photoRequestNotification = await prisma.notification.findFirst({
+      where: {
+        userId: session.user.id,
+        type: "PHOTO_REQUEST",
+        isRead: false,
+        workspaceId,
+      },
+      orderBy: {
+        createdAt: "desc",
+      },
+    });
+
     // Build Trainer Alerts
     const alerts = [];
     if (progressPhotos.some(p => p.comment)) {
@@ -441,6 +454,14 @@ export async function GET(req: Request) {
       prs,
       alerts,
       pendingTasks,
+      photoRequest: photoRequestNotification
+        ? {
+            id: photoRequestNotification.id,
+            title: photoRequestNotification.title,
+            description: photoRequestNotification.description,
+            createdAt: photoRequestNotification.createdAt.toISOString(),
+          }
+        : null,
       recentMessages: recentMessages.slice(0, 3),
       finance: {
         status: paymentStatus,

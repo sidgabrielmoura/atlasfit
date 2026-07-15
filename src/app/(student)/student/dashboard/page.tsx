@@ -245,6 +245,54 @@ export default function StudentDashboardPage() {
         </motion.div>
       )}
 
+      {/* Photo Request Warning Card */}
+      {data.photoRequest && (
+        <motion.div
+          initial={{ opacity: 0, y: -10 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.3 }}
+        >
+          <Card className="p-5 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 border border-blue-500/25 bg-blue-500/5 text-blue-200/90 shadow-md relative overflow-hidden">
+            <div className="flex items-center gap-4">
+              <div className="size-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm bg-blue-500/20 text-blue-500">
+                <Camera className="size-5 shrink-0" />
+              </div>
+              <div className="space-y-1 text-center sm:text-left">
+                <div className="flex items-center gap-2 justify-center sm:justify-start">
+                  <h4 className="font-extrabold text-sm tracking-tight text-white">
+                    Solicitação de Atualização Visual
+                  </h4>
+                  <Badge variant="secondary" className="bg-blue-500/20 text-blue-300 border-none font-bold text-[9px] px-2 py-0">
+                    Pendente
+                  </Badge>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed max-w-md">
+                  {data.photoRequest.description}
+                </p>
+                <p className="text-[10px] text-blue-400/70 font-semibold">
+                  Solicitado em: {new Date(data.photoRequest.createdAt).toLocaleDateString("pt-BR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    year: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </p>
+              </div>
+            </div>
+            <Button
+              asChild
+              className="font-bold text-xs h-10 px-5 rounded-xl flex items-center gap-2 cursor-pointer transition-all active:scale-95 shadow-md bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/10 w-full sm:w-auto justify-center shrink-0"
+            >
+              <Link href="/student/evolution?tab=photos">
+                <Camera className="size-4" />
+                Enviar Foto
+              </Link>
+            </Button>
+          </Card>
+        </motion.div>
+      )}
+
       {/* Engage Experiences (Banners & Cards) */}
       <EngageInline format="BANNER" workspaceId={activeWs?.id} />
       <EngageInline format="CARD" workspaceId={activeWs?.id} />

@@ -161,6 +161,20 @@ export async function POST(req: Request) {
         },
       });
 
+      // Marcar notificações de solicitação de foto pendentes como lidas
+      await prisma.notification.updateMany({
+        where: {
+          userId: session.user.id,
+          type: "PHOTO_REQUEST",
+          isRead: false,
+          workspaceId,
+        },
+        data: {
+          isRead: true,
+          readAt: new Date(),
+        },
+      });
+
       const workspace = await prisma.workspace.findUnique({
         where: { id: workspaceId },
         select: { ownerId: true }

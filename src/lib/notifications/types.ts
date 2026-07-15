@@ -13,7 +13,8 @@ export enum NotificationType {
   XP_RECEIVED = "XP_RECEIVED",
   GOAL_COMPLETED = "GOAL_COMPLETED",
   SECURITY = "SECURITY",
-  LOGIN = "LOGIN"
+  LOGIN = "LOGIN",
+  PHOTO_REQUEST = "PHOTO_REQUEST"
 }
 
 export enum NotificationCategory {

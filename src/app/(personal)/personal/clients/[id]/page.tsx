@@ -1428,13 +1428,31 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
   // ==================== ACTIONS & HANDLERS FOR PROGRESS ====================
   const handleRequestUpdate = async () => {
+    if (!activeWorkspaceId) {
+      toast.error("Nenhum workspace ativo selecionado.");
+      return;
+    }
     try {
       setRequestingUpdate(true);
-      await new Promise((resolve) => setTimeout(resolve, 1500));
-      toast.success("Solicitação de nova foto enviada para o WhatsApp do aluno!");
-    } catch (error) {
+      const res = await fetch(`/api/personal/clients/${studentId}/progress/photos/request`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          workspaceId: activeWorkspaceId,
+        }),
+      });
+
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(errorText || "Erro ao enviar solicitação.");
+      }
+
+      toast.success("Solicitação de foto de progresso enviada com sucesso!");
+    } catch (error: any) {
       console.error(error);
-      toast.error("Erro ao solicitar atualização.");
+      toast.error(error.message || "Erro ao solicitar atualização.");
     } finally {
       setRequestingUpdate(false);
     }

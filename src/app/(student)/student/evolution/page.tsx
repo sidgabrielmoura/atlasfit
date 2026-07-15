@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSnapshot } from "valtio";
 import { workspaceStore } from "@/stores/workspace.store";
@@ -83,6 +84,16 @@ const itemVariants = {
 export default function StudentEvolutionPage() {
   const workspaceSnap = useSnapshot(workspaceStore);
   const activeWs = workspaceSnap.activeWorkspace;
+  const searchParams = useSearchParams();
+  const initialTab = searchParams.get("tab") || "charts";
+  const [activeTab, setActiveTab] = useState(initialTab);
+
+  useEffect(() => {
+    const tab = searchParams.get("tab");
+    if (tab) {
+      setActiveTab(tab);
+    }
+  }, [searchParams]);
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -721,7 +732,7 @@ export default function StudentEvolutionPage() {
       </motion.div>
 
       {/* Main Tabbed Area */}
-      <Tabs defaultValue="charts" className="space-y-6">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
         <TabsList className="bg-muted dark:bg-neutral-900/60 p-1 border border-border dark:border-neutral-800 rounded-xl flex overflow-x-auto whitespace-nowrap md:w-fit gap-1 w-full justify-start scrollbar-none">
           <TabsTrigger
             value="charts"
