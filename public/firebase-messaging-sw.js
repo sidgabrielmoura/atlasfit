@@ -27,13 +27,27 @@ messaging.onBackgroundMessage((payload) => {
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  const urlToOpen = event.notification.data?.url || "/";
+  
+  let origin = self.location.origin;
+  if (origin.includes("vercel.app") || origin.includes("atlasfit-steel")) {
+    origin = "https://atlasfit.site";
+  }
+
+  let urlToOpen = event.notification.data?.url || "/";
+  if (urlToOpen.startsWith("/")) {
+    urlToOpen = origin + urlToOpen;
+  } else {
+    urlToOpen = urlToOpen.replace(/https:\/\/atlasfit[a-zA-Z0-9-]*\.vercel\.app/g, "https://atlasfit.site");
+  }
 
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
       for (let i = 0; i < windowClients.length; i++) {
         const client = windowClients[i];
-        if (client.url === urlToOpen && "focus" in client) {
+        const clientUrlNormalized = client.url.replace(/https:\/\/atlasfit[a-zA-Z0-9-]*\.vercel\.app/g, "https://atlasfit.site");
+        const targetUrlNormalized = urlToOpen.replace(/https:\/\/atlasfit[a-zA-Z0-9-]*\.vercel\.app/g, "https://atlasfit.site");
+        
+        if (clientUrlNormalized === targetUrlNormalized && "focus" in client) {
           return client.focus();
         }
       }
