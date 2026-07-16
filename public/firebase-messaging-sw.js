@@ -17,7 +17,7 @@ messaging.onBackgroundMessage((payload) => {
   const notificationTitle = payload.notification?.title || "AtlasFit";
   const notificationOptions = {
     body: payload.notification?.body || "",
-    icon: "/logos_atlasfit/atlasfit (5).png",
+    icon: "/logos_atlasfit/atlasfit_black.png",
     badge: "/logos_atlasfit/atlasfit (4).png",
     data: payload.data || {}
   };

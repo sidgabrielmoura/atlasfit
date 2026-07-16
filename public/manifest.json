@@ -10,13 +10,13 @@
   "scope": "/",
   "icons": [
     {
-      "src": "/logos_atlasfit/atlasfit (5).png",
+      "src": "/logos_atlasfit/atlasfit_black.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any maskable"
     },
     {
-      "src": "/logos_atlasfit/atlasfit (5).png",
+      "src": "/logos_atlasfit/atlasfit_black.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
