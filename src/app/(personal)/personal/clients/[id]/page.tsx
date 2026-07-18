@@ -54,6 +54,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
+  Accordion,
+  AccordionContent,
+  AccordionItem,
+  AccordionTrigger,
+} from "@/components/ui/accordion";
+import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
@@ -338,6 +344,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
   const [isDeleteProgressAlertOpen, setIsDeleteProgressAlertOpen] = useState(false);
   const [progressToDelete, setProgressToDelete] = useState<any>(null);
+  const [showAllHistory, setShowAllHistory] = useState(false);
   const [submittingDeleteProgress, setSubmittingDeleteProgress] = useState(false);
   const [isDeletePhotoAlertOpen, setIsDeletePhotoAlertOpen] = useState(false);
   const [photoToDelete, setPhotoToDelete] = useState<any>(null);
@@ -2996,36 +3003,119 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                       </div>
                     </div>
 
-                    {/* Scrollable list of circumferences */}
-                    <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-2 gap-2 h-[260px] overflow-y-auto pr-1 scrollbar-thin">
-                      {CIRCUMFERENCES.map((circ) => {
-                        const curVal = latestMed[circ.key];
-                        const diff = getVariation(circ.key);
-                        return (
-                          <div
-                            key={circ.key}
-                            className="bg-muted dark:bg-muted dark:bg-neutral-900/60 hover:bg-muted dark:bg-neutral-900 border border-border/80 dark:border-neutral-800/80 rounded-lg p-2 flex flex-col justify-between transition-colors"
-                          >
-                            <span className="text-[10px] font-bold text-muted-foreground truncate">{circ.label}</span>
-                            <div className="flex items-baseline justify-between mt-1 flex-wrap">
-                              <span className="text-xs font-extrabold text-foreground">
-                                {curVal ? `${curVal} cm` : "--"}
-                              </span>
-                              {diff !== null && diff !== 0 && (
-                                <Badge className={cn(
-                                  "text-[8px] font-bold px-1.5 py-0 rounded border leading-none shrink-0",
-                                  diff > 0
-                                    ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25"
-                                    : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/25"
-                                )}>
-                                  {diff > 0 ? `+${diff.toFixed(1)}` : `${diff.toFixed(1)}`}
-                                </Badge>
-                              )}
-                            </div>
+                    {/* Collapsible Accordion for Circumferences */}
+                    <Accordion type="multiple" defaultValue={["superiores", "core", "inferiores"]} className="w-full space-y-2 max-h-[300px] overflow-y-auto pr-1 scrollbar-thin">
+                      <AccordionItem value="superiores" className="border-none">
+                        <AccordionTrigger className="hover:no-underline py-1 text-xs font-bold uppercase tracking-wider text-primary">
+                          Membros Superiores
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+                            {CIRCUMFERENCES.filter(c => ["chest", "rightArm", "leftArm", "rightForearm", "leftForearm"].includes(c.key)).map((circ) => {
+                              const curVal = latestMed[circ.key];
+                              const diff = getVariation(circ.key);
+                              return (
+                                <div
+                                  key={circ.key}
+                                  className="bg-muted/60 dark:bg-neutral-900/60 hover:bg-muted dark:bg-neutral-900 border border-border/80 dark:border-neutral-800/80 rounded-lg p-2 flex flex-col justify-between transition-colors"
+                                >
+                                  <span className="text-[10px] font-bold text-muted-foreground truncate">{circ.label}</span>
+                                  <div className="flex items-baseline justify-between mt-1 flex-wrap">
+                                    <span className="text-xs font-extrabold text-foreground">
+                                      {curVal ? `${curVal} cm` : "--"}
+                                    </span>
+                                    {diff !== null && diff !== 0 && (
+                                      <Badge className={cn(
+                                        "text-[8px] font-bold px-1.5 py-0 rounded border leading-none shrink-0",
+                                        diff > 0
+                                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25"
+                                          : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/25"
+                                      )}>
+                                        {diff > 0 ? `+${diff.toFixed(1)}` : `${diff.toFixed(1)}`}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
                           </div>
-                        );
-                      })}
-                    </div>
+                        </AccordionContent>
+                      </AccordionItem>
+
+                      <AccordionItem value="core" className="border-none">
+                        <AccordionTrigger className="hover:no-underline py-1 text-xs font-bold uppercase tracking-wider text-primary">
+                          Tronco & Core
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+                            {CIRCUMFERENCES.filter(c => ["waist", "abdomen", "hips"].includes(c.key)).map((circ) => {
+                              const curVal = latestMed[circ.key];
+                              const diff = getVariation(circ.key);
+                              return (
+                                <div
+                                  key={circ.key}
+                                  className="bg-muted/60 dark:bg-neutral-900/60 hover:bg-muted dark:bg-neutral-900 border border-border/80 dark:border-neutral-800/80 rounded-lg p-2 flex flex-col justify-between transition-colors"
+                                >
+                                  <span className="text-[10px] font-bold text-muted-foreground truncate">{circ.label}</span>
+                                  <div className="flex items-baseline justify-between mt-1 flex-wrap">
+                                    <span className="text-xs font-extrabold text-foreground">
+                                      {curVal ? `${curVal} cm` : "--"}
+                                    </span>
+                                    {diff !== null && diff !== 0 && (
+                                      <Badge className={cn(
+                                        "text-[8px] font-bold px-1.5 py-0 rounded border leading-none shrink-0",
+                                        diff > 0
+                                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25"
+                                          : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/25"
+                                      )}>
+                                        {diff > 0 ? `+${diff.toFixed(1)}` : `${diff.toFixed(1)}`}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+
+                      <AccordionItem value="inferiores" className="border-none">
+                        <AccordionTrigger className="hover:no-underline py-1 text-xs font-bold uppercase tracking-wider text-primary">
+                          Membros Inferiores
+                        </AccordionTrigger>
+                        <AccordionContent>
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1">
+                            {CIRCUMFERENCES.filter(c => ["rightThigh", "leftThigh", "rightCalf", "leftCalf"].includes(c.key)).map((circ) => {
+                              const curVal = latestMed[circ.key];
+                              const diff = getVariation(circ.key);
+                              return (
+                                <div
+                                  key={circ.key}
+                                  className="bg-muted/60 dark:bg-neutral-900/60 hover:bg-muted dark:bg-neutral-900 border border-border/80 dark:border-neutral-800/80 rounded-lg p-2 flex flex-col justify-between transition-colors"
+                                >
+                                  <span className="text-[10px] font-bold text-muted-foreground truncate">{circ.label}</span>
+                                  <div className="flex items-baseline justify-between mt-1 flex-wrap">
+                                    <span className="text-xs font-extrabold text-foreground">
+                                      {curVal ? `${curVal} cm` : "--"}
+                                    </span>
+                                    {diff !== null && diff !== 0 && (
+                                      <Badge className={cn(
+                                        "text-[8px] font-bold px-1.5 py-0 rounded border leading-none shrink-0",
+                                        diff > 0
+                                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/25"
+                                          : "bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/25"
+                                      )}>
+                                        {diff > 0 ? `+${diff.toFixed(1)}` : `${diff.toFixed(1)}`}
+                                      </Badge>
+                                    )}
+                                  </div>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    </Accordion>
                   </div>
                 )}
               </Card>
@@ -3063,9 +3153,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                         </tr>
                       </thead>
                       <tbody>
-                        {progressHistory
-                          .slice()
-                          .reverse()
+                        {(showAllHistory ? progressHistory.slice().reverse() : progressHistory.slice().reverse().slice(0, 3))
                           .map((prog) => (
                             <tr key={prog.id} className="border-b border-border dark:border-neutral-900 hover:bg-muted dark:bg-neutral-900/30 transition-colors">
                               <td className="p-3 font-semibold text-foreground">
@@ -3097,9 +3185,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
                   {/* Mobile Stacked Card View */}
                   <div className="block sm:hidden divide-y divide-border/50 dark:divide-neutral-900">
-                    {progressHistory
-                      .slice()
-                      .reverse()
+                    {(showAllHistory ? progressHistory.slice().reverse() : progressHistory.slice().reverse().slice(0, 3))
                       .map((prog) => (
                         <div key={prog.id} className="p-4 space-y-3">
                           <div className="flex justify-between items-center">
@@ -3145,6 +3231,20 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                         </div>
                       ))}
                   </div>
+
+                  {progressHistory.length > 3 && (
+                    <div className="p-3 border-t border-border dark:border-neutral-900 text-center bg-muted/5">
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setShowAllHistory(!showAllHistory)}
+                        className="text-xs font-bold text-primary hover:bg-transparent"
+                      >
+                        {showAllHistory ? "Mostrar menos registros" : `Ver todos os ${progressHistory.length} registros`}
+                      </Button>
+                    </div>
+                  )}
                 </>
               )}
             </Card>

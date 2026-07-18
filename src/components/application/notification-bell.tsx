@@ -297,7 +297,7 @@ export function NotificationBell() {
           >
             <Bell className="size-5 text-muted-foreground hover:text-foreground transition-colors" />
             {unreadCount > 0 && (
-              <span className="absolute top-1 right-1 flex size-5 items-center justify-center rounded-full bg-red-600 text-[10px] font-black text-white ring-2 ring-background animate-pulse">
+              <span className="absolute top-0.5 right-0.5 flex size-4 items-center justify-center rounded-full bg-red-600 text-[9px] font-bold text-white ring-2 ring-background animate-pulse">
                 {unreadCount}
               </span>
             )}

@@ -1703,7 +1703,7 @@ export default function StudentWorkoutsPage() {
                                         workoutActions.updateLoads(nextLoads);
                                       }}
                                       placeholder="ex: 60"
-                                      className="h-10 text-center font-bold bg-transparent border-none focus-visible:ring-0 text-base"
+                                      className="h-9 text-center font-bold bg-muted/40 dark:bg-neutral-900/40 border border-border/80 focus-visible:ring-1 focus-visible:ring-primary/40 rounded-lg text-sm"
                                     />
                                   )}
 
@@ -1720,7 +1720,7 @@ export default function StudentWorkoutsPage() {
                                       workoutActions.updateReps(nextReps);
                                     }}
                                     placeholder="ex: 10"
-                                    className="h-10 text-center font-bold bg-transparent border-none focus-visible:ring-0 text-base"
+                                    className="h-9 text-center font-bold bg-muted/40 dark:bg-neutral-900/40 border border-border/80 focus-visible:ring-1 focus-visible:ring-primary/40 rounded-lg text-sm"
                                   />
 
                                   {/* Complete Check button */}
@@ -1729,7 +1729,7 @@ export default function StudentWorkoutsPage() {
                                     size="icon"
                                     onClick={() => handleToggleSet(setIdx, execEx)}
                                     className={cn(
-                                      "size-10 rounded-lg transition-all cursor-pointer",
+                                      "size-10 rounded-lg transition-all cursor-pointer relative overflow-visible after:absolute after:inset-[-8px] after:content-['']",
                                       (allWorkoutSetsDone[execEx.id]?.[setIdx])
                                         ? "bg-primary text-primary-foreground"
                                         : "bg-secondary/60 text-muted-foreground hover:bg-primary/10"
@@ -1869,7 +1869,7 @@ export default function StudentWorkoutsPage() {
                                         size="icon"
                                         onClick={() => handleToggleGroupSet(setIdx, currentStep)}
                                         className={cn(
-                                          "size-10 rounded-lg transition-all cursor-pointer",
+                                          "size-10 rounded-lg transition-all cursor-pointer relative overflow-visible after:absolute after:inset-[-8px] after:content-['']",
                                           isSetDone
                                             ? "bg-primary text-primary-foreground"
                                             : "bg-secondary/60 text-muted-foreground hover:bg-primary/10"
@@ -1915,7 +1915,7 @@ export default function StudentWorkoutsPage() {
                                                     workoutActions.updateLoads(nextLoads);
                                                   }}
                                                   placeholder="ex: 60"
-                                                  className="h-8 text-center font-bold bg-transparent border-b border-t-0 border-x-0 rounded-none focus-visible:ring-0 text-sm w-full"
+                                                  className="h-8 text-center font-bold bg-muted/40 dark:bg-neutral-900/40 border border-border/80 focus-visible:ring-1 focus-visible:ring-primary/40 rounded-lg text-xs w-full mt-1"
                                                 />
                                               )}
                                             </div>
@@ -1935,7 +1935,7 @@ export default function StudentWorkoutsPage() {
                                                   workoutActions.updateReps(nextReps);
                                                 }}
                                                 placeholder="ex: 10"
-                                                className="h-8 text-center font-bold bg-transparent border-b border-t-0 border-x-0 rounded-none focus-visible:ring-0 text-sm"
+                                                className="h-8 text-center font-bold bg-muted/40 dark:bg-neutral-900/40 border border-border/80 focus-visible:ring-1 focus-visible:ring-primary/40 rounded-lg text-xs w-full mt-1"
                                               />
                                             </div>
                                           </div>

@@ -55,9 +55,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   AreaChart,
   Area,
+  BarChart,
+  Bar,
+  Cell,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -608,6 +612,12 @@ export default function FinancePage() {
     );
   }
 
+  const statusData = [
+    { name: "Pago", value: recentPayments.filter(p => p.status === "pago").length, color: "var(--primary)" },
+    { name: "Pendente", value: recentPayments.filter(p => p.status === "pendente").length, color: "#eab308" },
+    { name: "Atrasado", value: recentPayments.filter(p => p.status === "atrasado").length, color: "#f43f5e" },
+  ];
+
   return (
     <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 bg-background text-foreground">
       {/* Header */}
@@ -640,9 +650,9 @@ export default function FinancePage() {
           className="space-y-6"
         >
           {/* Metric Cards */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-            <motion.div variants={item as any}>
-              <Card className="hover:border-primary/50 transition-colors">
+          <div className="flex md:grid gap-4 overflow-x-auto pb-3 md:pb-0 no-scrollbar snap-x snap-mandatory md:grid-cols-2 lg:grid-cols-4">
+            <motion.div variants={item as any} className="shrink-0 w-[82vw] sm:w-[45vw] md:w-auto snap-center">
+              <Card className="hover:border-primary/50 transition-colors h-full">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium">Receita Recorrente (MRR)</CardTitle>
                   <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center">
@@ -660,8 +670,8 @@ export default function FinancePage() {
               </Card>
             </motion.div>
 
-            <motion.div variants={item as any}>
-              <Card className="hover:border-primary/50 transition-colors">
+            <motion.div variants={item as any} className="shrink-0 w-[82vw] sm:w-[45vw] md:w-auto snap-center">
+              <Card className="hover:border-primary/50 transition-colors h-full">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium">Ticket Médio</CardTitle>
                   <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center">
@@ -679,8 +689,8 @@ export default function FinancePage() {
               </Card>
             </motion.div>
 
-            <motion.div variants={item as any}>
-              <Card className="hover:border-primary/50 transition-colors">
+            <motion.div variants={item as any} className="shrink-0 w-[82vw] sm:w-[45vw] md:w-auto snap-center">
+              <Card className="hover:border-primary/50 transition-colors h-full">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium">Alunos Ativos</CardTitle>
                   <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center">
@@ -696,8 +706,8 @@ export default function FinancePage() {
               </Card>
             </motion.div>
 
-            <motion.div variants={item as any}>
-              <Card className="hover:border-primary/50 transition-colors">
+            <motion.div variants={item as any} className="shrink-0 w-[82vw] sm:w-[45vw] md:w-auto snap-center">
+              <Card className="hover:border-primary/50 transition-colors h-full">
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
                   <CardTitle className="text-sm font-medium">Inadimplência</CardTitle>
                   <div className="size-8 rounded-full bg-destructive/10 flex items-center justify-center">
@@ -719,93 +729,139 @@ export default function FinancePage() {
             <div className="space-y-6 lg:col-span-2 min-w-0">
               {/* Revenue Chart */}
               <motion.div variants={item as any}>
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Histórico de Arrecadação</CardTitle>
-                    <CardDescription>Visualização dos pagamentos manuais marcados como pagos nos últimos 6 meses.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="h-[250px] w-full min-w-0">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                          <defs>
-                            <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
-                              <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3} />
-                              <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
-                            </linearGradient>
-                          </defs>
-                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.5} />
-                          <XAxis
-                            dataKey="name"
-                            axisLine={false}
-                            tickLine={false}
-                            tickMargin={8}
-                            className="text-[10px] font-bold text-muted-foreground"
-                          />
-                          <YAxis
-                            axisLine={false}
-                            tickLine={false}
-                            width={40}
-                            tickFormatter={(value) => `R$ ${value}`}
-                            className="text-[10px] font-bold text-muted-foreground"
-                          />
-                          <Tooltip
-                            contentStyle={{ backgroundColor: "var(--card)", borderColor: "var(--border)", borderRadius: "8px" }}
-                            itemStyle={{ color: "var(--foreground)" }}
-                            formatter={(value: number | any) => [new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value), "Faturamento"]}
-                          />
-                          <Area
-                            type="monotone"
-                            dataKey="revenue"
-                            stroke="var(--primary)"
-                            strokeWidth={2}
-                            fillOpacity={1}
-                            fill="url(#colorRevenue)"
-                          />
-                        </AreaChart>
-                      </ResponsiveContainer>
-                    </div>
-                  </CardContent>
+                <Card className="border-border bg-card shadow-sm rounded-2xl overflow-hidden">
+                  <Tabs defaultValue="arrecadacao" className="w-full">
+                    <CardHeader className="flex flex-col sm:flex-row sm:items-center justify-between p-4 sm:p-6 pb-2 gap-3">
+                      <div className="space-y-1">
+                        <CardTitle className="text-base font-bold">Análise de Receita</CardTitle>
+                        <CardDescription className="text-xs">Monitore faturamento mensal e status de faturas.</CardDescription>
+                      </div>
+                      <TabsList className="bg-secondary/15 border border-border/30 rounded-lg p-0.5 h-8 gap-0.5 w-fit shrink-0">
+                        <TabsTrigger value="arrecadacao" className="text-[10px] font-bold rounded-md px-3 h-7">Evolução</TabsTrigger>
+                        <TabsTrigger value="status" className="text-[10px] font-bold rounded-md px-3 h-7">Status</TabsTrigger>
+                      </TabsList>
+                    </CardHeader>
+                    
+                    <CardContent className="p-4 sm:p-6 pt-0">
+                      <TabsContent value="arrecadacao" className="outline-none m-0">
+                        <div className="h-[250px] w-full min-w-0">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                              <defs>
+                                <linearGradient id="colorRevenue" x1="0" y1="0" x2="0" y2="1">
+                                  <stop offset="5%" stopColor="var(--primary)" stopOpacity={0.3} />
+                                  <stop offset="95%" stopColor="var(--primary)" stopOpacity={0} />
+                                </linearGradient>
+                              </defs>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.5} />
+                              <XAxis
+                                dataKey="name"
+                                axisLine={false}
+                                tickLine={false}
+                                tickMargin={8}
+                                className="text-[10px] font-bold text-muted-foreground"
+                              />
+                              <YAxis
+                                axisLine={false}
+                                tickLine={false}
+                                width={40}
+                                tickFormatter={(value) => `R$ ${value}`}
+                                className="text-[10px] font-bold text-muted-foreground"
+                              />
+                              <Tooltip
+                                contentStyle={{ backgroundColor: "var(--card)", borderColor: "var(--border)", borderRadius: "8px" }}
+                                itemStyle={{ color: "var(--foreground)" }}
+                                formatter={(value: number | any) => [new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value), "Faturamento"]}
+                              />
+                              <Area
+                                type="monotone"
+                                dataKey="revenue"
+                                stroke="var(--primary)"
+                                strokeWidth={2}
+                                fillOpacity={1}
+                                fill="url(#colorRevenue)"
+                              />
+                            </AreaChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </TabsContent>
+
+                      <TabsContent value="status" className="outline-none m-0">
+                        <div className="h-[250px] w-full min-w-0">
+                          <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={statusData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" opacity={0.5} />
+                              <XAxis
+                                dataKey="name"
+                                axisLine={false}
+                                tickLine={false}
+                                tickMargin={8}
+                                className="text-[10px] font-bold text-muted-foreground"
+                              />
+                              <YAxis
+                                axisLine={false}
+                                tickLine={false}
+                                width={30}
+                                className="text-[10px] font-bold text-muted-foreground"
+                              />
+                              <Tooltip
+                                contentStyle={{ backgroundColor: "var(--card)", borderColor: "var(--border)", borderRadius: "8px" }}
+                                itemStyle={{ color: "var(--foreground)" }}
+                                formatter={(value: number | any) => [value, "Faturas"]}
+                              />
+                              <Bar dataKey="value" radius={[4, 4, 0, 0]}>
+                                {statusData.map((entry, index) => (
+                                  <Cell key={`cell-${index}`} fill={entry.color} />
+                                ))}
+                              </Bar>
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      </TabsContent>
+                    </CardContent>
+                  </Tabs>
                 </Card>
               </motion.div>
 
               <motion.div variants={item as any}>
-                <Card>
-                  <CardHeader className="pb-4">
+                <Card className="border-border bg-card shadow-sm rounded-2xl overflow-hidden">
+                  <CardHeader className="p-4 sm:p-6 pb-2 sm:pb-4">
                     <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                       <div>
-                        <CardTitle>Gestão Financeira & Cobranças</CardTitle>
-                        <CardDescription>Monitore lançamentos de faturas ou gerencie planos de recorrência dos alunos.</CardDescription>
+                        <CardTitle className="text-lg sm:text-xl">Gestão Financeira & Cobranças</CardTitle>
+                        <CardDescription className="text-xs sm:text-sm">Monitore lançamentos de faturas ou gerencie planos de recorrência dos alunos.</CardDescription>
                       </div>
                     </div>
                   </CardHeader>
-                  <CardContent className="space-y-4">
-                    <div className="flex gap-1 p-1 bg-secondary border border-border rounded-xl w-fit">
+                  <CardContent className="p-4 sm:p-6 pt-0 space-y-4">
+                    <div className="grid grid-cols-2 w-full sm:flex sm:w-fit gap-1 p-1 bg-secondary border border-border rounded-xl">
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => setActiveSection("historico")}
                         className={cn(
-                          "text-xs font-bold px-4 h-8 rounded-lg transition-colors cursor-pointer",
+                          "text-xs font-bold px-2 sm:px-4 h-8 rounded-lg transition-colors cursor-pointer text-center",
                           activeSection === "historico"
                             ? "bg-background text-foreground shadow-xs"
                             : "text-muted-foreground hover:text-foreground"
                         )}
                       >
-                        Histórico de Lançamentos
+                        <span className="hidden sm:inline">Histórico de Lançamentos</span>
+                        <span className="inline sm:hidden">Lançamentos</span>
                       </Button>
                       <Button
                         variant="ghost"
                         size="sm"
                         onClick={() => setActiveSection("recorrencias")}
                         className={cn(
-                          "text-xs font-bold px-4 h-8 rounded-lg transition-colors cursor-pointer",
+                          "text-xs font-bold px-2 sm:px-4 h-8 rounded-lg transition-colors cursor-pointer text-center",
                           activeSection === "recorrencias"
                             ? "bg-background text-foreground shadow-xs"
                             : "text-muted-foreground hover:text-foreground"
                         )}
                       >
-                        Controle de Recorrência ({recurrences.length})
+                        <span className="hidden sm:inline">Controle de Recorrência ({recurrences.length})</span>
+                        <span className="inline sm:hidden">Recorrências ({recurrences.length})</span>
                       </Button>
                     </div>
 
@@ -821,7 +877,7 @@ export default function FinancePage() {
                               onChange={(e) => setSearchQuery(e.target.value)}
                             />
                           </div>
-                          <div className="flex gap-1.5 overflow-x-auto pb-1 sm:pb-0">
+                          <div className="flex gap-1.5 overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
                             {(["todos", "pago", "pendente", "atrasado"] as const).map((tab) => (
                               <Button
                                 key={tab}
@@ -849,8 +905,9 @@ export default function FinancePage() {
                             </div>
                           ) : (
                             filteredPayments.map((tx) => (
-                              <div key={tx.id} className="flex items-center justify-between p-4 rounded-xl border border-border bg-secondary/20 hover:bg-secondary/40 transition-all gap-4 min-w-0">
-                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                              <div key={tx.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-border bg-secondary/20 hover:bg-secondary/40 transition-all gap-3 min-w-0">
+                                {/* Left: Info & Details */}
+                                <div className="flex items-center gap-3 min-w-0">
                                   <div className={cn(
                                     "size-10 rounded-full flex items-center justify-center shrink-0 border",
                                     tx.status === "pago" ? "bg-success/10 text-success" :
@@ -864,7 +921,7 @@ export default function FinancePage() {
                                   <div className="flex flex-col gap-1 min-w-0 flex-1">
                                     <p className="font-semibold text-sm leading-tight text-foreground truncate">{tx.student}</p>
                                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                                      <span className="truncate max-w-[120px]">{tx.plan}</span>
+                                      <span className="truncate max-w-[150px]">{tx.plan}</span>
                                       <span className="text-[10px] text-border select-none">•</span>
                                       <span className="flex items-center gap-1 shrink-0">
                                         <Calendar className="size-3" />
@@ -876,58 +933,119 @@ export default function FinancePage() {
                                   </div>
                                 </div>
 
-                                <div className="flex items-center gap-3 shrink-0 ml-auto">
-                                  <div className="text-right">
-                                    <p className="font-bold text-sm text-foreground">
-                                      {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.amount)}
-                                    </p>
-                                    <div className="mt-1 flex justify-end">
+                                {/* Right: Price, Status Badge & Dropdown */}
+                                <div className="flex items-center justify-between sm:justify-end gap-3 sm:ml-auto border-t sm:border-t-0 border-border/40 pt-2 sm:pt-0 shrink-0">
+                                  <div className="text-left sm:text-right flex items-center sm:block gap-2 sm:gap-0 w-full sm:w-auto justify-between sm:justify-start">
+                                    {/* Mobile price layout */}
+                                    <div className="sm:hidden text-left flex items-center gap-2">
+                                      <p className="font-bold text-sm text-foreground">
+                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.amount)}
+                                      </p>
                                       {getStatusBadge(tx.status)}
+                                    </div>
+
+                                    {/* Desktop price layout */}
+                                    <div className="hidden sm:block">
+                                      <p className="font-bold text-sm text-foreground">
+                                        {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(tx.amount)}
+                                      </p>
+                                      <div className="mt-1 flex justify-end">
+                                        {getStatusBadge(tx.status)}
+                                      </div>
+                                    </div>
+
+                                    {/* Actions button */}
+                                    <div className="sm:hidden ml-auto">
+                                      <DropdownMenu>
+                                        <DropdownMenuTrigger asChild>
+                                          <Button
+                                            variant="ghost"
+                                            size="icon"
+                                            className="size-8 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
+                                          >
+                                            <MoreHorizontal className="size-4" />
+                                          </Button>
+                                        </DropdownMenuTrigger>
+                                        <DropdownMenuContent align="end" className="w-52 rounded-xl border-border/50">
+                                          {tx.status !== "pago" && (
+                                            <DropdownMenuItem
+                                              onClick={() => handleQuickMarkAsPaid(tx.id)}
+                                              disabled={isUpdatingStatusId === tx.id}
+                                              className="h-9 rounded-lg gap-2 cursor-pointer font-semibold text-xs text-emerald-500 focus:text-emerald-500 focus:bg-emerald-500/10"
+                                            >
+                                              {isUpdatingStatusId === tx.id ? (
+                                                <Loader2 className="size-3.5 animate-spin" />
+                                              ) : (
+                                                <CheckCircle2 className="size-3.5" />
+                                              )}
+                                              <span>Confirmar Pagamento</span>
+                                            </DropdownMenuItem>
+                                          )}
+                                          <DropdownMenuItem
+                                            onClick={() => handleOpenEditModal(tx)}
+                                            className="h-9 rounded-lg gap-2 cursor-pointer font-semibold text-xs"
+                                          >
+                                            <Edit className="size-3.5 text-primary" />
+                                            <span>Editar Lançamento</span>
+                                          </DropdownMenuItem>
+                                          <DropdownMenuSeparator />
+                                          <DropdownMenuItem
+                                            onClick={() => handleOpenDeleteConfirm(tx)}
+                                            className="h-9 rounded-lg gap-2 cursor-pointer text-red-500 focus:text-red-500 focus:bg-red-500/10 font-semibold text-xs"
+                                          >
+                                            <Trash2 className="size-3.5" />
+                                            <span>Excluir Lançamento</span>
+                                          </DropdownMenuItem>
+                                        </DropdownMenuContent>
+                                      </DropdownMenu>
                                     </div>
                                   </div>
 
-                                  <DropdownMenu>
-                                    <DropdownMenuTrigger asChild>
-                                      <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="size-8 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
-                                      >
-                                        <MoreHorizontal className="size-4" />
-                                      </Button>
-                                    </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-52 rounded-xl border-border/50">
-                                      {tx.status !== "pago" && (
-                                        <DropdownMenuItem
-                                          onClick={() => handleQuickMarkAsPaid(tx.id)}
-                                          disabled={isUpdatingStatusId === tx.id}
-                                          className="h-9 rounded-lg gap-2 cursor-pointer font-semibold text-xs text-emerald-500 focus:text-emerald-500 focus:bg-emerald-500/10"
+                                  {/* Desktop-only dropdown trigger */}
+                                  <div className="hidden sm:block">
+                                    <DropdownMenu>
+                                      <DropdownMenuTrigger asChild>
+                                        <Button
+                                          variant="ghost"
+                                          size="icon"
+                                          className="size-8 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
                                         >
-                                          {isUpdatingStatusId === tx.id ? (
-                                            <Loader2 className="size-3.5 animate-spin" />
-                                          ) : (
-                                            <CheckCircle2 className="size-3.5" />
-                                          )}
-                                          <span>Confirmar Pagamento</span>
+                                          <MoreHorizontal className="size-4" />
+                                        </Button>
+                                      </DropdownMenuTrigger>
+                                      <DropdownMenuContent align="end" className="w-52 rounded-xl border-border/50">
+                                        {tx.status !== "pago" && (
+                                          <DropdownMenuItem
+                                            onClick={() => handleQuickMarkAsPaid(tx.id)}
+                                            disabled={isUpdatingStatusId === tx.id}
+                                            className="h-9 rounded-lg gap-2 cursor-pointer font-semibold text-xs text-emerald-500 focus:text-emerald-500 focus:bg-emerald-500/10"
+                                          >
+                                            {isUpdatingStatusId === tx.id ? (
+                                              <Loader2 className="size-3.5 animate-spin" />
+                                            ) : (
+                                              <CheckCircle2 className="size-3.5" />
+                                            )}
+                                            <span>Confirmar Pagamento</span>
+                                          </DropdownMenuItem>
+                                        )}
+                                        <DropdownMenuItem
+                                          onClick={() => handleOpenEditModal(tx)}
+                                          className="h-9 rounded-lg gap-2 cursor-pointer font-semibold text-xs"
+                                        >
+                                          <Edit className="size-3.5 text-primary" />
+                                          <span>Editar Lançamento</span>
                                         </DropdownMenuItem>
-                                      )}
-                                      <DropdownMenuItem
-                                        onClick={() => handleOpenEditModal(tx)}
-                                        className="h-9 rounded-lg gap-2 cursor-pointer font-semibold text-xs"
-                                      >
-                                        <Edit className="size-3.5 text-primary" />
-                                        <span>Editar Lançamento</span>
-                                      </DropdownMenuItem>
-                                      <DropdownMenuSeparator />
-                                      <DropdownMenuItem
-                                        onClick={() => handleOpenDeleteConfirm(tx)}
-                                        className="h-9 rounded-lg gap-2 cursor-pointer text-red-500 focus:text-red-500 focus:bg-red-500/10 font-semibold text-xs"
-                                      >
-                                        <Trash2 className="size-3.5" />
-                                        <span>Excluir Lançamento</span>
-                                      </DropdownMenuItem>
-                                    </DropdownMenuContent>
-                                  </DropdownMenu>
+                                        <DropdownMenuSeparator />
+                                        <DropdownMenuItem
+                                          onClick={() => handleOpenDeleteConfirm(tx)}
+                                          className="h-9 rounded-lg gap-2 cursor-pointer text-red-500 focus:text-red-500 focus:bg-red-500/10 font-semibold text-xs"
+                                        >
+                                          <Trash2 className="size-3.5" />
+                                          <span>Excluir Lançamento</span>
+                                        </DropdownMenuItem>
+                                      </DropdownMenuContent>
+                                    </DropdownMenu>
+                                  </div>
                                 </div>
                               </div>
                             ))
@@ -969,8 +1087,9 @@ export default function FinancePage() {
                               const isConfirm = rec.billingControlType === "CONFIRMATION";
 
                               return (
-                                <div key={rec.id} className="flex items-center justify-between p-4 rounded-xl border border-border bg-secondary/20 hover:bg-secondary/40 transition-all gap-4 min-w-0">
-                                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                                <div key={rec.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 rounded-xl border border-border bg-secondary/20 hover:bg-secondary/40 transition-all gap-3 min-w-0">
+                                  {/* Left: Icon & Info */}
+                                  <div className="flex items-center gap-3 min-w-0">
                                     <div className={cn(
                                       "size-10 rounded-full flex items-center justify-center shrink-0 border",
                                       isManual ? "bg-zinc-800/40 text-zinc-400 border-zinc-700/50" :
@@ -981,7 +1100,7 @@ export default function FinancePage() {
                                       <RefreshCw className={cn("size-5", !isManual && !isPaused && "animate-spin-slow")} />
                                     </div>
 
-                                    <div className="flex flex-col gap-1 min-w-0 flex-1">
+                                    <div className="flex-1 min-w-0 space-y-1">
                                       <div className="flex items-center gap-2">
                                         <p className="font-semibold text-sm leading-tight text-foreground truncate">{rec.studentName}</p>
                                         {!isManual && (
@@ -992,9 +1111,9 @@ export default function FinancePage() {
                                         )}
                                       </div>
                                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
-                                        <span className="truncate max-w-[150px]">
+                                        <span className="font-semibold text-foreground/90">
                                           {isManual ? "Controle Manual" :
-                                            isConfirm ? "Recorrência com Confirmação" : "Recorrência Automática"}
+                                            isConfirm ? "Com Confirmação" : "Automática"}
                                         </span>
                                         <span className="text-[10px] text-border select-none">•</span>
                                         {isManual ? (
@@ -1009,8 +1128,10 @@ export default function FinancePage() {
                                     </div>
                                   </div>
 
-                                  <div className="flex items-center gap-3 shrink-0 ml-auto">
-                                    <div className="text-right">
+                                  {/* Right: Actions / Pricing */}
+                                  <div className="flex items-center justify-between sm:justify-end gap-3 sm:ml-auto border-t sm:border-t-0 border-border/40 pt-2 sm:pt-0 shrink-0">
+                                    {/* Desktop price layout */}
+                                    <div className="hidden sm:block text-right">
                                       {!isManual ? (
                                         <>
                                           <p className="font-bold text-sm text-foreground">
@@ -1025,15 +1146,31 @@ export default function FinancePage() {
                                       )}
                                     </div>
 
-                                    <Button
-                                      size="sm"
-                                      variant="outline"
-                                      onClick={() => handleOpenRecurrenceModal(rec)}
-                                      className="h-9 gap-1.5 border-border hover:bg-secondary text-xs font-bold text-muted-foreground hover:text-foreground rounded-xl cursor-pointer"
-                                    >
-                                      <Settings className="size-3.5" />
-                                      <span>Configurar</span>
-                                    </Button>
+                                    {/* Mobile bottom row layout */}
+                                    <div className="flex items-center justify-between w-full sm:w-auto gap-3">
+                                      <div className="sm:hidden text-left">
+                                        {!isManual ? (
+                                          <p className="font-bold text-sm text-foreground">
+                                            {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(rec.billingPrice || 0)}
+                                            <span className="text-[10px] text-muted-foreground capitalize font-normal ml-1">
+                                              / {rec.billingPeriodicity?.toLowerCase()}
+                                            </span>
+                                          </p>
+                                        ) : (
+                                          <p className="text-xs font-semibold text-muted-foreground">Controle Manual</p>
+                                        )}
+                                      </div>
+
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleOpenRecurrenceModal(rec)}
+                                        className="h-9 gap-1.5 border-border hover:bg-secondary text-xs font-bold text-muted-foreground hover:text-foreground rounded-xl cursor-pointer ml-auto"
+                                      >
+                                        <Settings className="size-3.5" />
+                                        <span>Configurar</span>
+                                      </Button>
+                                    </div>
                                   </div>
                                 </div>
                               );
@@ -1282,7 +1419,7 @@ export default function FinancePage() {
               </Button>
               <Button type="submit" disabled={isSavingPayment} className="gap-2 bg-primary text-primary-foreground hover:bg-primary/95 font-semibold">
                 {isSavingPayment && <Loader2 className="size-4 animate-spin" />}
-                <span>Salvar Receita</span>
+                <span>{isSavingPayment ? "Salvando..." : "Salvar Receita"}</span>
               </Button>
             </DialogFooter>
           </form>
@@ -1536,7 +1673,7 @@ export default function FinancePage() {
                 className="gap-2 bg-primary text-primary-foreground hover:bg-primary/95 font-semibold"
               >
                 {isSavingRecurrence && <Loader2 className="size-4 animate-spin" />}
-                <span>Salvar Configuração</span>
+                <span>{isSavingRecurrence ? "Salvando..." : "Salvar Configuração"}</span>
               </Button>
             </DialogFooter>
           </form>

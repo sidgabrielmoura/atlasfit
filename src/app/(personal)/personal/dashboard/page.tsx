@@ -12,6 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useSnapshot } from "valtio";
 import { workspaceStore } from "@/stores/workspace.store";
 import {
@@ -48,32 +49,32 @@ function KPICard({ title, value, change, icon: Icon, prefix = "", suffix = "", c
 }) {
   const isPositive = change >= 0;
   return (
-    <motion.div variants={item as any} className="flex-1 w-full min-w-80">
-      <Card className="relative overflow-hidden border border-border/50 p-0">
-        <CardContent className="p-4">
-          <div className="flex items-start justify-between">
-            <div className="space-y-2">
-              <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider line-clamp-1">{title}</p>
-              <p className="text-2xl font-bold tracking-tight">
+    <motion.div variants={item as any} className="w-[250px] min-w-[250px] md:w-full md:min-w-0 snap-center shrink-0">
+      <Card size="sm" className="relative overflow-hidden border border-border/50">
+        <CardContent className="p-3 md:p-4">
+          <div className="flex items-start justify-between gap-2">
+            <div className="space-y-1 md:space-y-2">
+              <p className="text-[10px] md:text-xs font-semibold text-muted-foreground uppercase tracking-wider line-clamp-1">{title}</p>
+              <p className="text-xl md:text-2xl font-bold tracking-tight">
                 {prefix}
                 {typeof value === "number" ? value.toLocaleString("pt-BR") : value}
                 {suffix}
               </p>
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-1">
                 {isPositive ? (
-                  <ArrowUpRight className="size-3.5 text-emerald-500" />
+                  <ArrowUpRight className="size-3 md:size-3.5 text-emerald-500 shrink-0" />
                 ) : (
-                  <ArrowDownRight className="size-3.5 text-red-400" />
+                  <ArrowDownRight className="size-3 md:size-3.5 text-red-400 shrink-0" />
                 )}
-                <span className={cn("text-xs font-semibold", isPositive ? "text-emerald-500" : "text-red-400")}>
+                <span className={cn("text-[10px] md:text-xs font-semibold", isPositive ? "text-emerald-500" : "text-red-400")}>
                   {isPositive ? "+" : ""}
                   {change}%
                 </span>
-                <span className="text-xs text-muted-foreground line-clamp-1">{changeLabel}</span>
+                <span className="text-[10px] md:text-xs text-muted-foreground line-clamp-1">{changeLabel}</span>
               </div>
             </div>
-            <div className="flex size-10 items-center justify-center rounded-xl bg-primary/10 text-primary shrink-0">
-              <Icon className="size-5" />
+            <div className="flex size-8 md:size-10 items-center justify-center rounded-lg md:rounded-xl bg-primary/10 text-primary shrink-0">
+              <Icon className="size-4 md:size-5" />
             </div>
           </div>
         </CardContent>
@@ -245,7 +246,7 @@ export default function DashboardPage() {
       </div>
 
       {/* KPI Cards */}
-      <motion.div variants={container} initial="hidden" animate="show" className="flex items-center flex-wrap gap-3 md:gap-4">
+      <motion.div variants={container} initial="hidden" animate="show" className="flex items-center gap-3 overflow-x-auto pb-2 md:grid md:grid-cols-5 md:gap-4 no-scrollbar snap-x snap-mandatory">
         <KPICard title="Alunos Ativos" value={metrics.studentsMetrics.totalActive} change={metrics.studentsMetrics.totalActiveChange} icon={Users} />
         <KPICard title="Risco de Churn" value={metrics.studentsMetrics.inactive} change={metrics.studentsMetrics.inactiveChange} icon={UserMinus} suffix=" alunos" />
         <KPICard title="Receita Mensal" value={metrics.financialMetrics.mrr} change={metrics.financialMetrics.mrrChange} icon={DollarSign} prefix="R$ " />
@@ -253,274 +254,348 @@ export default function DashboardPage() {
         <KPICard title="Taxa de Conclusão" value={metrics.studentsMetrics.completionRate} change={metrics.studentsMetrics.completionChange} icon={CheckCircle2} suffix="%" />
       </motion.div>
 
-      {/* Main Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="lg:col-span-2">
-          <Card className="border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-bold"><BarChart3 className="size-4 text-primary" />Evolução da Receita</CardTitle>
-              <CardDescription>Comparativo mensal (últimos 6 meses)</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={revenueChartConfig} className="h-[260px] w-full">
-                <AreaChart data={metrics.revenueHistory} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="fillCurrent" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0.02} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border/30" />
-                  <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} className="text-xs" />
-                  <YAxis tickLine={false} axisLine={false} tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`} width={55} className="text-xs" />
-                  <ChartTooltip content={<ChartTooltipContent formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR")}`} />} />
-                  <Area type="monotone" dataKey="previous" stroke="var(--chart-4)" strokeWidth={1.5} strokeDasharray="4 4" fill="transparent" />
-                  <Area type="monotone" dataKey="current" stroke="var(--chart-1)" strokeWidth={2} fill="url(#fillCurrent)" />
-                </AreaChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-        </motion.div>
+      {/* Tabs Navigation */}
+      <Tabs defaultValue="general" className="w-full space-y-6">
+        <TabsList variant="line" className="w-full justify-start border-b border-border/50 rounded-none h-10 p-0 gap-6">
+          <TabsTrigger
+            value="general"
+            className="rounded-none border-none py-2 px-1 text-sm font-semibold relative data-[state=active]:bg-transparent dark:data-[state=active]:bg-transparent cursor-pointer"
+          >
+            Geral
+          </TabsTrigger>
+          <TabsTrigger
+            value="students"
+            className="rounded-none border-none py-2 px-1 text-sm font-semibold relative data-[state=active]:bg-transparent dark:data-[state=active]:bg-transparent cursor-pointer"
+          >
+            Alunos & Performance
+          </TabsTrigger>
+          <TabsTrigger
+            value="financial"
+            className="rounded-none border-none py-2 px-1 text-sm font-semibold relative data-[state=active]:bg-transparent dark:data-[state=active]:bg-transparent cursor-pointer"
+          >
+            Financeiro
+          </TabsTrigger>
+        </TabsList>
 
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
-          <Card className="h-full border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-bold"><FileText className="size-4 text-primary" />Modalidades de Atendimento</CardTitle>
-              <CardDescription>{metrics.studentsMetrics.totalActive} alunos ativos vinculados</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {metrics.planDistribution.map((p: any) => (
-                <div key={p.plan} className="space-y-1.5">
-                  <div className="flex items-center justify-between text-sm">
-                    <span className="text-muted-foreground font-medium">{p.plan}</span>
-                    <span className="font-semibold">{p.count} {p.count === 1 ? "aluno" : "alunos"} <span className="text-xs font-normal text-muted-foreground">· R$ {p.revenue.toLocaleString("pt-BR")}</span></span>
-                  </div>
-                  <Progress value={(p.count / (metrics.studentsMetrics.totalActive || 1)) * 100} className="h-2 rounded-full" />
-                </div>
-              ))}
-              <div className="pt-3 border-t space-y-2 mt-4">
-                <div className="flex justify-between text-sm"><span className="text-muted-foreground font-medium">Rotatividade (Churn)</span><span className="font-semibold text-red-400">{metrics.financialMetrics.financialChurn}%</span></div>
-                <div className="flex justify-between text-sm"><span className="text-muted-foreground font-medium">Projeção de Receita</span><span className="font-semibold text-emerald-400">R$ {metrics.financialMetrics.revenueProjection.toLocaleString("pt-BR")}</span></div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-
-      {/* Rankings */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
-          <Card className="h-full border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-bold"><Flame className="size-4 text-primary" />Top Alunos da Semana</CardTitle>
-              <CardDescription>Ranking por frequência e constância de treino</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {metrics.topStudentsWeek.map((s: any, i: number) => (
-                <div key={s.id} className="flex items-center gap-3">
-                  <span className={cn("flex size-6 items-center justify-center rounded-full text-xs font-bold shrink-0", i === 0 ? "bg-primary text-primary-foreground animate-bounce" : "bg-muted text-muted-foreground")}>{i + 1}</span>
-                  <Avatar className="size-8"><AvatarFallback className="text-xs bg-primary/10 text-primary font-bold">{s.avatarFallback}</AvatarFallback></Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold truncate">{s.name}</p>
-                    <p className="text-xs text-muted-foreground">{s.sessions} treinos · {s.streak} dias seguidos</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <Badge variant="outline" className="text-xs font-semibold gap-1 rounded-full"><TrendingUp className="size-3 text-emerald-500" />{s.progress}%</Badge>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
-          <Card className="h-full border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-bold"><AlertTriangle className="size-4 text-amber-400" />Alunos Inativos</CardTitle>
-              <CardDescription>Alunos com ausência prolongada do portal</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {metrics.inactiveStudents.length > 0 ? (
-                metrics.inactiveStudents.map((s: any) => (
-                  <div key={s.id} className="flex items-center gap-3">
-                    <Avatar className="size-8"><AvatarFallback className="text-xs bg-muted font-bold text-muted-foreground">{s.avatarFallback}</AvatarFallback></Avatar>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold truncate">{s.name}</p>
-                      <p className="text-xs text-muted-foreground">Última aula: {s.lastSession}</p>
+        {/* ============================== */}
+        {/* ABA: GERAL                     */}
+        {/* ============================== */}
+        <TabsContent value="general" className="space-y-6 outline-none">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Alunos Inativos */}
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+              <Card className="h-full border-border/50" size="sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 font-bold">
+                    <AlertTriangle className="size-4 text-amber-400" />
+                    Alunos Inativos
+                  </CardTitle>
+                  <CardDescription>Alunos com ausência prolongada do portal</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {metrics.inactiveStudents.length > 0 ? (
+                    metrics.inactiveStudents.map((s: any) => (
+                      <div key={s.id} className="flex items-center gap-3">
+                        <Avatar className="size-8">
+                          <AvatarFallback className="text-xs bg-muted font-bold text-muted-foreground">
+                            {s.avatarFallback}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold truncate">{s.name}</p>
+                          <p className="text-xs text-muted-foreground">Última aula: {s.lastSession}</p>
+                        </div>
+                        <Badge
+                          className={cn(
+                            "text-xs shrink-0 font-bold rounded-full border-0",
+                            riskColors[s.risk as keyof typeof riskColors]
+                          )}
+                        >
+                          {s.daysInactive} dias off
+                        </Badge>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="h-32 flex flex-col items-center justify-center text-center">
+                      <CheckCircle2 className="size-8 text-emerald-500 mb-2" />
+                      <p className="text-sm font-bold">Nenhum aluno inativo!</p>
+                      <p className="text-xs text-muted-foreground">Constância perfeita no workspace.</p>
                     </div>
-                    <Badge className={cn("text-xs shrink-0 font-bold rounded-full border-0", riskColors[s.risk as keyof typeof riskColors])}>
-                      {s.daysInactive} dias off
-                    </Badge>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Atividade Recente */}
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+              <Card className="h-full border-border/50" size="sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 font-bold">
+                    <Activity className="size-4 text-primary" />
+                    Atividade Recente
+                  </CardTitle>
+                  <CardDescription>Timeline de interações e aulas finalizadas</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4 max-h-[300px] overflow-y-auto pr-1">
+                  {metrics.recentActivity.slice(0, 5).map((a: any) => (
+                    <div key={a.id} className="flex gap-3">
+                      <div className="flex flex-col items-center">
+                        <span className={cn("size-2.5 rounded-full shrink-0 mt-1.5", activityColors[a.type as keyof typeof activityColors])} />
+                        <span className="w-px flex-1 bg-border mt-1" />
+                      </div>
+                      <div className="pb-3 min-w-0 flex-1">
+                        <p className="text-sm font-bold truncate">{a.student}</p>
+                        <p className="text-xs text-muted-foreground leading-relaxed">{a.action}</p>
+                        <p className="text-[10px] text-muted-foreground/60 mt-0.5 flex items-center gap-1 font-semibold">
+                          <Clock className="size-3" />
+                          {a.time}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+        </TabsContent>
+
+        {/* ============================== */}
+        {/* ABA: ALUNOS & PERFORMANCE      */}
+        {/* ============================== */}
+        <TabsContent value="students" className="space-y-6 outline-none">
+          {/* Row 1: Charts & List */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Frequência Semanal */}
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
+              <Card className="h-full border-border/50" size="sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 font-bold">
+                    <CalendarCheck className="size-4 text-primary" />
+                    Frequência Semanal
+                  </CardTitle>
+                  <CardDescription>Check-ins de alunos por dia da semana</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer config={frequencyChartConfig} className="h-[200px] w-full">
+                    <BarChart data={metrics.weeklyFrequencyData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                      <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border/30" />
+                      <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} className="text-xs animate-fade-in" />
+                      <YAxis tickLine={false} axisLine={false} width={30} className="text-xs" />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Bar dataKey="count" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
+                    </BarChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Consistência de Treino */}
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+              <Card className="h-full border-border/50" size="sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 font-bold">
+                    <Target className="size-4 text-primary" />
+                    Consistência de Treino
+                  </CardTitle>
+                  <CardDescription>Taxa geral de aderência aos treinos do mês</CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col items-center justify-center gap-4 pt-2">
+                  <div className="relative flex items-center justify-center">
+                    <svg className="size-32" viewBox="0 0 120 120">
+                      <circle cx="60" cy="60" r="52" fill="none" className="stroke-muted" strokeWidth="8" />
+                      <circle cx="60" cy="60" r="52" fill="none" className="stroke-primary" strokeWidth="8" strokeLinecap="round"
+                        strokeDasharray={`${(metrics.trainingConsistency.overall / 100) * 327} 327`}
+                        transform="rotate(-90 60 60)" />
+                    </svg>
+                    <div className="absolute text-center">
+                      <p className="text-3xl font-black">{metrics.trainingConsistency.overall}%</p>
+                      <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">aderência</p>
+                    </div>
                   </div>
-                ))
-              ) : (
-                <div className="h-32 flex flex-col items-center justify-center text-center">
-                  <CheckCircle2 className="size-8 text-emerald-500 mb-2" />
-                  <p className="text-sm font-bold">Nenhum aluno inativo!</p>
-                  <p className="text-xs text-muted-foreground">Constância perfeita no workspace.</p>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
+                  <div className="w-full space-y-2">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground font-medium">Freq. Média</span>
+                      <span className="font-semibold">{metrics.studentsMetrics.avgWeeklyFrequency}x/sem</span>
+                    </div>
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground font-medium">Evolução Média Geral</span>
+                      <span className="font-semibold text-emerald-400">+{metrics.studentsMetrics.avgEvolution}%</span>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
 
-      {/* Fitness Insights & Evolution */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
-          <Card className="h-full border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-bold"><Dumbbell className="size-4 text-primary" />Evolução de Cargas</CardTitle>
-              <CardDescription>Carga média movimentada vs benchmark (8 sem)</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={loadChartConfig} className="h-[200px] w-full">
-                <LineChart data={metrics.loadEvolution} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border/30" />
-                  <XAxis dataKey="week" tickLine={false} axisLine={false} tickMargin={8} className="text-xs" />
-                  <YAxis tickLine={false} axisLine={false} width={30} className="text-xs" />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Line type="monotone" dataKey="benchmark" stroke="var(--chart-4)" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
-                  <Line type="monotone" dataKey="avg" stroke="var(--chart-1)" strokeWidth={2.5} dot={{ r: 3, fill: "var(--chart-1)" }} activeDot={{ r: 5 }} />
-                </LineChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-        </motion.div>
+            {/* Top Alunos da Semana */}
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
+              <Card className="h-full border-border/50" size="sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 font-bold">
+                    <Flame className="size-4 text-primary" />
+                    Top Alunos da Semana
+                  </CardTitle>
+                  <CardDescription>Ranking por frequência e constância</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {metrics.topStudentsWeek.map((s: any, i: number) => (
+                    <div key={s.id} className="flex items-center gap-3">
+                      <span className={cn("flex size-6 items-center justify-center rounded-full text-xs font-bold shrink-0", i === 0 ? "bg-primary text-primary-foreground animate-bounce" : "bg-muted text-muted-foreground")}>{i + 1}</span>
+                      <Avatar className="size-8"><AvatarFallback className="text-xs bg-primary/10 text-primary font-bold">{s.avatarFallback}</AvatarFallback></Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold truncate">{s.name}</p>
+                        <p className="text-xs text-muted-foreground">{s.sessions} treinos · {s.streak} dias seguidos</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <Badge variant="outline" className="text-xs font-semibold gap-1 rounded-full"><TrendingUp className="size-3 text-emerald-500" />{s.progress}%</Badge>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
 
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
-          <Card className="h-full border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-bold"><MessageSquare className="size-4 text-primary" />Percepção de Esforço</CardTitle>
-              <CardDescription>Feedbacks sobre a dificuldade dos treinos</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={feedbackChartConfig} className="h-[200px] w-full">
-                <PieChart>
-                  <ChartTooltip content={<ChartTooltipContent nameKey="difficulty" />} />
-                  <Pie data={metrics.trainingFeedback} dataKey="count" nameKey="difficulty" innerRadius={50} outerRadius={80} paddingAngle={3} strokeWidth={0}>
-                    {metrics.trainingFeedback.map((entry: any, index: number) => (
-                      <Cell key={index} fill={entry.fill} />
+          {/* Row 2: Performance Details */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {/* Evolução de Cargas */}
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
+              <Card className="h-full border-border/50" size="sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 font-bold"><Dumbbell className="size-4 text-primary" />Evolução de Cargas</CardTitle>
+                  <CardDescription>Carga média vs benchmark (8 sem)</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer config={loadChartConfig} className="h-[200px] w-full">
+                    <LineChart data={metrics.loadEvolution} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                      <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border/30" />
+                      <XAxis dataKey="week" tickLine={false} axisLine={false} tickMargin={8} className="text-xs" />
+                      <YAxis tickLine={false} axisLine={false} width={30} className="text-xs" />
+                      <ChartTooltip content={<ChartTooltipContent />} />
+                      <Line type="monotone" dataKey="benchmark" stroke="var(--chart-4)" strokeWidth={1.5} strokeDasharray="4 4" dot={false} />
+                      <Line type="monotone" dataKey="avg" stroke="var(--chart-1)" strokeWidth={2.5} dot={{ r: 3, fill: "var(--chart-1)" }} activeDot={{ r: 5 }} />
+                    </LineChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+            </motion.div>
+
+            {/* Percepção de Esforço */}
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.4 }}>
+              <Card className="h-full border-border/50" size="sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 font-bold"><MessageSquare className="size-4 text-primary" />Percepção de Esforço</CardTitle>
+                  <CardDescription>Feedbacks sobre a dificuldade dos treinos</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer config={feedbackChartConfig} className="h-[200px] w-full">
+                    <PieChart>
+                      <ChartTooltip content={<ChartTooltipContent nameKey="difficulty" />} />
+                      <Pie data={metrics.trainingFeedback} dataKey="count" nameKey="difficulty" innerRadius={50} outerRadius={80} paddingAngle={3} strokeWidth={0}>
+                        {metrics.trainingFeedback.map((entry: any, index: number) => (
+                          <Cell key={index} fill={entry.fill} />
+                        ))}
+                      </Pie>
+                    </PieChart>
+                  </ChartContainer>
+                  <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-2">
+                    {metrics.trainingFeedback.map((f: any) => (
+                      <div key={f.difficulty} className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground uppercase">
+                        <span className="size-2 rounded-full" style={{ backgroundColor: f.fill }} />
+                        {f.difficulty}
+                      </div>
                     ))}
-                  </Pie>
-                </PieChart>
-              </ChartContainer>
-              <div className="flex flex-wrap justify-center gap-x-4 gap-y-1 mt-2">
-                {metrics.trainingFeedback.map((f: any) => (
-                  <div key={f.difficulty} className="flex items-center gap-1.5 text-[10px] font-semibold text-muted-foreground uppercase">
-                    <span className="size-2 rounded-full" style={{ backgroundColor: f.fill }} />
-                    {f.difficulty}
                   </div>
-                ))}
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
+                </CardContent>
+              </Card>
+            </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.5 }}>
-          <Card className="h-full border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-bold"><Trophy className="size-4 text-amber-400" />Recordes de Alunos</CardTitle>
-              <CardDescription>Histórico de recordes pessoais recentes (PR)</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-3">
-              {metrics.personalRecords.map((pr: any) => (
-                <div key={pr.id} className="flex items-center gap-3">
-                  <Avatar className="size-8"><AvatarFallback className="text-xs bg-amber-500/10 text-amber-400 font-bold">{pr.avatarFallback}</AvatarFallback></Avatar>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-bold truncate">{pr.student}</p>
-                    <p className="text-xs text-muted-foreground">{pr.exercise} · {pr.date}</p>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <p className="text-sm font-bold text-primary">{pr.value}</p>
-                    <p className="text-xs text-muted-foreground line-through">{pr.previousBest}</p>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
+            {/* Recordes de Alunos */}
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.45 }}>
+              <Card className="h-full border-border/50" size="sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 font-bold"><Trophy className="size-4 text-amber-400" />Recordes de Alunos</CardTitle>
+                  <CardDescription>Histórico de recordes pessoais (PR)</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  {metrics.personalRecords.map((pr: any) => (
+                    <div key={pr.id} className="flex items-center gap-3">
+                      <Avatar className="size-8"><AvatarFallback className="text-xs bg-amber-500/10 text-amber-400 font-bold">{pr.avatarFallback}</AvatarFallback></Avatar>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-bold truncate">{pr.student}</p>
+                        <p className="text-xs text-muted-foreground">{pr.exercise} · {pr.date}</p>
+                      </div>
+                      <div className="text-right shrink-0">
+                        <p className="text-sm font-bold text-primary">{pr.value}</p>
+                        <p className="text-xs text-muted-foreground line-through">{pr.previousBest}</p>
+                      </div>
+                    </div>
+                  ))}
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+        </TabsContent>
 
-      {/* Frequency, Consistency, and Timeline */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.55 }}>
-          <Card className="h-full border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-bold"><CalendarCheck className="size-4 text-primary" />Frequência Semanal</CardTitle>
-              <CardDescription>Check-ins de alunos por dia da semana</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <ChartContainer config={frequencyChartConfig} className="h-[200px] w-full">
-                <BarChart data={metrics.weeklyFrequencyData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border/30" />
-                  <XAxis dataKey="day" tickLine={false} axisLine={false} tickMargin={8} className="text-xs animate-fade-in" />
-                  <YAxis tickLine={false} axisLine={false} width={30} className="text-xs" />
-                  <ChartTooltip content={<ChartTooltipContent />} />
-                  <Bar dataKey="count" fill="var(--chart-1)" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ChartContainer>
-            </CardContent>
-          </Card>
-        </motion.div>
+        {/* ============================== */}
+        {/* ABA: FINANCEIRO                */}
+        {/* ============================== */}
+        <TabsContent value="financial" className="space-y-6 outline-none">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+            {/* Evolução da Receita */}
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="lg:col-span-2">
+              <Card className="border-border/50" size="sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 font-bold"><BarChart3 className="size-4 text-primary" />Evolução da Receita</CardTitle>
+                  <CardDescription>Comparativo mensal (últimos 6 meses)</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ChartContainer config={revenueChartConfig} className="h-[260px] w-full">
+                    <AreaChart data={metrics.revenueHistory} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id="fillCurrent" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={0.3} />
+                          <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0.02} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border/30" />
+                      <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} className="text-xs" />
+                      <YAxis tickLine={false} axisLine={false} tickFormatter={(v) => `R$ ${(v / 1000).toFixed(0)}k`} width={55} className="text-xs" />
+                      <ChartTooltip content={<ChartTooltipContent formatter={(value) => `R$ ${Number(value).toLocaleString("pt-BR")}`} />} />
+                      <Area type="monotone" dataKey="previous" stroke="var(--chart-4)" strokeWidth={1.5} strokeDasharray="4 4" fill="transparent" />
+                      <Area type="monotone" dataKey="current" stroke="var(--chart-1)" strokeWidth={2} fill="url(#fillCurrent)" />
+                    </AreaChart>
+                  </ChartContainer>
+                </CardContent>
+              </Card>
+            </motion.div>
 
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.6 }}>
-          <Card className="h-full border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-bold"><Target className="size-4 text-primary" />Consistência de Treino</CardTitle>
-              <CardDescription>Taxa geral de aderência aos treinos do mês</CardDescription>
-            </CardHeader>
-            <CardContent className="flex flex-col items-center justify-center gap-4 pt-2">
-              <div className="relative flex items-center justify-center">
-                <svg className="size-32" viewBox="0 0 120 120">
-                  <circle cx="60" cy="60" r="52" fill="none" className="stroke-muted" strokeWidth="8" />
-                  <circle cx="60" cy="60" r="52" fill="none" className="stroke-primary" strokeWidth="8" strokeLinecap="round"
-                    strokeDasharray={`${(metrics.trainingConsistency.overall / 100) * 327} 327`}
-                    transform="rotate(-90 60 60)" />
-                </svg>
-                <div className="absolute text-center">
-                  <p className="text-3xl font-black">{metrics.trainingConsistency.overall}%</p>
-                  <p className="text-[10px] text-muted-foreground font-semibold uppercase tracking-wider">aderência</p>
-                </div>
-              </div>
-              <div className="w-full space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground font-medium">Freq. Média</span>
-                  <span className="font-semibold">{metrics.studentsMetrics.avgWeeklyFrequency}x/sem</span>
-                </div>
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-muted-foreground font-medium">Evolução Média Geral</span>
-                  <span className="font-semibold text-emerald-400">+{metrics.studentsMetrics.avgEvolution}%</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-
-        <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.65 }}>
-          <Card className="h-full border-border/50">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 font-bold"><Activity className="size-4 text-primary" />Atividade Recente</CardTitle>
-              <CardDescription>Timeline de interações e aulas finalizadas</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4 max-h-[220px] overflow-y-auto pr-1">
-              {metrics.recentActivity.slice(0, 5).map((a: any) => (
-                <div key={a.id} className="flex gap-3">
-                  <div className="flex flex-col items-center">
-                    <span className={cn("size-2.5 rounded-full shrink-0 mt-1.5", activityColors[a.type as keyof typeof activityColors])} />
-                    <span className="w-px flex-1 bg-border mt-1" />
+            {/* Modalidades de Atendimento */}
+            <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
+              <Card className="h-full border-border/50" size="sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 font-bold"><FileText className="size-4 text-primary" />Modalidades de Atendimento</CardTitle>
+                  <CardDescription>{metrics.studentsMetrics.totalActive} alunos ativos vinculados</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {metrics.planDistribution.map((p: any) => (
+                    <div key={p.plan} className="space-y-1.5">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-muted-foreground font-medium">{p.plan}</span>
+                        <span className="font-semibold">{p.count} {p.count === 1 ? "aluno" : "alunos"} <span className="text-xs font-normal text-muted-foreground">· R$ {p.revenue.toLocaleString("pt-BR")}</span></span>
+                      </div>
+                      <Progress value={(p.count / (metrics.studentsMetrics.totalActive || 1)) * 100} className="h-2 rounded-full" />
+                    </div>
+                  ))}
+                  <div className="pt-3 border-t space-y-2 mt-4">
+                    <div className="flex justify-between text-sm"><span className="text-muted-foreground font-medium">Rotatividade (Churn)</span><span className="font-semibold text-red-400">{metrics.financialMetrics.financialChurn}%</span></div>
+                    <div className="flex justify-between text-sm"><span className="text-muted-foreground font-medium">Projeção de Receita</span><span className="font-semibold text-emerald-400">R$ {metrics.financialMetrics.revenueProjection.toLocaleString("pt-BR")}</span></div>
                   </div>
-                  <div className="pb-3 min-w-0 flex-1">
-                    <p className="text-sm font-bold truncate">{a.student}</p>
-                    <p className="text-xs text-muted-foreground leading-relaxed">{a.action}</p>
-                    <p className="text-[10px] text-muted-foreground/60 mt-0.5 flex items-center gap-1 font-semibold"><Clock className="size-3" />{a.time}</p>
-                  </div>
-                </div>
-              ))}
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          </div>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

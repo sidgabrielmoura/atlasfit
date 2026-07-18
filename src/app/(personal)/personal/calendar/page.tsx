@@ -16,6 +16,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
   DialogContent,
@@ -276,6 +277,160 @@ export default function CalendarPage() {
     }
   };
 
+  const calendarCard = (
+    <Card className="flex-1 border-border bg-card shadow-sm flex flex-col rounded-2xl overflow-hidden">
+      <CardContent className="p-6 flex flex-1 items-center justify-center">
+        <Calendar
+          mode="single"
+          selected={date}
+          onSelect={setDate}
+          locale={ptBR}
+          className="w-full flex justify-center scale-100 sm:scale-110 lg:scale-100 xl:scale-110 origin-center text-foreground"
+          classNames={{
+            day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
+            day_today: "bg-accent text-accent-foreground font-semibold rounded-md",
+            head_cell: "text-muted-foreground font-medium text-[0.8rem] w-12",
+            cell: "h-12 w-12 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
+            day: cn("h-12 w-12 p-0 font-normal aria-selected:opacity-100 hover:bg-accent hover:text-accent-foreground rounded-md cursor-pointer transition-colors"),
+          }}
+        />
+      </CardContent>
+    </Card>
+  );
+
+  const tasksCard = (
+    <Card className="flex-1 border-border bg-card shadow-sm flex flex-col rounded-2xl overflow-hidden">
+      <CardHeader className="pb-4 border-b border-border/40">
+        <CardTitle className="flex items-center justify-between">
+          <span className="text-foreground text-lg">
+            {date ? format(date, "EEEE, d 'de' MMMM", { locale: ptBR }) : "Selecione uma data"}
+          </span>
+          <Badge variant="secondary" className="font-semibold text-xs bg-primary/10 text-primary border border-primary/20">
+            {tasks.length} {tasks.length === 1 ? "tarefa" : "tarefas"}
+          </Badge>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="flex-1 p-0 flex flex-col">
+        <ScrollArea className="flex-1 h-[450px] lg:h-auto">
+          {isLoading ? (
+            <div className="divide-y divide-border/50">
+              {[1, 2, 3].map((n) => (
+                <div key={n} className="p-6 flex items-start gap-6 animate-pulse">
+                  <div className="flex flex-col items-center mt-1 space-y-2">
+                    <Skeleton className="h-6 w-12 rounded bg-muted" />
+                    <Skeleton className="h-3 w-8 rounded bg-muted" />
+                  </div>
+                  <div className="w-px h-12 bg-border mx-2 hidden sm:block"></div>
+                  <div className="flex-1 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Skeleton className="h-5 w-2/3 rounded bg-muted" />
+                      <Skeleton className="h-4 w-16 rounded-full bg-muted" />
+                    </div>
+                    <div className="flex items-center gap-4">
+                      <Skeleton className="h-3 w-24 rounded bg-muted" />
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : error ? (
+            <div className="flex flex-col items-center justify-center p-12 text-center space-y-4">
+              <div className="p-4 rounded-full bg-red-500/10 text-red-500 border border-red-500/20">
+                <AlertCircle className="size-8" />
+              </div>
+              <div>
+                <p className="text-base font-semibold text-foreground">Falha ao carregar as tarefas</p>
+                <p className="text-sm text-muted-foreground mt-1 max-w-[280px] mx-auto">{error}</p>
+                <Button variant="outline" size="sm" onClick={fetchTasks} className="mt-4 border-border text-muted-foreground hover:text-foreground rounded-lg cursor-pointer">
+                  Tentar Novamente
+                </Button>
+              </div>
+            </div>
+          ) : tasks.length > 0 ? (
+            <div className="divide-y divide-border/40">
+              {tasks.map((task) => (
+                <div key={task.id} className="p-6 flex items-start gap-6 hover:bg-secondary/30 transition-colors group/task">
+                  <div className="flex items-center gap-4 shrink-0">
+                    <Checkbox
+                      checked={task.completed}
+                      onCheckedChange={() => handleToggleTask(task.id, task.completed)}
+                      className="size-5 cursor-pointer rounded-md shrink-0"
+                    />
+                    <div className="flex flex-col items-center">
+                      <span className="text-lg font-bold text-foreground leading-none">{task.time}</span>
+                      <span className="text-[10px] text-muted-foreground uppercase mt-1 tracking-wider font-bold">Horário</span>
+                    </div>
+                  </div>
+
+                  <div className="w-px h-12 bg-border/40 mx-2 hidden sm:block"></div>
+
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <div className="flex items-start justify-between gap-4">
+                      <div className="min-w-0">
+                        <h4 className={cn(
+                          "text-base font-semibold leading-tight truncate transition-colors",
+                          task.completed ? "text-muted-foreground line-through font-medium" : "text-foreground"
+                        )}>
+                          {task.title}
+                        </h4>
+                        <Badge variant="outline" className={cn("text-[9px] uppercase tracking-wider font-bold mt-1.5 px-2 py-0.5", typeConfig[task.type]?.color)}>
+                          {typeConfig[task.type]?.label || task.type}
+                        </Badge>
+                        {task.student?.name && (
+                          <Badge variant="outline" className="text-[9px] uppercase tracking-wider font-bold mt-1.5 px-2 py-0.5 bg-muted border-border text-muted-foreground ml-1.5">
+                            Aluno: {task.student.name}
+                          </Badge>
+                        )}
+                      </div>
+
+                      {/* Ações Rápidas Inline */}
+                      <div className="flex items-center gap-1 opacity-0 group-hover/task:opacity-100 transition-opacity duration-200 shrink-0">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleEditClick(task)}
+                          className="size-8 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg cursor-pointer transition-all"
+                        >
+                          <Pencil className="size-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDeleteClick(task)}
+                          className="size-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer transition-all"
+                        >
+                          <Trash2 className="size-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground font-medium">
+                      <span className="flex items-center gap-1.5">
+                        <Clock className="size-3.5" />
+                        Duração est.: 1h
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-full text-center p-12 space-y-4">
+              <div className="p-4 rounded-full bg-muted text-muted-foreground border border-border">
+                <CalendarDays className="size-8 opacity-60" />
+              </div>
+              <div>
+                <p className="text-base font-semibold text-foreground">Nenhum compromisso agendado</p>
+                <p className="text-sm text-muted-foreground mt-1 max-w-[280px] mx-auto">
+                  Você tem o dia livre. Clique em "Nova Tarefa" para adicionar um compromisso ou lembrete.
+                </p>
+              </div>
+            </div>
+          )}
+        </ScrollArea>
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="flex-1 flex flex-col space-y-8 p-4 md:p-8 pt-6 overflow-hidden w-full h-full min-h-[calc(100vh-2rem)] bg-background">
       <div className="flex flex-col max-sm:gap-4 sm:flex-row items-start sm:items-center justify-between">
@@ -388,162 +543,43 @@ export default function CalendarPage() {
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="grid grid-cols-1 lg:grid-cols-12 gap-4 md:gap-8 flex-1 w-full"
+        className="flex flex-col flex-1 w-full"
       >
-        {/* Calendário */}
-        <div className="lg:col-span-5 flex flex-col h-full">
-          <Card className="flex-1 border-border bg-card shadow-sm flex flex-col rounded-2xl overflow-hidden">
-            <CardContent className="p-6 flex flex-1 items-center justify-center">
-              <Calendar
-                mode="single"
-                selected={date}
-                onSelect={setDate}
-                locale={ptBR}
-                className="w-full flex justify-center scale-100 sm:scale-110 lg:scale-100 xl:scale-110 origin-center text-foreground"
-                classNames={{
-                  day_selected: "bg-primary text-primary-foreground hover:bg-primary hover:text-primary-foreground focus:bg-primary focus:text-primary-foreground",
-                  day_today: "bg-accent text-accent-foreground font-semibold rounded-md",
-                  head_cell: "text-muted-foreground font-medium text-[0.8rem] w-12",
-                  cell: "h-12 w-12 text-center text-sm p-0 relative [&:has([aria-selected].day-range-end)]:rounded-r-md [&:has([aria-selected].day-outside)]:bg-accent [&:has([aria-selected])]:bg-accent first:[&:has([aria-selected])]:rounded-l-md last:[&:has([aria-selected])]:rounded-r-md focus-within:relative focus-within:z-20",
-                  day: cn("h-12 w-12 p-0 font-normal aria-selected:opacity-100 hover:bg-accent hover:text-accent-foreground rounded-md cursor-pointer transition-colors"),
-                }}
-              />
-            </CardContent>
-          </Card>
+        {/* Mobile View with Tabs */}
+        <div className="block lg:hidden w-full">
+          <Tabs defaultValue="calendario" className="w-full">
+            <TabsList className="grid grid-cols-2 bg-secondary/15 border border-border/30 rounded-xl p-1 mb-4">
+              <TabsTrigger value="calendario" className="text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 py-2">
+                <CalendarDays className="size-4" />
+                <span>Calendário</span>
+              </TabsTrigger>
+              <TabsTrigger value="tarefas" className="text-xs font-bold rounded-lg flex items-center justify-center gap-1.5 py-2">
+                <Clock className="size-4" />
+                <span>Tarefas do Dia</span>
+                <Badge variant="secondary" className="font-bold text-[9px] size-4 flex items-center justify-center p-0 rounded-full bg-primary text-primary-foreground ml-1 shrink-0">
+                  {tasks.length}
+                </Badge>
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="calendario" className="outline-none m-0">
+              {calendarCard}
+            </TabsContent>
+            
+            <TabsContent value="tarefas" className="outline-none m-0">
+              {tasksCard}
+            </TabsContent>
+          </Tabs>
         </div>
 
-        {/* Lista de Tarefas / Lembretes */}
-        <div className="lg:col-span-7 flex flex-col h-full">
-          <Card className="flex-1 border-border bg-card shadow-sm flex flex-col rounded-2xl overflow-hidden">
-            <CardHeader className="pb-4 border-b border-border/40">
-              <CardTitle className="flex items-center justify-between">
-                <span className="text-foreground text-lg">
-                  {date ? format(date, "EEEE, d 'de' MMMM", { locale: ptBR }) : "Selecione uma data"}
-                </span>
-                <Badge variant="secondary" className="font-semibold text-xs bg-primary/10 text-primary border border-primary/20">
-                  {tasks.length} {tasks.length === 1 ? "tarefa" : "tarefas"}
-                </Badge>
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex-1 p-0 flex flex-col">
-              <ScrollArea className="flex-1 h-[450px] lg:h-auto">
-                {isLoading ? (
-                  <div className="divide-y divide-border/50">
-                    {[1, 2, 3].map((n) => (
-                      <div key={n} className="p-6 flex items-start gap-6 animate-pulse">
-                        <div className="flex flex-col items-center mt-1 space-y-2">
-                          <Skeleton className="h-6 w-12 rounded bg-muted" />
-                          <Skeleton className="h-3 w-8 rounded bg-muted" />
-                        </div>
-                        <div className="w-px h-12 bg-border mx-2 hidden sm:block"></div>
-                        <div className="flex-1 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <Skeleton className="h-5 w-2/3 rounded bg-muted" />
-                            <Skeleton className="h-4 w-16 rounded-full bg-muted" />
-                          </div>
-                          <div className="flex items-center gap-4">
-                            <Skeleton className="h-3 w-24 rounded bg-muted" />
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : error ? (
-                  <div className="flex flex-col items-center justify-center p-12 text-center space-y-4">
-                    <div className="p-4 rounded-full bg-red-500/10 text-red-500 border border-red-500/20">
-                      <AlertCircle className="size-8" />
-                    </div>
-                    <div>
-                      <p className="text-base font-semibold text-foreground">Falha ao carregar as tarefas</p>
-                      <p className="text-sm text-muted-foreground mt-1 max-w-[280px] mx-auto">{error}</p>
-                      <Button variant="outline" size="sm" onClick={fetchTasks} className="mt-4 border-border text-muted-foreground hover:text-foreground rounded-lg cursor-pointer">
-                        Tentar Novamente
-                      </Button>
-                    </div>
-                  </div>
-                ) : tasks.length > 0 ? (
-                  <div className="divide-y divide-border/40">
-                    {tasks.map((task) => (
-                      <div key={task.id} className="p-6 flex items-start gap-6 hover:bg-secondary/30 transition-colors group/task">
-                        <div className="flex items-center gap-4 shrink-0">
-                          <Checkbox
-                            checked={task.completed}
-                            onCheckedChange={() => handleToggleTask(task.id, task.completed)}
-                            className="size-5 cursor-pointer rounded-md shrink-0"
-                          />
-                          <div className="flex flex-col items-center">
-                            <span className="text-lg font-bold text-foreground leading-none">{task.time}</span>
-                            <span className="text-[10px] text-muted-foreground uppercase mt-1 tracking-wider font-bold">Horário</span>
-                          </div>
-                        </div>
-
-                        <div className="w-px h-12 bg-border/40 mx-2 hidden sm:block"></div>
-
-                        <div className="flex-1 min-w-0 space-y-2">
-                          <div className="flex items-start justify-between gap-4">
-                            <div className="min-w-0">
-                              <h4 className={cn(
-                                "text-base font-semibold leading-tight truncate transition-colors",
-                                task.completed ? "text-muted-foreground line-through font-medium" : "text-foreground"
-                              )}>
-                                {task.title}
-                              </h4>
-                              <Badge variant="outline" className={cn("text-[9px] uppercase tracking-wider font-bold mt-1.5 px-2 py-0.5", typeConfig[task.type]?.color)}>
-                                {typeConfig[task.type]?.label || task.type}
-                              </Badge>
-                              {task.student?.name && (
-                                <Badge variant="outline" className="text-[9px] uppercase tracking-wider font-bold mt-1.5 px-2 py-0.5 bg-muted border-border text-muted-foreground ml-1.5">
-                                  Aluno: {task.student.name}
-                                </Badge>
-                              )}
-                            </div>
-
-                            {/* Ações Rápidas Inline */}
-                            <div className="flex items-center gap-1 opacity-0 group-hover/task:opacity-100 transition-opacity duration-200 shrink-0">
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleEditClick(task)}
-                                className="size-8 text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg cursor-pointer transition-all"
-                              >
-                                <Pencil className="size-4" />
-                              </Button>
-                              <Button
-                                variant="ghost"
-                                size="icon"
-                                onClick={() => handleDeleteClick(task)}
-                                className="size-8 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer transition-all"
-                              >
-                                <Trash2 className="size-4" />
-                              </Button>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-4 text-xs text-muted-foreground font-medium">
-                            <span className="flex items-center gap-1.5">
-                              <Clock className="size-3.5" />
-                              Duração est.: 1h
-                            </span>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <div className="flex flex-col items-center justify-center h-full text-center p-12 space-y-4">
-                    <div className="p-4 rounded-full bg-muted text-muted-foreground border border-border">
-                      <CalendarDays className="size-8 opacity-60" />
-                    </div>
-                    <div>
-                      <p className="text-base font-semibold text-foreground">Nenhum compromisso agendado</p>
-                      <p className="text-sm text-muted-foreground mt-1 max-w-[280px] mx-auto">
-                        Você tem o dia livre. Clique em "Nova Tarefa" para adicionar um compromisso ou lembrete.
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </ScrollArea>
-            </CardContent>
-          </Card>
+        {/* Desktop View with Grid */}
+        <div className="hidden lg:grid grid-cols-12 gap-8 flex-1 w-full">
+          <div className="lg:col-span-5 flex flex-col h-full">
+            {calendarCard}
+          </div>
+          <div className="lg:col-span-7 flex flex-col h-full">
+            {tasksCard}
+          </div>
         </div>
       </motion.div>
 

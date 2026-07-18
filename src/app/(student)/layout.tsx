@@ -9,6 +9,7 @@ import { auth } from "@/auth";
 import { cookies } from "next/headers";
 import { StudentMobileNavbar } from "@/components/application/student-mobile-navbar";
 import { NotificationBell } from "@/components/application/notification-bell";
+import { ChatHeaderButton } from "@/components/application/chat-header-button";
 import { WorkoutManager } from "@/components/application/WorkoutManager";
 
 export default async function StudentLayout({
@@ -126,7 +127,8 @@ export default async function StudentLayout({
             </div>
           </div>
 
-          <div className="flex items-center gap-2 md:gap-4">
+          <div className="flex items-center gap-2">
+            <ChatHeaderButton />
             <NotificationBell />
           </div>
         </header>

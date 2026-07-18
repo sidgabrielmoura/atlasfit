@@ -37,7 +37,8 @@ import {
   Settings,
   Paperclip,
   TrendingDown,
-  ChevronDown
+  ChevronDown,
+  Minimize2
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { workspaceStore } from "@/stores/workspace.store";
@@ -321,6 +322,7 @@ export default function CRMPage() {
   const [lostReasonLoading, setLostReasonLoading] = useState(false);
 
   const [fileUploadLoading, setFileUploadLoading] = useState(false);
+  const [collapsedColumns, setCollapsedColumns] = useState<string[]>(["lost"]);
 
   const [draggedLeadId, setDraggedLeadId] = useState<string | null>(null);
   const [dragOverColumnId, setDragOverColumnId] = useState<string | null>(null);
@@ -1466,6 +1468,30 @@ export default function CRMPage() {
                 {COLUMNS.map((col) => {
                   const colLeads = sortedLeads.filter((l) => l.status === col.id);
                   const isOver = dragOverColumnId === col.id;
+                  const isCollapsed = collapsedColumns.includes(col.id);
+
+                  if (isCollapsed) {
+                    return (
+                      <div
+                        key={col.id}
+                        onClick={() => setCollapsedColumns(prev => prev.filter(id => id !== col.id))}
+                        className="flex flex-col shrink-0 w-12 items-center bg-secondary/5 hover:bg-secondary/15 rounded-xl py-4 border border-border/20 cursor-pointer select-none transition-all duration-200"
+                        title={`Expandir coluna ${col.name}`}
+                      >
+                        <div className="flex flex-col items-center gap-2">
+                          <span className={cn("size-2 rounded-full", col.color)} />
+                          <span className="bg-secondary/40 text-[9px] font-bold text-muted-foreground px-1.5 py-0.5 rounded-full">
+                            {colLeads.length}
+                          </span>
+                        </div>
+                        <div className="flex-1 flex items-center justify-center min-h-60">
+                          <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground rotate-90 whitespace-nowrap origin-center">
+                            {col.name}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  }
 
                   return (
                     <div
@@ -1479,13 +1505,23 @@ export default function CRMPage() {
                       )}
                     >
                       <div className="flex items-center justify-between pb-2 border-none">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 min-w-0">
                           <span className={cn("size-2 rounded-full shrink-0", col.color)} />
-                          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">{col.name}</span>
+                          <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground truncate">{col.name}</span>
                         </div>
-                        <span className="bg-secondary/40 text-[10px] font-medium text-muted-foreground px-2 py-0.5 rounded-full">
-                          {colLeads.length}
-                        </span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="bg-secondary/40 text-[10px] font-medium text-muted-foreground px-2 py-0.5 rounded-full">
+                            {colLeads.length}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => setCollapsedColumns(prev => [...prev, col.id])}
+                            className="size-5 flex items-center justify-center rounded-md text-muted-foreground hover:text-foreground hover:bg-secondary/80 transition-colors"
+                            title="Recolher coluna"
+                          >
+                            <Minimize2 className="size-3" />
+                          </button>
+                        </div>
                       </div>
 
                       <div className="flex flex-col gap-3 mt-3 min-h-75 overflow-y-auto max-h-150 scrollbar-none">
@@ -2178,7 +2214,7 @@ export default function CRMPage() {
                               disabled={isTagInlineCreating}
                             >
                               {isTagInlineCreating ? <Loader2 className="animate-spin size-3 mr-1" /> : <Plus className="size-3 mr-1" />}
-                              Criar
+                              {isTagInlineCreating ? "Criando..." : "Criar"}
                             </Button>
                           </div>
                         </div>
@@ -2213,7 +2249,7 @@ export default function CRMPage() {
                           className="bg-primary text-primary-foreground font-black px-6 py-2 h-11 rounded-xl shadow-lg shadow-primary/20 hover:bg-primary/95 flex items-center gap-2 max-sm:w-full max-sm:justify-center"
                         >
                           {isSavingFicha ? <Loader2 className="animate-spin size-4" /> : null}
-                          <span>Salvar Ficha</span>
+                          <span>{isSavingFicha ? "Salvando..." : "Salvar Ficha"}</span>
                         </Button>
                       </div>
                     </TabsContent>
@@ -2250,7 +2286,7 @@ export default function CRMPage() {
                             className="rounded-xl h-10 font-bold bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center gap-1.5 col-span-2 md:col-span-1 md:px-4 shrink-0"
                           >
                             {newTaskLoading ? <Loader2 className="animate-spin size-4" /> : <Plus className="size-4" />}
-                            <span className="md:hidden">Adicionar Tarefa</span>
+                            <span className="md:hidden">{newTaskLoading ? "Adicionando..." : "Adicionar Tarefa"}</span>
                           </Button>
                         </div>
                       </form>
@@ -2423,7 +2459,7 @@ export default function CRMPage() {
                           className="h-10 text-[10px] uppercase font-bold rounded-xl"
                         >
                           {newManualActivityLoading ? <Loader2 className="animate-spin size-3 mr-2" /> : null}
-                          Registrar
+                          {newManualActivityLoading ? "Registrando..." : "Registrar"}
                         </Button>
                       </form>
 
