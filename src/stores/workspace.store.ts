@@ -36,16 +36,7 @@ const getPersistedState = () => {
     if (saved) {
       const parsed = JSON.parse(saved);
       const activeWorkspace = parsed.activeWorkspace || null;
-      if (activeWorkspace && (activeWorkspace.primaryColor === "#0ea5e9" || activeWorkspace.primaryColor === "#ea580c" || !activeWorkspace.primaryColor)) {
-        activeWorkspace.primaryColor = "#3052EB";
-      }
-      let workspaces = parsed.workspaces || [];
-      workspaces = workspaces.map((w: any) => {
-        if (w.primaryColor === "#0ea5e9" || w.primaryColor === "#ea580c" || !w.primaryColor) {
-          return { ...w, primaryColor: "#3052EB" };
-        }
-        return w;
-      });
+      const workspaces = parsed.workspaces || [];
       return {
         ...initialState,
         activeWorkspaceId: parsed.activeWorkspaceId || null,

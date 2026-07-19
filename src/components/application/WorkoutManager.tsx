@@ -26,6 +26,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { workspaceStore } from "@/stores/workspace.store";
 
 // Web Audio sound generator for professional gym bell alert
 const playRestChimeSound = () => {
@@ -79,7 +80,143 @@ const playRestChimeSound = () => {
   }
 };
 
+/** Extracts a hex color to individual RGB components for building multi-stop gradients */
+function hexToRgb(hex: string) {
+  const clean = hex.replace("#", "");
+  if (clean.length !== 6) return null;
+  return {
+    r: parseInt(clean.slice(0, 2), 16),
+    g: parseInt(clean.slice(2, 4), 16),
+    b: parseInt(clean.slice(4, 6), 16),
+  };
+}
+
+function WorkoutMinimizedCard({
+  workout,
+  totalTimer,
+  progressPercent,
+  onMaximize,
+}: {
+  workout: { name: string };
+  totalTimer: number;
+  progressPercent: number;
+  onMaximize: () => void;
+}) {
+  const wsSnap = useSnapshot(workspaceStore);
+  const primaryHex = wsSnap.activeWorkspace?.primaryColor || "#3052EB";
+  const rgb = hexToRgb(primaryHex) || { r: 48, g: 82, b: 235 };
+
+  // Build dark metallic gradient using the brand color as accent
+  const cardBg = `linear-gradient(135deg, #0d0d0f 0%, #111218 50%, rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.18) 100%)`;
+  const borderColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.3)`;
+  const shadowColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.35)`;
+  const glowColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.25)`;
+  const accentColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.85)`;
+  const accentColorLight = `rgba(${Math.min(rgb.r + 60, 255)}, ${Math.min(rgb.g + 60, 255)}, ${Math.min(rgb.b + 60, 255)}, 0.7)`;
+
+  const formatTime = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  };
+
+  return (
+    <motion.div
+      initial={{ y: 100, opacity: 0, scale: 0.95 }}
+      animate={{ y: 0, opacity: 1, scale: 1 }}
+      exit={{ y: 100, opacity: 0, scale: 0.95 }}
+      transition={{ type: "spring", stiffness: 320, damping: 28 }}
+      className="fixed bottom-20 md:bottom-6 left-3 right-3 md:left-auto md:right-6 md:w-[22rem] z-40 select-none"
+    >
+      <div
+        className="relative overflow-hidden rounded-2xl text-white cursor-pointer"
+        style={{
+          background: cardBg,
+          border: `1px solid ${borderColor}`,
+          boxShadow: `0 20px 60px -10px ${shadowColor}, 0 4px 16px -4px rgba(0,0,0,0.6)`,
+        }}
+        onClick={onMaximize}
+      >
+        {/* Ambient glow top-right — brand color */}
+        <div
+          className="absolute -top-6 -right-6 size-28 rounded-full blur-2xl pointer-events-none"
+          style={{ background: glowColor }}
+        />
+        {/* Ambient glow bottom-left — slightly lighter */}
+        <div
+          className="absolute -bottom-8 -left-8 size-24 rounded-full blur-2xl pointer-events-none"
+          style={{ background: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.12)` }}
+        />
+
+        {/* Sweep shine effect */}
+        <div className="animate-apple-sweep pointer-events-none" />
+
+        <div className="relative z-10 p-4 flex items-center justify-between gap-3">
+          {/* Icon */}
+          <div
+            className="size-10 rounded-xl flex items-center justify-center shrink-0 shadow-inner"
+            style={{
+              background: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.2)`,
+              border: `1px solid rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.3)`,
+            }}
+          >
+            <Clock
+              className="size-5 animate-pulse"
+              style={{ color: accentColorLight }}
+            />
+          </div>
+
+          {/* Info */}
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1.5 mb-0.5">
+              <span
+                className="text-[9px] font-black uppercase tracking-[0.18em]"
+                style={{ color: accentColorLight }}
+              >
+                Treino em andamento
+              </span>
+            </div>
+            <h4 className="text-sm font-black text-white truncate leading-tight">
+              {workout.name}
+            </h4>
+            <div className="flex items-center gap-2 mt-1">
+              <span className="text-[11px] font-mono font-bold text-white/70 tabular-nums">
+                {formatTime(totalTimer)}
+              </span>
+              <span className="text-white/30 text-[10px]">•</span>
+              <span className="text-[10px] font-bold text-white/60">
+                {progressPercent}% concluído
+              </span>
+            </div>
+
+            {/* Progress bar — brand color gradient */}
+            <div className="mt-2 h-1 rounded-full bg-white/10 overflow-hidden">
+              <div
+                className="h-full rounded-full transition-all duration-500"
+                style={{
+                  width: `${progressPercent}%`,
+                  background: `linear-gradient(to right, ${accentColor}, ${accentColorLight})`,
+                }}
+              />
+            </div>
+          </div>
+
+          {/* Maximize button */}
+          <button
+            onClick={(e) => { e.stopPropagation(); onMaximize(); }}
+            className="size-9 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center shrink-0 transition-all active:scale-90 cursor-pointer"
+            title="Abrir Treino"
+          >
+            <Maximize2 className="size-4 text-white/80" />
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 export function WorkoutManager() {
+
   const snap = useSnapshot(workoutStore);
   const router = useRouter();
   const pathname = usePathname();
@@ -233,72 +370,12 @@ export function WorkoutManager() {
       {/* 2. Minimized Floating Track Player */}
       <AnimatePresence>
         {snap.activeWorkout && snap.isMinimized && (
-          <motion.div
-            initial={{ y: 100, opacity: 0, scale: 0.95 }}
-            animate={{ y: 0, opacity: 1, scale: 1 }}
-            exit={{ y: 100, opacity: 0, scale: 0.95 }}
-            transition={{ type: "spring", stiffness: 320, damping: 28 }}
-            className="fixed bottom-20 md:bottom-6 left-3 right-3 md:left-auto md:right-6 md:w-[22rem] z-40 select-none"
-          >
-            {/* Premium blue metallic card — same language as indique e ganhe */}
-            <div
-              className="relative overflow-hidden rounded-2xl border border-blue-500/25 bg-linear-to-br from-neutral-950 via-neutral-900 to-[#0d1d5a] shadow-2xl shadow-blue-950/60 text-white cursor-pointer"
-              onClick={handleMaximize}
-            >
-              {/* Ambient glow top-right */}
-              <div className="absolute -top-6 -right-6 size-28 rounded-full bg-blue-600/25 blur-2xl pointer-events-none" />
-              {/* Ambient glow bottom-left */}
-              <div className="absolute -bottom-8 -left-8 size-24 rounded-full bg-indigo-500/15 blur-2xl pointer-events-none" />
-
-              {/* Sweep shine effect */}
-              <div className="animate-apple-sweep pointer-events-none" />
-
-              <div className="relative z-10 p-4 flex items-center justify-between gap-3">
-                {/* Icon */}
-                <div className="size-10 rounded-xl bg-white/10 border border-white/15 flex items-center justify-center shrink-0 shadow-inner">
-                  <Clock className="size-5 text-blue-300 animate-pulse" />
-                </div>
-
-                {/* Info */}
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-1.5 mb-0.5">
-                    <span className="text-[9px] font-black uppercase tracking-[0.18em] text-blue-300/80">
-                      Treino em andamento
-                    </span>
-                  </div>
-                  <h4 className="text-sm font-black text-white truncate leading-tight">
-                    {snap.activeWorkout.name}
-                  </h4>
-                  <div className="flex items-center gap-2 mt-1">
-                    <span className="text-[11px] font-mono font-bold text-white/70 tabular-nums">
-                      {formatTime(snap.totalTimer)}
-                    </span>
-                    <span className="text-white/30 text-[10px]">•</span>
-                    <span className="text-[10px] font-bold text-white/60">
-                      {progressPercent}% concluído
-                    </span>
-                  </div>
-
-                  {/* Progress bar */}
-                  <div className="mt-2 h-1 rounded-full bg-white/10 overflow-hidden">
-                    <div
-                      className="h-full rounded-full bg-linear-to-r from-blue-400 to-indigo-400 transition-all duration-500"
-                      style={{ width: `${progressPercent}%` }}
-                    />
-                  </div>
-                </div>
-
-                {/* Maximize button */}
-                <button
-                  onClick={(e) => { e.stopPropagation(); handleMaximize(); }}
-                  className="size-9 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center shrink-0 transition-all active:scale-90 cursor-pointer"
-                  title="Abrir Treino"
-                >
-                  <Maximize2 className="size-4 text-white/80" />
-                </button>
-              </div>
-            </div>
-          </motion.div>
+          <WorkoutMinimizedCard
+            workout={snap.activeWorkout}
+            totalTimer={snap.totalTimer}
+            progressPercent={progressPercent}
+            onMaximize={handleMaximize}
+          />
         )}
       </AnimatePresence>
     </>

@@ -104,6 +104,33 @@ export function PersonalSidebar() {
   const [subInfo, setSubInfo] = useState<any>(null);
   const { isMobile, setOpenMobile } = useSidebar();
 
+  // Dynamic brand gradient for highlight button
+  const primaryHex = workspaceSnap.activeWorkspace?.primaryColor || "#3052EB";
+  const hexToRgb = (hex: string) => {
+    const clean = hex.replace("#", "");
+    if (clean.length !== 6) return { r: 48, g: 82, b: 235 };
+    return {
+      r: parseInt(clean.slice(0, 2), 16),
+      g: parseInt(clean.slice(2, 4), 16),
+      b: parseInt(clean.slice(4, 6), 16),
+    };
+  };
+  const rgb = hexToRgb(primaryHex);
+  const darkenRgb = { r: Math.max(rgb.r - 40, 0), g: Math.max(rgb.g - 40, 0), b: Math.max(rgb.b - 40, 0) };
+  const highlightGradient = `linear-gradient(135deg, rgba(${rgb.r},${rgb.g},${rgb.b},0.95) 0%, rgba(${darkenRgb.r},${darkenRgb.g},${darkenRgb.b},0.85) 100%)`;
+  const highlightShadow = `0 8px 32px 0 rgba(${rgb.r},${rgb.g},${rgb.b},0.35), 0 2px 8px 0 rgba(0,0,0,0.25)`;
+  const highlightGlowStyle = {
+    background: highlightGradient,
+    boxShadow: highlightShadow,
+    color: "white",
+  };
+  const highlightActiveStyle = {
+    background: highlightGradient,
+    boxShadow: `0 8px 32px 0 rgba(${rgb.r},${rgb.g},${rgb.b},0.5)`,
+    color: "white",
+    border: "1px solid rgba(255,255,255,0.2)",
+  };
+
   useEffect(() => {
     if (isMobile) {
       setOpenMobile(false);
@@ -230,10 +257,10 @@ export function PersonalSidebar() {
                       tooltip={item.title}
                       className={cn(
                         isActive && !item.isHighlight && "bg-primary/10! text-primary hover:bg-primary/10!",
-                        item.isHighlight && !isActive && "bg-linear-to-br from-blue-600/90 to-indigo-650/90 hover:from-blue-600 hover:to-indigo-650 text-white! font-bold shadow-[0_8px_32px_0_rgba(48,82,235,0.2)] backdrop-blur-md relative overflow-hidden group",
-                        item.isHighlight && isActive && "bg-linear-to-br from-blue-500! to-indigo-600! text-white! font-black border border-white/20 shadow-[0_8px_32px_0_rgba(48,82,235,0.4)] backdrop-blur-md relative overflow-hidden group",
+                        item.isHighlight && "relative overflow-hidden group font-bold transition-all",
                         "transition-all"
                       )}
+                      style={item.isHighlight ? (isActive ? highlightActiveStyle : highlightGlowStyle) : undefined}
                     >
                       <Link href={item.href}>
                         {item.isHighlight && <div className="animate-apple-sweep" />}
@@ -245,7 +272,7 @@ export function PersonalSidebar() {
                         <span className={cn(item.isHighlight && "text-white font-bold z-10")}>{item.title}</span>
                         {item.isHighlight && (
                           <span className="relative flex h-1.5 w-1.5 ml-auto z-10">
-                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-blue-300 opacity-75"></span>
+                            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-white opacity-75"></span>
                             <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-white"></span>
                           </span>
                         )}

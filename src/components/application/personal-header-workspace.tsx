@@ -14,7 +14,7 @@ export function PersonalHeaderWorkspace() {
       <div
         className="flex aspect-square size-8 items-center justify-center rounded-lg text-white font-bold text-xs shrink-0 overflow-hidden shadow-sm border border-white/[0.06]"
         style={{
-          backgroundColor: activeWs.primaryColor || "#ea580c",
+          backgroundColor: activeWs.primaryColor || "var(--primary)",
         }}
       >
         {activeWs.logoUrl ? (
@@ -33,7 +33,7 @@ export function PersonalHeaderWorkspace() {
         </span>
         <span
           className="text-[8px] font-black uppercase tracking-wider leading-none mt-0.5 truncate max-w-[150px]"
-          style={{ color: activeWs.primaryColor || "#ea580c" }}
+          style={{ color: activeWs.primaryColor || "var(--primary)" }}
         >
           {activeWs.plan || "Assessoria"}
         </span>

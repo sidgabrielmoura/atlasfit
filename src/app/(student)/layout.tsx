@@ -90,7 +90,7 @@ export default async function StudentLayout({
                 <div
                   className="flex aspect-square size-8 items-center justify-center rounded-lg text-white font-bold text-xs shrink-0 overflow-hidden shadow-sm border border-white/[0.06]"
                   style={{
-                    backgroundColor: activeWorkspace.primaryColor || "#ea580c",
+                    backgroundColor: activeWorkspace.primaryColor || "var(--primary)",
                   }}
                 >
                   {activeWorkspace.logoUrl ? (

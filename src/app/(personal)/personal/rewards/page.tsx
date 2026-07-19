@@ -424,7 +424,7 @@ export default function RewardsPage() {
           {/* 2. Bento Grid Banking Layout */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {/* Balance Card - inspired by Premium Banking Apps */}
-            <Card className="md:col-span-2 relative overflow-hidden border border-primary/20 bg-linear-to-br from-neutral-950 via-neutral-900 to-[#101f5e] shadow-xl text-white">
+            <Card className="md:col-span-2 p-0 relative overflow-hidden border border-primary/20 bg-linear-to-br from-neutral-950 via-neutral-900 to-[#101f5e] shadow-xl text-white">
               <div className="absolute top-0 right-0 -mt-8 -mr-8 size-48 rounded-full bg-primary/20 blur-3xl" />
               <div className="absolute bottom-0 left-0 -mb-12 -ml-12 size-36 rounded-full bg-blue-500/10 blur-2xl" />
 

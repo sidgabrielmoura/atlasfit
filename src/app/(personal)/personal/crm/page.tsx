@@ -38,7 +38,8 @@ import {
   Paperclip,
   TrendingDown,
   ChevronDown,
-  Minimize2
+  Minimize2,
+  ListPlus
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { workspaceStore } from "@/stores/workspace.store";
@@ -207,13 +208,13 @@ const COLUMNS = [
 ];
 
 const TAG_COLORS = [
-  { class: "bg-secondary text-muted-foreground border-none rounded-full", colorName: "Cinza" },
-  { class: "bg-secondary text-muted-foreground border-none rounded-full", colorName: "Cinza" },
-  { class: "bg-secondary text-muted-foreground border-none rounded-full", colorName: "Cinza" },
-  { class: "bg-secondary text-muted-foreground border-none rounded-full", colorName: "Cinza" },
-  { class: "bg-secondary text-muted-foreground border-none rounded-full", colorName: "Cinza" },
-  { class: "bg-secondary text-muted-foreground border-none rounded-full", colorName: "Cinza" },
-  { class: "bg-secondary text-muted-foreground border-none rounded-full", colorName: "Cinza" }
+  { class: "bg-zinc-500/10 text-zinc-400 border border-zinc-500/20 rounded-full", colorName: "Cinza" },
+  { class: "bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 rounded-full", colorName: "Verde" },
+  { class: "bg-blue-500/10 text-blue-500 border border-blue-500/20 rounded-full", colorName: "Azul" },
+  { class: "bg-purple-500/10 text-purple-500 border border-purple-500/20 rounded-full", colorName: "Roxo" },
+  { class: "bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-full", colorName: "Laranja" },
+  { class: "bg-rose-500/10 text-rose-500 border border-rose-500/20 rounded-full", colorName: "Vermelho" },
+  { class: "bg-sky-500/10 text-sky-400 border border-sky-500/20 rounded-full", colorName: "Ciano" }
 ];
 
 
@@ -274,6 +275,7 @@ export default function CRMPage() {
   const [togglingTagName, setTogglingTagName] = useState<string | null>(null);
   const [fieldName, setFieldName] = useState("");
   const [fieldType, setFieldType] = useState("text");
+  const [isFieldCreating, setIsFieldCreating] = useState(false);
   const [tagToDelete, setTagToDelete] = useState<Tag | null>(null);
   const [isDeletingTag, setIsDeletingTag] = useState(false);
   const [fieldToDelete, setFieldToDelete] = useState<CustomFieldDefinition | null>(null);
@@ -473,6 +475,7 @@ export default function CRMPage() {
 
   const handleCreateCustomField = async () => {
     if (!activeWorkspaceId || !fieldName.trim()) return;
+    setIsFieldCreating(true);
     try {
       const res = await fetch("/api/personal/crm/custom-fields", {
         method: "POST",
@@ -489,6 +492,8 @@ export default function CRMPage() {
       fetchTagsAndFields();
     } catch {
       toast.error("Erro ao criar campo.");
+    } finally {
+      setIsFieldCreating(false);
     }
   };
 
@@ -2197,7 +2202,7 @@ export default function CRMPage() {
                               onChange={(e) => setNewTagInlineName(e.target.value)}
                             />
                             <Select value={newTagInlineColor} onValueChange={setNewTagInlineColor}>
-                              <SelectTrigger className="h-8 text-xs rounded-lg bg-background border-border w-full">
+                              <SelectTrigger className="h-8 text-xs rounded-lg bg-background border border-border px-3 w-full">
                                 <SelectValue placeholder="Cor" />
                               </SelectTrigger>
                               <SelectContent className="rounded-lg">
@@ -2681,53 +2686,83 @@ export default function CRMPage() {
       </Dialog>
 
       <Dialog open={isTagSettingsOpen} onOpenChange={setIsTagSettingsOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl! border-border/40 bg-card">
+        <DialogContent className="sm:max-w-md rounded-2xl border-border/40 bg-card p-6 select-none">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold">Gerenciar Etiquetas</DialogTitle>
-            <DialogDescription>
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-primary/10 border border-primary/20 shrink-0">
+                <TagIcon className="size-4.5 text-primary" />
+              </div>
+              <DialogTitle className="text-lg font-bold text-foreground">Gerenciar Etiquetas</DialogTitle>
+            </div>
+            <DialogDescription className="text-xs text-muted-foreground mt-1">
               Crie ou exclua etiquetas organizacionais para categorizar seus leads comerciais.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-6 py-4">
-            <div className="space-y-3 p-4 bg-secondary/15 rounded-xl border border-border/30">
-              <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Nova Etiqueta</span>
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Nome da etiqueta..."
-                  className="rounded-xl h-10 border-border bg-background text-xs flex-1"
-                  value={tagName}
-                  onChange={(e) => setTagName(e.target.value)}
-                />
-                <Select value={tagColor} onValueChange={setTagColor}>
-                  <SelectTrigger className="rounded-xl h-10 w-28 border-border bg-background font-semibold text-xs">
-                    <SelectValue placeholder="Cor" />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl">
-                    {TAG_COLORS.map((tc) => (
-                      <SelectItem key={tc.class} value={tc.class}>{tc.colorName}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <Button onClick={handleCreateTag} disabled={isTagCreating} className="rounded-xl h-10 px-4 font-bold text-xs">
-                  {isTagCreating ? <Loader2 className="animate-spin size-3 mr-1" /> : null}
-                  Criar
-                </Button>
+          <div className="space-y-5 py-4">
+            {/* Seção Nova Etiqueta */}
+            <div className="space-y-3 p-4 bg-secondary/15 rounded-2xl border border-border/30">
+              <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Nova Etiqueta</span>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                <div className="space-y-1">
+                  <Input
+                    placeholder="Nome da etiqueta..."
+                    className="rounded-xl h-10 border-border bg-background text-xs"
+                    value={tagName}
+                    onChange={(e) => setTagName(e.target.value)}
+                    disabled={isTagCreating}
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Select value={tagColor} onValueChange={setTagColor} disabled={isTagCreating}>
+                    <SelectTrigger className="rounded-xl h-10 w-full border border-border bg-background font-semibold text-xs px-3">
+                      <SelectValue placeholder="Cor" />
+                    </SelectTrigger>
+                    <SelectContent className="rounded-xl">
+                      {TAG_COLORS.map((tc, idx) => (
+                        <SelectItem key={idx} value={tc.class}>{tc.colorName}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
+              <Button
+                onClick={handleCreateTag}
+                disabled={isTagCreating || !tagName.trim()}
+                className="rounded-xl h-10 w-full font-bold text-xs bg-primary text-primary-foreground hover:bg-primary/95 flex items-center justify-center gap-2 cursor-pointer transition-all"
+              >
+                {isTagCreating ? (
+                  <>
+                    <Loader2 className="animate-spin size-3.5" />
+                    <span>Criando Etiqueta...</span>
+                  </>
+                ) : (
+                  <>
+                    <Plus className="size-3.5" />
+                    <span>Criar Etiqueta</span>
+                  </>
+                )}
+              </Button>
             </div>
 
-            <div className="space-y-2">
+            <div className="border-t border-border/30" />
+
+            {/* Seção Etiquetas Existentes */}
+            <div className="space-y-3">
               <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block ml-1">Etiquetas Existentes</span>
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-muted">
                 {availableTags.map((tag) => (
-                  <div key={tag.id} className="flex items-center justify-between p-2.5 bg-secondary/10 border border-border/30 rounded-xl">
-                    <Badge className={cn("text-[9px] font-bold uppercase tracking-wider px-2 py-0.5 rounded border", tag.color)}>
+                  <div
+                    key={tag.id}
+                    className="flex items-center justify-between p-2.5 bg-background border border-border/30 rounded-xl hover:border-border/60 hover:bg-secondary/5 transition-all"
+                  >
+                    <Badge className={cn("text-[9px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border shadow-2xs", tag.color)}>
                       {tag.name}
                     </Badge>
                     <Button
                       size="icon"
                       variant="ghost"
-                      className="h-6 w-6 text-muted-foreground hover:text-destructive"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
                       onClick={() => setTagToDelete(tag)}
                     >
                       <Trash2 className="size-3.5" />
@@ -2735,7 +2770,8 @@ export default function CRMPage() {
                   </div>
                 ))}
                 {availableTags.length === 0 && (
-                  <div className="py-8 text-center border border-dashed border-border/60 rounded-xl">
+                  <div className="py-8 text-center border border-dashed border-border/50 rounded-2xl bg-secondary/5">
+                    <TagIcon className="size-5 text-muted-foreground/45 mx-auto mb-2" />
                     <span className="text-xs text-muted-foreground">Nenhuma etiqueta cadastrada.</span>
                   </div>
                 )}
@@ -2743,8 +2779,13 @@ export default function CRMPage() {
             </div>
           </div>
 
-          <DialogFooter>
-            <Button type="button" onClick={() => setIsTagSettingsOpen(false)} className="rounded-xl w-full">
+          <DialogFooter className="mt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsTagSettingsOpen(false)}
+              className="rounded-xl w-full border-border/80 h-10 text-xs font-bold"
+            >
               Fechar
             </Button>
           </DialogFooter>
@@ -2752,46 +2793,93 @@ export default function CRMPage() {
       </Dialog>
 
       <Dialog open={isCustomFieldsSettingsOpen} onOpenChange={setIsCustomFieldsSettingsOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl! border-border/40 bg-card">
+        <DialogContent className="sm:max-w-md rounded-2xl border-border/40 bg-card p-6 select-none">
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold">Campos Personalizados</DialogTitle>
-            <DialogDescription>
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-primary/10 border border-primary/20 shrink-0">
+                <ListPlus className="size-4.5 text-primary" />
+              </div>
+              <DialogTitle className="text-lg font-bold text-foreground">Campos Personalizados</DialogTitle>
+            </div>
+            <DialogDescription className="text-xs text-muted-foreground mt-1">
               Crie campos adicionais para registrar na ficha de todos os leads do seu funil.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 py-4">
-            <div className="flex gap-2">
-              <Input
-                placeholder="Nome do campo (ex: Profissão)..."
-                className="rounded-xl h-10 border-border bg-secondary/10 text-xs flex-1"
-                value={fieldName}
-                onChange={(e) => setFieldName(e.target.value)}
-              />
-              <Button onClick={handleCreateCustomField} className="rounded-xl h-10 px-4">
-                Criar
-              </Button>
+          <div className="space-y-5 py-4">
+            {/* Seção Novo Campo */}
+            <div className="space-y-3 p-4 bg-secondary/15 rounded-2xl border border-border/30">
+              <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Novo Campo Extra</span>
+              <div className="space-y-3">
+                <Input
+                  placeholder="Nome do campo (ex: Profissão, Link do Insta)..."
+                  className="rounded-xl h-10 border-border bg-background text-xs"
+                  value={fieldName}
+                  onChange={(e) => setFieldName(e.target.value)}
+                  disabled={isFieldCreating}
+                />
+                <Button
+                  onClick={handleCreateCustomField}
+                  disabled={isFieldCreating || !fieldName.trim()}
+                  className="rounded-xl h-10 w-full font-bold text-xs bg-primary text-primary-foreground hover:bg-primary/95 flex items-center justify-center gap-2 cursor-pointer transition-all"
+                >
+                  {isFieldCreating ? (
+                    <>
+                      <Loader2 className="animate-spin size-3.5" />
+                      <span>Criando Campo...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Plus className="size-3.5" />
+                      <span>Criar Campo</span>
+                    </>
+                  )}
+                </Button>
+              </div>
             </div>
 
-            <div className="space-y-2 max-h-48 overflow-y-auto">
-              {customFieldDefinitions.map((field) => (
-                <div key={field.id} className="flex items-center justify-between p-2.5 bg-secondary/10 border border-border/30 rounded-xl">
-                  <span className="text-xs font-bold text-foreground">{field.name}</span>
-                  <Button
-                    size="icon"
-                    variant="ghost"
-                    className="h-6 w-6 text-muted-foreground hover:text-destructive"
-                    onClick={() => setFieldToDelete(field)}
+            <div className="border-t border-border/30" />
+
+            {/* Seção Campos Existentes */}
+            <div className="space-y-3">
+              <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block ml-1">Campos Existentes</span>
+              <div className="space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-muted">
+                {customFieldDefinitions.map((field) => (
+                  <div
+                    key={field.id}
+                    className="flex items-center justify-between p-2.5 bg-background border border-border/30 rounded-xl hover:border-border/60 hover:bg-secondary/5 transition-all"
                   >
-                    <Trash2 className="size-3.5" />
-                  </Button>
-                </div>
-              ))}
+                    <div className="flex items-center gap-2 pl-1.5">
+                      <FileText className="size-3.5 text-muted-foreground" />
+                      <span className="text-xs font-bold text-foreground">{field.name}</span>
+                    </div>
+                    <Button
+                      size="icon"
+                      variant="ghost"
+                      className="h-7 w-7 text-muted-foreground hover:text-destructive hover:bg-destructive/10 rounded-lg cursor-pointer"
+                      onClick={() => setFieldToDelete(field)}
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
+                  </div>
+                ))}
+                {customFieldDefinitions.length === 0 && (
+                  <div className="py-8 text-center border border-dashed border-border/50 rounded-2xl bg-secondary/5">
+                    <ListPlus className="size-5 text-muted-foreground/45 mx-auto mb-2" />
+                    <span className="text-xs text-muted-foreground">Nenhum campo personalizado cadastrado.</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 
-          <DialogFooter>
-            <Button type="button" onClick={() => setIsCustomFieldsSettingsOpen(false)} className="rounded-xl w-full">
+          <DialogFooter className="mt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsCustomFieldsSettingsOpen(false)}
+              className="rounded-xl w-full border-border/80 h-10 text-xs font-bold"
+            >
               Fechar
             </Button>
           </DialogFooter>

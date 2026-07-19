@@ -21,7 +21,9 @@ import {
   Filter,
   MoreHorizontal,
   RefreshCw,
-  Settings
+  Settings,
+  BarChart3,
+  ChevronDown
 } from "lucide-react";
 import { workspaceStore } from "@/stores/workspace.store";
 import { toast } from "sonner";
@@ -174,6 +176,7 @@ export default function FinancePage() {
 
   // Loading and data states
   const [isLoading, setIsLoading] = useState(true);
+  const [isKpisExpanded, setIsKpisExpanded] = useState(false);
   const [metrics, setMetrics] = useState({
     mrr: 0,
     mrrChange: 12.4,
@@ -490,9 +493,9 @@ export default function FinancePage() {
     setRecCustomCount(studentRec.billingCustomIntervalCount?.toString() || "1");
     setRecCustomUnit(studentRec.billingCustomIntervalUnit || "meses");
     setRecDueDay(studentRec.billingDueDay?.toString() || "5");
-    
-    const defaultDate = studentRec.billingFirstDueDate 
-      ? studentRec.billingFirstDueDate.split("T")[0] 
+
+    const defaultDate = studentRec.billingFirstDueDate
+      ? studentRec.billingFirstDueDate.split("T")[0]
       : new Date().toISOString().split("T")[0];
     setRecFirstDueDate(defaultDate);
     setRecDescription(studentRec.billingDescription || "Mensalidade de Assessoria");
@@ -510,7 +513,7 @@ export default function FinancePage() {
     setRecCustomCount("1");
     setRecCustomUnit("meses");
     setRecDueDay("5");
-    
+
     const defaultDate = new Date().toISOString().split("T")[0];
     setRecFirstDueDate(defaultDate);
     setRecDescription("Mensalidade de Assessoria");
@@ -523,8 +526,8 @@ export default function FinancePage() {
     e.preventDefault();
     if (!activeWorkspaceId) return;
 
-    const targetStudentId = selectedRecurrenceStudent 
-      ? selectedRecurrenceStudent.studentId 
+    const targetStudentId = selectedRecurrenceStudent
+      ? selectedRecurrenceStudent.studentId
       : selectedStudentIdForRecurrence;
 
     if (!targetStudentId) {
@@ -649,80 +652,120 @@ export default function FinancePage() {
           animate="show"
           className="space-y-6"
         >
-          {/* Metric Cards */}
-          <div className="flex md:grid gap-4 overflow-x-auto pb-3 md:pb-0 no-scrollbar snap-x snap-mandatory md:grid-cols-2 lg:grid-cols-4">
-            <motion.div variants={item as any} className="shrink-0 w-[82vw] sm:w-[45vw] md:w-auto snap-center">
-              <Card className="hover:border-primary/50 transition-colors h-full">
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium">Receita Recorrente (MRR)</CardTitle>
-                  <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center">
+          <Card className="border-border bg-card/40 rounded-2xl p-4 sm:p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div className="flex items-center gap-2">
+                <BarChart3 className="size-4 text-primary" />
+                <h3 className="font-bold text-xs sm:text-sm text-foreground uppercase tracking-wider">Métricas Financeiras</h3>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setIsKpisExpanded(!isKpisExpanded)}
+                className="size-8 rounded-lg hover:bg-secondary text-muted-foreground hover:text-foreground cursor-pointer"
+              >
+                <motion.div
+                  animate={{ rotate: isKpisExpanded ? 180 : 0 }}
+                  transition={{ type: "spring", stiffness: 200, damping: 20 }}
+                >
+                  <ChevronDown className="size-4" />
+                </motion.div>
+              </Button>
+            </div>
+
+            <div className="grid grid-cols-2 gap-3 sm:gap-4">
+              <Card className="hover:border-primary/50 p-0 transition-colors bg-background/50 border-border/50">
+                <CardHeader className="flex flex-row items-center justify-between pt-3 px-5">
+                  <CardTitle className="text-sm font-medium text-muted-foreground truncate">Receita Recorrente (MRR)</CardTitle>
+                  <div className="size-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                     <DollarSign className="size-4 text-primary" />
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-5 pb-5">
                   <div className="text-2xl font-bold">
                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.mrr)}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Faturamento confirmado no mês atual
+                    Faturamento do mês
                   </p>
                 </CardContent>
               </Card>
-            </motion.div>
 
-            <motion.div variants={item as any} className="shrink-0 w-[82vw] sm:w-[45vw] md:w-auto snap-center">
-              <Card className="hover:border-primary/50 transition-colors h-full">
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium">Ticket Médio</CardTitle>
-                  <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center">
+              <Card className="hover:border-primary/50 transition-colors bg-background/50 border-border/50 p-0">
+                <CardHeader className="flex flex-row items-center justify-between pt-3 px-5">
+                  <CardTitle className="text-sm font-medium text-muted-foreground truncate">Ticket Médio</CardTitle>
+                  <div className="size-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
                     <TrendingUp className="size-4 text-primary" />
                   </div>
                 </CardHeader>
-                <CardContent>
+                <CardContent className="px-5 pb-5">
                   <div className="text-2xl font-bold">
                     {new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(metrics.avgTicket)}
                   </div>
                   <p className="text-xs text-muted-foreground mt-1">
-                    Média por pagamento confirmado
+                    Média de pagamento
                   </p>
                 </CardContent>
               </Card>
-            </motion.div>
+            </div>
 
-            <motion.div variants={item as any} className="shrink-0 w-[82vw] sm:w-[45vw] md:w-auto snap-center">
-              <Card className="hover:border-primary/50 transition-colors h-full">
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium">Alunos Ativos</CardTitle>
-                  <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <CreditCard className="size-4 text-primary" />
-                  </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{metrics.activePlans}</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Alunos ativos na assessoria
-                  </p>
-                </CardContent>
-              </Card>
-            </motion.div>
+            <AnimatePresence>
+              {isKpisExpanded && (
+                <motion.div
+                  key="extra-kpis"
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: "auto" }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.3, ease: "easeInOut" }}
+                  className=""
+                >
+                  <div className="grid grid-cols-2 gap-3 sm:gap-4">
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.1 }}
+                    >
+                      <Card className="hover:border-primary/50 transition-colors bg-background/50 border-border/50 p-0">
+                        <CardHeader className="flex flex-row items-center justify-between pt-3 px-5">
+                          <CardTitle className="text-sm font-medium text-muted-foreground truncate">Alunos Ativos</CardTitle>
+                          <div className="size-9 rounded-full bg-primary/10 flex items-center justify-center shrink-0">
+                            <CreditCard className="size-4 text-primary" />
+                          </div>
+                        </CardHeader>
+                        <CardContent className="px-5 pb-5">
+                          <div className="text-2xl font-bold">{metrics.activePlans}</div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Alunos ativos na assessoria
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
 
-            <motion.div variants={item as any} className="shrink-0 w-[82vw] sm:w-[45vw] md:w-auto snap-center">
-              <Card className="hover:border-primary/50 transition-colors h-full">
-                <CardHeader className="flex flex-row items-center justify-between pb-2">
-                  <CardTitle className="text-sm font-medium">Inadimplência</CardTitle>
-                  <div className="size-8 rounded-full bg-destructive/10 flex items-center justify-center">
-                    <AlertCircle className="size-4 text-destructive" />
+                    <motion.div
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.15 }}
+                    >
+                      <Card className="hover:border-primary/50 transition-colors bg-background/50 border-border/50 p-0">
+                        <CardHeader className="flex flex-row items-center justify-between pt-3 px-5">
+                          <CardTitle className="text-sm font-medium text-muted-foreground truncate">Inadimplência</CardTitle>
+                          <div className="size-9 rounded-full bg-destructive/10 flex items-center justify-center shrink-0">
+                            <AlertCircle className="size-4 text-destructive" />
+                          </div>
+                        </CardHeader>
+                        <CardContent className="px-5 pb-5">
+                          <div className="text-2xl font-bold">{metrics.financialChurn}%</div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Taxa de pagamentos atrasados
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </motion.div>
                   </div>
-                </CardHeader>
-                <CardContent>
-                  <div className="text-2xl font-bold">{metrics.financialChurn}%</div>
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Taxa de pagamentos atrasados
-                  </p>
-                </CardContent>
-              </Card>
-            </motion.div>
-          </div>
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </Card>
 
           {/* Main Grid: Chart & Table vs Alerts Sidebar */}
           <div className="grid gap-6 lg:grid-cols-3">
@@ -741,7 +784,7 @@ export default function FinancePage() {
                         <TabsTrigger value="status" className="text-[10px] font-bold rounded-md px-3 h-7">Status</TabsTrigger>
                       </TabsList>
                     </CardHeader>
-                    
+
                     <CardContent className="p-4 sm:p-6 pt-0">
                       <TabsContent value="arrecadacao" className="outline-none m-0">
                         <div className="h-[250px] w-full min-w-0">
@@ -1064,7 +1107,7 @@ export default function FinancePage() {
                               onChange={(e) => setSearchQuery(e.target.value)}
                             />
                           </div>
-                          <Button 
+                          <Button
                             onClick={handleOpenCreateRecurrenceModal}
                             className="gap-2 bg-primary hover:bg-primary/90 text-primary-foreground font-semibold rounded-xl text-xs h-10 px-4 cursor-pointer shrink-0"
                           >

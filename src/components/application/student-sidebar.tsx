@@ -143,7 +143,7 @@ export function StudentSidebar() {
                       <div
                         className="flex aspect-square size-8 items-center justify-center rounded-lg text-sidebar-primary-foreground font-bold text-sm shrink-0 overflow-hidden"
                         style={{
-                          backgroundColor: activeWs.primaryColor || "#0ea5e9",
+                          backgroundColor: activeWs.primaryColor || "var(--primary)",
                         }}
                       >
                         {activeWs.logoUrl ? (
@@ -205,7 +205,7 @@ export function StudentSidebar() {
                   >
                     <div
                       className="flex size-6 items-center justify-center rounded-md border text-[10px] font-bold text-white shrink-0 overflow-hidden"
-                      style={{ backgroundColor: ws.primaryColor || "#0ea5e9", borderColor: ws.primaryColor || "#0ea5e9" }}
+                      style={{ backgroundColor: ws.primaryColor || "var(--primary)", borderColor: ws.primaryColor || "var(--primary)" }}
                     >
                       {ws.logoUrl ? (
                         <img

@@ -4872,14 +4872,14 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
         <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-3xl bg-popover border border-border text-foreground max-h-[90vh] overflow-y-auto!">
           <DialogHeader>
             <DialogTitle className="text-xl font-extrabold flex items-center gap-2 text-foreground">
-              <Dumbbell className="size-5 text-primary" /> Planejar Novo Treino para o Aluno
+              Planejar Novo Treino
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
               Escolha entre importar um treino pronto da biblioteca do seu workspace ou montar um treino totalmente personalizado e exclusivo para o aluno.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="flex flex-col sm:grid sm:grid-cols-2 p-1 bg-muted border border-border rounded-lg my-2 gap-1.5 sm:gap-0">
+          <div className="flex flex-col max-h-fit sm:grid sm:grid-cols-2 p-1 bg-muted border border-border rounded-lg my-2 gap-1.5 sm:gap-0">
             <button
               type="button"
               className={cn(
@@ -4946,7 +4946,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                       <SelectContent className="bg-popover border-border">
                         {templates.map((t) => (
                           <SelectItem key={t.id} value={t.id}>
-                            {t.name} ({t.muscleGroupLabel || "Geral"}) - {t.goal} / {t.duration}
+                            {t.name} - ({t.muscleGroupLabel || "Geral"})
                           </SelectItem>
                         ))}
                       </SelectContent>
