@@ -121,6 +121,7 @@ export async function POST(req: Request) {
               reps: String(ex.reps) || "10",
               rest: String(ex.rest) || "60s",
               load: ex.load ? String(ex.load) : "",
+              description: ex.description || null,
               order: index,
               methodType: ex.methodType || "NONE",
               methodConfig: ex.methodConfig || null,

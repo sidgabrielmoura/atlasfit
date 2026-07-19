@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useSnapshot } from "valtio";
 import { workoutStore, workoutActions } from "@/stores/workout.store";
 import { usePathname, useRouter } from "next/navigation";
@@ -23,6 +23,7 @@ import {
   Plus,
   XCircle,
   Maximize2,
+  ChevronDown,
 } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -43,7 +44,7 @@ const playRestChimeSound = () => {
      * Higher partials decay faster — this is what makes it sound like metal, not a sine.
      */
     const bellPartials: { ratio: number; gain: number; decay: number }[] = [
-      { ratio: 1,     gain: 0.30, decay: 2.4 },  // fundamental — longest ring
+      { ratio: 1, gain: 0.30, decay: 2.4 },  // fundamental — longest ring
       { ratio: 2.756, gain: 0.20, decay: 1.6 },  // 2nd partial
       { ratio: 5.404, gain: 0.12, decay: 0.9 },  // 3rd partial
       { ratio: 8.933, gain: 0.06, decay: 0.5 },  // 4th partial — dies fast
@@ -96,11 +97,13 @@ function WorkoutMinimizedCard({
   totalTimer,
   progressPercent,
   onMaximize,
+  onMinimizeToBubble,
 }: {
   workout: { name: string };
   totalTimer: number;
   progressPercent: number;
   onMaximize: () => void;
+  onMinimizeToBubble: () => void;
 }) {
   const wsSnap = useSnapshot(workspaceStore);
   const primaryHex = wsSnap.activeWorkspace?.primaryColor || "#3052EB";
@@ -201,22 +204,139 @@ function WorkoutMinimizedCard({
             </div>
           </div>
 
-          {/* Maximize button */}
-          <button
-            onClick={(e) => { e.stopPropagation(); onMaximize(); }}
-            className="size-9 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center shrink-0 transition-all active:scale-90 cursor-pointer"
-            title="Abrir Treino"
-          >
-            <Maximize2 className="size-4 text-white/80" />
-          </button>
+          {/* Actions */}
+          <div className="flex items-center gap-1.5 shrink-0">
+            {/* Minimize button to bubble */}
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onMinimizeToBubble();
+              }}
+              className="size-9 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center transition-all active:scale-90 cursor-pointer"
+              title="Minimizar para o canto"
+            >
+              <ChevronDown className="size-4 text-white/80" />
+            </button>
+
+            {/* Maximize button */}
+            <button
+              type="button"
+              onClick={(e) => { e.stopPropagation(); onMaximize(); }}
+              className="size-9 rounded-xl bg-white/10 hover:bg-white/20 border border-white/15 flex items-center justify-center transition-all active:scale-90 cursor-pointer"
+              title="Abrir Treino"
+            >
+              <Maximize2 className="size-4 text-white/80" />
+            </button>
+          </div>
         </div>
       </div>
     </motion.div>
   );
 }
 
-export function WorkoutManager() {
+function WorkoutBubblePlayer({
+  totalTimer,
+  onRestore,
+}: {
+  totalTimer: number;
+  onRestore: () => void;
+}) {
+  const wsSnap = useSnapshot(workspaceStore);
+  const primaryHex = wsSnap.activeWorkspace?.primaryColor || "#3052EB";
+  const rgb = hexToRgb(primaryHex) || { r: 48, g: 82, b: 235 };
 
+  // Build metallic brand gradient and borders for the bubble player
+  const cardBg = `linear-gradient(135deg, #0d0d0f 0%, #111218 50%, rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.25) 100%)`;
+  const borderColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.45)`;
+  const shadowColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.45)`;
+  const glowColor = `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.3)`;
+
+  const [position, setPosition] = useState({ x: 0, y: 0 });
+
+  const formatTime = (s: number) => {
+    const m = Math.floor(s / 60);
+    const sec = s % 60;
+    return `${String(m).padStart(2, "0")}:${String(sec).padStart(2, "0")}`;
+  };
+
+  const handleDragEnd = (event: any, info: any) => {
+    const screenWidth = window.innerWidth;
+    const screenHeight = window.innerHeight;
+    const bubbleWidth = 96; // w-24 is 96px
+    const padding = 12;
+
+    // Calculate approximate X screen absolute coordinate from left border
+    const currentX = (screenWidth - bubbleWidth - padding) + info.offset.x;
+
+    let targetX = 0;
+    if (currentX < screenWidth / 2) {
+      // Snap to left border (12px padding)
+      targetX = - (screenWidth - bubbleWidth - padding * 2);
+    } else {
+      // Snap to right border (default right-3 offset X = 0)
+      targetX = 0;
+    }
+
+    // Limit Y offset to keep it within safe bounds of screen height
+    const maxLocalY = 20; // safe bottom limit offset
+    const minLocalY = - (screenHeight - 180); // safe top limit offset
+    const targetY = Math.max(minLocalY, Math.min(maxLocalY, info.offset.y));
+
+    setPosition({ x: targetX, y: targetY });
+  };
+
+  return (
+    <motion.div
+      drag
+      dragElastic={0.1}
+      dragMomentum={false}
+      onDragEnd={handleDragEnd}
+      transition={{ type: "spring", stiffness: 350, damping: 25 }}
+      initial={{ scale: 0.8, opacity: 0 }}
+      animate={{ scale: 1, opacity: 1, x: position.x, y: position.y }}
+      exit={{ scale: 0.8, opacity: 0 }}
+      onTap={onRestore}
+      className="fixed bottom-24 right-3 z-50 select-none cursor-grab active:cursor-grabbing touch-none"
+    >
+      <div
+        className="h-10 px-3 flex items-center gap-2 rounded-full text-white font-mono font-black text-xs relative overflow-hidden"
+        style={{
+          background: cardBg,
+          border: `1px solid ${borderColor}`,
+          boxShadow: `0 10px 30px -5px ${shadowColor}, 0 2px 8px -2px rgba(0,0,0,0.5)`,
+          width: "96px",
+        }}
+      >
+        {/* Ambient Glow */}
+        <div
+          className="absolute -top-3 -right-3 size-10 rounded-full blur-lg pointer-events-none"
+          style={{ background: glowColor }}
+        />
+
+        {/* Pulsing indicator dot */}
+        <span className="relative flex size-2 shrink-0">
+          <span
+            className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75"
+            style={{ backgroundColor: primaryHex }}
+          />
+          <span
+            className="relative inline-flex rounded-full size-2"
+            style={{ backgroundColor: primaryHex }}
+          />
+        </span>
+
+        {/* Timer Text */}
+        <span className="flex-1 text-center tabular-nums text-white/90">
+          {formatTime(totalTimer)}
+        </span>
+      </div>
+    </motion.div>
+  );
+}
+
+export function WorkoutManager() {
+  const [isUltraMinimized, setIsUltraMinimized] = useState(false);
   const snap = useSnapshot(workoutStore);
   const router = useRouter();
   const pathname = usePathname();
@@ -370,12 +490,20 @@ export function WorkoutManager() {
       {/* 2. Minimized Floating Track Player */}
       <AnimatePresence>
         {snap.activeWorkout && snap.isMinimized && (
-          <WorkoutMinimizedCard
-            workout={snap.activeWorkout}
-            totalTimer={snap.totalTimer}
-            progressPercent={progressPercent}
-            onMaximize={handleMaximize}
-          />
+          isUltraMinimized ? (
+            <WorkoutBubblePlayer
+              totalTimer={snap.totalTimer}
+              onRestore={() => setIsUltraMinimized(false)}
+            />
+          ) : (
+            <WorkoutMinimizedCard
+              workout={snap.activeWorkout}
+              totalTimer={snap.totalTimer}
+              progressPercent={progressPercent}
+              onMaximize={handleMaximize}
+              onMinimizeToBubble={() => setIsUltraMinimized(true)}
+            />
+          )
         )}
       </AnimatePresence>
     </>

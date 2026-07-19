@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { useSearchParams } from "next/navigation";
+import { useSearchParams, useRouter } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSnapshot } from "valtio";
 import { workspaceStore } from "@/stores/workspace.store";
@@ -61,6 +61,7 @@ import {
   Printer,
   ExternalLink,
   Minimize2,
+  MessageSquare,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
@@ -160,6 +161,7 @@ const getDisplayItems = (exercises: any[], exerciseGroups: any[] = []): DisplayI
 export default function StudentWorkoutsPage() {
   const workspaceSnap = useSnapshot(workspaceStore);
   const activeWs = workspaceSnap.activeWorkspace;
+  const router = useRouter();
 
   // State Management
   const [workouts, setWorkouts] = useState<any[]>([]);
@@ -174,6 +176,13 @@ export default function StudentWorkoutsPage() {
   // Video Demo Modal
   const [previewExercise, setPreviewExercise] = useState<any>(null);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+  const [activeObservation, setActiveObservation] = useState<{
+    workoutId: string;
+    workoutName: string;
+    exerciseId: string;
+    exerciseName: string;
+    observation: string;
+  } | null>(null);
 
   // Workout Execution via global Valtio store
   const workoutSnap = useSnapshot(workoutStore);
@@ -1133,15 +1142,35 @@ export default function StudentWorkoutsPage() {
                                         <ExerciseThumbnail videoUrl={we.exercise.videoUrl} className="size-11 rounded-xl" />
                                       </div>
                                       <div className="space-y-1.5 min-w-0 flex-1">
-                                        <h4
-                                          className="font-bold text-base text-foreground leading-tight cursor-pointer hover:text-primary transition-colors truncate"
-                                          onClick={() => {
-                                            setPreviewExercise(we.exercise);
-                                            setIsPreviewModalOpen(true);
-                                          }}
-                                        >
-                                          {we.exercise.name}
-                                        </h4>
+                                        <div className="flex items-center gap-2">
+                                          <h4
+                                            className="font-bold text-base text-foreground leading-tight cursor-pointer hover:text-primary transition-colors truncate"
+                                            onClick={() => {
+                                              setPreviewExercise(we.exercise);
+                                              setIsPreviewModalOpen(true);
+                                            }}
+                                          >
+                                            {we.exercise.name}
+                                          </h4>
+                                          {we.description && (
+                                            <button
+                                              onClick={(e) => {
+                                                e.stopPropagation();
+                                                setActiveObservation({
+                                                  workoutId: selectedWorkout.id,
+                                                  workoutName: selectedWorkout.name,
+                                                  exerciseId: we.id,
+                                                  exerciseName: we.exercise.name,
+                                                  observation: we.description,
+                                                });
+                                              }}
+                                              className="shrink-0 p-1 rounded-lg bg-secondary/80 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                                              title="Observação do Personal"
+                                            >
+                                              <MessageSquare className="size-3.5" />
+                                            </button>
+                                          )}
+                                        </div>
                                         <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground">
                                           <span className="font-semibold text-foreground bg-secondary/50 px-2 py-0.5 rounded-md border border-border/40">
                                             {we.sets} séries
@@ -1357,7 +1386,27 @@ export default function StudentWorkoutsPage() {
                                       </div>
                                       <div className="space-y-1 min-w-0 flex-1">
                                         <div className="flex justify-between items-start gap-2">
-                                          <h4 className="font-bold text-sm text-foreground truncate">{we.exercise.name}</h4>
+                                          <div className="flex items-center gap-2 min-w-0 flex-1">
+                                            <h4 className="font-bold text-sm text-foreground truncate">{we.exercise.name}</h4>
+                                            {we.description && (
+                                              <button
+                                                onClick={(e) => {
+                                                  e.stopPropagation();
+                                                  setActiveObservation({
+                                                    workoutId: selectedWorkout.id,
+                                                    workoutName: selectedWorkout.name,
+                                                    exerciseId: we.id,
+                                                    exerciseName: we.exercise.name,
+                                                    observation: we.description,
+                                                  });
+                                                }}
+                                                className="shrink-0 p-0.5 rounded-lg bg-secondary/80 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                                                title="Observação do Personal"
+                                              >
+                                                <MessageSquare className="size-3" />
+                                              </button>
+                                            )}
+                                          </div>
                                           {we.exercise.videoUrl && (
                                             <button
                                               onClick={() => {
@@ -1462,6 +1511,77 @@ export default function StudentWorkoutsPage() {
         open={isPreviewModalOpen}
         onOpenChange={setIsPreviewModalOpen}
       />
+
+      <Dialog open={!!activeObservation} onOpenChange={(open) => !open && setActiveObservation(null)}>
+        <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-md bg-popover border border-border text-foreground rounded-2xl shadow-2xl p-6">
+          <DialogHeader className="pb-3 border-b border-border/40">
+            <DialogTitle className="text-base font-extrabold flex items-center gap-2 text-foreground">
+              <Dumbbell className="size-4.5 text-primary shrink-0" />
+              Observação do Treino
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              Notas e orientações prescritas pelo seu personal trainer.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="py-4 space-y-4">
+            <div className="space-y-1">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Exercício</span>
+              <p className="text-sm font-bold text-foreground">
+                {activeObservation?.exerciseName}
+              </p>
+            </div>
+            <div className="space-y-1">
+              <span className="text-[10px] uppercase font-bold text-muted-foreground tracking-wider block">Planilha</span>
+              <p className="text-xs font-semibold text-muted-foreground">
+                {activeObservation?.workoutName}
+              </p>
+            </div>
+            <div className="bg-primary/5 border border-primary/10 p-4 rounded-xl space-y-2 mt-2">
+              <span className="text-[10px] uppercase font-bold text-primary tracking-wider block">Orientação</span>
+              <p className="text-xs text-foreground leading-relaxed font-semibold">
+                "{activeObservation?.observation}"
+              </p>
+            </div>
+          </div>
+
+          <DialogFooter className="flex flex-col sm:flex-row gap-2 mt-2 pt-3 border-t border-border/40">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setActiveObservation(null)}
+              className="h-10 rounded-xl font-bold text-xs border-border/60 hover:bg-secondary/40 shrink-0 w-full sm:w-auto"
+            >
+              Fechar
+            </Button>
+            <Button
+              type="button"
+              onClick={() => {
+                if (activeObservation) {
+                  // Minimizar treino em execução caso exista, para exibir o player flutuante global
+                  if (workoutStore.activeWorkout) {
+                    workoutActions.minimize();
+                  }
+
+                  const query = new URLSearchParams({
+                    workoutId: activeObservation.workoutId,
+                    workoutName: activeObservation.workoutName,
+                    exerciseId: activeObservation.exerciseId,
+                    exerciseName: activeObservation.exerciseName,
+                    observation: activeObservation.observation,
+                  }).toString();
+                  router.push(`/student/chat?${query}`);
+                  setActiveObservation(null);
+                }
+              }}
+              className="h-10 rounded-xl font-bold text-xs bg-primary text-primary-foreground hover:bg-primary/90 gap-1.5 shrink-0 w-full sm:w-auto ml-0 sm:ml-auto"
+            >
+              <MessageSquare className="size-4 shrink-0" />
+              Perguntar no Chat
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Leave Workout Confirmation Dialog (confirmationmodals.md compliance) */}
       <AlertDialog open={isExitConfirmOpen} onOpenChange={setIsExitConfirmOpen}>
@@ -1588,6 +1708,41 @@ export default function StudentWorkoutsPage() {
                                   </Button>
                                 )}
                               </div>
+
+                              {execEx.description && (
+                                <div className="mt-2 p-3 bg-muted/40 border border-border/30 rounded-xl flex items-center justify-between gap-3 text-xs">
+                                  <div className="flex items-start gap-2 min-w-0 flex-1">
+                                    <MessageSquare className="size-3.5 text-muted-foreground mt-0.5 shrink-0" />
+                                    <div className="min-w-0">
+                                      <span className="text-[9px] font-bold text-muted-foreground block leading-none uppercase tracking-wider">Observação</span>
+                                      <p className="text-muted-foreground/95 mt-1 leading-normal font-semibold italic">
+                                        "{execEx.description}"
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="ghost"
+                                    className="h-7 text-[10px] font-bold text-primary hover:bg-primary/5 hover:text-primary rounded-lg shrink-0 px-2 py-0 cursor-pointer"
+                                    onClick={() => {
+                                      // Minimizar treino em execução caso exista, para exibir o player flutuante global
+                                      workoutActions.minimize();
+
+                                      const query = new URLSearchParams({
+                                        workoutId: activeExecutionWorkout.id,
+                                        workoutName: activeExecutionWorkout.name,
+                                        exerciseId: execEx.id,
+                                        exerciseName: execEx.exercise.name,
+                                        observation: execEx.description,
+                                      }).toString();
+                                      router.push(`/student/chat?${query}`);
+                                    }}
+                                  >
+                                    Dúvida?
+                                  </Button>
+                                </div>
+                              )}
 
                               {execEx.methodType === "DROPSET" && (
                                 <div className="flex flex-col gap-2 p-3.5 bg-amber-500/5 border border-amber-500/20 rounded-xl">
@@ -1824,6 +1979,24 @@ export default function StudentWorkoutsPage() {
                                       {groupLetter}{subIdx + 1}
                                     </div>
                                     <span className="font-bold truncate text-foreground">{ex.exercise.name}</span>
+                                    {ex.description && (
+                                      <button
+                                        onClick={(e) => {
+                                          e.stopPropagation();
+                                          setActiveObservation({
+                                            workoutId: activeExecutionWorkout.id,
+                                            workoutName: activeExecutionWorkout.name,
+                                            exerciseId: ex.id,
+                                            exerciseName: ex.exercise.name,
+                                            observation: ex.description,
+                                          });
+                                        }}
+                                        className="shrink-0 p-0.5 rounded-lg bg-secondary/80 text-muted-foreground hover:text-primary hover:bg-primary/10 transition-colors cursor-pointer"
+                                        title="Observação do Personal"
+                                      >
+                                        <MessageSquare className="size-3" />
+                                      </button>
+                                    )}
                                   </div>
                                   {ex.exercise.videoUrl && (
                                     <Button

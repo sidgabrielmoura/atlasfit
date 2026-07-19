@@ -343,6 +343,7 @@ model WorkoutExercise {
   reps       String // repetições
   rest       String // descanso
   load         String? // carga (peso) prescrita
+  description  String? // observação do personal para este exercício
   order        Int                  @default(0) // ordem
   methodType   MethodType           @default(NONE)
   methodConfig Json?

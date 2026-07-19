@@ -29,11 +29,13 @@ import {
   Minimize2,
   ZoomIn,
   ZoomOut,
+  Dumbbell,
 } from "lucide-react";
 
 import { chatStore, chatActions, Message, Conversation } from "@/stores/chat.store";
 import { workspaceStore } from "@/stores/workspace.store";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useSearchParams, useRouter } from "next/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -129,11 +131,43 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
   const chatSnap = useSnapshot(chatStore);
   const ably = useAbly();
 
+  const router = useRouter();
+  const searchParams = useSearchParams();
+
   const activeWorkspaceId = workspaceSnap.activeWorkspaceId;
   const currentUserId = session?.user?.id;
 
   const [searchQuery, setSearchQuery] = useState("");
   const [inputText, setInputText] = useState("");
+  const [workoutMention, setWorkoutMention] = useState<{
+    workoutId: string;
+    workoutName: string;
+    exerciseId: string;
+    exerciseName: string;
+    observation: string;
+  } | null>(null);
+
+  useEffect(() => {
+    const workoutId = searchParams.get("workoutId");
+    const workoutName = searchParams.get("workoutName");
+    const exerciseId = searchParams.get("exerciseId");
+    const exerciseName = searchParams.get("exerciseName");
+    const observation = searchParams.get("observation");
+
+    if (workoutId && workoutName && exerciseId && exerciseName && observation) {
+      setWorkoutMention({
+        workoutId,
+        workoutName,
+        exerciseId,
+        exerciseName,
+        observation,
+      });
+
+      // Limpar searchParams da URL
+      router.replace(window.location.pathname);
+    }
+  }, [searchParams, router]);
+
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [contacts, setContacts] = useState<any[]>([]);
   const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
@@ -196,6 +230,9 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
       })
       .then((data) => {
         chatActions.setConversations(data);
+        if (data.length > 0 && !chatStore.activeConversationId) {
+          chatActions.setActiveConversationId(data[0].id);
+        }
       })
       .catch(() => {
         toast.error("Erro ao carregar conversas.");
@@ -290,6 +327,15 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
     const textToSend = inputText.trim();
     if (!textToSend || !activeConversationId || !currentUserId) return;
 
+    const attachmentPayload = workoutMention ? {
+      type: "workout_exercise_mention",
+      workoutId: workoutMention.workoutId,
+      workoutName: workoutMention.workoutName,
+      exerciseId: workoutMention.exerciseId,
+      exerciseName: workoutMention.exerciseName,
+      observation: workoutMention.observation
+    } : null;
+
     const optimisticMessage: Message = {
       id: `temp-${Date.now()}`,
       conversationId: activeConversationId,
@@ -298,6 +344,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
       content: textToSend,
       replyToId: chatSnap.replyToMessage?.id || null,
       replyTo: chatSnap.replyToMessage,
+      attachment: attachmentPayload || null,
       status: "SENDING",
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
@@ -308,6 +355,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
     chatActions.updateConversation(activeConversationId, textToSend, new Date());
     setInputText("");
     chatActions.setReplyToMessage(null);
+    setWorkoutMention(null);
 
     try {
       const res = await fetch("/api/chat/messages", {
@@ -318,6 +366,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
           type: "TEXT",
           content: textToSend,
           replyToId: optimisticMessage.replyToId,
+          attachment: attachmentPayload || undefined,
         }),
       });
 
@@ -1280,6 +1329,30 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                                       </div>
                                     )}
 
+                                    {m.attachment && (m.attachment as any).type === "workout_exercise_mention" && (
+                                      <div className={cn(
+                                        "flex flex-col gap-0.5 text-[10px] mb-2 p-1.5 px-3 rounded-r-lg border-l-2 text-left border-y-0 border-r-0 select-none",
+                                        isSelf 
+                                          ? "bg-white/5 border-l-white/60 text-white/90" 
+                                          : "bg-secondary/20 border-l-primary/60 text-foreground/80"
+                                      )}>
+                                        <div className="flex items-center gap-1 font-bold uppercase tracking-wider text-[8px] opacity-75">
+                                          <span>Dúvida de Treino • {(m.attachment as any).workoutName}</span>
+                                        </div>
+                                        <div className={cn(
+                                          "font-bold text-[11px]",
+                                          isSelf ? "text-white" : "text-foreground"
+                                        )}>
+                                          {(m.attachment as any).exerciseName}
+                                        </div>
+                                        {(m.attachment as any).observation && (
+                                          <div className="italic opacity-70 truncate max-w-[220px] text-[10px]">
+                                            "{(m.attachment as any).observation}"
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+
                                     {m.type === "TEXT" && <p>{m.content}</p>}
                                     {m.type !== "TEXT" && m.content && (
                                       <p className="mt-2 text-left whitespace-pre-wrap px-2 pb-1.5 pt-0.5 font-normal text-xs text-foreground/90">{m.content}</p>
@@ -1411,6 +1484,33 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
             )}
 
             <div className="p-3 border-t border-border bg-card flex flex-col gap-2 shrink-0">
+              {workoutMention && (
+                <div className="flex items-center justify-between p-1.5 px-3 rounded-r-xl border-l-2 border-primary/60 border-y-0 border-r-0 bg-secondary/35 text-xs animate-in slide-in-from-top-1 select-none">
+                  <div className="flex flex-col min-w-0">
+                    <span className="font-bold text-[9px] text-primary uppercase tracking-wider">
+                      DÚVIDA SOBRE: {workoutMention.workoutName}
+                    </span>
+                    <span className="font-bold text-foreground text-[11px] truncate max-w-[300px]">
+                      {workoutMention.exerciseName}
+                    </span>
+                    {workoutMention.observation && (
+                      <span className="truncate max-w-[300px] text-muted-foreground text-[10px] italic">
+                        "{workoutMention.observation}"
+                      </span>
+                    )}
+                  </div>
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    onClick={() => setWorkoutMention(null)}
+                    className="size-5 rounded-full text-muted-foreground hover:text-foreground shrink-0 cursor-pointer"
+                  >
+                    <X className="size-3.5" />
+                  </Button>
+                </div>
+              )}
+
               {chatSnap.replyToMessage && (
                 <div className="flex items-center justify-between p-2 rounded-xl bg-secondary/35 border-l-2 border-primary/60 text-xs animate-in slide-in-from-top-1">
                   <div className="flex flex-col min-w-0">

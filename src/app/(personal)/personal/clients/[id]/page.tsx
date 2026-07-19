@@ -681,6 +681,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
           reps: ex.reps,
           rest: ex.rest,
           load: ex.load || "",
+          description: ex.description || null,
           methodType: ex.methodType || "NONE",
           methodConfig: ex.methodConfig || null,
         }));
@@ -767,6 +768,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
           reps: repsStr,
           rest: restStr,
           load: loadStr,
+          description: ex.description || "",
           isIndividual,
           individualSets,
           methodType: ex.methodType || "NONE",
@@ -806,6 +808,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
             reps: ex.reps,
             rest: ex.rest,
             load: ex.load || "",
+            description: ex.description || null,
             methodType: ex.methodType || "NONE",
             methodConfig: ex.methodConfig || null,
             groupId: ex.groupId || null,
@@ -2320,6 +2323,11 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                                     ? we.exercise.muscleGroups.map((g: any) => g.name).join(", ")
                                                     : (we.exercise?.muscleGroup?.name || "Geral")}
                                                 </span>
+                                                {we.description && (
+                                                  <p className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold italic mt-1 leading-normal max-w-sm">
+                                                    Obs: "{we.description}"
+                                                  </p>
+                                                )}
                                               </div>
 
                                               <div className="flex w-fit items-center gap-1.5 shrink-0 text-[10px] text-muted-foreground bg-muted/60 dark:bg-zinc-900/60 px-2.5 py-1 rounded-lg border border-border/60">
@@ -2550,6 +2558,11 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                                         ? we.exercise.muscleGroups.map((g: any) => g.name).join(", ")
                                                         : (we.exercise?.muscleGroup?.name || "Geral")}
                                                     </span>
+                                                    {we.description && (
+                                                      <p className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold italic mt-1 leading-normal max-w-sm">
+                                                        Obs: "{we.description}"
+                                                      </p>
+                                                    )}
                                                   </div>
                                                 </div>
 
@@ -5280,6 +5293,19 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                               </div>
                             </div>
 
+                            <div className="w-full mt-1.5">
+                              <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5 mb-1">
+                                Observação para o Aluno
+                              </span>
+                              <Input
+                                type="text"
+                                value={ex.description || ""}
+                                onChange={(e) => handleUpdateExerciseField(idx, "description", e.target.value, false)}
+                                className="h-8 bg-card border-border w-full text-xs! px-2.5 py-5! rounded-lg"
+                                placeholder="Ex: Controlar a descida, manter cotovelos fixos..."
+                              />
+                            </div>
+
                             {/* Individual Sets */}
                             {ex.isIndividual && (
                               <div className="mt-1 border-t border-border/40 pt-3 space-y-2.5">
@@ -5748,7 +5774,6 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                           </div>
                         </div>
 
-                        {/* Bottom Row: Checkboxes */}
                         <div className="flex flex-wrap items-center gap-4 px-0.5">
                           <div className="flex items-center gap-2">
                             <Checkbox
@@ -5778,6 +5803,19 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                               Peso do corpo
                             </label>
                           </div>
+                        </div>
+
+                        <div className="w-full mt-1.5">
+                          <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5 mb-1">
+                            Observação para o Aluno
+                          </span>
+                          <Input
+                            type="text"
+                            value={ex.description || ""}
+                            onChange={(e) => handleUpdateExerciseField(idx, "description", e.target.value, true)}
+                            className="h-8 bg-card border-border w-full text-xs px-2.5 py-5! text-sm! rounded-lg"
+                            placeholder="Ex: Controlar a descida, manter cotovelos fixos..."
+                          />
                         </div>
 
                         {/* Individual Sets */}
