@@ -32,6 +32,7 @@ import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useSession } from "next-auth/react";
 import { cn } from "@/lib/utils";
+import { compressImage } from "@/lib/image-compress";
 
 // Staggered grid animations
 const containerVariants = {
@@ -143,14 +144,21 @@ export default function StudentSettingsPage() {
       let finalImageKey = imageKey;
 
       if (avatarFile) {
+        let compressedFile = avatarFile;
+        try {
+          compressedFile = await compressImage(avatarFile);
+        } catch (err) {
+          console.warn("Failing compression, uploading original:", err);
+        }
+
         // 1. Get presigned URL
         const presignedRes = await fetch("/api/storage/presigned", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            fileName: avatarFile.name,
-            contentType: avatarFile.type,
-            fileSize: avatarFile.size,
+            fileName: compressedFile.name,
+            contentType: compressedFile.type,
+            fileSize: compressedFile.size,
             targetType: "avatar",
           }),
         });
@@ -165,8 +173,8 @@ export default function StudentSettingsPage() {
         // 2. Put file to R2
         const putRes = await fetch(putUrl, {
           method: "PUT",
-          headers: { "Content-Type": avatarFile.type },
-          body: avatarFile,
+          headers: { "Content-Type": compressedFile.type },
+          body: compressedFile,
         });
 
         if (!putRes.ok) {

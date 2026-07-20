@@ -606,7 +606,7 @@ export default function OrganizationPage() {
             asChild
             className="h-10 px-4 flex items-center gap-1.5 bg-secondary/50 hover:bg-secondary border-border/40 text-xs font-bold uppercase tracking-wider rounded-full shrink-0 cursor-pointer"
           >
-            <Link href="/personal/clients">
+            <Link href="/personal/chat?massMessage=true">
               <Send className="size-3.5 text-primary" />
               <span>Msg em Massa</span>
             </Link>
@@ -913,7 +913,7 @@ export default function OrganizationPage() {
                   </Link>
                 </Button>
                 <Button variant="outline" size="sm" asChild className="h-9 rounded-xl font-bold text-xs gap-1.5 cursor-pointer">
-                  <Link href="/personal/clients">
+                  <Link href="/personal/chat?massMessage=true">
                     <Send className="size-3.5 text-primary" />
                     Mensagem em Massa
                   </Link>

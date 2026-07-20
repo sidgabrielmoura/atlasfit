@@ -15,9 +15,10 @@ import { toast } from "sonner";
 import { updateProfile, updateBrandSettings } from "./actions";
 import { useSnapshot } from "valtio";
 import { workspaceStore, workspaceActions } from "@/stores/workspace.store";
-import { cn } from "@/lib/utils";
-import { Badge } from "@/components/ui/badge";
+import { cn, formatPhone } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Badge } from "@/components/ui/badge";
+import { compressImage } from "@/lib/image-compress";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -322,14 +323,24 @@ export default function SettingsPage() {
   }, [activeWorkspace]);
 
   const uploadToR2 = async (file: File, targetType: string, workspaceId?: string) => {
+    let fileToUpload = file;
+    // Compress image client-side to save bandwidth
+    if (file.type.startsWith("image/")) {
+      try {
+        fileToUpload = await compressImage(file);
+      } catch (err) {
+        console.warn("Failing compression, uploading original:", err);
+      }
+    }
+
     const res = await fetch("/api/storage/presigned", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         workspaceId,
-        fileName: file.name,
-        contentType: file.type,
-        fileSize: file.size,
+        fileName: fileToUpload.name,
+        contentType: fileToUpload.type,
+        fileSize: fileToUpload.size,
         targetType,
       }),
     });
@@ -343,8 +354,8 @@ export default function SettingsPage() {
 
     const putRes = await fetch(uploadUrl, {
       method: "PUT",
-      headers: { "Content-Type": file.type },
-      body: file,
+      headers: { "Content-Type": fileToUpload.type },
+      body: fileToUpload,
     });
 
     if (!putRes.ok) {
@@ -698,8 +709,9 @@ export default function SettingsPage() {
                     <Label htmlFor="profWhatsApp">WhatsApp</Label>
                     <Input
                       id="profWhatsApp"
+                      placeholder="Ex: (11) 99999-9999"
                       value={whatsapp}
-                      onChange={(e) => setWhatsapp(e.target.value)}
+                      onChange={(e) => setWhatsapp(formatPhone(e.target.value))}
                       className="rounded-xl bg-secondary/30 border-border/50"
                     />
                   </div>

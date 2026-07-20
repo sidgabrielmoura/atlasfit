@@ -68,6 +68,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { compressImage } from "@/lib/image-compress";
 
 // Motion animations
 const containerVariants = {
@@ -289,6 +290,15 @@ export default function PersonalFilesPage() {
       let finalSize = null;
 
       if (uploadType === "file" && selectedFileObj) {
+        let fileToUpload = selectedFileObj;
+        if (selectedFileObj.type.startsWith("image/")) {
+          try {
+            fileToUpload = await compressImage(selectedFileObj);
+          } catch (err) {
+            console.warn("Failing compression, uploading original:", err);
+          }
+        }
+
         // 1. Get presigned URL
         const presignedRes = await fetch("/api/storage/presigned", {
           method: "POST",
@@ -296,9 +306,9 @@ export default function PersonalFilesPage() {
           body: JSON.stringify({
             workspaceId: activeWorkspaceId,
             studentId: uploadStudentId,
-            fileName: selectedFileObj.name,
-            contentType: selectedFileObj.type,
-            fileSize: selectedFileObj.size,
+            fileName: fileToUpload.name,
+            contentType: fileToUpload.type,
+            fileSize: fileToUpload.size,
             targetType: "student_file",
           }),
         });
@@ -313,8 +323,8 @@ export default function PersonalFilesPage() {
         // 2. Put file to Cloudflare R2
         const putRes = await fetch(putUrl, {
           method: "PUT",
-          headers: { "Content-Type": selectedFileObj.type },
-          body: selectedFileObj,
+          headers: { "Content-Type": fileToUpload.type },
+          body: fileToUpload,
         });
 
         if (!putRes.ok) {
@@ -323,8 +333,8 @@ export default function PersonalFilesPage() {
 
         finalUrl = fileUrl;
         finalKey = objectKey;
-        finalMimeType = selectedFileObj.type;
-        finalSize = selectedFileObj.size;
+        finalMimeType = fileToUpload.type;
+        finalSize = fileToUpload.size;
       }
 
       const payload = {

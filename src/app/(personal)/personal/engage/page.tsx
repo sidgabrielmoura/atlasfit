@@ -5,6 +5,7 @@ import { useSnapshot } from "valtio";
 import { workspaceStore } from "@/stores/workspace.store";
 import { useEngageSnapshot, engageActions, EngageBlock, EngageExperience } from "@/stores/engage.store";
 import { toast } from "sonner";
+import { compressImage } from "@/lib/image-compress";
 import { Card, CardContent } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
@@ -213,15 +214,21 @@ function PersonalEngageContent() {
         const block = updatedBlocks[i];
         if (block.type === "IMAGE" && block.content.imageKey === "pending" && pendingFiles[block.id]) {
           const file = pendingFiles[block.id];
+          let fileToUpload = file;
+          try {
+            fileToUpload = await compressImage(file);
+          } catch (err) {
+            console.warn("Failing compression, uploading original:", err);
+          }
 
           // Request presigned URL
           const presignedRes = await fetch("/api/storage/presigned", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
-              fileName: file.name,
-              contentType: file.type,
-              fileSize: file.size,
+              fileName: fileToUpload.name,
+              contentType: fileToUpload.type,
+              fileSize: fileToUpload.size,
               targetType: "campaign_banner",
             }),
           });
@@ -235,8 +242,8 @@ function PersonalEngageContent() {
           // Put file to storage
           const putRes = await fetch(putUrl, {
             method: "PUT",
-            headers: { "Content-Type": file.type },
-            body: file,
+            headers: { "Content-Type": fileToUpload.type },
+            body: fileToUpload,
           });
 
           if (!putRes.ok) {

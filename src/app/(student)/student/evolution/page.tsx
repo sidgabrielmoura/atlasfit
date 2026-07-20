@@ -66,9 +66,10 @@ import {
   ResponsiveContainer,
   Tooltip,
 } from "recharts";
-import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+import { compressImage } from "@/lib/image-compress";
 
 // Grid stagger animations
 const containerVariants = {
@@ -250,14 +251,21 @@ export default function StudentEvolutionPage() {
       let finalKey = null;
 
       if (photoFile) {
+        let compressedFile = photoFile;
+        try {
+          compressedFile = await compressImage(photoFile);
+        } catch (err) {
+          console.warn("Failing compression, uploading original:", err);
+        }
+
         // 1. Get presigned URL
         const presignedRes = await fetch("/api/storage/presigned", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
-            fileName: photoFile.name,
-            contentType: photoFile.type,
-            fileSize: photoFile.size,
+            fileName: compressedFile.name,
+            contentType: compressedFile.type,
+            fileSize: compressedFile.size,
             targetType: "progress_photo",
           }),
         });
@@ -272,8 +280,8 @@ export default function StudentEvolutionPage() {
         // 2. Put file to R2
         const putRes = await fetch(putUrl, {
           method: "PUT",
-          headers: { "Content-Type": photoFile.type },
-          body: photoFile,
+          headers: { "Content-Type": compressedFile.type },
+          body: compressedFile,
         });
 
         if (!putRes.ok) {
@@ -1259,7 +1267,7 @@ export default function StudentEvolutionPage() {
 
       {/* ==================== DIALOG 3: COMPARISON LIGHTBOX (ANTES VS DEPOIS) ==================== */}
       <Dialog open={isComparisonOpen} onOpenChange={setIsComparisonOpen}>
-        <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-2xl bg-background dark:bg-neutral-950 border border-border dark:border-neutral-800 text-foreground p-6 rounded-2xl">
+        <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-2xl bg-background dark:bg-neutral-950 border border-border dark:border-neutral-800 text-foreground p-6 rounded-2xl!">
           <DialogHeader>
             <DialogTitle className="text-base font-bold flex items-center gap-2">
               Comparativo de Evolução Visual
@@ -1447,7 +1455,7 @@ export default function StudentEvolutionPage() {
 
       {/* ==================== DIALOG 4: SINGLE PHOTO LIGHTBOX ==================== */}
       <Dialog open={!!lightboxPhoto} onOpenChange={() => setLightboxPhoto(null)}>
-        <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-sm bg-background dark:bg-neutral-950 border border-border dark:border-neutral-800 text-foreground p-4 rounded-2xl">
+        <DialogContent className="w-full max-w-2xl! overflow-y-auto! sm:max-w-sm bg-background dark:bg-neutral-950 border border-border dark:border-neutral-800 text-foreground p-4 rounded-2xl!">
           {lightboxPhoto && (
             <div className="space-y-4">
               <DialogHeader>
@@ -1456,7 +1464,7 @@ export default function StudentEvolutionPage() {
                 </DialogTitle>
               </DialogHeader>
 
-              <div className="aspect-3/4 rounded-xl overflow-hidden border border-border dark:border-white/6 bg-muted dark:bg-neutral-900 flex items-center justify-center relative">
+              <div className="aspect-3/4 rounded-xl max-h-120 mx-auto overflow-hidden border border-border dark:border-white/6 bg-muted dark:bg-neutral-900 flex items-center justify-center relative">
                 <img src={lightboxPhoto.photoUrl} alt="Lightbox Progresso" className="size-full object-cover" />
               </div>
 

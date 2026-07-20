@@ -110,11 +110,10 @@ export function AblyProvider({ children }: AblyProviderProps) {
       const conv = message.data;
       chatActions.addConversation(conv);
     });
-
     // Listen to conversation list updates (last message, etc.)
     channel.subscribe("conversation:update", (message) => {
       const { conversationId, messageId, lastMessage, lastMessageAt, senderId } = message.data;
-      chatActions.updateConversation(conversationId, lastMessage, lastMessageAt);
+      chatActions.updateConversation(conversationId, lastMessage, lastMessageAt, senderId);
 
       // Increment unread count and trigger delivery receipt if we are not currently viewing this conversation
       if (chatStore.activeConversationId !== conversationId && senderId !== userId) {

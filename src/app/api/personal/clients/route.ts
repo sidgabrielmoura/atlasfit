@@ -62,6 +62,7 @@ export async function GET(req: Request) {
         whatsapp: m.user.whatsapp || "",
         isActive: m.isActive,
         plan: m.plan,
+        modality: m.modality,
         streak: m.streak,
         bestStreak: m.bestStreak,
         image: m.user.image,
@@ -88,11 +89,11 @@ export async function POST(req: Request) {
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
   }
-
   try {
     const body = await req.json();
     const { workspaceId, name, email, whatsapp } = body;
     const plan = body.plan || "Mensal";
+    const modality = body.modality || "PRESENCIAL";
 
     if (!workspaceId || !name || !email) {
       return new NextResponse("Campos obrigatórios ausentes.", { status: 400 });
@@ -137,6 +138,7 @@ export async function POST(req: Request) {
           workspaceId,
           role: "STUDENT",
           plan,
+          modality,
           isActive: true,
         },
       });
@@ -170,6 +172,7 @@ export async function POST(req: Request) {
             workspaceId,
             role: "STUDENT",
             plan,
+            modality,
             isActive: true,
           },
         });
@@ -192,7 +195,7 @@ export async function PUT(req: Request) {
 
   try {
     const body = await req.json();
-    const { userId, workspaceId, name, email, whatsapp, plan, isActive } = body;
+    const { userId, workspaceId, name, email, whatsapp, plan, modality, isActive } = body;
 
     if (!userId || !workspaceId) {
       return new NextResponse("ID do usuário e ID do workspace são obrigatórios.", { status: 400 });
@@ -233,6 +236,7 @@ export async function PUT(req: Request) {
     // Prepare update data for WorkspaceMember
     const memberUpdate: any = {};
     if (plan !== undefined) memberUpdate.plan = plan;
+    if (modality !== undefined) memberUpdate.modality = modality;
     if (isActive !== undefined) memberUpdate.isActive = isActive;
 
     await prisma.$transaction(async (tx) => {

@@ -575,10 +575,10 @@ export default function RewardsPage() {
                     <table className="w-full text-left border-collapse">
                       <thead className="bg-secondary/15 border-b border-border/40">
                         <tr>
-                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Personal Convidado</th>
-                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">E-mail</th>
-                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Comissão Gerada</th>
-                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Data do Cadastro</th>
+                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-nowrap">Personal Convidado</th>
+                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-nowrap">E-mail</th>
+                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-nowrap">Comissão Gerada</th>
+                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-nowrap">Data do Cadastro</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border/20">
@@ -643,10 +643,10 @@ export default function RewardsPage() {
                     <table className="w-full text-left border-collapse">
                       <thead className="bg-secondary/15 border-b border-border/40">
                         <tr>
-                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Valor Solicitado</th>
-                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Destinatário (Chave PIX)</th>
-                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Status / Ação</th>
-                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Data da Solicitação</th>
+                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-nowrap">Valor Solicitado</th>
+                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-nowrap">Destinatário (Chave PIX)</th>
+                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-nowrap">Status / Ação</th>
+                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-nowrap">Data da Solicitação</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border/20">

@@ -70,6 +70,7 @@ interface Student {
   whatsapp: string;
   isActive: boolean;
   plan: string;
+  modality: string;
   image: string;
   streak: number;
   progress: number;
@@ -136,6 +137,7 @@ export default function ClientsPage() {
   const [email, setEmail] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [plan, setPlan] = useState("Mensal");
+  const [modality, setModality] = useState("PRESENCIAL");
 
   // Helper to format WhatsApp phone masking
   const handleWhatsAppChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -320,6 +322,7 @@ export default function ClientsPage() {
           email,
           whatsapp,
           plan,
+          modality,
         }),
       });
 
@@ -334,6 +337,7 @@ export default function ClientsPage() {
       setEmail("");
       setWhatsapp("");
       setPlan(workspacePlans.length > 0 ? workspacePlans[0] : "Mensal");
+      setModality("PRESENCIAL");
 
       fetchStudents();
     } catch (err: any) {
@@ -360,6 +364,7 @@ export default function ClientsPage() {
           email,
           whatsapp,
           plan,
+          modality,
         }),
       });
 
@@ -445,6 +450,7 @@ export default function ClientsPage() {
     setEmail(student.email);
     setWhatsapp(student.whatsapp);
     setPlan(student.plan);
+    setModality(student.modality || "PRESENCIAL");
     setIsEditOpen(true);
   };
 
@@ -526,6 +532,7 @@ export default function ClientsPage() {
               setEmail("");
               setWhatsapp("");
               setPlan(workspacePlans.length > 0 ? workspacePlans[0] : "Mensal");
+              setModality("PRESENCIAL");
               setIsCreateOpen(true);
             }}
           >
@@ -709,7 +716,7 @@ export default function ClientsPage() {
                                   Senha Pendente
                                 </Badge>
                               )}
-                              <span className="text-xs text-muted-foreground">{student.plan}</span>
+                              <span className="text-xs text-muted-foreground">{student.plan} • <span className="font-semibold text-primary">{student.modality === "ONLINE" ? "Online" : "Presencial"}</span></span>
                               {student.streak > 0 && (
                                 <div className="flex items-center gap-0.5 text-xs font-medium text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-md">
                                   <Flame className="size-3" />
@@ -891,6 +898,19 @@ export default function ClientsPage() {
                 onChange={handleWhatsAppChange}
               />
             </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="create-modality">Modalidade</Label>
+              <Select value={modality} onValueChange={setModality}>
+                <SelectTrigger id="create-modality" className="bg-background border-border w-full">
+                  <SelectValue placeholder="Selecione a modalidade" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PRESENCIAL">Presencial</SelectItem>
+                  <SelectItem value="ONLINE">Online</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" onClick={() => setIsCreateOpen(false)} disabled={createLoading}>
                 Cancelar
@@ -946,6 +966,19 @@ export default function ClientsPage() {
                 value={whatsapp}
                 onChange={handleWhatsAppChange}
               />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="edit-modality">Modalidade</Label>
+              <Select value={modality} onValueChange={setModality}>
+                <SelectTrigger id="edit-modality" className="bg-background border-border w-full">
+                  <SelectValue placeholder="Selecione a modalidade" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="PRESENCIAL">Presencial</SelectItem>
+                  <SelectItem value="ONLINE">Online</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <DialogFooter className="pt-2">
               <Button type="button" variant="outline" onClick={() => setIsEditOpen(false)} disabled={editLoading}>

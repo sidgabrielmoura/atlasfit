@@ -68,6 +68,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { compressImage } from "@/lib/image-compress";
 import { PhysicalEvaluationFormModal } from "@/components/application/physical-evaluation-form-modal";
 import { ExercisePreviewModal } from "@/components/application/exercise-preview-modal";
 import { PhysicalEvaluationDetailModal } from "@/components/application/physical-evaluation-detail-modal";
@@ -1278,6 +1279,15 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
       let finalSize = null;
 
       if (uploadType === "file" && selectedFileObj) {
+        let fileToUpload = selectedFileObj;
+        if (selectedFileObj.type.startsWith("image/")) {
+          try {
+            fileToUpload = await compressImage(selectedFileObj);
+          } catch (err) {
+            console.warn("Failing compression, uploading original:", err);
+          }
+        }
+
         // 1. Get presigned URL
         const presignedRes = await fetch("/api/storage/presigned", {
           method: "POST",
@@ -1285,9 +1295,9 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
           body: JSON.stringify({
             workspaceId: activeWorkspaceId,
             studentId: studentId,
-            fileName: selectedFileObj.name,
-            contentType: selectedFileObj.type,
-            fileSize: selectedFileObj.size,
+            fileName: fileToUpload.name,
+            contentType: fileToUpload.type,
+            fileSize: fileToUpload.size,
             targetType: "student_file",
           }),
         });
@@ -1302,8 +1312,8 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
         // 2. Put file to Cloudflare R2
         const putRes = await fetch(putUrl, {
           method: "PUT",
-          headers: { "Content-Type": selectedFileObj.type },
-          body: selectedFileObj,
+          headers: { "Content-Type": fileToUpload.type },
+          body: fileToUpload,
         });
 
         if (!putRes.ok) {
@@ -1312,8 +1322,8 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
         finalUrl = fileUrl;
         finalKey = objectKey;
-        finalMimeType = selectedFileObj.type;
-        finalSize = selectedFileObj.size;
+        finalMimeType = fileToUpload.type;
+        finalSize = fileToUpload.size;
       }
 
       const payload = {

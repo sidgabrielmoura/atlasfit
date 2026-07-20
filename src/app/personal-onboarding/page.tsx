@@ -30,6 +30,8 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { toast } from "sonner";
 import { workspaceActions } from "@/stores/workspace.store";
+import { formatPhone } from "@/lib/utils";
+import { compressImage } from "@/lib/image-compress";
 
 // Onboarding Steps
 const STEPS = [
@@ -165,13 +167,23 @@ export default function PersonalOnboardingPage() {
   };
 
   const uploadToR2 = async (file: File, targetType: string) => {
+    let fileToUpload = file;
+    // Compress image client-side to save bandwidth
+    if (file.type.startsWith("image/")) {
+      try {
+        fileToUpload = await compressImage(file);
+      } catch (err) {
+        console.warn("Failing compression, uploading original:", err);
+      }
+    }
+
     const res = await fetch("/api/storage/presigned", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        fileName: file.name,
-        contentType: file.type,
-        fileSize: file.size,
+        fileName: fileToUpload.name,
+        contentType: fileToUpload.type,
+        fileSize: fileToUpload.size,
         targetType,
       }),
     });
@@ -183,8 +195,8 @@ export default function PersonalOnboardingPage() {
     
     const putRes = await fetch(uploadUrl, {
       method: "PUT",
-      headers: { "Content-Type": file.type },
-      body: file,
+      headers: { "Content-Type": fileToUpload.type },
+      body: fileToUpload,
     });
     if (!putRes.ok) {
       throw new Error("Erro no upload do arquivo.");
@@ -763,9 +775,9 @@ export default function PersonalOnboardingPage() {
                       </Label>
                       <Input
                         id="trainer-whatsapp"
-                        placeholder="Ex: 11999999999"
+                        placeholder="Ex: (11) 99999-9999"
                         value={whatsapp}
-                        onChange={(e) => setWhatsapp(e.target.value)}
+                        onChange={(e) => setWhatsapp(formatPhone(e.target.value))}
                         className="bg-neutral-900 border-white/[0.06] focus-visible:ring-primary h-12 text-white rounded-xl placeholder:text-neutral-650 font-extrabold text-sm"
                         required
                       />

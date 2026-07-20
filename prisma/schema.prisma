@@ -133,6 +133,7 @@ model WorkspaceMember {
   role        WorkspaceRole @default(STUDENT)
   isActive    Boolean       @default(true)
   plan        String        @default("Mensal")
+  modality    String        @default("PRESENCIAL")
   streak      Int           @default(0)
   bestStreak  Int           @default(0)
   progress    Int           @default(0)

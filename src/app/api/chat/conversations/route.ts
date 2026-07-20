@@ -69,13 +69,34 @@ export async function GET(req: Request) {
             },
           },
         },
+        messages: {
+          orderBy: {
+            createdAt: "desc",
+          },
+          take: 1,
+          select: {
+            senderId: true,
+          },
+        },
       },
       orderBy: {
         lastMessageAt: "desc",
       },
     });
 
-    return NextResponse.json(conversations);
+    const formatted = conversations.map((c) => ({
+      id: c.id,
+      workspaceId: c.workspaceId,
+      type: c.type,
+      lastMessage: c.lastMessage,
+      lastMessageAt: c.lastMessageAt,
+      createdAt: c.createdAt,
+      updatedAt: c.updatedAt,
+      participants: c.participants,
+      lastSenderId: c.messages[0]?.senderId || null,
+    }));
+
+    return NextResponse.json(formatted);
   } catch (error) {
     console.error("[API Conversations GET] Error:", error);
     return new NextResponse("Erro Interno do Servidor", { status: 500 });

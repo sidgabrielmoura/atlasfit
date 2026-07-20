@@ -29,6 +29,7 @@ import {
   ChevronLeft
 } from "lucide-react";
 import { toast } from "sonner";
+import { compressImage } from "@/lib/image-compress";
 
 interface PhysicalEvaluationFormModalProps {
   isOpen: boolean;
@@ -426,15 +427,24 @@ export function PhysicalEvaluationFormModal({
       setSubmitting(true);
       // S2 Upload helper
       const uploadEvalPhoto = async (file: File) => {
+        let fileToUpload = file;
+        if (file.type.startsWith("image/")) {
+          try {
+            fileToUpload = await compressImage(file);
+          } catch (err) {
+            console.warn("Failing compression, uploading original:", err);
+          }
+        }
+
         const res = await fetch("/api/storage/presigned", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             workspaceId,
             studentId,
-            fileName: file.name,
-            contentType: file.type,
-            fileSize: file.size,
+            fileName: fileToUpload.name,
+            contentType: fileToUpload.type,
+            fileSize: fileToUpload.size,
             targetType: "progress_photo",
           }),
         });
@@ -448,8 +458,8 @@ export function PhysicalEvaluationFormModal({
 
         const putRes = await fetch(uploadUrl, {
           method: "PUT",
-          headers: { "Content-Type": file.type },
-          body: file,
+          headers: { "Content-Type": fileToUpload.type },
+          body: fileToUpload,
         });
 
         if (!putRes.ok) {

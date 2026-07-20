@@ -49,6 +49,7 @@ export interface Conversation {
   type: "DIRECT" | "GROUP" | "WHATSAPP" | "INSTAGRAM";
   lastMessage?: string | null;
   lastMessageAt?: string | Date | null;
+  lastSenderId?: string | null;
   createdAt: string | Date;
   updatedAt: string | Date;
   participants: ConversationParticipant[];
@@ -100,11 +101,14 @@ export const chatActions = {
     }
   },
 
-  updateConversation(convId: string, lastMessage: string, lastMessageAt: string | Date) {
+  updateConversation(convId: string, lastMessage: string, lastMessageAt: string | Date, lastSenderId?: string | null) {
     const conv = chatStore.conversations.find((c) => c.id === convId);
     if (conv) {
       conv.lastMessage = lastMessage;
       conv.lastMessageAt = lastMessageAt;
+      if (lastSenderId !== undefined) {
+        conv.lastSenderId = lastSenderId;
+      }
       // Re-sort conversations by lastMessageAt desc
       chatStore.conversations = [...chatStore.conversations].sort((a, b) => {
         const dateA = a.lastMessageAt ? new Date(a.lastMessageAt).getTime() : 0;

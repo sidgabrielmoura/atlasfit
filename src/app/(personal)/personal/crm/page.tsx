@@ -41,7 +41,8 @@ import {
   Minimize2,
   ListPlus
 } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { cn, formatPhone } from "@/lib/utils";
+import { compressImage } from "@/lib/image-compress";
 import { workspaceStore } from "@/stores/workspace.store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -765,14 +766,23 @@ export default function CRMPage() {
     setFileUploadLoading(true);
     const toastId = toast.loading(`Enviando arquivo ${file.name}...`);
     try {
+      let fileToUpload = file;
+      if (file.type.startsWith("image/")) {
+        try {
+          fileToUpload = await compressImage(file);
+        } catch (err) {
+          console.warn("Failing compression, uploading original:", err);
+        }
+      }
+
       const presignedRes = await fetch("/api/storage/presigned", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           workspaceId: detailLead.workspaceId,
-          fileName: file.name,
-          contentType: file.type,
-          fileSize: file.size,
+          fileName: fileToUpload.name,
+          contentType: fileToUpload.type,
+          fileSize: fileToUpload.size,
           targetType: "student_file",
         }),
       });
@@ -782,8 +792,8 @@ export default function CRMPage() {
 
       const uploadRes = await fetch(uploadUrl, {
         method: "PUT",
-        headers: { "Content-Type": file.type },
-        body: file,
+        headers: { "Content-Type": fileToUpload.type },
+        body: fileToUpload,
       });
 
       if (!uploadRes.ok) throw new Error();
@@ -800,12 +810,12 @@ export default function CRMPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          fileName: file.name,
-          fileSize: formatSize(file.size),
+          fileName: fileToUpload.name,
+          fileSize: formatSize(fileToUpload.size),
           url: fileUrl,
           objectKey,
-          mimeType: file.type,
-          size: file.size,
+          mimeType: fileToUpload.type,
+          size: fileToUpload.size,
         }),
       });
 
@@ -1876,7 +1886,7 @@ export default function CRMPage() {
                   placeholder="Ex: (11) 99999-9999"
                   className="rounded-xl h-11 border-border bg-secondary/10"
                   value={newLeadPhone}
-                  onChange={(e) => setNewLeadPhone(e.target.value)}
+                  onChange={(e) => setNewLeadPhone(formatPhone(e.target.value))}
                 />
               </div>
 
@@ -1886,7 +1896,7 @@ export default function CRMPage() {
                   placeholder="Ex: (11) 99999-9999"
                   className="rounded-xl h-11 border-border bg-secondary/10"
                   value={newLeadWhatsapp}
-                  onChange={(e) => setNewLeadWhatsapp(e.target.value)}
+                  onChange={(e) => setNewLeadWhatsapp(formatPhone(e.target.value))}
                 />
               </div>
 
@@ -2104,8 +2114,8 @@ export default function CRMPage() {
                           <Input
                             className="bg-background rounded-lg border-border"
                             value={draftWhatsapp}
-                            onChange={(e) => setDraftWhatsapp(e.target.value)}
-                            placeholder="WhatsApp..."
+                            onChange={(e) => setDraftWhatsapp(formatPhone(e.target.value))}
+                            placeholder="Ex: (11) 99999-9999"
                           />
                         </div>
                         <div className="space-y-0.5 text-xs">
@@ -2113,8 +2123,8 @@ export default function CRMPage() {
                           <Input
                             className="bg-background rounded-lg border-border"
                             value={draftPhone}
-                            onChange={(e) => setDraftPhone(e.target.value)}
-                            placeholder="Telefone..."
+                            onChange={(e) => setDraftPhone(formatPhone(e.target.value))}
+                            placeholder="Ex: (11) 99999-9999"
                           />
                         </div>
                         <div className="space-y-0.5 text-xs">
@@ -2566,10 +2576,10 @@ export default function CRMPage() {
                   <div className="space-y-1">
                     <label className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground ml-1">WhatsApp</label>
                     <Input
-                      placeholder="Ex: 5511987654321"
+                      placeholder="Ex: (11) 99999-9999"
                       className="rounded-xl h-11 border-border bg-secondary/10"
                       value={convertWhatsapp}
-                      onChange={(e) => setConvertWhatsapp(e.target.value)}
+                      onChange={(e) => setConvertWhatsapp(formatPhone(e.target.value))}
                     />
                   </div>
 
@@ -2686,7 +2696,7 @@ export default function CRMPage() {
       </Dialog>
 
       <Dialog open={isTagSettingsOpen} onOpenChange={setIsTagSettingsOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl border-border/40 bg-card p-6 select-none">
+        <DialogContent className="sm:max-w-md rounded-2xl! border-border/40 bg-card p-6 select-none">
           <DialogHeader>
             <div className="flex items-center gap-2.5">
               <div className="p-2 rounded-xl bg-primary/10 border border-primary/20 shrink-0">
@@ -2750,13 +2760,13 @@ export default function CRMPage() {
             {/* Seção Etiquetas Existentes */}
             <div className="space-y-3">
               <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block ml-1">Etiquetas Existentes</span>
-              <div className="space-y-2 max-h-48 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-muted">
+              <div className="grid grid-cols-3 gap-2 max-h-48 overflow-y-auto pr-1 scrollbar-thin scrollbar-thumb-muted">
                 {availableTags.map((tag) => (
                   <div
                     key={tag.id}
-                    className="flex items-center justify-between p-2.5 bg-background border border-border/30 rounded-xl hover:border-border/60 hover:bg-secondary/5 transition-all"
+                    className="flex items-center justify-between p-1 bg-background border border-border/30 rounded-sm hover:border-border/60 hover:bg-secondary/5 transition-all"
                   >
-                    <Badge className={cn("text-[9px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-full border shadow-2xs", tag.color)}>
+                    <Badge className={cn("text-[9px] font-bold uppercase tracking-wider px-2.5 py-0.5 rounded-sm! border shadow-2xs", tag.color)}>
                       {tag.name}
                     </Badge>
                     <Button

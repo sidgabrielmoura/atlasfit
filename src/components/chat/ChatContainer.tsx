@@ -15,17 +15,21 @@ import {
   Download,
   FileText,
   ChevronLeft,
+  ChevronRight,
   X,
+  Camera,
   Mic,
   Image as ImageIcon,
   Video as VideoIcon,
   Check,
   CheckCheck,
+  CheckCircle2,
   Clock,
   ExternalLink,
   MessageSquare,
   Plus,
   Maximize2,
+  Upload,
   Minimize2,
   ZoomIn,
   ZoomOut,
@@ -68,6 +72,14 @@ import { AudioPlayer } from "./AudioPlayer";
 import { useAbly } from "@/providers/ably-provider";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { MassMessageModal } from "./MassMessageModal";
+import {
+  ShareWorkoutModal,
+  ShareExerciseModal,
+  ShareAssessmentModal,
+  RequestProgressModal,
+  StudentProgressUploadModal,
+} from "./ShareAttachmentModals";
 
 const compressImage = (file: File, quality = 0.7): Promise<Blob> => {
   return new Promise((resolve, reject) => {
@@ -147,12 +159,19 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
     observation: string;
   } | null>(null);
 
+  const [isShareWorkoutOpen, setIsShareWorkoutOpen] = useState(false);
+  const [isShareExerciseOpen, setIsShareExerciseOpen] = useState(false);
+  const [isShareAssessmentOpen, setIsShareAssessmentOpen] = useState(false);
+  const [isRequestProgressOpen, setIsRequestProgressOpen] = useState(false);
+  const [isStudentUploadOpen, setIsStudentUploadOpen] = useState(false);
+
   useEffect(() => {
     const workoutId = searchParams.get("workoutId");
     const workoutName = searchParams.get("workoutName");
     const exerciseId = searchParams.get("exerciseId");
     const exerciseName = searchParams.get("exerciseName");
     const observation = searchParams.get("observation");
+    const massMessage = searchParams.get("massMessage");
 
     if (workoutId && workoutName && exerciseId && exerciseName && observation) {
       setWorkoutMention({
@@ -165,8 +184,11 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
 
       // Limpar searchParams da URL
       router.replace(window.location.pathname);
+    } else if (massMessage === "true" && userRole === "TRAINER") {
+      setIsMassMessageOpen(true);
+      router.replace(window.location.pathname);
     }
-  }, [searchParams, router]);
+  }, [searchParams, router, userRole]);
 
   const [isEmojiPickerOpen, setIsEmojiPickerOpen] = useState(false);
   const [contacts, setContacts] = useState<any[]>([]);
@@ -194,6 +216,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
   const [isDeletingLoading, setIsDeletingLoading] = useState(false);
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [isMassMessageOpen, setIsMassMessageOpen] = useState(false);
   const [isMaximized, setIsMaximized] = useState(false);
   const [zoomScale, setZoomScale] = useState(1);
   const galleryViewportRef = useRef<HTMLDivElement | null>(null);
@@ -352,7 +375,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
 
     // Update locally immediately
     chatActions.addMessage(activeConversationId, optimisticMessage);
-    chatActions.updateConversation(activeConversationId, textToSend, new Date());
+    chatActions.updateConversation(activeConversationId, textToSend, new Date(), currentUserId);
     setInputText("");
     chatActions.setReplyToMessage(null);
     setWorkoutMention(null);
@@ -849,6 +872,61 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
   const otherParticipant = activeConv ? getOtherParticipant(activeConv) : null;
   const isOtherOnline = otherParticipant ? chatSnap.presence[otherParticipant.userId] : false;
 
+  const studentUserId = userRole === "STUDENT" ? currentUserId : (otherParticipant?.userId || "");
+
+  const sendCustomAttachment = async (attachmentData: any) => {
+    if (!activeConversationId || !currentUserId) return;
+
+    let textToSend = "";
+    if (attachmentData.type === "WORKOUT_SHARE") {
+      textToSend = `Prescrevi o treino: ${attachmentData.workoutName}`;
+    } else if (attachmentData.type === "EXERCISE_SHARE") {
+      textToSend = `Confira a execução do exercício: ${attachmentData.exerciseName}`;
+    } else if (attachmentData.type === "ASSESSMENT_SHARE") {
+      textToSend = `Sua avaliação física está pronta (${attachmentData.date})`;
+    } else if (attachmentData.type === "PROGRESS_REQUEST") {
+      textToSend = `Solicitei novas fotos de progresso corporal.`;
+    } else if (attachmentData.type === "PROGRESS_UPLOAD_CONFIRMATION") {
+      textToSend = `Fotos de evolução enviadas!`;
+    }
+
+    const optimisticMessage: Message = {
+      id: `temp-${Date.now()}`,
+      conversationId: activeConversationId,
+      senderId: currentUserId,
+      type: "FILE",
+      content: textToSend,
+      replyToId: null,
+      replyTo: null,
+      attachment: attachmentData,
+      status: "SENDING",
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+
+    chatActions.addMessage(activeConversationId, optimisticMessage);
+    chatActions.updateConversation(activeConversationId, textToSend, new Date(), currentUserId);
+
+    try {
+      const res = await fetch("/api/chat/messages", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          conversationId: activeConversationId,
+          type: "FILE",
+          content: textToSend,
+          attachment: attachmentData,
+        }),
+      });
+
+      if (!res.ok) throw new Error();
+      const savedMessage = await res.json();
+      chatActions.addMessage(activeConversationId, savedMessage);
+    } catch {
+      toast.error("Falha ao compartilhar anexo.");
+    }
+  };
+
   // Typing participants string list
   const activeTypingMap = activeConversationId ? chatSnap.isTyping[activeConversationId] || {} : {};
   const typingList = Object.values(activeTypingMap);
@@ -975,13 +1053,27 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
             <MessageSquare className="size-5 text-primary" />
             Mensagens
           </h2>
-          <Button
-            size="sm"
-            onClick={handleOpenContactDialog}
-            className="rounded-xl px-3 bg-primary hover:bg-primary/95 font-semibold text-xs shadow-sm"
-          >
-            Novo Chat
-          </Button>
+          <div className="flex items-center gap-2">
+            {userRole === "TRAINER" && (
+              <Button
+                type="button"
+                size="icon"
+                variant="outline"
+                onClick={() => setIsMassMessageOpen(true)}
+                title="Mensagem em Massa"
+                className="h-8 w-8 rounded-xl border border-border/60 hover:bg-secondary flex items-center justify-center shrink-0 cursor-pointer text-muted-foreground hover:text-foreground"
+              >
+                <Send className="size-3.5" />
+              </Button>
+            )}
+            <Button
+              size="sm"
+              onClick={handleOpenContactDialog}
+              className="rounded-xl px-3 bg-primary hover:bg-primary/95 font-semibold text-xs shadow-sm cursor-pointer"
+            >
+              Novo Chat
+            </Button>
+          </div>
         </div>
 
         <div className="p-3 border-b border-border/60">
@@ -1066,8 +1158,17 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                           Digitando...
                         </span>
                       ) : (
-                        <span className="text-xs text-muted-foreground truncate font-medium">
-                          {c.lastMessage || "Nenhuma mensagem enviada."}
+                        <span className="text-xs text-muted-foreground truncate font-medium flex items-center">
+                          {c.lastMessage ? (
+                            <>
+                              {c.lastSenderId === currentUserId && (
+                                <span className="font-bold text-muted-foreground/80 mr-1 shrink-0">Você:</span>
+                              )}
+                              <span className="truncate">{c.lastMessage}</span>
+                            </>
+                          ) : (
+                            "Nenhuma mensagem enviada."
+                          )}
                         </span>
                       )}
                       {unread > 0 && (
@@ -1353,6 +1454,173 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                                       </div>
                                     )}
 
+                                    {m.attachment && (m.attachment as any).type === "WORKOUT_SHARE" && (
+                                      <div 
+                                        className="flex items-center gap-3 text-left min-w-[200px] max-w-[260px] py-1 cursor-pointer select-none group"
+                                        onClick={() => {
+                                          if (userRole === "STUDENT") {
+                                            router.push(`/student/workouts`);
+                                          } else {
+                                            router.push(`/personal/workouts/${(m.attachment as any).workoutId}`);
+                                          }
+                                        }}
+                                      >
+                                        <div className={cn(
+                                          "p-2 rounded-lg shrink-0 flex items-center justify-center transition",
+                                          isSelf ? "bg-white/15 text-white" : "bg-primary/10 text-primary"
+                                        )}>
+                                          <Dumbbell className="size-4" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className={cn(
+                                            "font-semibold text-xs truncate",
+                                            isSelf ? "text-white" : "text-foreground"
+                                          )}>
+                                            {(m.attachment as any).workoutName}
+                                          </div>
+                                          <div className={cn(
+                                            "text-[10px] truncate mt-0.5",
+                                            isSelf ? "text-white/80" : "text-muted-foreground"
+                                          )}>
+                                            {(m.attachment as any).difficulty} • {(m.attachment as any).duration} min
+                                          </div>
+                                        </div>
+                                        <ChevronRight className={cn("size-3.5 opacity-65 shrink-0 transition group-hover:translate-x-0.5", isSelf ? "text-white" : "text-muted-foreground")} />
+                                      </div>
+                                    )}
+
+                                    {m.attachment && (m.attachment as any).type === "EXERCISE_SHARE" && (
+                                      <div className="flex flex-col gap-2 text-left min-w-[200px] max-w-[260px] py-0.5 select-none">
+                                        <div className="flex items-center gap-3">
+                                          <div className={cn(
+                                            "p-2 rounded-lg shrink-0 flex items-center justify-center",
+                                            isSelf ? "bg-white/15 text-white" : "bg-primary/10 text-primary"
+                                          )}>
+                                            <Dumbbell className="size-4" />
+                                          </div>
+                                          <div className="flex-1 min-w-0">
+                                            <div className={cn(
+                                              "font-semibold text-xs truncate",
+                                              isSelf ? "text-white" : "text-foreground"
+                                            )}>
+                                              {(m.attachment as any).exerciseName}
+                                            </div>
+                                            <div className={cn(
+                                              "text-[10px] truncate mt-0.5",
+                                              isSelf ? "text-white/80" : "text-muted-foreground"
+                                            )}>
+                                              {(m.attachment as any).muscleGroupName}
+                                            </div>
+                                          </div>
+                                        </div>
+                                        {(m.attachment as any).videoUrl && (
+                                          <div className="relative rounded-lg overflow-hidden border border-border/10 aspect-video bg-black/90 flex items-center justify-center shadow-xs mt-1">
+                                            <video
+                                              src={(m.attachment as any).videoUrl}
+                                              controls
+                                              className="w-full h-full object-cover"
+                                            />
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {m.attachment && (m.attachment as any).type === "ASSESSMENT_SHARE" && (
+                                      <div 
+                                        className="flex items-center gap-3 text-left min-w-[200px] max-w-[260px] py-1 cursor-pointer select-none group"
+                                        onClick={() => {
+                                          if (userRole === "STUDENT") {
+                                            router.push(`/student/assessments`);
+                                          } else {
+                                            router.push(`/personal/clients/${studentUserId}/evaluations`);
+                                          }
+                                        }}
+                                      >
+                                        <div className={cn(
+                                          "p-2 rounded-lg shrink-0 flex items-center justify-center transition",
+                                          isSelf ? "bg-white/15 text-white" : "bg-primary/10 text-primary"
+                                        )}>
+                                          <FileText className="size-4" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className={cn(
+                                            "font-semibold text-xs truncate",
+                                            isSelf ? "text-white" : "text-foreground"
+                                          )}>
+                                            Avaliação Física
+                                          </div>
+                                          <div className={cn(
+                                            "text-[10px] truncate mt-0.5",
+                                            isSelf ? "text-white/80" : "text-muted-foreground"
+                                          )}>
+                                            {(m.attachment as any).weight} kg • {(m.attachment as any).fatPercent ? `${(m.attachment as any).fatPercent}% BF` : "Ver detalhes"}
+                                          </div>
+                                        </div>
+                                        <ChevronRight className={cn("size-3.5 opacity-65 shrink-0 transition group-hover:translate-x-0.5", isSelf ? "text-white" : "text-muted-foreground")} />
+                                      </div>
+                                    )}
+
+                                    {m.attachment && (m.attachment as any).type === "PROGRESS_REQUEST" && (
+                                      <div 
+                                        className={cn(
+                                          "flex items-center gap-3 text-left min-w-[200px] max-w-[260px] py-1 select-none group",
+                                          userRole === "STUDENT" && "cursor-pointer"
+                                        )}
+                                        onClick={() => {
+                                          if (userRole === "STUDENT") {
+                                            setIsStudentUploadOpen(true);
+                                          }
+                                        }}
+                                      >
+                                        <div className={cn(
+                                          "p-2 rounded-lg shrink-0 flex items-center justify-center transition",
+                                          isSelf ? "bg-white/15 text-white" : "bg-primary/10 text-primary",
+                                          userRole === "STUDENT" && "animate-pulse"
+                                        )}>
+                                          <Camera className="size-4" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className={cn(
+                                            "font-semibold text-xs truncate",
+                                            isSelf ? "text-white" : "text-foreground"
+                                          )}>
+                                            Solicitação de Evolução
+                                          </div>
+                                          <div className={cn(
+                                            "text-[10px] truncate mt-0.5",
+                                            isSelf ? "text-white/80" : "text-muted-foreground"
+                                          )}>
+                                            {userRole === "STUDENT" ? "Clique para enviar fotos" : "Aguardando envio..."}
+                                          </div>
+                                        </div>
+                                        {userRole === "STUDENT" && (
+                                          <Upload className={cn("size-3.5 opacity-65 shrink-0 transition group-hover:translate-y-[-1px]", isSelf ? "text-white" : "text-muted-foreground")} />
+                                        )}
+                                      </div>
+                                    )}
+
+                                    {m.attachment && (m.attachment as any).type === "PROGRESS_UPLOAD_CONFIRMATION" && (
+                                      <div className="flex items-center gap-3 text-left min-w-[200px] max-w-[260px] py-1 select-none">
+                                        <div className="p-2 rounded-lg bg-green-500/10 text-green-500 shrink-0 flex items-center justify-center">
+                                          <CheckCircle2 className="size-4" />
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                          <div className={cn(
+                                            "font-semibold text-xs truncate",
+                                            isSelf ? "text-white" : "text-foreground"
+                                          )}>
+                                            Evolução Enviada
+                                          </div>
+                                          <div className={cn(
+                                            "text-[10px] truncate mt-0.5",
+                                            isSelf ? "text-white/80" : "text-muted-foreground"
+                                          )}>
+                                            Fotos registradas com sucesso
+                                          </div>
+                                        </div>
+                                      </div>
+                                    )}
+
                                     {m.type === "TEXT" && <p>{m.content}</p>}
                                     {m.type !== "TEXT" && m.content && (
                                       <p className="mt-2 text-left whitespace-pre-wrap px-2 pb-1.5 pt-0.5 font-normal text-xs text-foreground/90">{m.content}</p>
@@ -1599,6 +1867,39 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                           <VideoIcon className="size-3.5 mr-2" />
                           Vídeo
                         </DropdownMenuItem>
+
+                        {userRole === "TRAINER" && (
+                          <>
+                            <DropdownMenuItem
+                              onClick={() => setIsShareWorkoutOpen(true)}
+                              className="text-xs p-2 rounded-lg cursor-pointer flex items-center"
+                            >
+                              <Dumbbell className="size-3.5 mr-2 text-primary" />
+                              Enviar Treino
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => setIsShareExerciseOpen(true)}
+                              className="text-xs p-2 rounded-lg cursor-pointer flex items-center"
+                            >
+                              <Dumbbell className="size-3.5 mr-2 text-primary" />
+                              Enviar Exercício
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => setIsShareAssessmentOpen(true)}
+                              className="text-xs p-2 rounded-lg cursor-pointer flex items-center"
+                            >
+                              <FileText className="size-3.5 mr-2 text-primary" />
+                              Enviar Avaliação
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              onClick={() => setIsRequestProgressOpen(true)}
+                              className="text-xs p-2 rounded-lg cursor-pointer flex items-center"
+                            >
+                              <Camera className="size-3.5 mr-2 text-primary" />
+                              Solicitar Progresso
+                            </DropdownMenuItem>
+                          </>
+                        )}
                       </DropdownMenuContent>
                     </DropdownMenu>
 
@@ -1962,6 +2263,55 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {activeWorkspaceId && (
+        <MassMessageModal
+          isOpen={isMassMessageOpen}
+          onOpenChange={setIsMassMessageOpen}
+          workspaceId={activeWorkspaceId}
+        />
+      )}
+
+      {activeWorkspaceId && otherParticipant && (
+        <>
+          <ShareWorkoutModal
+            isOpen={isShareWorkoutOpen}
+            onClose={() => setIsShareWorkoutOpen(false)}
+            studentId={otherParticipant.userId}
+            workspaceId={activeWorkspaceId}
+            onShare={sendCustomAttachment}
+          />
+          <ShareExerciseModal
+            isOpen={isShareExerciseOpen}
+            onClose={() => setIsShareExerciseOpen(false)}
+            onShare={sendCustomAttachment}
+          />
+          <ShareAssessmentModal
+            isOpen={isShareAssessmentOpen}
+            onClose={() => setIsShareAssessmentOpen(false)}
+            studentId={otherParticipant.userId}
+            workspaceId={activeWorkspaceId}
+            onShare={sendCustomAttachment}
+          />
+          <RequestProgressModal
+            isOpen={isRequestProgressOpen}
+            onClose={() => setIsRequestProgressOpen(false)}
+            onShare={sendCustomAttachment}
+          />
+          <StudentProgressUploadModal
+            isOpen={isStudentUploadOpen}
+            onClose={() => setIsStudentUploadOpen(false)}
+            studentId={studentUserId}
+            workspaceId={activeWorkspaceId}
+            onUploadSuccess={() => {
+              sendCustomAttachment({
+                type: "PROGRESS_UPLOAD_CONFIRMATION",
+                date: new Date().toLocaleDateString("pt-BR"),
+              });
+            }}
+          />
+        </>
+      )}
     </div>
   );
 }
