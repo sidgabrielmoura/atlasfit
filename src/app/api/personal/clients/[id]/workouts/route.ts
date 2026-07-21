@@ -97,6 +97,8 @@ export async function POST(
       restBetweenExercises,
       exercises, // Array opcional [{ exerciseId, sets, reps, rest, methodType, methodConfig, groupId }] para criação do zero
       groups, // Array opcional para grupos [{ id, type, config }]
+      allowRepsModification,
+      allowCompleteView,
     } = body;
 
     if (!workspaceId || dayOfWeek === undefined) {
@@ -166,6 +168,8 @@ export async function POST(
             workspaceId,
             studentId,
             dayOfWeek: Number(dayOfWeek),
+            allowRepsModification: templateWorkout.allowRepsModification,
+            allowCompleteView: templateWorkout.allowCompleteView,
           },
         });
 
@@ -201,6 +205,7 @@ export async function POST(
                 methodType: ex.methodType || "NONE",
                 methodConfig: (ex.methodConfig || undefined) as any,
                 groupId: dbGroupId,
+                allowRepsModification: ex.allowRepsModification,
               },
             });
           }
@@ -254,6 +259,8 @@ export async function POST(
             workspaceId,
             studentId,
             dayOfWeek: Number(dayOfWeek),
+            allowRepsModification: allowRepsModification !== undefined ? Boolean(allowRepsModification) : true,
+            allowCompleteView: allowCompleteView !== undefined ? Boolean(allowCompleteView) : false,
           },
         });
 
@@ -290,6 +297,9 @@ export async function POST(
                 methodType: ex.methodType || "NONE",
                 methodConfig: ex.methodConfig || null,
                 groupId: dbGroupId,
+                allowRepsModification: ex.allowRepsModification !== undefined && ex.allowRepsModification !== null
+                  ? Boolean(ex.allowRepsModification)
+                  : null,
               },
             });
           }

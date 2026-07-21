@@ -8,6 +8,7 @@ export interface WorkoutState {
   isMinimized: boolean;
   allWorkoutLoads: Record<string, string[]>;
   allWorkoutReps: Record<string, string[]>;
+  allWorkoutRestTimes: Record<string, string[]>;
   allWorkoutSetsDone: Record<string, boolean[]>;
   executionSteps: any[];
   
@@ -15,6 +16,8 @@ export interface WorkoutState {
   restTimer: number;
   isRestTimerActive: boolean;
   isRestDrawerOpen: boolean;
+  // When true, finishing/skipping rest auto-advances to next exercise
+  isLastSetRest: boolean;
 }
 
 const storageKey = "atlasfit_workout_store";
@@ -27,12 +30,14 @@ const initialState: WorkoutState = {
   isMinimized: false,
   allWorkoutLoads: {},
   allWorkoutReps: {},
+  allWorkoutRestTimes: {},
   allWorkoutSetsDone: {},
   executionSteps: [],
   
   restTimer: 0,
   isRestTimerActive: false,
   isRestDrawerOpen: false,
+  isLastSetRest: false,
 };
 
 const getPersistedState = (): WorkoutState => {
@@ -61,7 +66,7 @@ if (typeof window !== "undefined") {
 }
 
 export const workoutActions = {
-  startWorkout(workout: any, steps: any[], initialLoads: any, initialReps: any, initialDone: any) {
+  startWorkout(workout: any, steps: any[], initialLoads: any, initialReps: any, initialRestTimes: any, initialDone: any) {
     workoutStore.activeWorkout = workout;
     workoutStore.executionSteps = steps;
     workoutStore.currentStepIdx = 0;
@@ -70,12 +75,14 @@ export const workoutActions = {
     workoutStore.isMinimized = false;
     workoutStore.allWorkoutLoads = initialLoads;
     workoutStore.allWorkoutReps = initialReps;
+    workoutStore.allWorkoutRestTimes = initialRestTimes;
     workoutStore.allWorkoutSetsDone = initialDone;
     
     // reset rest
     workoutStore.restTimer = 0;
     workoutStore.isRestTimerActive = false;
     workoutStore.isRestDrawerOpen = false;
+    workoutStore.isLastSetRest = false;
   },
 
   minimize() {
@@ -95,11 +102,13 @@ export const workoutActions = {
     workoutStore.isMinimized = false;
     workoutStore.allWorkoutLoads = {};
     workoutStore.allWorkoutReps = {};
+    workoutStore.allWorkoutRestTimes = {};
     workoutStore.allWorkoutSetsDone = {};
     
     workoutStore.restTimer = 0;
     workoutStore.isRestTimerActive = false;
     workoutStore.isRestDrawerOpen = false;
+    workoutStore.isLastSetRest = false;
   },
 
   updateStepIdx(idx: number) {
@@ -112,6 +121,10 @@ export const workoutActions = {
 
   updateReps(reps: Record<string, string[]>) {
     workoutStore.allWorkoutReps = reps;
+  },
+
+  updateRestTimes(restTimes: Record<string, string[]>) {
+    workoutStore.allWorkoutRestTimes = restTimes;
   },
 
   updateSetsDone(setsDone: Record<string, boolean[]>) {
@@ -129,10 +142,14 @@ export const workoutActions = {
   },
 
   // Rest Timer Actions
-  startRestTimer(seconds: number) {
+  startRestTimer(seconds: number, exerciseId?: string, setIdx?: number, isLastSet?: boolean) {
     workoutStore.restTimer = seconds;
     workoutStore.isRestTimerActive = true;
     workoutStore.isRestDrawerOpen = true;
+    workoutStore.isLastSetRest = isLastSet ?? false;
+    (workoutStore as any).restExerciseId = exerciseId || null;
+    (workoutStore as any).restSetIdx = setIdx !== undefined ? setIdx : null;
+    (workoutStore as any).restElapsedSeconds = 0;
   },
 
   pauseRestTimer() {
@@ -148,14 +165,53 @@ export const workoutActions = {
   },
 
   cancelRestTimer() {
+    const exerciseId = (workoutStore as any).restExerciseId;
+    const setIdx = (workoutStore as any).restSetIdx;
+    let elapsed = (workoutStore as any).restElapsedSeconds || 0;
+
+    if (workoutStore.restTimer <= 1 && workoutStore.isRestTimerActive) {
+      elapsed += 1;
+    }
+
+    if (exerciseId && setIdx !== null && setIdx !== undefined) {
+      const currentRestTimes = JSON.parse(JSON.stringify(workoutStore.allWorkoutRestTimes || {}));
+      if (!currentRestTimes[exerciseId]) {
+        currentRestTimes[exerciseId] = [];
+      }
+      while (currentRestTimes[exerciseId].length <= setIdx) {
+        currentRestTimes[exerciseId].push("");
+      }
+      const m = Math.floor(elapsed / 60);
+      const s = elapsed % 60;
+      currentRestTimes[exerciseId][setIdx] = `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+      workoutStore.allWorkoutRestTimes = currentRestTimes;
+    }
+
     workoutStore.restTimer = 0;
     workoutStore.isRestTimerActive = false;
     workoutStore.isRestDrawerOpen = false;
+    workoutStore.isLastSetRest = false;
+    (workoutStore as any).restExerciseId = null;
+    (workoutStore as any).restSetIdx = null;
+    (workoutStore as any).restElapsedSeconds = 0;
+  },
+
+  // Advance to next step (called after last-set rest completes or is skipped)
+  advanceToNextStep() {
+    const nextIdx = workoutStore.currentStepIdx + 1;
+    if (nextIdx < workoutStore.executionSteps.length) {
+      workoutStore.currentStepIdx = nextIdx;
+    }
+    // If beyond last step, just cancel rest — the page handles the end-of-workout flow
   },
 
   decrementRestTimer() {
     if (workoutStore.isRestTimerActive && workoutStore.restTimer > 0) {
       workoutStore.restTimer -= 1;
+      if (!(workoutStore as any).restElapsedSeconds) {
+        (workoutStore as any).restElapsedSeconds = 0;
+      }
+      (workoutStore as any).restElapsedSeconds += 1;
     }
   },
 

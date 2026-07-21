@@ -93,7 +93,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { workoutId, feedback, effortScore, loads, reps } = body;
+    const { workoutId, feedback, effortScore, loads, reps, restTimes } = body;
 
     if (!workoutId) {
       return new NextResponse("ID do treino é obrigatório.", { status: 400 });
@@ -124,6 +124,7 @@ export async function POST(req: Request) {
         effortScore: effortScore ? parseInt(effortScore) : null,
         loads: loads || null,
         reps: reps || null,
+        restTimes: restTimes || null,
         completedAt: new Date(),
       },
     });

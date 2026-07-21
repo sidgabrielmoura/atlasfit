@@ -352,10 +352,16 @@ export function WorkoutManager() {
       // 2. Tick rest timer
       if (workoutStore.isRestTimerActive && workoutStore.restTimer > 0) {
         if (workoutStore.restTimer === 1) {
-          // Play sound and complete timer at exactly 0 transition
+          // Timer finished
+          const wasLastSetRest = workoutStore.isLastSetRest;
           playRestChimeSound();
-          toast.success("Tempo de descanso concluído! Prepare-se para a próxima série. 🔥");
           workoutActions.cancelRestTimer();
+          if (wasLastSetRest) {
+            // Auto-advance to next exercise after inter-exercise rest
+            workoutActions.advanceToNextStep();
+          } else {
+            toast.success("Tempo de descanso concluído! Prepare-se para a próxima série. 🔥");
+          }
         } else {
           workoutActions.decrementRestTimer();
         }
@@ -387,7 +393,11 @@ export function WorkoutManager() {
 
   // Skip the rest timer drawer
   const handleSkipRest = () => {
+    const wasLastSetRest = workoutStore.isLastSetRest;
     workoutActions.cancelRestTimer();
+    if (wasLastSetRest) {
+      workoutActions.advanceToNextStep();
+    }
   };
 
   const totalSteps = snap.executionSteps.length;
@@ -412,9 +422,10 @@ export function WorkoutManager() {
       <Drawer
         open={snap.isRestDrawerOpen}
         onOpenChange={(open) => {
-          workoutActions.setIsRestDrawerOpen(open);
           if (!open) {
-            workoutActions.pauseRestTimer();
+            workoutActions.cancelRestTimer();
+          } else {
+            workoutActions.setIsRestDrawerOpen(open);
           }
         }}
       >
@@ -423,10 +434,12 @@ export function WorkoutManager() {
           <DrawerHeader className="text-center space-y-1">
             <DrawerTitle className="text-base font-extrabold tracking-tight flex items-center justify-center gap-2">
               <Timer className={cn("size-5 text-primary", snap.isRestTimerActive && "animate-pulse")} />
-              Intervalo de Descanso
+              {snap.isLastSetRest ? "Descanso entre Exercícios" : "Intervalo de Descanso"}
             </DrawerTitle>
             <DrawerDescription className="text-xs text-muted-foreground">
-              Descanse a musculatura antes da próxima série.
+              {snap.isLastSetRest
+                ? "Descanse bem. O próximo exercício começa automaticamente."
+                : "Descanse a musculatura antes da próxima série."}
             </DrawerDescription>
           </DrawerHeader>
 

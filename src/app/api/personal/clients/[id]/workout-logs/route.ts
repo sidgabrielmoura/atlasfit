@@ -42,11 +42,17 @@ export async function GET(
       },
       include: {
         workout: {
-          select: {
-            name: true,
-            muscleGroupLabel: true,
-            goal: true,
-            difficulty: true,
+          include: {
+            exercises: {
+              include: {
+                exercise: {
+                  select: {
+                    id: true,
+                    name: true,
+                  }
+                }
+              }
+            }
           }
         }
       },

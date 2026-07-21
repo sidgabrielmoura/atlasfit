@@ -3,6 +3,7 @@
 import { useSnapshot } from "valtio";
 import { workspaceStore } from "@/stores/workspace.store";
 import { usePathname } from "next/navigation";
+import { useState, useEffect } from "react";
 
 /**
  * Converte cor HEX para componentes RGB normalizados (0-1)
@@ -96,11 +97,16 @@ const DEFAULT_COLOR_LIGHT = "oklch(0.532 0.258 269.4)";
 const DEFAULT_COLOR_DARK = "oklch(0.60 0.24 269.4)";
 
 export function DynamicBranding() {
+  const [mounted, setMounted] = useState(false);
   const snap = useSnapshot(workspaceStore);
   const pathname = usePathname();
 
-  // SuperAdmin sempre usa a cor padrão azul
-  if (pathname?.startsWith("/superadmin")) {
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  // SuperAdmin sempre usa a cor padrão azul ou se não estiver montado no client
+  if (!mounted || pathname?.startsWith("/superadmin")) {
     return null; // globals.css define a cor padrão corretamente
   }
 

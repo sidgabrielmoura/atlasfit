@@ -16,6 +16,7 @@ import {
   AlertTriangle,
   RefreshCw,
   MessageCircle,
+  MessageSquare,
   CheckCircle2,
   Check,
   LineChart,
@@ -69,6 +70,7 @@ import {
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { compressImage } from "@/lib/image-compress";
+import { RestTimeInput } from "@/components/application/RestTimeInput";
 import { PhysicalEvaluationFormModal } from "@/components/application/physical-evaluation-form-modal";
 import { ExercisePreviewModal } from "@/components/application/exercise-preview-modal";
 import { PhysicalEvaluationDetailModal } from "@/components/application/physical-evaluation-detail-modal";
@@ -300,7 +302,9 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   const [customGoal, setCustomGoal] = useState("Hipertrofia");
   const [customDifficulty, setCustomDifficulty] = useState("Intermediário");
   const [customDuration, setCustomDuration] = useState("60 min");
-  const [customRestBetweenExercises, setCustomRestBetweenExercises] = useState("2 min");
+  const [customRestBetweenExercises, setCustomRestBetweenExercises] = useState("02:00");
+  const [customAllowRepsModification, setCustomAllowRepsModification] = useState(true);
+  const [customAllowCompleteView, setCustomAllowCompleteView] = useState(false);
   const [customMuscleGroup, setCustomMuscleGroup] = useState("");
   const [customExercises, setCustomExercises] = useState<any[]>([]);
 
@@ -321,11 +325,15 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   const [searchQuery, setSearchQuery] = useState("");
 
   const [selectedWorkoutToEdit, setSelectedWorkoutToEdit] = useState<any>(null);
+  const [selectedLogForDetail, setSelectedLogForDetail] = useState<any>(null);
+  const [isLogDetailOpen, setIsLogDetailOpen] = useState(false);
   const [editName, setEditName] = useState("");
   const [editGoal, setEditGoal] = useState("");
   const [editDifficulty, setEditDifficulty] = useState("");
   const [editDuration, setEditDuration] = useState("");
-  const [editRestBetweenExercises, setEditRestBetweenExercises] = useState("2 min");
+  const [editRestBetweenExercises, setEditRestBetweenExercises] = useState("02:00");
+  const [editAllowRepsModification, setEditAllowRepsModification] = useState(true);
+  const [editAllowCompleteView, setEditAllowCompleteView] = useState(false);
   const [editMuscleGroup, setEditMuscleGroup] = useState("");
   const [editDayOfWeek, setEditDayOfWeek] = useState("1");
   const [editExercises, setEditExercises] = useState<any[]>([]);
@@ -676,6 +684,8 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
         payload.duration = customDuration;
         payload.restBetweenExercises = customRestBetweenExercises;
         payload.muscleGroupLabel = customMuscleGroup || "Geral";
+        payload.allowRepsModification = customAllowRepsModification;
+        payload.allowCompleteView = customAllowCompleteView;
         payload.exercises = customExercises.map((ex) => ({
           exerciseId: ex.exerciseId,
           sets: Math.max(1, Number(ex.sets) || 1),
@@ -685,6 +695,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
           description: ex.description || null,
           methodType: ex.methodType || "NONE",
           methodConfig: ex.methodConfig || null,
+          allowRepsModification: ex.allowRepsModification,
         }));
       }
 
@@ -726,7 +737,9 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
     setEditGoal(workout.goal);
     setEditDifficulty(workout.difficulty);
     setEditDuration(workout.duration);
-    setEditRestBetweenExercises(workout.restBetweenExercises || "2 min");
+    setEditRestBetweenExercises(workout.restBetweenExercises || "02:00");
+    setEditAllowRepsModification(workout.allowRepsModification !== false);
+    setEditAllowCompleteView(workout.allowCompleteView !== false);
     setEditMuscleGroup(workout.muscleGroupLabel || "Geral");
     setEditDayOfWeek(String(workout.dayOfWeek));
 
@@ -743,7 +756,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
     setEditExercises(
       workout.exercises.map((ex: any) => {
         const repsStr = ex.reps || "10";
-        const restStr = ex.rest || "60s";
+        const restStr = ex.rest || "01:00";
         const loadStr = ex.load || "";
 
         const repsArr = String(repsStr).split(",").map((s: string) => s.trim());
@@ -754,7 +767,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
         const individualSets = Array.from({ length: ex.sets }, (_, si) => ({
           reps: repsArr[si] || repsArr[0] || "10",
-          rest: restArr[si] || restArr[0] || "60s",
+          rest: restArr[si] || restArr[si] === undefined ? (restArr[0] || "01:00") : restArr[si],
           load: loadArr[si] || loadArr[0] || "",
         }));
 
@@ -775,6 +788,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
           methodType: ex.methodType || "NONE",
           methodConfig: ex.methodConfig || null,
           groupId: ex.groupId || null,
+          allowRepsModification: ex.allowRepsModification,
         };
       })
     );
@@ -803,6 +817,8 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
           restBetweenExercises: editRestBetweenExercises,
           muscleGroupLabel: editMuscleGroup,
           dayOfWeek: Number(editDayOfWeek),
+          allowRepsModification: editAllowRepsModification,
+          allowCompleteView: editAllowCompleteView,
           exercises: editExercises.map((ex) => ({
             exerciseId: ex.exerciseId,
             sets: Math.max(1, Number(ex.sets) || 1),
@@ -813,6 +829,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
             methodType: ex.methodType || "NONE",
             methodConfig: ex.methodConfig || null,
             groupId: ex.groupId || null,
+            allowRepsModification: ex.allowRepsModification,
           })),
           groups: editGroups.map((g) => ({
             id: g.id,
@@ -895,14 +912,15 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
       muscleGroup: muscleGroups.find((g) => g.id === selectedMuscleGroupId)?.name || "Geral",
       sets: 4,
       reps: "10",
-      rest: "60s",
+      rest: "01:00",
       load: "",
       isIndividual: false,
       individualSets: Array.from({ length: 4 }, () => ({
         reps: "10",
         load: "",
-        rest: "60s",
+        rest: "01:00",
       })),
+      allowRepsModification: null,
     }));
 
     // Filter duplicates
@@ -944,7 +962,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
             const restArr = String(ex.rest).split(",").map(s => s.trim());
             const fallbackReps = repsArr[0] || "10";
             const fallbackLoad = isBodyweight ? "p.c." : (loadArr[0] || "");
-            const fallbackRest = restArr[0] || "60s";
+            const fallbackRest = restArr[0] || "01:00";
 
             updated.individualSets = Array.from({ length: setsCount }, (_, si) => {
               if (currentSets[si]) {
@@ -975,7 +993,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
           updated.individualSets = Array.from({ length: Number(updated.sets) || 1 }, () => ({
             reps: updated.reps || "10",
             load: isBodyweight ? "p.c." : (updated.load || ""),
-            rest: updated.rest || "60s",
+            rest: updated.rest || "01:00",
           }));
         }
 
@@ -1977,14 +1995,23 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               </div>
             </div>
 
-            <div className="w-full md:w-auto shrink-0 flex justify-center mt-2 md:mt-0">
+            <div className="w-full md:w-auto shrink-0 flex flex-col sm:flex-row gap-2.5 mt-2 md:mt-0 items-center justify-center">
               <Button
                 variant="outline"
-                className="group gap-2 w-full sm:w-auto bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:text-emerald-300 border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300 font-medium rounded-xl px-5 h-10 text-xs tracking-wider uppercase hover:scale-[1.02] active:scale-[0.98] shadow-[0_0_20px_rgba(16,185,129,0.02)]"
+                className="group gap-2 w-full sm:w-auto bg-primary/5 hover:bg-primary/10 text-primary border border-primary/20 hover:border-primary/40 transition-all duration-300 font-bold rounded-xl px-5 h-10 text-xs tracking-wider uppercase hover:scale-[1.02] active:scale-[0.98]"
+                onClick={() => router.push(`/personal/chat?studentId=${student?.id}`)}
+              >
+                <MessageSquare className="size-4 text-primary group-hover:scale-110 transition-transform shrink-0" />
+                <span>Chat Interno</span>
+              </Button>
+
+              <Button
+                variant="outline"
+                className="group gap-2 w-full sm:w-auto bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 hover:text-emerald-300 border border-emerald-500/20 hover:border-emerald-500/40 transition-all duration-300 font-bold rounded-xl px-5 h-10 text-xs tracking-wider uppercase hover:scale-[1.02] active:scale-[0.98]"
                 onClick={handleWhatsAppClick}
               >
-                <MessageCircle className="size-4 text-emerald-600 dark:text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform shrink-0" />
-                <span>Conversar no WhatsApp</span>
+                <MessageCircle className="size-4 text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform shrink-0" />
+                <span>WhatsApp</span>
               </Button>
             </div>
           </CardContent>
@@ -2624,12 +2651,11 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
           )}
         </TabsContent>
 
-        {/* ==================== TAB 2: INDIVIDUAL PROGRESS & TIMELINE ==================== */}
         <TabsContent value="progresso" className="space-y-6 outline-none focus-visible:ring-0">
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 border-b border-border/30 pb-4">
             <div>
               <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-                <Scale className="size-5 text-primary" /> Progresso e Evolução do Aluno
+                Progresso e Evolução do Aluno
               </h2>
               <p className="text-sm text-muted-foreground">Monitore o histórico de medidas corporais, composição física e registro fotográfico.</p>
             </div>
@@ -3304,8 +3330,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                 <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border/30 pb-4">
                   <div>
                     <h2 className="text-xl font-bold tracking-tight  flex items-center gap-2">
-                      <ClipboardCheck className="size-5 text-yellow-600 dark:text-yellow-500" />
-                      Avaliações Físicas e Anamneses
+                      Avaliações Físicas
                     </h2>
                     <p className="text-sm text-neutral-450 font-light">Registre adipometrias de 7 dobras, bioimpedâncias e questionários de anamnese.</p>
                   </div>
@@ -3788,7 +3813,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                         <div className="space-y-1.5">
                           <Label htmlFor="recPaymentMethod" className="text-xs font-bold text-muted-foreground">Método de Pagamento</Label>
                           <Select value={recPaymentMethod} onValueChange={(val) => setRecPaymentMethod(val)}>
-                            <SelectTrigger id="recPaymentMethod" className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl">
+                            <SelectTrigger id="recPaymentMethod" className="bg-muted/50 dark:bg-zinc-900/60 w-full! border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl">
                               <SelectValue placeholder="Método" />
                             </SelectTrigger>
                             <SelectContent className="bg-muted dark:bg-zinc-900 border-border/60 dark:border-white/[0.08]">
@@ -4440,7 +4465,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border/30 pb-4">
             <div>
               <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-                <Trophy className="size-5 text-amber-500" /> Feedbacks e Recuperação Diária (Recovery)
+                Feedbacks
               </h2>
               <p className="text-sm text-muted-foreground">Acompanhe a percepção de esforço de treinos e o estado de bem-estar diário (recovery) do aluno.</p>
             </div>
@@ -4779,7 +4804,14 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                   }
 
                                   return (
-                                    <TableRow key={log.id} className="border-b border-border/50 dark:border-white/[0.04] hover:bg-muted dark:bg-neutral-900/30 transition-colors">
+                                    <TableRow
+                                      key={log.id}
+                                      onClick={() => {
+                                        setSelectedLogForDetail(log);
+                                        setIsLogDetailOpen(true);
+                                      }}
+                                      className="border-b border-border/50 dark:border-white/[0.04] hover:bg-muted dark:bg-neutral-900/35 transition-colors cursor-pointer"
+                                    >
                                       <TableCell className="font-medium text-xs text-neutral-300">
                                         {formatLogDate(log.completedAt)}
                                       </TableCell>
@@ -4854,7 +4886,14 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                               }
 
                               return (
-                                <Card key={log.id} className="border border-border/50 dark:border-white/[0.06] bg-card/40 dark:bg-neutral-950/40 p-4 rounded-xl space-y-3">
+                                <Card
+                                  key={log.id}
+                                  onClick={() => {
+                                    setSelectedLogForDetail(log);
+                                    setIsLogDetailOpen(true);
+                                  }}
+                                  className="border border-border/50 dark:border-white/[0.06] bg-card/40 dark:bg-neutral-950/40 p-4 rounded-xl space-y-3 cursor-pointer hover:bg-muted dark:hover:bg-neutral-900/35 transition-colors"
+                                >
                                   <div className="flex justify-between items-start">
                                     <div>
                                       <h4 className="font-bold text-foreground text-sm">{log.workout?.name || "Treino Excluído"}</h4>
@@ -5046,13 +5085,42 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="customRestBetweenExercises" className="font-bold text-neutral-300">Descanso Exercícios</Label>
-                    <Input
-                      id="customRestBetweenExercises"
-                      placeholder="Ex: 2 min"
-                      className="bg-background border-border h-10"
+                    <RestTimeInput
                       value={customRestBetweenExercises}
-                      onChange={(e) => setCustomRestBetweenExercises(e.target.value)}
+                      onChange={setCustomRestBetweenExercises}
+                      className="h-10"
                     />
+                  </div>
+                </div>
+
+                <div className="border-t border-border/40 pt-4 space-y-4">
+                  <h4 className="text-xs font-extrabold uppercase text-muted-foreground tracking-wider">Regras de Execução</h4>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex items-center justify-between p-3 border border-border rounded-xl bg-background/40">
+                      <div className="space-y-0.5 max-w-[80%]">
+                        <Label className="text-xs font-bold text-neutral-300 cursor-pointer" htmlFor="customAllowRepsModification">Modificar Repetições</Label>
+                        <p className="text-[10px] text-muted-foreground leading-normal">Permitir que o aluno altere o número de repetições prescrito.</p>
+                      </div>
+                      <Checkbox
+                        id="customAllowRepsModification"
+                        checked={customAllowRepsModification}
+                        onCheckedChange={(checked) => setCustomAllowRepsModification(!!checked)}
+                        className="size-5 rounded-md border-neutral-700"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border border-border rounded-xl bg-background/40">
+                      <div className="space-y-0.5 max-w-[80%]">
+                        <Label className="text-xs font-bold text-neutral-300 cursor-pointer" htmlFor="customAllowCompleteView">Visão Completa do Treino</Label>
+                        <p className="text-[10px] text-muted-foreground leading-normal">Exibir lista completa de exercícios.</p>
+                      </div>
+                      <Checkbox
+                        id="customAllowCompleteView"
+                        checked={customAllowCompleteView}
+                        onCheckedChange={(checked) => setCustomAllowCompleteView(!!checked)}
+                        className="size-5 rounded-md border-neutral-700"
+                      />
+                    </div>
                   </div>
                 </div>
 
@@ -5234,12 +5302,10 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                   </div>
                                   <div className="space-y-1">
                                     <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Desc.</span>
-                                    <Input
-                                      type="text"
-                                      value={ex.rest || "60s"}
-                                      onChange={(e) => handleUpdateExerciseField(idx, "rest", e.target.value, false)}
-                                      className="h-8 bg-card border-border w-full text-center text-xs px-1"
-                                      placeholder="Ex: 60s"
+                                    <RestTimeInput
+                                      value={ex.rest || "01:00"}
+                                      onChange={(newValue) => handleUpdateExerciseField(idx, "rest", newValue, false)}
+                                      className="w-full"
                                     />
                                   </div>
                                 </div>
@@ -5252,7 +5318,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                     type="number"
                                     value={ex.sets}
                                     onChange={(e) => handleUpdateExerciseField(idx, "sets", e.target.value, false)}
-                                    className="h-8 bg-card border-border w-full text-center text-xs px-1"
+                                    className="h-8 bg-card border-border w-full text-center text-xs"
                                     min={1}
                                   />
                                 </div>
@@ -5301,6 +5367,25 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                   Peso do corpo
                                 </label>
                               </div>
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-[10px] font-bold text-muted-foreground">Repetições:</span>
+                                <Select
+                                  value={ex.allowRepsModification === null ? "inherit" : String(ex.allowRepsModification)}
+                                  onValueChange={(val) => {
+                                    const converted = val === "inherit" ? null : val === "true";
+                                    handleUpdateExerciseField(idx, "allowRepsModification", converted, false);
+                                  }}
+                                >
+                                  <SelectTrigger className="h-6 text-[10px] font-extrabold border-none bg-transparent shadow-none px-1 w-auto gap-1 focus:ring-0">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    <SelectItem value="inherit" className="text-xs">Herdar Global</SelectItem>
+                                    <SelectItem value="true" className="text-xs">Liberado</SelectItem>
+                                    <SelectItem value="false" className="text-xs">Bloqueado</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
                             </div>
 
                             <div className="w-full mt-1.5">
@@ -5319,7 +5404,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                             {/* Individual Sets */}
                             {ex.isIndividual && (
                               <div className="mt-1 border-t border-border/40 pt-3 space-y-2.5">
-                                <div className="grid grid-cols-[30px_1fr_1fr_1fr] gap-2 text-[9px] font-bold uppercase tracking-wider text-muted-foreground px-0.5">
+                                <div className="grid grid-cols-[30px_1fr_1fr_1.5fr] gap-2 text-[9px] font-bold uppercase tracking-wider text-muted-foreground px-0.5">
                                   <div>Série</div>
                                   <div>Reps</div>
                                   <div className="flex items-center gap-0.5 select-none">
@@ -5340,9 +5425,9 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
                                 <div className="space-y-1.5">
                                   {Array.from({ length: ex.sets }).map((_, si) => {
-                                    const setItem = ex.individualSets?.[si] || { reps: "10", load: "", rest: "60s" };
+                                    const setItem = ex.individualSets?.[si] || { reps: "10", load: "", rest: "01:00" };
                                     return (
-                                      <div key={si} className="grid grid-cols-[30px_1fr_1fr_1fr] gap-2 items-center">
+                                      <div key={si} className="grid grid-cols-[30px_1fr_1fr_1.5fr] gap-2 items-center">
                                         <span className="text-xs font-semibold text-neutral-400 pl-0.5">#{si + 1}</span>
                                         <Input
                                           type="text"
@@ -5356,15 +5441,13 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                           value={String(setItem.load || "").toLowerCase().includes("p.c") ? "p.c." : setItem.load}
                                           onChange={(e) => handleUpdateIndividualSetField(idx, si, "load", e.target.value, false)}
                                           disabled={String(setItem.load || "").toLowerCase().includes("p.c")}
-                                          className="h-8 bg-card border-border text-center text-xs font-semibold disabled:opacity-80"
+                                          className="h-8 bg-card border-border text-center text-xs font-semibold dark:disabled:opacity-80"
                                           placeholder={String(setItem.load || "").toLowerCase().includes("p.c") ? "p.c." : "Auto"}
                                         />
-                                        <Input
-                                          type="text"
-                                          value={setItem.rest}
-                                          onChange={(e) => handleUpdateIndividualSetField(idx, si, "rest", e.target.value, false)}
-                                          className="h-8 bg-card border-border text-center text-xs font-semibold"
-                                          placeholder="60s"
+                                        <RestTimeInput
+                                          value={setItem.rest || "01:00"}
+                                          onChange={(newValue) => handleUpdateIndividualSetField(idx, si, "rest", newValue, false)}
+                                          className="w-full"
                                         />
                                       </div>
                                     );
@@ -5502,13 +5585,42 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="editRestBetweenExercises" className="font-bold text-neutral-300">Descanso Exercícios</Label>
-                <Input
-                  id="editRestBetweenExercises"
-                  placeholder="Ex: 2 min"
-                  className="bg-background border-border h-10"
+                <RestTimeInput
                   value={editRestBetweenExercises}
-                  onChange={(e) => setEditRestBetweenExercises(e.target.value)}
+                  onChange={setEditRestBetweenExercises}
+                  className="h-10"
                 />
+              </div>
+            </div>
+
+            <div className="border-t border-border/40 pt-4 space-y-4">
+              <h4 className="text-xs font-extrabold uppercase text-muted-foreground tracking-wider">Regras de Execução</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center justify-between p-3 border border-border rounded-xl bg-background/40">
+                  <div className="space-y-0.5 max-w-[80%]">
+                    <Label className="text-xs font-bold text-neutral-300 cursor-pointer" htmlFor="editAllowRepsModification">Modificar Repetições</Label>
+                    <p className="text-[10px] text-muted-foreground leading-normal">Permitir que o aluno altere o número de repetições prescrito.</p>
+                  </div>
+                  <Checkbox
+                    id="editAllowRepsModification"
+                    checked={editAllowRepsModification}
+                    onCheckedChange={(checked) => setEditAllowRepsModification(!!checked)}
+                    className="size-5 rounded-md border-neutral-700"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 border border-border rounded-xl bg-background/40">
+                  <div className="space-y-0.5 max-w-[80%]">
+                    <Label className="text-xs font-bold text-neutral-300 cursor-pointer" htmlFor="editAllowCompleteView">Visão Completa do Treino</Label>
+                    <p className="text-[10px] text-muted-foreground leading-normal">Exibir lista completa de exercícios.</p>
+                  </div>
+                  <Checkbox
+                    id="editAllowCompleteView"
+                    checked={editAllowCompleteView}
+                    onCheckedChange={(checked) => setEditAllowCompleteView(!!checked)}
+                    className="size-5 rounded-md border-neutral-700"
+                  />
+                </div>
               </div>
             </div>
 
@@ -5747,12 +5859,10 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                               </div>
                               <div className="space-y-1">
                                 <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Desc.</span>
-                                <Input
-                                  type="text"
-                                  value={ex.rest || "60s"}
-                                  onChange={(e) => handleUpdateExerciseField(idx, "rest", e.target.value, true)}
-                                  className="h-8 bg-card border-border w-full text-center text-xs px-1"
-                                  placeholder="Ex: 60s"
+                                <RestTimeInput
+                                  value={ex.rest || "01:00"}
+                                  onChange={(newValue) => handleUpdateExerciseField(idx, "rest", newValue, true)}
+                                  className="w-full"
                                 />
                               </div>
                             </div>
@@ -5765,7 +5875,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                 type="number"
                                 value={ex.sets}
                                 onChange={(e) => handleUpdateExerciseField(idx, "sets", e.target.value, true)}
-                                className="h-8 bg-card border-border w-full text-center text-xs px-1"
+                                className="h-8 bg-card border-border w-full text-center text-xs"
                                 min={1}
                               />
                             </div>
@@ -5813,6 +5923,25 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                               Peso do corpo
                             </label>
                           </div>
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-[10px] font-bold text-muted-foreground">Repetições:</span>
+                            <Select
+                              value={ex.allowRepsModification === null ? "inherit" : String(ex.allowRepsModification)}
+                              onValueChange={(val) => {
+                                const converted = val === "inherit" ? null : val === "true";
+                                handleUpdateExerciseField(idx, "allowRepsModification", converted, true);
+                              }}
+                            >
+                              <SelectTrigger className="h-6 text-[10px] font-extrabold border-none bg-transparent shadow-none px-1 w-auto gap-1 focus:ring-0">
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="inherit" className="text-xs">Herdar Global</SelectItem>
+                                <SelectItem value="true" className="text-xs">Liberado</SelectItem>
+                                <SelectItem value="false" className="text-xs">Bloqueado</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </div>
 
                         <div className="w-full mt-1.5">
@@ -5831,7 +5960,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                         {/* Individual Sets */}
                         {ex.isIndividual && (
                           <div className="mt-1 border-t border-border/40 pt-3 space-y-2.5">
-                            <div className="grid grid-cols-[30px_1fr_1fr_1fr] gap-2 text-[9px] font-bold uppercase tracking-wider text-muted-foreground px-0.5">
+                            <div className="grid grid-cols-[30px_1fr_1fr_1.5fr] gap-2 text-[9px] font-bold uppercase tracking-wider text-muted-foreground px-0.5">
                               <div>Série</div>
                               <div>Reps</div>
                               <div className="flex items-center gap-0.5 select-none">
@@ -5852,9 +5981,9 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
                             <div className="space-y-1.5">
                               {Array.from({ length: ex.sets }).map((_, si) => {
-                                const setItem = ex.individualSets?.[si] || { reps: "10", load: "", rest: "60s" };
+                                const setItem = ex.individualSets?.[si] || { reps: "10", load: "", rest: "01:00" };
                                 return (
-                                  <div key={si} className="grid grid-cols-[30px_1fr_1fr_1fr] gap-2 items-center">
+                                  <div key={si} className="grid grid-cols-[30px_1fr_1fr_1.5fr] gap-2 items-center">
                                     <span className="text-xs font-semibold text-neutral-400 pl-0.5">#{si + 1}</span>
                                     <Input
                                       type="text"
@@ -5868,15 +5997,13 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                       value={String(setItem.load || "").toLowerCase().includes("p.c") ? "p.c." : setItem.load}
                                       onChange={(e) => handleUpdateIndividualSetField(idx, si, "load", e.target.value, true)}
                                       disabled={String(setItem.load || "").toLowerCase().includes("p.c")}
-                                      className="h-8 bg-card border-border text-center text-xs font-semibold disabled:opacity-80"
+                                      className="h-8 bg-card border-border text-center text-xs font-semibold dark:disabled:opacity-80"
                                       placeholder={String(setItem.load || "").toLowerCase().includes("p.c") ? "p.c." : "Auto"}
                                     />
-                                    <Input
-                                      type="text"
-                                      value={setItem.rest}
-                                      onChange={(e) => handleUpdateIndividualSetField(idx, si, "rest", e.target.value, true)}
-                                      className="h-8 bg-card border-border text-center text-xs font-semibold"
-                                      placeholder="60s"
+                                    <RestTimeInput
+                                      value={setItem.rest || "01:00"}
+                                      onChange={(newValue) => handleUpdateIndividualSetField(idx, si, "rest", newValue, true)}
+                                      className="w-full"
                                     />
                                   </div>
                                 );
@@ -7096,8 +7223,8 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
       {/* ==================== DIALOG: REGISTRAR LANÇAMENTO ==================== */}
       <Dialog open={isPaymentModalOpen} onOpenChange={setIsPaymentModalOpen}>
-        <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-md bg-card border border-border text-foreground rounded-2xl shadow-2xl overflow-y-auto max-h-[90vh]">
-          <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-emerald-500/20 to-transparent" />
+        <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-md bg-card border border-border text-foreground rounded-2xl! shadow-2xl overflow-y-auto max-h-[90vh]">
+          <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-emerald-500/20 to-transparent" />
           <DialogHeader>
             <DialogTitle className="text-xl font-extrabold flex items-center gap-2 text-foreground">
               <DollarSign className="size-5 text-emerald-600 dark:text-emerald-400" /> Registrar Lançamento
@@ -7291,7 +7418,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               <div className="space-y-1.5">
                 <Label htmlFor="editPaymentMethod" className="text-xs font-bold text-muted-foreground">Método de Pagamento</Label>
                 <Select value={paymentMethod} onValueChange={(val) => setPaymentMethod(val)} disabled={submittingPayment}>
-                  <SelectTrigger id="editPaymentMethod" className="bg-secondary/50 border-border h-10 text-xs rounded-xl text-foreground w-full min-w-0 max-w-full focus:ring-0 focus:ring-offset-0">
+                  <SelectTrigger id="editPaymentMethod" className="bg-secondary/50 border-border w-full! h-10 text-xs rounded-xl text-foreground min-w-0 max-w-full focus:ring-0 focus:ring-offset-0">
                     <SelectValue placeholder="Selecione o método" />
                   </SelectTrigger>
                   <SelectContent className="bg-popover border-border">
@@ -7674,6 +7801,153 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
         open={isPreviewModalOpen}
         onOpenChange={setIsPreviewModalOpen}
       />
+
+      {/* ==================== DIALOG: DETAILED WORKOUT LOG DETAILS ==================== */}
+      <Dialog open={isLogDetailOpen} onOpenChange={setIsLogDetailOpen}>
+        <DialogContent className="max-w-2xl bg-card border border-border text-foreground rounded-2xl shadow-2xl p-6 overflow-hidden">
+          <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-primary/10 via-primary/50 to-primary/10" />
+          <DialogHeader>
+            <DialogTitle className="text-xl font-bold flex items-center gap-2">
+              <ClipboardCheck className="size-5 text-primary" />
+              Detalhamento de Execução de Treino
+            </DialogTitle>
+            <DialogDescription className="text-muted-foreground text-xs">
+              Veja as repetições, cargas e descansos registrados pelo aluno.
+            </DialogDescription>
+          </DialogHeader>
+
+          {selectedLogForDetail && (
+            <div className="space-y-6 mt-4">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 border border-border/80 bg-secondary/20 rounded-2xl">
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">Data</span>
+                  <span className="text-xs font-semibold text-foreground">
+                    {(() => {
+                      try {
+                        const date = new Date(selectedLogForDetail.completedAt);
+                        return date.toLocaleDateString("pt-BR", {
+                          day: "2-digit",
+                          month: "short",
+                          year: "numeric",
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        });
+                      } catch (e) {
+                        return selectedLogForDetail.completedAt;
+                      }
+                    })()}
+                  </span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">Treino</span>
+                  <span className="text-xs font-bold text-foreground truncate block">{selectedLogForDetail.workout?.name || "Treino Excluído"}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">Ficha / Grupo</span>
+                  <span className="text-xs font-semibold text-foreground">{selectedLogForDetail.workout?.muscleGroupLabel || "Geral"}</span>
+                </div>
+                <div>
+                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">Percepção de Esforço</span>
+                  <span className="text-xs font-semibold text-foreground block">
+                    {selectedLogForDetail.effortScore === 1 && "😴 Muito Fácil"}
+                    {selectedLogForDetail.effortScore === 2 && "🙂 Fácil"}
+                    {selectedLogForDetail.effortScore === 3 && "👍 Moderado"}
+                    {selectedLogForDetail.effortScore === 4 && "🥵 Difícil"}
+                    {selectedLogForDetail.effortScore === 5 && "💀 Muito Difícil"}
+                    {!selectedLogForDetail.effortScore && "Não Informada"}
+                  </span>
+                </div>
+              </div>
+
+              {selectedLogForDetail.feedback && (
+                <div className="p-3 bg-muted dark:bg-neutral-900/60 border border-border dark:border-neutral-800 rounded-xl text-xs italic text-neutral-300 flex items-start gap-2">
+                  <MessageCircle className="size-4 shrink-0 text-primary mt-0.5" />
+                  <span>"{selectedLogForDetail.feedback}"</span>
+                </div>
+              )}
+
+              <div className="space-y-3">
+                <h4 className="text-xs font-extrabold uppercase text-muted-foreground tracking-wider">Exercícios Executados</h4>
+                <div className="border border-border/60 rounded-xl overflow-hidden divide-y divide-border/60 max-h-80 overflow-y-auto">
+                  {selectedLogForDetail.workout?.exercises && selectedLogForDetail.workout.exercises.length > 0 ? (
+                    selectedLogForDetail.workout.exercises.map((ex: any, idx: number) => {
+                      // Get execution data from JSON arrays/objects
+                      const exerciseId = ex.exercise.id;
+                      const loadsObj = selectedLogForDetail.loads || {};
+                      const repsObj = selectedLogForDetail.reps || {};
+                      const restsObj = selectedLogForDetail.restTimes || {};
+
+                      const rawLoads = loadsObj[exerciseId] || "";
+                      const rawReps = repsObj[exerciseId] || "";
+                      const rawRests = restsObj[exerciseId] || "";
+
+                      const loadParts = String(rawLoads).split(",").map(s => s.trim());
+                      const repParts = String(rawReps).split(",").map(s => s.trim());
+                      const restParts = String(rawRests).split(",").map(s => s.trim());
+
+                      const numSets = Math.max(loadParts.length, repParts.length, ex.sets || 1);
+
+                      return (
+                        <div key={ex.id} className="p-4 bg-background/20 space-y-3">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-bold text-foreground">
+                              {idx + 1}. {ex.exercise.name}
+                            </span>
+                            <Badge variant="outline" className="text-[10px] bg-secondary/35 text-muted-foreground border-border py-0 px-2 font-semibold">
+                              {ex.sets || 4} séries prescritas
+                            </Badge>
+                          </div>
+
+                          <div className="grid grid-cols-[50px_1fr_1fr_1fr] gap-2 text-[9px] uppercase font-bold text-muted-foreground/80 pl-2">
+                            <div>Série</div>
+                            <div>Reps Registradas</div>
+                            <div>Carga Registrada</div>
+                            <div>Descanso Real</div>
+                          </div>
+
+                          <div className="space-y-1 pl-2">
+                            {Array.from({ length: numSets }).map((_, si) => {
+                              const rep = repParts[si] || "—";
+                              const load = loadParts[si] || "—";
+                              const rest = restParts[si] || "—";
+
+                              return (
+                                <div key={si} className="grid grid-cols-[50px_1fr_1fr_1fr] gap-2 items-center text-xs">
+                                  <span className="text-muted-foreground font-mono">#{si + 1}</span>
+                                  <span className="font-bold text-foreground">{rep} reps</span>
+                                  <span className="font-bold text-foreground">{load}</span>
+                                  <span className="font-mono text-emerald-500 font-bold">{rest}</span>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="p-4 text-center text-xs text-muted-foreground">
+                      Dados de exercícios indisponíveis para este log.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="mt-4 pt-4 border-t border-border">
+            <Button
+              type="button"
+              className="bg-secondary hover:bg-secondary/80 text-foreground font-bold text-xs rounded-xl"
+              onClick={() => {
+                setIsLogDetailOpen(false);
+                setSelectedLogForDetail(null);
+              }}
+            >
+              Fechar Detalhes
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

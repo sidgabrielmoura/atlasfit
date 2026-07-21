@@ -19,7 +19,7 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    const { name, goal, difficulty, duration, muscleGroupLabel, restBetweenExercises, dayOfWeek, exercises, groups } = body;
+    const { name, goal, difficulty, duration, muscleGroupLabel, restBetweenExercises, dayOfWeek, exercises, groups, allowRepsModification, allowCompleteView } = body;
 
     // Verificar se o treino existe e pertence ao aluno e foi criado pelo personal trainer
     const existingWorkout = await prisma.workout.findFirst({
@@ -92,6 +92,9 @@ export async function PATCH(
               methodType: ex.methodType || "NONE",
               methodConfig: ex.methodConfig || null,
               groupId: dbGroupId,
+              allowRepsModification: ex.allowRepsModification !== undefined && ex.allowRepsModification !== null
+                ? Boolean(ex.allowRepsModification)
+                : null,
             },
           });
         }
@@ -106,6 +109,8 @@ export async function PATCH(
       if (muscleGroupLabel !== undefined) dataToUpdate.muscleGroupLabel = muscleGroupLabel;
       if (restBetweenExercises !== undefined) dataToUpdate.restBetweenExercises = restBetweenExercises;
       if (dayOfWeek !== undefined) dataToUpdate.dayOfWeek = Number(dayOfWeek);
+      if (allowRepsModification !== undefined) dataToUpdate.allowRepsModification = Boolean(allowRepsModification);
+      if (allowCompleteView !== undefined) dataToUpdate.allowCompleteView = Boolean(allowCompleteView);
 
       const updated = await tx.workout.update({
         where: {

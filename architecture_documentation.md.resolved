@@ -158,7 +158,7 @@ O Trainer é o **usuário operacional principal**.
 
 ## PÁGINAS DO NÍVEL
 *   Dashboard
-*   Alunos (CRM)
+*   Alunos (CRM) & Chat Interno
 *   Treinos e Exercícios (Prescrição)
 *   Financeiro (Gestão de Alunos)
 *   Link de Captação (Vendas)
@@ -191,6 +191,8 @@ O Trainer é o **usuário operacional principal**.
 *   **Prontuário**: Visualizar histórico, fotos, medidas e anamnese.
 *   **Status**: Ativo, Inativo, Pausado, Pendente.
 *   **Atribuição**: Vincular aluno a um programa ou trainer específico.
+*   **Chat Interno Realtime**: Comunicação direta com o aluno por chat em tempo real com indicador de digitação (Typing), confirmação de leitura (Read Receipts) e envio de mensagens em massa.
+*   **Ações Rápidas**: Botão de acesso rápido ao chat na barra superior do perfil do aluno.
 
 ### Dados Necessários
 *   `StudentProfile`, `BodyMetrics`, `WorkoutHistory`.
@@ -232,6 +234,7 @@ Focado em **execução, simplicidade e motivação**.
 *   Início (Dashboard)
 *   Meus Treinos (Lista)
 *   Execução (Modo Treino)
+*   Chat Interno (Mensagens Realtime)
 *   Evolução (Gráficos)
 *   Agenda (Programação)
 *   Reporte de Feedback (Recovery)
@@ -244,19 +247,22 @@ Focado em **execução, simplicidade e motivação**.
 **Objetivo**: Guia passo a passo durante a sessão de treino.
 
 ### Funcionalidades
-*   **Timer**: Descanso automático entre séries.
+*   **Timer de Descanso**: Descanso automático entre séries de um exercício e descanso configurado entre exercícios diferentes.
+*   **Auto-Avanço de Exercício**: Ao finalizar o descanso após a última série de um exercício, o app avança automaticamente para o próximo exercício sem intervenção manual do aluno.
 *   **Registro de Carga**: Salvar peso/reps reais executadas.
 *   **Vídeo**: Player integrado para ver execução correta.
 *   **Check-off**: Marcar série como concluída.
 *   **Notas**: Deixar comentário sobre o exercício (ex: "Senti dor").
 
 ### Componentes Principais
-*   **Workout Player**: Interface otimizada para celular.
+*   **Workout Player**: Interface otimizada para celular, forçando visualização individual por padrão (`allowCompleteView = false`).
 *   **Set Grid**: Linhas para registro de cada série.
+*   **Seletores Shadcn/UI**: Substituição de seletores de repetição HTML nativos por componentes customizados Shadcn para melhor usabilidade mobile.
 
 ### Regras de Negócio
 *   **Offline First**: O treino deve funcionar sem internet (salvamento local e sync posterior).
-*   **Rest Timer**: Notificações de tempo de descanso.
+*   **Rest Timer**: Notificações de tempo de descanso e transição suave entre blocos.
+*   **Prevenção de Layout Shift**: Modal de execução com scroll travado no body para evitar scroll duplo.
 
 ### Possíveis Endpoints
 *   `POST /api/v1/workouts/executions`
@@ -277,7 +283,29 @@ Focado em **execução, simplicidade e motivação**.
 
 ---
 
-# 4. REQUISITOS TÉCNICOS & BACKEND
+# 4. SISTEMA DE CHAT INTERNO (REALTIME)
+
+O chat interno do AtlasFit é o canal de comunicação direto entre aluno e personal trainer dentro de cada workspace, implementado de forma assíncrona e em tempo real.
+
+## Recursos Funcionais
+*   **Tipos de Mensagens**: Texto simples, mídias (Imagens, Vídeos carregados do chat), mensagens de voz gravadas (Áudio) e documentos gerais (PDF, TXT, etc.).
+*   **Cards Interativos de Compartilhamento**:
+    *   **Treinos (WORKOUT_SHARE)**: Envio de resumos de treinos. Clicar abre a página de visualização do treino.
+    *   **Exercícios Demonstrativos (EXERCISE_SHARE)**: Envio de demonstrações técnicas. Renderiza uma miniatura com botão de reprodução e abre o `ExercisePreviewModal` oficial (suportando YouTube/Shorts, Google Drive, GIFs ou MP4s).
+    *   **Avaliações Físicas (ASSESSMENT_SHARE)**: Compartilhamento rápido de dados como peso e BF%.
+    *   **Solicitação de Evolução (PROGRESS_REQUEST)**: Disparo de solicitações visuais.
+    *   **Fotos de Evolução (PROGRESS_UPLOAD_CONFIRMATION)**: O aluno faz upload de fotos (Frente, Costas, Lateral) diretamente na bolha de chat, salvando o progresso na sua linha do tempo.
+*   **Recursos de UX**:
+    *   **Respostas (Reply)**: Responder a mensagens específicas no histórico.
+    *   **Deleção de Mensagens**: Exclusão de mensagens com atualização realtime.
+    *   **Leitura Dinâmica**: Confirmações de envio, entrega e leitura (Enviado, Recebido, Lido).
+    *   **Indicador de Digitação (Typing Indicator)**: Exibe quando o outro participante está escrevendo.
+    *   **Mensagens em Massa (Mass Messages)**: Disparo de mensagens simultâneas para múltiplos alunos pelo personal.
+    *   **Branding Dinâmico e Contraste Inteligente (Fórmula YIQ)**: O texto das mensagens do próprio usuário calcula a cor ideal (clara ou escura) com base no brilho do hexadecimal de estilo primário do Workspace, mantendo 100% de legibilidade do chat.
+
+---
+
+# 5. REQUISITOS TÉCNICOS & BACKEND
 
 ## Entidades Principais (Schema)
 1.  **Account/User**: Global (ID, Email, Password, GlobalRole).
@@ -285,16 +313,18 @@ Focado em **execução, simplicidade e motivação**.
 3.  **Member**: Relacionamento (UserId, WorkspaceId, RoleInWorkspace).
 4.  **StudentProfile**: (MemberId, Weight, Height, Goal, Bio).
 5.  **TrainerProfile**: (MemberId, Specialization, Bio, Rating).
-6.  **Workout**: (ID, WorkspaceId, CreatorId, StudentId, Name).
+6.  **Workout**: (ID, WorkspaceId, CreatorId, StudentId, Name, allowCompleteView).
 7.  **Exercise**: (ID, WorkspaceId/Global, Name, VideoUrl, Description).
 8.  **WorkoutExecution**: (ID, StudentId, WorkoutId, StartTime, EndTime).
-9.  **Transaction/Invoice**: (ID, WorkspaceId, Status, Value, GatewayId).
+9.  **Message**: (ID, ConversationId, SenderId, Type, Content, Attachment (Json), ReplyToId, Status).
+10. **Conversation**: (ID, WorkspaceId, Title, LastMessage, LastMessageAt).
+11. **Transaction/Invoice**: (ID, WorkspaceId, Status, Value, GatewayId).
 
-## Realtime Events (WebSockets/SSE)
+## Realtime Events (WebSockets/Ably)
+*   **Ably Integration**: WebSockets para eventos de chat, atualizações de leitura e digitação.
 *   **Workout Live**: Personal vê quando o aluno inicia o treino.
-*   **Support/Chat**: (Caso implementado futuramente).
-*   **Global Notifications**: Alertas de novos planos, lembretes de treino.
-*   **System Status**: Atualização imediata de disponibilidade.
+*   **Typing/Presence**: Eventos dinâmicos baseados nos estados de conexão.
+*   **Global Notifications**: Alertas de novos planos, lembretes de treino, pushes do WhatsApp integrados.
 
 ## Segurança & Autorização
 *   **RBAC (Role-Based Access Control)**: Middleware validando `Role` + `WorkspaceContext`.

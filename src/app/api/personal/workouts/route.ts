@@ -62,7 +62,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
-    const { name, goal, difficulty, duration, muscleGroupLabel, restBetweenExercises, exercises, workspaceId, groups } = body;
+    const { name, goal, difficulty, duration, muscleGroupLabel, restBetweenExercises, exercises, workspaceId, groups, allowRepsModification, allowCompleteView } = body;
 
     if (!name || !goal || !difficulty || !duration) {
       return new NextResponse("Campos obrigatórios ausentes.", { status: 400 });
@@ -92,6 +92,8 @@ export async function POST(req: Request) {
           restBetweenExercises: restBetweenExercises || "2 min",
           creatorId: session.user.id,
           workspaceId: workspaceId || null,
+          allowRepsModification: allowRepsModification !== undefined ? Boolean(allowRepsModification) : true,
+          allowCompleteView: allowCompleteView !== undefined ? Boolean(allowCompleteView) : false,
         },
       });
 
@@ -126,6 +128,9 @@ export async function POST(req: Request) {
               methodType: ex.methodType || "NONE",
               methodConfig: ex.methodConfig || null,
               groupId: dbGroupId,
+              allowRepsModification: ex.allowRepsModification !== undefined && ex.allowRepsModification !== null
+                ? Boolean(ex.allowRepsModification)
+                : null,
             },
           });
         }

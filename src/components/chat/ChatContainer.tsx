@@ -34,6 +34,7 @@ import {
   ZoomIn,
   ZoomOut,
   Dumbbell,
+  Play,
 } from "lucide-react";
 
 import { chatStore, chatActions, Message, Conversation } from "@/stores/chat.store";
@@ -73,6 +74,7 @@ import { useAbly } from "@/providers/ably-provider";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { MassMessageModal } from "./MassMessageModal";
+import { ExercisePreviewModal, getGoogleDriveDirectUrl } from "@/components/application/exercise-preview-modal";
 import {
   ShareWorkoutModal,
   ShareExerciseModal,
@@ -130,6 +132,26 @@ const compressImage = (file: File, quality = 0.7): Promise<Blob> => {
     reader.onerror = (err) => reject(err);
   });
 };
+
+// Helper to extract YouTube video ID from a URL
+function getYouTubeId(url: string | null | undefined) {
+  if (!url) return null;
+  const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+  const match = url.match(regExp);
+  
+  if (match && match[2].length === 11) {
+    return match[2];
+  }
+  
+  // Try matching shorts
+  const shortsReg = /\/shorts\/([a-zA-Z0-9_-]{11})/;
+  const shortsMatch = url.match(shortsReg);
+  if (shortsMatch) {
+    return shortsMatch[1];
+  }
+  
+  return null;
+}
 
 interface ChatContainerProps {
   userRole: "TRAINER" | "STUDENT";
@@ -213,6 +235,8 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
   const [isGalleryViewerOpen, setIsGalleryViewerOpen] = useState(false);
 
   const [isEditingLoading, setIsEditingLoading] = useState(false);
+  const [previewExercise, setPreviewExercise] = useState<any | null>(null);
+  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
   const [isDeletingLoading, setIsDeletingLoading] = useState(false);
   const [deletingMessageId, setDeletingMessageId] = useState<string | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
@@ -241,6 +265,30 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
   const messages = activeConversationId ? (chatSnap.messages[activeConversationId] || []) : [];
   const nextCursor = activeConversationId ? chatSnap.nextCursors[activeConversationId] : null;
 
+  const primaryHex = workspaceSnap.activeWorkspace?.primaryColor;
+
+  // Calculate dynamic contrast styles for self-sent messages to guarantee text readability
+  const contrast = React.useMemo(() => {
+    const hex = primaryHex || "#3052EB";
+    const clean = hex.replace("#", "");
+    let isLight = false;
+    if (clean.length === 6) {
+      const r = parseInt(clean.slice(0, 2), 16);
+      const g = parseInt(clean.slice(2, 4), 16);
+      const b = parseInt(clean.slice(4, 6), 16);
+      // YIQ contrast formula
+      const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
+      isLight = yiq >= 150; // threshold for light color
+    }
+    return {
+      textPrimary: isLight ? "text-zinc-950 font-bold" : "text-white",
+      textSecondary: isLight ? "text-zinc-800" : "text-white/80",
+      textTertiary: isLight ? "text-zinc-600" : "text-white/60",
+      bgMuted: isLight ? "bg-black/10 hover:bg-black/15" : "bg-white/15 hover:bg-white/20",
+      borderL: isLight ? "border-l-zinc-950/60" : "border-l-white/60",
+    };
+  }, [primaryHex]);
+
   // 1. Fetch Conversations on workspace change
   useEffect(() => {
     if (!activeWorkspaceId) return;
@@ -251,9 +299,38 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
         if (res.ok) return res.json();
         throw new Error();
       })
-      .then((data) => {
+      .then(async (data) => {
         chatActions.setConversations(data);
-        if (data.length > 0 && !chatStore.activeConversationId) {
+
+        // Check if studentId query param is present
+        const queryStudentId = searchParams.get("studentId");
+        if (queryStudentId) {
+          const existing = data.find((c: any) =>
+            c.participants.some((p: any) => p.userId === queryStudentId)
+          );
+          if (existing) {
+            chatActions.setActiveConversationId(existing.id);
+          } else {
+            // Auto create conversation
+            try {
+              const res = await fetch("/api/chat/conversations", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({
+                  workspaceId: activeWorkspaceId,
+                  targetUserId: queryStudentId,
+                }),
+              });
+              if (res.ok) {
+                const conv = await res.json();
+                chatActions.addConversation(conv);
+                chatActions.setActiveConversationId(conv.id);
+              }
+            } catch (err) {
+              console.error("Failed to auto-create conversation:", err);
+            }
+          }
+        } else if (data.length > 0 && !chatStore.activeConversationId) {
           chatActions.setActiveConversationId(data[0].id);
         }
       })
@@ -263,7 +340,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
       .finally(() => {
         chatActions.setLoadingConversations(false);
       });
-  }, [activeWorkspaceId]);
+  }, [activeWorkspaceId, searchParams]);
 
   // 2. Fetch Messages on active conversation change
   useEffect(() => {
@@ -1325,7 +1402,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                                       isSelf ? "rounded-tr-none" : "rounded-tl-none"
                                     )
                                     : isSelf
-                                      ? "p-3 bg-primary text-primary-foreground border-primary/10 rounded-tr-none"
+                                      ? cn("p-3 bg-primary border-primary/10 rounded-tr-none", contrast.textPrimary)
                                       : "p-3 bg-card text-foreground border-border/60 rounded-tl-none",
                                   isSystem && "p-3 bg-secondary/25 border-none italic text-muted-foreground",
                                   highlightedMessageId === m.id && (
@@ -1434,7 +1511,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                                       <div className={cn(
                                         "flex flex-col gap-0.5 text-[10px] mb-2 p-1.5 px-3 rounded-r-lg border-l-2 text-left border-y-0 border-r-0 select-none",
                                         isSelf 
-                                          ? "bg-white/5 border-l-white/60 text-white/90" 
+                                          ? cn(contrast.bgMuted, contrast.borderL, contrast.textSecondary)
                                           : "bg-secondary/20 border-l-primary/60 text-foreground/80"
                                       )}>
                                         <div className="flex items-center gap-1 font-bold uppercase tracking-wider text-[8px] opacity-75">
@@ -1442,7 +1519,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                                         </div>
                                         <div className={cn(
                                           "font-bold text-[11px]",
-                                          isSelf ? "text-white" : "text-foreground"
+                                          isSelf ? contrast.textPrimary : "text-foreground"
                                         )}>
                                           {(m.attachment as any).exerciseName}
                                         </div>
@@ -1459,7 +1536,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                                         className="flex items-center gap-3 text-left min-w-[200px] max-w-[260px] py-1 cursor-pointer select-none group"
                                         onClick={() => {
                                           if (userRole === "STUDENT") {
-                                            router.push(`/student/workouts`);
+                                            router.push(`/student/workouts?startWorkoutId=${(m.attachment as any).workoutId}`);
                                           } else {
                                             router.push(`/personal/workouts/${(m.attachment as any).workoutId}`);
                                           }
@@ -1467,60 +1544,112 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                                       >
                                         <div className={cn(
                                           "p-2 rounded-lg shrink-0 flex items-center justify-center transition",
-                                          isSelf ? "bg-white/15 text-white" : "bg-primary/10 text-primary"
+                                          isSelf ? cn(contrast.bgMuted, contrast.textPrimary) : "bg-primary/10 text-primary"
                                         )}>
                                           <Dumbbell className="size-4" />
                                         </div>
                                         <div className="flex-1 min-w-0">
                                           <div className={cn(
                                             "font-semibold text-xs truncate",
-                                            isSelf ? "text-white" : "text-foreground"
+                                            isSelf ? contrast.textPrimary : "text-foreground"
                                           )}>
                                             {(m.attachment as any).workoutName}
                                           </div>
                                           <div className={cn(
                                             "text-[10px] truncate mt-0.5",
-                                            isSelf ? "text-white/80" : "text-muted-foreground"
+                                            isSelf ? contrast.textSecondary : "text-muted-foreground"
                                           )}>
                                             {(m.attachment as any).difficulty} • {(m.attachment as any).duration} min
                                           </div>
                                         </div>
-                                        <ChevronRight className={cn("size-3.5 opacity-65 shrink-0 transition group-hover:translate-x-0.5", isSelf ? "text-white" : "text-muted-foreground")} />
+                                        <ChevronRight className={cn("size-3.5 opacity-65 shrink-0 transition group-hover:translate-x-0.5", isSelf ? contrast.textPrimary : "text-muted-foreground")} />
                                       </div>
                                     )}
 
                                     {m.attachment && (m.attachment as any).type === "EXERCISE_SHARE" && (
-                                      <div className="flex flex-col gap-2 text-left min-w-[200px] max-w-[260px] py-0.5 select-none">
+                                      <div 
+                                        className="flex flex-col gap-2 text-left min-w-[200px] max-w-[260px] py-0.5 cursor-pointer select-none group"
+                                        onClick={() => {
+                                          setPreviewExercise({
+                                            id: (m.attachment as any).exerciseId,
+                                            name: (m.attachment as any).exerciseName,
+                                            videoUrl: (m.attachment as any).videoUrl,
+                                            muscleGroup: { name: (m.attachment as any).muscleGroupName || "Geral" },
+                                          });
+                                          setIsPreviewOpen(true);
+                                        }}
+                                      >
                                         <div className="flex items-center gap-3">
                                           <div className={cn(
-                                            "p-2 rounded-lg shrink-0 flex items-center justify-center",
-                                            isSelf ? "bg-white/15 text-white" : "bg-primary/10 text-primary"
+                                            "p-2 rounded-lg shrink-0 flex items-center justify-center transition",
+                                            isSelf ? cn(contrast.bgMuted, contrast.textPrimary) : "bg-primary/10 text-primary"
                                           )}>
                                             <Dumbbell className="size-4" />
                                           </div>
                                           <div className="flex-1 min-w-0">
                                             <div className={cn(
                                               "font-semibold text-xs truncate",
-                                              isSelf ? "text-white" : "text-foreground"
+                                              isSelf ? contrast.textPrimary : "text-foreground"
                                             )}>
                                               {(m.attachment as any).exerciseName}
                                             </div>
                                             <div className={cn(
                                               "text-[10px] truncate mt-0.5",
-                                              isSelf ? "text-white/80" : "text-muted-foreground"
+                                              isSelf ? contrast.textSecondary : "text-muted-foreground"
                                             )}>
                                               {(m.attachment as any).muscleGroupName}
                                             </div>
                                           </div>
                                         </div>
                                         {(m.attachment as any).videoUrl && (
-                                          <div className="relative rounded-lg overflow-hidden border border-border/10 aspect-video bg-black/90 flex items-center justify-center shadow-xs mt-1">
-                                            <video
-                                              src={(m.attachment as any).videoUrl}
-                                              controls
-                                              className="w-full h-full object-cover"
-                                            />
-                                          </div>
+                                          (() => {
+                                            const videoUrl = (m.attachment as any).videoUrl;
+                                            const ytId = getYouTubeId(videoUrl);
+                                            const driveDirectUrl = getGoogleDriveDirectUrl(videoUrl);
+                                            const isGif = videoUrl?.toLowerCase().endsWith(".gif") || videoUrl?.toLowerCase().includes(".gif") || videoUrl?.toLowerCase().includes("giphy");
+                                            const isMp4 = videoUrl?.toLowerCase().endsWith(".mp4") || videoUrl?.toLowerCase().includes(".mp4");
+
+                                            return (
+                                              <div className="relative rounded-xl overflow-hidden border border-border/20 aspect-video bg-zinc-950 flex items-center justify-center shadow-md mt-1 w-full group/video hover:brightness-95 transition-all">
+                                                {ytId ? (
+                                                  <img
+                                                    src={`https://img.youtube.com/vi/${ytId}/hqdefault.jpg`}
+                                                    alt="Preview"
+                                                    className="w-full h-full object-cover"
+                                                  />
+                                                ) : driveDirectUrl ? (
+                                                  <img
+                                                    src={driveDirectUrl}
+                                                    alt="Preview"
+                                                    className="w-full h-full object-cover"
+                                                  />
+                                                ) : isGif ? (
+                                                  <img
+                                                    src={videoUrl}
+                                                    alt="Preview"
+                                                    className="w-full h-full object-cover"
+                                                  />
+                                                ) : isMp4 ? (
+                                                  <video
+                                                    src={videoUrl}
+                                                    className="w-full h-full object-cover animate-fade-in"
+                                                    preload="metadata"
+                                                    muted
+                                                  />
+                                                ) : (
+                                                  <div className="flex flex-col items-center justify-center gap-1.5 text-zinc-500">
+                                                    <Dumbbell className="size-8 opacity-40" />
+                                                  </div>
+                                                )}
+                                                
+                                                <div className="absolute inset-0 bg-black/35 flex items-center justify-center group-hover/video:bg-black/45 transition-colors">
+                                                  <div className="size-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-lg transition-all group-hover/video:scale-110 duration-200">
+                                                    <Play className="size-4.5 fill-current ml-0.5" />
+                                                  </div>
+                                                </div>
+                                              </div>
+                                            );
+                                          })()
                                         )}
                                       </div>
                                     )}
@@ -1538,25 +1667,25 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                                       >
                                         <div className={cn(
                                           "p-2 rounded-lg shrink-0 flex items-center justify-center transition",
-                                          isSelf ? "bg-white/15 text-white" : "bg-primary/10 text-primary"
+                                          isSelf ? cn(contrast.bgMuted, contrast.textPrimary) : "bg-primary/10 text-primary"
                                         )}>
                                           <FileText className="size-4" />
                                         </div>
                                         <div className="flex-1 min-w-0">
                                           <div className={cn(
                                             "font-semibold text-xs truncate",
-                                            isSelf ? "text-white" : "text-foreground"
+                                            isSelf ? contrast.textPrimary : "text-foreground"
                                           )}>
                                             Avaliação Física
                                           </div>
                                           <div className={cn(
                                             "text-[10px] truncate mt-0.5",
-                                            isSelf ? "text-white/80" : "text-muted-foreground"
+                                            isSelf ? contrast.textSecondary : "text-muted-foreground"
                                           )}>
                                             {(m.attachment as any).weight} kg • {(m.attachment as any).fatPercent ? `${(m.attachment as any).fatPercent}% BF` : "Ver detalhes"}
                                           </div>
                                         </div>
-                                        <ChevronRight className={cn("size-3.5 opacity-65 shrink-0 transition group-hover:translate-x-0.5", isSelf ? "text-white" : "text-muted-foreground")} />
+                                        <ChevronRight className={cn("size-3.5 opacity-65 shrink-0 transition group-hover:translate-x-0.5", isSelf ? contrast.textPrimary : "text-muted-foreground")} />
                                       </div>
                                     )}
 
@@ -1574,7 +1703,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                                       >
                                         <div className={cn(
                                           "p-2 rounded-lg shrink-0 flex items-center justify-center transition",
-                                          isSelf ? "bg-white/15 text-white" : "bg-primary/10 text-primary",
+                                          isSelf ? cn(contrast.bgMuted, contrast.textPrimary) : "bg-primary/10 text-primary",
                                           userRole === "STUDENT" && "animate-pulse"
                                         )}>
                                           <Camera className="size-4" />
@@ -1582,19 +1711,19 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                                         <div className="flex-1 min-w-0">
                                           <div className={cn(
                                             "font-semibold text-xs truncate",
-                                            isSelf ? "text-white" : "text-foreground"
+                                            isSelf ? contrast.textPrimary : "text-foreground"
                                           )}>
                                             Solicitação de Evolução
                                           </div>
                                           <div className={cn(
                                             "text-[10px] truncate mt-0.5",
-                                            isSelf ? "text-white/80" : "text-muted-foreground"
+                                            isSelf ? contrast.textSecondary : "text-muted-foreground"
                                           )}>
                                             {userRole === "STUDENT" ? "Clique para enviar fotos" : "Aguardando envio..."}
                                           </div>
                                         </div>
                                         {userRole === "STUDENT" && (
-                                          <Upload className={cn("size-3.5 opacity-65 shrink-0 transition group-hover:translate-y-[-1px]", isSelf ? "text-white" : "text-muted-foreground")} />
+                                          <Upload className={cn("size-3.5 opacity-65 shrink-0 transition group-hover:translate-y-[-1px]", isSelf ? contrast.textPrimary : "text-muted-foreground")} />
                                         )}
                                       </div>
                                     )}
@@ -1607,13 +1736,13 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                                         <div className="flex-1 min-w-0">
                                           <div className={cn(
                                             "font-semibold text-xs truncate",
-                                            isSelf ? "text-white" : "text-foreground"
+                                            isSelf ? contrast.textPrimary : "text-foreground"
                                           )}>
                                             Evolução Enviada
                                           </div>
                                           <div className={cn(
                                             "text-[10px] truncate mt-0.5",
-                                            isSelf ? "text-white/80" : "text-muted-foreground"
+                                            isSelf ? contrast.textSecondary : "text-muted-foreground"
                                           )}>
                                             Fotos registradas com sucesso
                                           </div>
@@ -1623,7 +1752,12 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
 
                                     {m.type === "TEXT" && <p>{m.content}</p>}
                                     {m.type !== "TEXT" && m.content && (
-                                      <p className="mt-2 text-left whitespace-pre-wrap px-2 pb-1.5 pt-0.5 font-normal text-xs text-foreground/90">{m.content}</p>
+                                      <p className={cn(
+                                        "mt-2 text-left whitespace-pre-wrap px-2 pb-1.5 pt-0.5 font-normal text-xs",
+                                        isSelf ? contrast.textSecondary : "text-foreground/90"
+                                      )}>
+                                        {m.content}
+                                      </p>
                                     )}
                                   </>
                                 )}
@@ -2309,6 +2443,11 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                 date: new Date().toLocaleDateString("pt-BR"),
               });
             }}
+          />
+          <ExercisePreviewModal
+            exercise={previewExercise}
+            open={isPreviewOpen}
+            onOpenChange={setIsPreviewOpen}
           />
         </>
       )}

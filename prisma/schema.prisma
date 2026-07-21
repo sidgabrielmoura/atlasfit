@@ -331,6 +331,8 @@ model Workout {
   restBetweenExercises String?      @default("2 min")
   isActive             Boolean      @default(true)
   workoutLogs          WorkoutLog[]
+  allowRepsModification Boolean      @default(true)
+  allowCompleteView     Boolean      @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -350,6 +352,7 @@ model WorkoutExercise {
   methodConfig Json?
   groupId      String?
   group        WorkoutExerciseGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  allowRepsModification Boolean?
 
   workout  Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
   exercise Exercise @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
@@ -627,6 +630,7 @@ model WorkoutLog {
   effortScore Int?     // 1 (Muito Fácil) a 5 (Muito Difícil)
   loads       Json?    // Cargas logadas por exercício/série
   reps        Json?    // Repetições reais por exercício/série
+  restTimes   Json?    // Tempo de descanso real por série
 
   student     User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
   workout     Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)

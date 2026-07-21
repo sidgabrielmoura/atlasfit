@@ -43,6 +43,7 @@ import {
 } from "@/components/ui/select";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
+import { RestTimeInput } from "@/components/application/RestTimeInput";
 
 interface EditWorkoutPageProps {
   params: Promise<{ id: string }>;
@@ -62,7 +63,9 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
   const [goal, setGoal] = useState("Hipertrofia");
   const [difficulty, setDifficulty] = useState("Intermediário");
   const [duration, setDuration] = useState("60 min");
-  const [restBetweenExercises, setRestBetweenExercises] = useState("2 min");
+  const [restBetweenExercises, setRestBetweenExercises] = useState("02:00");
+  const [allowRepsModification, setAllowRepsModification] = useState(true);
+  const [allowCompleteView, setAllowCompleteView] = useState(false);
 
   // Exercise Preview State
   const [previewExercise, setPreviewExercise] = useState<any>(null);
@@ -227,8 +230,10 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
         setGoal(data.goal);
         setDifficulty(data.difficulty);
         setDuration(data.duration);
-        setRestBetweenExercises(data.restBetweenExercises || "2 min");
+        setRestBetweenExercises(data.restBetweenExercises || "02:00");
         setMuscleGroupLabel(data.muscleGroupLabel || "");
+        setAllowRepsModification(data.allowRepsModification !== false);
+        setAllowCompleteView(data.allowCompleteView !== false);
 
         // Load groups
         const loadedGroups = data.exerciseGroups || [];
@@ -243,7 +248,7 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
         setSelectedExercises(
           (data.exercises || []).map((ex: any) => {
             const repsStr = ex.reps || "10";
-            const restStr = ex.rest || "60s";
+            const restStr = ex.rest || "01:00";
             const loadStr = ex.load || "";
 
             const repsArr = String(repsStr).split(",").map(s => s.trim());
@@ -254,7 +259,7 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
 
             const individualSets = Array.from({ length: ex.sets }, (_, si) => ({
               reps: repsArr[si] || repsArr[0] || "10",
-              rest: restArr[si] || restArr[0] || "60s",
+              rest: restArr[si] || restArr[si] === undefined ? (restArr[0] || "01:00") : restArr[si],
               load: loadArr[si] || loadArr[0] || "",
             }));
 
@@ -274,6 +279,7 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
               methodType: ex.methodType || "NONE",
               methodConfig: ex.methodConfig || null,
               groupId: ex.groupId || null,
+              allowRepsModification: ex.allowRepsModification,
             };
           })
         );
@@ -350,14 +356,15 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
       muscleGroup: muscleGroups.find((g) => g.id === selectedMuscleGroupId)?.name || "Geral",
       sets: 4,
       reps: "10",
-      rest: "60s",
+      rest: "01:00",
       load: "",
       isIndividual: false,
       individualSets: Array.from({ length: 4 }, () => ({
         reps: "10",
         load: "",
-        rest: "60s",
+        rest: "01:00",
       })),
+      allowRepsModification: null,
     }));
 
     // Filter duplicates
@@ -434,7 +441,7 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
             const restArr = String(ex.rest).split(",").map(s => s.trim());
             const fallbackReps = repsArr[0] || "10";
             const fallbackLoad = isBodyweight ? "p.c." : (loadArr[0] || "");
-            const fallbackRest = restArr[0] || "60s";
+            const fallbackRest = restArr[0] || "01:00";
 
             updated.individualSets = Array.from({ length: setsCount }, (_, si) => {
               if (currentSets[si]) {
@@ -465,7 +472,7 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
           updated.individualSets = Array.from({ length: Number(updated.sets) || 1 }, () => ({
             reps: updated.reps || "10",
             load: isBodyweight ? "p.c." : (updated.load || ""),
-            rest: updated.rest || "60s",
+            rest: updated.rest || "01:00",
           }));
         }
 
@@ -588,12 +595,15 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
           duration,
           restBetweenExercises,
           muscleGroupLabel,
+          allowRepsModification,
+          allowCompleteView,
           exercises: selectedExercises.map((ex) => ({
             ...ex,
             sets: Math.max(1, Number(ex.sets) || 1),
             methodType: ex.methodType || "NONE",
             methodConfig: ex.methodConfig || null,
             groupId: ex.groupId || null,
+            allowRepsModification: ex.allowRepsModification,
           })),
           groups: workoutGroups.map((g) => ({
             id: g.id,
@@ -778,15 +788,42 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
 
               <div className="space-y-1.5 flex flex-col">
                 <Label htmlFor="restBetweenExercises" className="text-xs font-medium text-foreground">Descanso Exercícios</Label>
-                <Input
-                  id="restBetweenExercises"
-                  type="text"
-                  placeholder="Ex: 2 min"
+                <RestTimeInput
                   value={restBetweenExercises}
-                  onChange={(e) => setRestBetweenExercises(e.target.value)}
-                  className="bg-background/80 border-border h-10 text-sm"
-                  required
+                  onChange={setRestBetweenExercises}
+                  className="h-10"
                 />
+              </div>
+            </div>
+
+            <div className="border-t border-border/40 pt-4 space-y-4">
+              <h4 className="text-sm font-bold text-foreground">Regras e Configurações Gerais</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="flex items-center justify-between p-3 border border-border rounded-xl bg-background/40">
+                  <div className="space-y-0.5 max-w-[80%]">
+                    <Label className="text-xs font-bold text-foreground cursor-pointer" htmlFor="allowRepsModification">Permitir Aluno Modificar Repetições</Label>
+                    <p className="text-[10px] text-muted-foreground leading-normal">Permite que o aluno altere o número de repetições prescrito durante a execução do treino.</p>
+                  </div>
+                  <Checkbox
+                    id="allowRepsModification"
+                    checked={allowRepsModification}
+                    onCheckedChange={(checked) => setAllowRepsModification(!!checked)}
+                    className="size-5 rounded-md"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 border border-border rounded-xl bg-background/40">
+                  <div className="space-y-0.5 max-w-[80%]">
+                    <Label className="text-xs font-bold text-foreground cursor-pointer" htmlFor="allowCompleteView">Permitir Visão Completa do Treino</Label>
+                    <p className="text-[10px] text-muted-foreground leading-normal">Exibe a lista vertical de todos os exercícios para o aluno em vez de apenas o fluxo passo a passo.</p>
+                  </div>
+                  <Checkbox
+                    id="allowCompleteView"
+                    checked={allowCompleteView}
+                    onCheckedChange={(checked) => setAllowCompleteView(!!checked)}
+                    className="size-5 rounded-md"
+                  />
+                </div>
               </div>
             </div>
           </CardContent>
@@ -1213,12 +1250,10 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
                             </div>
                             <div className="space-y-1">
                               <span className="text-[9px] uppercase font-bold text-muted-foreground block pl-0.5">Desc.</span>
-                              <Input
-                                type="text"
-                                value={ex.rest || "60s"}
-                                onChange={(e) => handleUpdateExerciseField(index, "rest", e.target.value)}
-                                className="h-8 bg-card border-border w-full text-center text-xs px-1"
-                                placeholder="Ex: 60s"
+                              <RestTimeInput
+                                value={ex.rest || "01:00"}
+                                onChange={(newValue) => handleUpdateExerciseField(index, "rest", newValue)}
+                                className="w-full"
                               />
                             </div>
                           </div>
@@ -1280,12 +1315,31 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
                             Peso do corpo
                           </label>
                         </div>
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] font-bold text-muted-foreground">Repetições:</span>
+                          <Select
+                            value={ex.allowRepsModification === null ? "inherit" : String(ex.allowRepsModification)}
+                            onValueChange={(val) => {
+                              const converted = val === "inherit" ? null : val === "true";
+                              handleUpdateExerciseField(index, "allowRepsModification", converted);
+                            }}
+                          >
+                            <SelectTrigger className="h-6 text-[10px] font-extrabold border-none bg-transparent shadow-none px-1 w-auto gap-1 focus:ring-0">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="inherit" className="text-xs">Herdar Global</SelectItem>
+                              <SelectItem value="true" className="text-xs">Liberado</SelectItem>
+                              <SelectItem value="false" className="text-xs">Bloqueado</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
                       </div>
 
                       {/* Individual Sets details expansion */}
                       {ex.isIndividual && (
                         <div className="mt-1 border-t border-border/30 pt-3 space-y-2">
-                          <div className="grid grid-cols-[30px_1fr_1fr_1fr] gap-2 text-[9px] font-bold uppercase tracking-wider text-muted-foreground px-1">
+                          <div className="grid grid-cols-[30px_1fr_1fr_1.5fr] gap-2 text-[9px] font-bold uppercase tracking-wider text-muted-foreground px-1">
                             <div>Série</div>
                             <div>Reps</div>
                             <div className="flex items-center gap-0.5 select-none">
@@ -1306,9 +1360,9 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
 
                           <div className="space-y-1.5">
                             {Array.from({ length: ex.sets }).map((_, si) => {
-                              const setItem = ex.individualSets?.[si] || { reps: "10", load: "", rest: "60s" };
+                              const setItem = ex.individualSets?.[si] || { reps: "10", load: "", rest: "01:00" };
                               return (
-                                <div key={si} className="grid grid-cols-[30px_1fr_1fr_1fr] gap-2 items-center">
+                                <div key={si} className="grid grid-cols-[30px_1fr_1fr_1.5fr] gap-2 items-center">
                                   <span className="text-xs font-semibold text-neutral-400 pl-1">#{si + 1}</span>
                                   <Input
                                     type="text"
@@ -1325,12 +1379,10 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
                                     className="h-8 bg-card border-border text-center text-xs px-1 disabled:opacity-80 font-semibold"
                                     placeholder={String(setItem.load || "").toLowerCase().includes("p.c") ? "p.c." : "Auto"}
                                   />
-                                  <Input
-                                    type="text"
-                                    value={setItem.rest}
-                                    onChange={(e) => handleUpdateIndividualSetField(index, si, "rest", e.target.value)}
-                                    className="h-8 bg-card border-border text-center text-xs px-1"
-                                    placeholder="Ex: 60s"
+                                  <RestTimeInput
+                                    value={setItem.rest || "01:00"}
+                                    onChange={(newValue) => handleUpdateIndividualSetField(index, si, "rest", newValue)}
+                                    className="w-full"
                                   />
                                 </div>
                               );
