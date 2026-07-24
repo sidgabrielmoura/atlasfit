@@ -29,6 +29,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Progress } from "@/components/ui/progress";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -159,11 +160,12 @@ export default function ClientsPage() {
     setLoading(true);
     try {
       const res = await fetch(`/api/personal/clients?workspaceId=${activeWorkspaceId}`);
-      if (!res.ok) {
-        throw new Error(await res.text());
+      if (res.ok) {
+        const data = await res.json();
+        setStudents(Array.isArray(data) ? data : []);
+      } else {
+        toast.error("Não foi possível carregar os alunos.");
       }
-      const data = await res.json();
-      setStudents(data);
     } catch (err: any) {
       console.error(err);
       toast.error("Não foi possível carregar os alunos.");
@@ -178,14 +180,15 @@ export default function ClientsPage() {
     setPendingLoading(true);
     try {
       const res = await fetch(`/api/personal/clients/pending?workspaceId=${activeWorkspaceId}`);
-      if (!res.ok) {
-        throw new Error(await res.text());
+      if (res.ok) {
+        const data = await res.json();
+        setPendingStudents(Array.isArray(data) ? data : []);
+      } else {
+        setPendingStudents([]);
       }
-      const data = await res.json();
-      setPendingStudents(data);
     } catch (err: any) {
       console.error(err);
-      toast.error("Não foi possível carregar os pré-cadastros.");
+      setPendingStudents([]);
     } finally {
       setPendingLoading(false);
     }
@@ -544,15 +547,15 @@ export default function ClientsPage() {
 
       {/* Seção de Alunos Pendentes */}
       {pendingStudents.length > 0 && (
-        <div className="space-y-5 bg-neutral-900 border border-neutral-800 rounded-xl p-6">
+        <div className="space-y-4 bg-card border border-border/80 rounded-xl p-5 md:p-6 shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/40 pb-4">
             <div className="flex items-center gap-2">
-              <UserPlus className="size-5 text-blue-500 dark:text-blue-400 shrink-0" />
+              <UserPlus className="size-4.5 text-primary shrink-0" />
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-base font-bold tracking-tight text-foreground">
+                <h3 className="text-base font-semibold tracking-tight text-foreground">
                   Solicitações de Pré-cadastro
                 </h3>
-                <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/20 font-bold px-2 py-0.5 rounded-full text-[11px]">
+                <Badge variant="outline" className="bg-primary/10 text-primary border-primary/20 font-medium px-2 py-0.5 text-[11px] rounded-full">
                   {pendingStudents.length} {pendingStudents.length === 1 ? "pendente" : "pendentes"}
                 </Badge>
               </div>
@@ -564,43 +567,43 @@ export default function ClientsPage() {
             {pendingStudents.map((ps) => (
               <Card
                 key={ps.id}
-                className="overflow-hidden bg-neutral-950 border border-neutral-800 rounded-xl flex flex-col justify-between"
+                className="overflow-hidden bg-background border border-border/60 rounded-xl flex flex-col justify-between shadow-xs"
               >
-                <CardContent className="p-5 flex flex-col h-full justify-between gap-4">
+                <CardContent className="p-4 flex flex-col h-full justify-between gap-3.5">
                   <div className="flex items-start justify-between gap-2">
                     <div className="flex items-center gap-3 min-w-0">
-                      <Avatar className="size-10 border border-neutral-800 shrink-0">
+                      <Avatar className="size-10 border border-border/40 shrink-0">
                         <AvatarImage />
-                        <AvatarFallback className="bg-blue-500/10 text-blue-600 dark:text-blue-400 font-bold text-xs">
+                        <AvatarFallback className="bg-muted text-muted-foreground font-semibold text-xs">
                           {ps.avatarFallback}
                         </AvatarFallback>
                       </Avatar>
                       <div className="min-w-0">
-                        <h4 className="font-semibold text-sm leading-none text-foreground truncate">{ps.name}</h4>
-                        <span className="text-xs text-muted-foreground block truncate mt-1">{ps.email}</span>
+                        <h4 className="font-semibold text-sm text-foreground truncate">{ps.name}</h4>
+                        <span className="text-xs text-muted-foreground block truncate">{ps.email}</span>
                       </div>
                     </div>
-                    <Badge className="bg-blue-500/10 text-blue-600 dark:text-blue-400 border border-blue-500/15 font-bold text-[9px] uppercase tracking-wider shrink-0 px-2 py-0.5 rounded">
+                    <Badge variant="outline" className="bg-muted/50 text-muted-foreground border-border/40 text-[10px] font-medium shrink-0 px-2 py-0.5 rounded-full">
                       {ps.plan}
                     </Badge>
                   </div>
 
-                  <div className="space-y-2 text-xs text-muted-foreground border-y border-neutral-800 py-2.5 my-0.5">
+                  <div className="space-y-1.5 text-xs text-muted-foreground border-y border-border/40 py-2.5 my-0.5">
                     <div className="flex items-center justify-between gap-2">
-                      <span className="flex items-center gap-1.5 text-muted-foreground/80">
-                        <Smartphone className="size-3.5 text-blue-500/70 shrink-0" />
+                      <span className="flex items-center gap-1.5 text-muted-foreground">
+                        <Smartphone className="size-3.5 text-muted-foreground/70 shrink-0" />
                         WhatsApp:
                       </span>
-                      <span className="text-foreground font-medium truncate">
+                      <span className="text-foreground/90 font-medium truncate">
                         {ps.whatsapp || "Não preenchido"}
                       </span>
                     </div>
                     <div className="flex items-center justify-between gap-2">
-                      <span className="flex items-center gap-1.5 text-muted-foreground/80">
-                        <Calendar className="size-3.5 text-blue-500/70 shrink-0" />
+                      <span className="flex items-center gap-1.5 text-muted-foreground">
+                        <Calendar className="size-3.5 text-muted-foreground/70 shrink-0" />
                         Cadastrado em:
                       </span>
-                      <span className="text-foreground font-medium shrink-0">{ps.createdAt}</span>
+                      <span className="text-foreground/90 font-medium shrink-0">{ps.createdAt}</span>
                     </div>
                   </div>
 
@@ -609,7 +612,7 @@ export default function ClientsPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="flex-1 text-destructive hover:bg-destructive/10 hover:text-destructive border-neutral-800 h-8 font-medium transition-colors"
+                        className="flex-1 text-destructive hover:bg-destructive/10 hover:text-destructive border-border/60 h-8 font-medium text-xs transition-colors"
                         onClick={() => {
                           setSelectedPending(ps);
                           setIsRejectPendingOpen(true);
@@ -620,21 +623,21 @@ export default function ClientsPage() {
                       <Button
                         variant="outline"
                         size="sm"
-                        className="flex-1 text-muted-foreground hover:bg-secondary hover:text-foreground border-neutral-800 h-8 font-medium transition-colors"
+                        className="flex-1 text-muted-foreground hover:bg-secondary hover:text-foreground border-border/60 h-8 font-medium text-xs transition-colors"
                         onClick={() => triggerEditPending(ps)}
                       >
                         <Edit2 className="size-3.5 mr-1.5" /> Editar
                       </Button>
                     </div>
                     <Button
-                      className="w-full gap-2 h-9 font-semibold bg-blue-600 hover:bg-blue-500 text-white border-none shadow-none rounded-lg transition-colors"
+                      className="w-full gap-2 h-8 font-medium text-xs bg-primary text-primary-foreground hover:bg-primary/90 rounded-lg transition-colors"
                       onClick={() => handleApprovePending(ps.id)}
                       disabled={approvingIds.includes(ps.id)}
                     >
                       {approvingIds.includes(ps.id) ? (
-                        <Loader2 className="animate-spin size-4" />
+                        <Loader2 className="animate-spin size-3.5" />
                       ) : (
-                        <CheckCircle2 className="size-4" />
+                        <CheckCircle2 className="size-3.5" />
                       )}
                       Tornar Aluno Oficial
                     </Button>
@@ -646,23 +649,22 @@ export default function ClientsPage() {
         </div>
       )}
 
-      {/* Main Grid/Loading Content */}
       {loading ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4 animate-pulse">
           {[...Array(6)].map((_, i) => (
-            <Card key={i} className="overflow-hidden border border-border/50 p-5 space-y-4">
+            <Card key={i} className="overflow-hidden border border-border/60 p-5 space-y-4 rounded-xl">
               <div className="flex items-center gap-3">
-                <div className="size-12 rounded-full bg-muted" />
+                <div className="size-11 rounded-full bg-muted shrink-0" />
                 <div className="space-y-2 flex-1">
                   <div className="h-4 w-32 bg-muted rounded" />
                   <div className="h-3 w-20 bg-muted rounded" />
                 </div>
               </div>
-              <div className="h-8 bg-muted rounded" />
-              <div className="grid grid-cols-2 gap-2 pt-2">
-                {[...Array(6)].map((_, j) => (
-                  <div key={j} className="h-9 bg-muted rounded" />
-                ))}
+              <div className="h-3 bg-muted rounded w-full" />
+              <div className="h-1.5 bg-muted rounded w-full" />
+              <div className="flex gap-2 pt-2">
+                <div className="h-8 bg-muted rounded flex-1" />
+                <div className="h-8 bg-muted rounded flex-1" />
               </div>
             </Card>
           ))}
@@ -682,61 +684,59 @@ export default function ClientsPage() {
           ) : (
             filteredStudents.map((student) => (
               <motion.div key={student.id} variants={item as any}>
-                <Card className="overflow-hidden hover:border-primary/50 transition-colors duration-300 p-0 relative bg-card border border-border/50">
-                  <CardContent className="p-0">
-                    {/* Header & Info */}
-                    <div className="p-5 pb-4">
-                      <div className="flex items-start justify-between">
-                        <div className="flex items-center gap-3">
-                          <Avatar className="size-12 border-2 border-background shadow-sm">
-                            <AvatarImage src={student?.image} />
-                            <AvatarFallback className="bg-primary/10 text-primary font-semibold">
-                              {student.avatarFallback}
-                            </AvatarFallback>
-                          </Avatar>
-                          <div>
-                            <h3 className="font-semibold text-lg leading-none mb-1 text-foreground">{student.name}</h3>
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <Badge
-                                variant="outline"
-                                className={cn(
-                                  "text-[10px] uppercase font-bold tracking-wider px-1.5 py-0",
-                                  student.isActive
-                                    ? "bg-success/10 text-success border-success/20 dark:bg-emerald-500/10 dark:text-emerald-400"
-                                    : "bg-destructive/10 text-destructive border-destructive/20 dark:bg-rose-500/10 dark:text-rose-400"
-                                )}
-                              >
-                                {student.isActive ? "Ativo" : "Inativo"}
-                              </Badge>
-                              {!student.hasPassword && (
-                                <Badge
-                                  variant="outline"
-                                  className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0 bg-amber-500/10 text-amber-600 border-amber-500/20 dark:text-amber-400"
-                                >
-                                  Senha Pendente
-                                </Badge>
-                              )}
-                              <span className="text-xs text-muted-foreground">{student.plan} • <span className="font-semibold text-primary">{student.modality === "ONLINE" ? "Online" : "Presencial"}</span></span>
-                              {student.streak > 0 && (
-                                <div className="flex items-center gap-0.5 text-xs font-medium text-amber-500 bg-amber-500/10 px-1.5 py-0.5 rounded-md">
-                                  <Flame className="size-3" />
-                                  <span>{student.streak} dias</span>
-                                </div>
-                              )}
-                            </div>
-                          </div>
+                <Card
+                  className="overflow-hidden p-0 hover:border-foreground/20 transition-all duration-200 bg-card border border-border/60 rounded-xl shadow-xs group flex flex-col justify-between cursor-pointer"
+                  onClick={() => router.push(`/personal/clients/${student.id}`)}
+                >
+                  <CardContent className="p-5 flex flex-col justify-between h-full gap-4">
+                    {/* Header & Avatar */}
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="flex items-center gap-3.5 min-w-0">
+                        <Avatar className="size-11 border border-border/40 shrink-0">
+                          <AvatarImage src={student?.image} />
+                          <AvatarFallback className="bg-muted text-muted-foreground font-semibold text-xs">
+                            {student.avatarFallback}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-sm leading-tight text-foreground truncate group-hover:text-primary transition-colors">
+                            {student.name}
+                          </h3>
+                          <p className="text-xs text-muted-foreground truncate mt-0.5">{student.email}</p>
                         </div>
+                      </div>
+
+                      {/* Dropdown Options */}
+                      <div onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 text-muted-foreground hover:text-foreground">
+                            <Button variant="ghost" size="icon" className="h-8 w-8 -mr-1.5 text-muted-foreground hover:text-foreground">
                               <MoreVertical className="size-4" />
                             </Button>
                           </DropdownMenuTrigger>
                           <DropdownMenuContent align="end" className="w-52">
-                            <DropdownMenuItem className="cursor-pointer" onClick={() => triggerEdit(student)}>
-                              <Edit2 className="mr-2 size-4" /> Editar informações
+                            <DropdownMenuItem className="cursor-pointer" onClick={() => router.push(`/personal/clients/${student.id}`)}>
+                              <UserPlus className="mr-2 size-4 text-muted-foreground" /> Ver Perfil Completo
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="cursor-pointer" onClick={() => router.push(`/personal/clients/${student.id}?tab=treinos`)}>
+                              <Dumbbell className="mr-2 size-4 text-muted-foreground" /> Treinos
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="cursor-pointer" onClick={() => router.push(`/personal/clients/${student.id}?tab=progresso`)}>
+                              <LineChart className="mr-2 size-4 text-muted-foreground" /> Progresso
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="cursor-pointer" onClick={() => router.push(`/personal/clients/${student.id}?tab=avaliacoes`)}>
+                              <ClipboardCheck className="mr-2 size-4 text-muted-foreground" /> Avaliações
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="cursor-pointer" onClick={() => router.push(`/personal/clients/${student.id}?tab=financeiro`)}>
+                              <DollarSign className="mr-2 size-4 text-muted-foreground" /> Financeiro
+                            </DropdownMenuItem>
+                            <DropdownMenuItem className="cursor-pointer" onClick={() => router.push(`/personal/clients/${student.id}?tab=arquivos`)}>
+                              <Folder className="mr-2 size-4 text-muted-foreground" /> Arquivos
                             </DropdownMenuItem>
                             <DropdownMenuSeparator />
+                            <DropdownMenuItem className="cursor-pointer" onClick={() => triggerEdit(student)}>
+                              <Edit2 className="mr-2 size-4 text-muted-foreground" /> Editar informações
+                            </DropdownMenuItem>
                             <DropdownMenuItem
                               className={cn("cursor-pointer", student.isActive ? "text-amber-500 focus:text-amber-600" : "text-emerald-500 focus:text-emerald-600")}
                               onClick={() => triggerToggleActive(student)}
@@ -750,88 +750,81 @@ export default function ClientsPage() {
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
+                    </div>
 
-                      {/* Micro Info */}
-                      <div className="mt-4 flex items-center justify-between text-xs text-muted-foreground bg-secondary/20 rounded-md p-2 border border-border/20">
-                        <span className="flex items-center gap-1">Último acesso: <strong className="text-foreground font-medium">{student.lastActive}</strong></span>
-                        <span className="flex items-center gap-1">Progresso: <strong className="text-foreground font-medium">{student.progress}%</strong></span>
-                      </div>
+                    {/* Status & Plan Info */}
+                    <div className="flex items-center gap-2 flex-wrap text-xs">
+                      <span className={cn(
+                        "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-medium border",
+                        student.isActive
+                          ? "bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20"
+                          : "bg-muted text-muted-foreground border-border/50"
+                      )}>
+                        <span className={cn("size-1.5 rounded-full", student.isActive ? "bg-emerald-500" : "bg-muted-foreground/60")} />
+                        {student.isActive ? "Ativo" : "Inativo"}
+                      </span>
 
-                      {/* Setup password token link sharing */}
-                      {!student.hasPassword && student.setupToken && (
-                        <div className="mt-3">
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="w-full text-xs font-semibold gap-2 border-amber-500/30 bg-amber-500/5 hover:bg-amber-500/10 text-amber-600 dark:text-amber-400 h-9 transition-colors cursor-pointer"
-                            onClick={() => {
-                              const link = `${window.location.origin}/auth/setup-password?token=${student.setupToken}`;
-                              navigator.clipboard.writeText(link);
-                              toast.success("Link de acesso copiado com sucesso!");
-                            }}
-                          >
-                            <KeyRound className="size-4 shrink-0 text-amber-500" />
-                            <span>Copiar Link de Acesso</span>
-                          </Button>
-                        </div>
+                      <span className="text-[11px] font-medium text-muted-foreground">
+                        {student.plan} • {student.modality === "ONLINE" ? "Online" : "Presencial"}
+                      </span>
+
+                      {!student.hasPassword && (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-medium bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                          Senha Pendente
+                        </span>
+                      )}
+
+                      {student.streak > 0 && (
+                        <span className="inline-flex items-center gap-1 text-[11px] font-medium text-muted-foreground ml-auto">
+                          <Flame className="size-3 text-amber-500" />
+                          <span>{student.streak}d</span>
+                        </span>
                       )}
                     </div>
 
-                    {/* Actions Footer */}
-                    <div className="bg-secondary/15 border-t border-border/50 p-3 flex gap-2">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            className="flex-1 h-9 font-bold bg-background text-foreground hover:bg-secondary border-border/60 justify-center gap-1.5 cursor-pointer"
-                          >
-                            <span>Ações</span>
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="center" className="w-48">
-                          <DropdownMenuItem
-                            className="cursor-pointer"
-                            onClick={() => router.push(`/personal/clients/${student.id}?tab=treinos`)}
-                          >
-                            <Dumbbell className="mr-2 size-4 text-muted-foreground" />
-                            <span>Treino</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="cursor-pointer"
-                            onClick={() => router.push(`/personal/clients/${student.id}?tab=progresso`)}
-                          >
-                            <LineChart className="mr-2 size-4 text-muted-foreground" />
-                            <span>Progresso</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="cursor-pointer"
-                            onClick={() => router.push(`/personal/clients/${student.id}?tab=avaliacoes`)}
-                          >
-                            <ClipboardCheck className="mr-2 size-4 text-muted-foreground" />
-                            <span>Avaliações</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="cursor-pointer"
-                            onClick={() => router.push(`/personal/clients/${student.id}?tab=financeiro`)}
-                          >
-                            <DollarSign className="mr-2 size-4 text-muted-foreground" />
-                            <span>Financeiro</span>
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            className="cursor-pointer"
-                            onClick={() => router.push(`/personal/clients/${student.id}?tab=arquivos`)}
-                          >
-                            <Folder className="mr-2 size-4 text-muted-foreground" />
-                            <span>Arquivos</span>
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                    {/* Progress & Activity */}
+                    <div className="space-y-1.5 pt-0.5">
+                      <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                        <span>Último acesso: <strong className="text-foreground/90 font-medium">{student.lastActive}</strong></span>
+                        <span>Progresso: <strong className="text-foreground/90 font-medium">{student.progress}%</strong></span>
+                      </div>
+                      <Progress value={student.progress} className="h-1 bg-muted/60" />
+                    </div>
+
+                    {/* Setup Password Link Banner */}
+                    {!student.hasPassword && student.setupToken && (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="w-full text-xs font-medium gap-2 border-border/60 bg-muted/30 hover:bg-muted text-foreground h-8 transition-colors cursor-pointer"
+                          onClick={() => {
+                            const link = `${window.location.origin}/auth/setup-password?token=${student.setupToken}`;
+                            navigator.clipboard.writeText(link);
+                            toast.success("Link de acesso copiado com sucesso!");
+                          }}
+                        >
+                          <KeyRound className="size-3.5 text-muted-foreground" />
+                          <span>Copiar Link de Acesso</span>
+                        </Button>
+                      </div>
+                    )}
+
+                    {/* Action Footer */}
+                    <div className="pt-2 border-t border-border/40 flex items-center gap-2 mt-auto" onClick={(e) => e.stopPropagation()}>
+                      <Button
+                        variant="secondary"
+                        size="sm"
+                        className="flex-1 h-8 font-medium text-xs justify-center gap-1.5 cursor-pointer hover:bg-secondary/80"
+                        onClick={() => router.push(`/personal/clients/${student.id}`)}
+                      >
+                        <span>Ver Perfil</span>
+                      </Button>
 
                       <Button
                         variant="outline"
                         size="sm"
-                        className="flex-1 h-9 font-bold bg-emerald-500/10 text-emerald-500 hover:bg-emerald-500 hover:text-white border-emerald-500/20 hover:border-emerald-500 justify-center gap-1.5 cursor-pointer transition-colors"
+                        className="h-8 px-3 font-medium text-xs justify-center gap-1.5 cursor-pointer text-muted-foreground hover:text-foreground border-border/60"
                         onClick={() => {
                           if (student.whatsapp) {
                             const cleanPhone = student.whatsapp.replace(/\D/g, "");
@@ -841,8 +834,8 @@ export default function ClientsPage() {
                           }
                         }}
                       >
-                        <MessageCircle className="size-4 shrink-0" />
-                        <span>WhatsApp</span>
+                        <MessageCircle className="size-3.5 text-muted-foreground" />
+                        <span className="hidden sm:inline">WhatsApp</span>
                       </Button>
                     </div>
                   </CardContent>

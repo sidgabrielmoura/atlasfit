@@ -30,22 +30,22 @@ self.addEventListener("notificationclick", (event) => {
   
   let origin = self.location.origin;
   if (origin.includes("vercel.app") || origin.includes("atlasfit-steel")) {
-    origin = "https://atlasfit.site";
+    origin = "https://app.atlasfit.site";
   }
 
   let urlToOpen = event.notification.data?.url || "/";
   if (urlToOpen.startsWith("/")) {
     urlToOpen = origin + urlToOpen;
   } else {
-    urlToOpen = urlToOpen.replace(/https:\/\/atlasfit[a-zA-Z0-9-]*\.vercel\.app/g, "https://atlasfit.site");
+    urlToOpen = urlToOpen.replace(/https:\/\/atlasfit[a-zA-Z0-9-]*\.vercel\.app/g, "https://app.atlasfit.site");
   }
 
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
       for (let i = 0; i < windowClients.length; i++) {
         const client = windowClients[i];
-        const clientUrlNormalized = client.url.replace(/https:\/\/atlasfit[a-zA-Z0-9-]*\.vercel\.app/g, "https://atlasfit.site");
-        const targetUrlNormalized = urlToOpen.replace(/https:\/\/atlasfit[a-zA-Z0-9-]*\.vercel\.app/g, "https://atlasfit.site");
+        const clientUrlNormalized = client.url.replace(/https:\/\/atlasfit[a-zA-Z0-9-]*\.vercel\.app/g, "https://app.atlasfit.site");
+        const targetUrlNormalized = urlToOpen.replace(/https:\/\/atlasfit[a-zA-Z0-9-]*\.vercel\.app/g, "https://app.atlasfit.site");
         
         if (clientUrlNormalized === targetUrlNormalized && "focus" in client) {
           return client.focus();

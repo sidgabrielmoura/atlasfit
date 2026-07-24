@@ -42,7 +42,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
   const title = `${platformName} — Gestão Inteligente para Personal Trainers`;
   const description = "Plataforma completa para personal trainers gerenciarem alunos, treinos, finanças e performance com inteligência de dados.";
-  const siteUrl = "https://atlasfit.site";
+  const siteUrl = "https://app.atlasfit.site";
 
   return {
     metadataBase: new URL(siteUrl),

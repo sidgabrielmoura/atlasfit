@@ -120,7 +120,7 @@ export async function login(formData: {
     });
 
     // Send email using Resend integration
-    const fromEmail = process.env.EMAIL_FROM || "AtlasFit <noreply@atlasfit.site>";
+    const fromEmail = process.env.EMAIL_FROM || "AtlasFit <noreply@app.atlasfit.site>";
     await resend.emails.send({
       from: fromEmail,
       to: formData.email,

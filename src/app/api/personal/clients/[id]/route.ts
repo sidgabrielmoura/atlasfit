@@ -15,6 +15,10 @@ export async function GET(
   }
 
   const { id: studentId } = await params;
+  if (!studentId || studentId === "pending") {
+    return new NextResponse("ID do aluno inválido.", { status: 400 });
+  }
+
   const { searchParams } = new URL(req.url);
   const workspaceId = searchParams.get("workspaceId");
 
