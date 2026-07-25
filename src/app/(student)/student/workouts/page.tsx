@@ -63,10 +63,12 @@ import {
   Minimize2,
   MessageSquare,
   Lock,
+  SkipForward,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Textarea } from "@/components/ui/textarea";
 import { ExerciseThumbnail, ExercisePreviewModal } from "@/components/application/exercise-preview-modal";
 import { workoutStore, workoutActions } from "@/stores/workout.store";
 
@@ -207,6 +209,30 @@ export default function StudentWorkoutsPage() {
     exerciseName: string;
     observation: string;
   } | null>(null);
+
+  // Skip Exercise modal state
+  const [skipDialogOpen, setSkipDialogOpen] = useState(false);
+  const [skipTarget, setSkipTarget] = useState<{ id: string; name: string; setsCount: number } | null>(null);
+  const [skipReasonText, setSkipReasonText] = useState("");
+
+  const handleOpenSkipModal = (exId: string, exName: string, setsCount: number) => {
+    setSkipTarget({ id: exId, name: exName, setsCount });
+    setSkipReasonText("");
+    setSkipDialogOpen(true);
+  };
+
+  const handleConfirmSkipExercise = () => {
+    if (!skipTarget) return;
+    if (!skipReasonText.trim()) {
+      toast.warning("Por favor, informe a justificativa para pular o exercício.");
+      return;
+    }
+    workoutActions.skipExercise(skipTarget.id, skipReasonText.trim(), skipTarget.setsCount);
+    toast.success(`Exercício "${skipTarget.name}" pulado.`);
+    setSkipDialogOpen(false);
+    setSkipTarget(null);
+    setSkipReasonText("");
+  };
 
   const [expandedIndex, setExpandedIndex] = useState<number>(0);
 
@@ -881,6 +907,7 @@ export default function StudentWorkoutsPage() {
           loads: allWorkoutLoads,
           reps: allWorkoutReps,
           restTimes: workoutStore.allWorkoutRestTimes,
+          skippedExercises: workoutStore.skippedExercises,
         }),
       });
 
@@ -1850,19 +1877,38 @@ export default function StudentWorkoutsPage() {
                                               Descanso Prescrito: <span className="text-primary font-bold">{execEx.rest || "60s"}</span>
                                             </p>
                                           </div>
-                                          {execEx.exercise.videoUrl && (
-                                            <Button
-                                              onClick={() => {
-                                                setPreviewExercise(execEx.exercise);
-                                                setIsPreviewModalOpen(true);
-                                              }}
-                                              variant="outline"
-                                              size="sm"
-                                              className="h-8 rounded-lg border-border/60 text-xs font-semibold cursor-pointer shrink-0 gap-1.5"
-                                            >
-                                              <Play className="size-3 text-primary fill-current" /> Ver Execução
-                                            </Button>
-                                          )}
+                                          <div className="flex items-center gap-2">
+                                             {activeExecutionWorkout?.allowSkipExercises && (
+                                               workoutSnap.skippedExercises[execEx.id] ? (
+                                                 <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/20 text-[10px] gap-1 font-semibold shrink-0">
+                                                   <SkipForward className="size-3" /> Pulado
+                                                 </Badge>
+                                               ) : (
+                                                 <Button
+                                                   type="button"
+                                                   variant="ghost"
+                                                   size="sm"
+                                                   onClick={() => handleOpenSkipModal(execEx.id, execEx.exercise.name, execEx.sets)}
+                                                   className="h-8 px-2.5 text-[11px] font-semibold text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10 rounded-lg gap-1 border border-border/50 transition-colors cursor-pointer shrink-0"
+                                                 >
+                                                   <SkipForward className="size-3" /> Pular
+                                                 </Button>
+                                               )
+                                             )}
+                                             {execEx.exercise.videoUrl && (
+                                               <Button
+                                                 onClick={() => {
+                                                   setPreviewExercise(execEx.exercise);
+                                                   setIsPreviewModalOpen(true);
+                                                 }}
+                                                 variant="outline"
+                                                 size="sm"
+                                                 className="h-8 rounded-lg border-border/60 text-xs font-semibold cursor-pointer shrink-0 gap-1.5"
+                                               >
+                                                 <Play className="size-3 text-primary fill-current" /> Ver Execução
+                                               </Button>
+                                             )}
+                                           </div>
                                         </div>
 
                                         {execEx.description && (
@@ -1906,13 +1952,15 @@ export default function StudentWorkoutsPage() {
                                                 ) : (
                                                   <Input
                                                     type="text"
+                                                    inputMode="decimal"
                                                     value={allWorkoutLoads[execEx.id]?.[setIdx] || ""}
                                                     onChange={(e) => {
+                                                      const val = e.target.value.replace(/[^0-9.,]/g, "");
                                                       const nextLoads = JSON.parse(JSON.stringify(workoutStore.allWorkoutLoads));
                                                       if (!nextLoads[execEx.id]) {
                                                         nextLoads[execEx.id] = new Array(execEx.sets).fill("");
                                                       }
-                                                      nextLoads[execEx.id][setIdx] = e.target.value;
+                                                      nextLoads[execEx.id][setIdx] = val;
                                                       workoutActions.updateLoads(nextLoads);
                                                     }}
                                                     disabled={!isCurrent}
@@ -1923,14 +1971,16 @@ export default function StudentWorkoutsPage() {
 
                                                 {/* Reps Input */}
                                                 <Input
-                                                  type="tel"
+                                                  type="text"
+                                                  inputMode="numeric"
                                                   value={allWorkoutReps[execEx.id]?.[setIdx] || ""}
                                                   onChange={(e) => {
+                                                    const val = e.target.value.replace(/[^0-9]/g, "");
                                                     const nextReps = JSON.parse(JSON.stringify(workoutStore.allWorkoutReps));
                                                     if (!nextReps[execEx.id]) {
                                                       nextReps[execEx.id] = new Array(execEx.sets).fill("");
                                                     }
-                                                    nextReps[execEx.id][setIdx] = e.target.value;
+                                                    nextReps[execEx.id][setIdx] = val;
                                                     workoutActions.updateReps(nextReps);
                                                   }}
                                                   disabled={!isCurrent || (!activeExecutionWorkout.allowRepsModification && !execEx.allowRepsModification)}
@@ -1989,19 +2039,38 @@ export default function StudentWorkoutsPage() {
                                                   </span>
                                                 )}
                                               </div>
-                                              {ex.exercise.videoUrl && (
-                                                <Button
-                                                  onClick={() => {
-                                                    setPreviewExercise(ex.exercise);
-                                                    setIsPreviewModalOpen(true);
-                                                  }}
-                                                  variant="outline"
-                                                  size="sm"
-                                                  className="h-7 px-2 text-[10px] rounded-lg border-border/60 shrink-0 cursor-pointer"
-                                                >
-                                                  <Play className="size-3 text-primary fill-current" />
-                                                </Button>
-                                              )}
+                                              <div className="flex items-center gap-2 shrink-0">
+                                     {activeExecutionWorkout?.allowSkipExercises && (
+                                       workoutSnap.skippedExercises[ex.id] ? (
+                                         <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/20 text-[10px] gap-1 font-semibold shrink-0">
+                                           <SkipForward className="size-3" /> Pulado
+                                         </Badge>
+                                       ) : (
+                                         <Button
+                                           type="button"
+                                           variant="ghost"
+                                           size="sm"
+                                           onClick={() => handleOpenSkipModal(ex.id, ex.exercise.name, ex.sets)}
+                                           className="h-7 px-2 text-[10px] font-semibold text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10 rounded-lg gap-1 border border-border/40 transition-colors cursor-pointer shrink-0"
+                                         >
+                                           <SkipForward className="size-3" /> Pular
+                                         </Button>
+                                       )
+                                     )}
+                                     {ex.exercise.videoUrl && (
+                                       <Button
+                                         onClick={() => {
+                                           setPreviewExercise(ex.exercise);
+                                           setIsPreviewModalOpen(true);
+                                         }}
+                                         variant="ghost"
+                                         size="sm"
+                                         className="h-7 text-[10px] font-bold text-primary hover:bg-secondary shrink-0"
+                                       >
+                                         Vídeo
+                                       </Button>
+                                     )}
+                                   </div>
                                             </div>
 
                                             {/* Grid inputs for sets */}
@@ -2023,13 +2092,15 @@ export default function StudentWorkoutsPage() {
                                                   ) : (
                                                     <Input
                                                       type="text"
+                                                      inputMode="decimal"
                                                       value={allWorkoutLoads[ex.id]?.[setIdx] || ""}
                                                       onChange={(e) => {
+                                                        const val = e.target.value.replace(/[^0-9.,]/g, "");
                                                         const nextLoads = JSON.parse(JSON.stringify(workoutStore.allWorkoutLoads));
                                                         if (!nextLoads[ex.id]) {
                                                           nextLoads[ex.id] = new Array(ex.sets).fill("");
                                                         }
-                                                        nextLoads[ex.id][setIdx] = e.target.value;
+                                                        nextLoads[ex.id][setIdx] = val;
                                                         workoutActions.updateLoads(nextLoads);
                                                       }}
                                                       disabled={!isCurrent}
@@ -2039,14 +2110,16 @@ export default function StudentWorkoutsPage() {
                                                   )}
 
                                                   <Input
-                                                    type="tel"
+                                                    type="text"
+                                                    inputMode="numeric"
                                                     value={allWorkoutReps[ex.id]?.[setIdx] || ""}
                                                     onChange={(e) => {
+                                                      const val = e.target.value.replace(/[^0-9]/g, "");
                                                       const nextReps = JSON.parse(JSON.stringify(workoutStore.allWorkoutReps));
                                                       if (!nextReps[ex.id]) {
                                                         nextReps[ex.id] = new Array(ex.sets).fill("");
                                                       }
-                                                      nextReps[ex.id][setIdx] = e.target.value;
+                                                      nextReps[ex.id][setIdx] = val;
                                                       workoutActions.updateReps(nextReps);
                                                     }}
                                                     disabled={!isCurrent || (!activeExecutionWorkout.allowRepsModification && !ex.allowRepsModification)}
@@ -2137,19 +2210,38 @@ export default function StudentWorkoutsPage() {
                                     )}
                                   </div>
                                 </div>
-                                {execEx.exercise.videoUrl && (
-                                  <Button
-                                    onClick={() => {
-                                      setPreviewExercise(execEx.exercise);
-                                      setIsPreviewModalOpen(true);
-                                    }}
-                                    variant="outline"
-                                    size="icon"
-                                    className="size-9 rounded-lg border-border/60 shrink-0 cursor-pointer"
-                                  >
-                                    <Play className="size-4 text-primary fill-current" />
-                                  </Button>
-                                )}
+                                <div className="flex items-center gap-2">
+                                   {activeExecutionWorkout?.allowSkipExercises && (
+                                     workoutSnap.skippedExercises[execEx.id] ? (
+                                       <Badge variant="outline" className="bg-amber-500/10 text-amber-500 border-amber-500/20 text-[10px] gap-1 font-semibold shrink-0">
+                                         <SkipForward className="size-3" /> Pulado
+                                       </Badge>
+                                     ) : (
+                                       <Button
+                                         type="button"
+                                         variant="ghost"
+                                         size="sm"
+                                         onClick={() => handleOpenSkipModal(execEx.id, execEx.exercise.name, execEx.sets)}
+                                         className="h-8 px-2.5 text-[11px] font-semibold text-muted-foreground hover:text-amber-500 hover:bg-amber-500/10 rounded-lg gap-1 border border-border/50 transition-colors cursor-pointer shrink-0"
+                                       >
+                                         <SkipForward className="size-3" /> Pular
+                                       </Button>
+                                     )
+                                   )}
+                                   {execEx.exercise.videoUrl && (
+                                     <Button
+                                       onClick={() => {
+                                         setPreviewExercise(execEx.exercise);
+                                         setIsPreviewModalOpen(true);
+                                       }}
+                                       variant="outline"
+                                       size="icon"
+                                       className="size-9 rounded-lg border-border/60 shrink-0 cursor-pointer"
+                                     >
+                                       <Play className="size-4 text-primary fill-current" />
+                                     </Button>
+                                   )}
+                                 </div>
                               </div>
 
                               {execEx.description && (
@@ -2290,14 +2382,16 @@ export default function StudentWorkoutsPage() {
                                     </div>
                                   ) : (
                                     <Input
-                                      type="tel"
+                                      type="text"
+                                      inputMode="decimal"
                                       value={allWorkoutLoads[execEx.id]?.[setIdx] || ""}
                                       onChange={(e) => {
+                                        const val = e.target.value.replace(/[^0-9.,]/g, "");
                                         const nextLoads = JSON.parse(JSON.stringify(workoutStore.allWorkoutLoads));
                                         if (!nextLoads[execEx.id]) {
                                           nextLoads[execEx.id] = new Array(execEx.sets).fill("");
                                         }
-                                        nextLoads[execEx.id][setIdx] = e.target.value;
+                                        nextLoads[execEx.id][setIdx] = val;
                                         workoutActions.updateLoads(nextLoads);
                                       }}
                                       placeholder="ex: 60"
@@ -2307,14 +2401,16 @@ export default function StudentWorkoutsPage() {
 
                                   {/* Reps Input */}
                                   <Input
-                                    type="tel"
+                                    type="text"
+                                    inputMode="numeric"
                                     value={allWorkoutReps[execEx.id]?.[setIdx] || ""}
                                     onChange={(e) => {
+                                      const val = e.target.value.replace(/[^0-9]/g, "");
                                       const nextReps = JSON.parse(JSON.stringify(workoutStore.allWorkoutReps));
                                       if (!nextReps[execEx.id]) {
                                         nextReps[execEx.id] = new Array(execEx.sets).fill("");
                                       }
-                                      nextReps[execEx.id][setIdx] = e.target.value;
+                                      nextReps[execEx.id][setIdx] = val;
                                       workoutActions.updateReps(nextReps);
                                     }}
                                     disabled={!activeExecutionWorkout.allowRepsModification && !execEx.allowRepsModification}
@@ -2521,14 +2617,16 @@ export default function StudentWorkoutsPage() {
                                                 </div>
                                               ) : (
                                                 <Input
-                                                  type="tel"
+                                                  type="text"
+                                                  inputMode="decimal"
                                                   value={allWorkoutLoads[ex.id]?.[setIdx] || ""}
                                                   onChange={(e) => {
+                                                    const val = e.target.value.replace(/[^0-9.,]/g, "");
                                                     const nextLoads = JSON.parse(JSON.stringify(workoutStore.allWorkoutLoads));
                                                     if (!nextLoads[ex.id]) {
                                                       nextLoads[ex.id] = new Array(ex.sets).fill("");
                                                     }
-                                                    nextLoads[ex.id][setIdx] = e.target.value;
+                                                    nextLoads[ex.id][setIdx] = val;
                                                     workoutActions.updateLoads(nextLoads);
                                                   }}
                                                   placeholder="ex: 60"
@@ -2541,14 +2639,16 @@ export default function StudentWorkoutsPage() {
                                             <div className="flex flex-col items-center">
                                               <span className="text-[9px] font-bold text-muted-foreground/50 uppercase tracking-tighter">Reps</span>
                                               <Input
-                                                type="tel"
+                                                type="text"
+                                                inputMode="numeric"
                                                 value={allWorkoutReps[ex.id]?.[setIdx] || ""}
                                                 onChange={(e) => {
+                                                  const val = e.target.value.replace(/[^0-9]/g, "");
                                                   const nextReps = JSON.parse(JSON.stringify(workoutStore.allWorkoutReps));
                                                   if (!nextReps[ex.id]) {
                                                     nextReps[ex.id] = new Array(ex.sets).fill("");
                                                   }
-                                                  nextReps[ex.id][setIdx] = e.target.value;
+                                                  nextReps[ex.id][setIdx] = val;
                                                   workoutActions.updateReps(nextReps);
                                                 }}
                                                 disabled={!activeExecutionWorkout.allowRepsModification && !ex.allowRepsModification}
@@ -2732,6 +2832,51 @@ export default function StudentWorkoutsPage() {
           <DialogFooter className="pt-4">
             <Button onClick={() => setShowConGrats(false)} className="w-full h-11 rounded-xl font-bold text-xs bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer">
               Voltar ao Painel
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal para justificativa ao pular exercício */}
+      <Dialog open={skipDialogOpen} onOpenChange={setSkipDialogOpen}>
+        <DialogContent className="sm:max-w-md bg-background border-border">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-bold">
+              <SkipForward className="size-5 text-amber-500" /> Pular Exercício
+            </DialogTitle>
+            <DialogDescription className="text-xs text-muted-foreground">
+              {skipTarget ? `Informe o motivo pelo qual você está pulando "${skipTarget.name}". Seu personal trainer receberá esta justificativa.` : "Informe o motivo do pulo."}
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-3 py-2">
+            <label htmlFor="skipReasonText" className="text-xs font-semibold text-foreground block">
+              Motivo / Justificativa <span className="text-destructive">*</span>
+            </label>
+            <Textarea
+              id="skipReasonText"
+              placeholder="Ex: Senti desconforto no ombro / Máquina ocupada / Falta de tempo..."
+              value={skipReasonText}
+              onChange={(e) => setSkipReasonText(e.target.value)}
+              className="min-h-[90px] text-xs bg-muted/30 border-border"
+            />
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setSkipDialogOpen(false)}
+              className="h-10 text-xs font-bold"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleConfirmSkipExercise}
+              className="h-10 text-xs font-bold bg-amber-500 hover:bg-amber-600 text-white"
+            >
+              Confirmar Pulo
             </Button>
           </DialogFooter>
         </DialogContent>

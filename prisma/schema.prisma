@@ -91,6 +91,7 @@ model User {
   payoutRequests         PayoutRequest[]
   chatParticipations     ConversationParticipant[]
   chatMessages           Message[]
+  dataDeletionRequest    DataDeletionRequest?
 }
 
 model Workspace {
@@ -333,6 +334,7 @@ model Workout {
   workoutLogs          WorkoutLog[]
   allowRepsModification Boolean      @default(true)
   allowCompleteView     Boolean      @default(false)
+  allowSkipExercises    Boolean      @default(false)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -631,6 +633,7 @@ model WorkoutLog {
   loads       Json?    // Cargas logadas por exercício/série
   reps        Json?    // Repetições reais por exercício/série
   restTimes   Json?    // Tempo de descanso real por série
+  skippedExercises Json? // Exercícios pulados e suas justificativas
 
   student     User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
   workout     Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
@@ -1066,6 +1069,19 @@ model Message {
   @@index([senderId])
   @@index([replyToId])
 }
+
+model DataDeletionRequest {
+  id          String   @id @default(cuid())
+  userId      String   @unique
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status      String   @default("PENDING") // PENDING, COMPLETED, REJECTED
+  requestedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([status])
+}
+
 
 
 

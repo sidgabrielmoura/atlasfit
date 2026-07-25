@@ -66,6 +66,7 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
   const [restBetweenExercises, setRestBetweenExercises] = useState("02:00");
   const [allowRepsModification, setAllowRepsModification] = useState(true);
   const [allowCompleteView, setAllowCompleteView] = useState(false);
+  const [allowSkipExercises, setAllowSkipExercises] = useState(false);
 
   // Exercise Preview State
   const [previewExercise, setPreviewExercise] = useState<any>(null);
@@ -234,6 +235,7 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
         setMuscleGroupLabel(data.muscleGroupLabel || "");
         setAllowRepsModification(data.allowRepsModification !== false);
         setAllowCompleteView(data.allowCompleteView !== false);
+        setAllowSkipExercises(data.allowSkipExercises === true);
 
         // Load groups
         const loadedGroups = data.exerciseGroups || [];
@@ -597,6 +599,7 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
           muscleGroupLabel,
           allowRepsModification,
           allowCompleteView,
+          allowSkipExercises,
           exercises: selectedExercises.map((ex) => ({
             ...ex,
             sets: Math.max(1, Number(ex.sets) || 1),
@@ -798,7 +801,7 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
 
             <div className="border-t border-border/40 pt-4 space-y-4">
               <h4 className="text-sm font-bold text-foreground">Regras e Configurações Gerais</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="flex items-center justify-between p-3 border border-border rounded-xl bg-background/40">
                   <div className="space-y-0.5 max-w-[80%]">
                     <Label className="text-xs font-bold text-foreground cursor-pointer" htmlFor="allowRepsModification">Permitir Aluno Modificar Repetições</Label>
@@ -821,6 +824,19 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
                     id="allowCompleteView"
                     checked={allowCompleteView}
                     onCheckedChange={(checked) => setAllowCompleteView(!!checked)}
+                    className="size-5 rounded-md"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 border border-border rounded-xl bg-background/40">
+                  <div className="space-y-0.5 max-w-[80%]">
+                    <Label className="text-xs font-bold text-foreground cursor-pointer" htmlFor="allowSkipExercises">Permitir Aluno Pular Exercícios</Label>
+                    <p className="text-[10px] text-muted-foreground leading-normal">Permite que o aluno pule exercícios mediante envio obrigatório de justificativa.</p>
+                  </div>
+                  <Checkbox
+                    id="allowSkipExercises"
+                    checked={allowSkipExercises}
+                    onCheckedChange={(checked) => setAllowSkipExercises(!!checked)}
                     className="size-5 rounded-md"
                   />
                 </div>
@@ -1316,7 +1332,7 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
                           </label>
                         </div>
                         <div className="flex items-center gap-1.5">
-                          <span className="text-[10px] font-bold text-muted-foreground">Repetições:</span>
+                          <span className="text-[10px] font-bold text-muted-foreground">Modificar Repetições:</span>
                           <Select
                             value={ex.allowRepsModification === null ? "inherit" : String(ex.allowRepsModification)}
                             onValueChange={(val) => {
@@ -1419,7 +1435,7 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
 
       {/* Advanced Method Dialog */}
       <Dialog open={methodDialogOpen} onOpenChange={setMethodDialogOpen}>
-        <DialogContent className="max-w-md w-[95%] rounded-xl">
+        <DialogContent className="max-w-md w-[95%] rounded-xl!">
           <DialogHeader>
             <DialogTitle>Configurar Método Avançado</DialogTitle>
             <DialogDescription>

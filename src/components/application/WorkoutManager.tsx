@@ -378,6 +378,13 @@ export function WorkoutManager() {
     }
   }, [pathname]);
 
+  // Persistent Active Workout Restoration: if activeWorkout is in progress and not minimized when landing on another route, redirect to /student/workouts to restore execution overlay
+  useEffect(() => {
+    if (snap.activeWorkout && !snap.isMinimized && pathname && pathname.startsWith("/student") && pathname !== "/student/workouts") {
+      router.push("/student/workouts");
+    }
+  }, [snap.activeWorkout, snap.isMinimized, pathname, router]);
+
   const formatTime = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
     const secs = seconds % 60;

@@ -23,6 +23,7 @@ import {
   Search,
   Folder,
   Megaphone,
+  UserX,
 } from "lucide-react";
 import {
   Sidebar,
@@ -53,6 +54,7 @@ import { useSnapshot } from "valtio";
 const superAdminNavItems = [
   { title: "Dashboard Global", href: "/superadmin/dashboard", icon: LayoutDashboard },
   { title: "Usuários", href: "/superadmin/users", icon: Users },
+  { title: "Solicitações de Exclusão", href: "/superadmin/deletion-requests", icon: UserX },
   { title: "Workspaces", href: "/superadmin/workspaces", icon: Building2 },
   { title: "Financeiro", href: "/superadmin/finance", icon: DollarSign },
   { title: "Solicitações de Saque", href: "/superadmin/finance/payouts", icon: BadgeCheck },

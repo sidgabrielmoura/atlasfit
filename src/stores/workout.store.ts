@@ -10,6 +10,7 @@ export interface WorkoutState {
   allWorkoutReps: Record<string, string[]>;
   allWorkoutRestTimes: Record<string, string[]>;
   allWorkoutSetsDone: Record<string, boolean[]>;
+  skippedExercises: Record<string, { reason: string }>;
   executionSteps: any[];
   
   // Rest Timer
@@ -32,6 +33,7 @@ const initialState: WorkoutState = {
   allWorkoutReps: {},
   allWorkoutRestTimes: {},
   allWorkoutSetsDone: {},
+  skippedExercises: {},
   executionSteps: [],
   
   restTimer: 0,
@@ -77,6 +79,7 @@ export const workoutActions = {
     workoutStore.allWorkoutReps = initialReps;
     workoutStore.allWorkoutRestTimes = initialRestTimes;
     workoutStore.allWorkoutSetsDone = initialDone;
+    workoutStore.skippedExercises = {};
     
     // reset rest
     workoutStore.restTimer = 0;
@@ -104,11 +107,23 @@ export const workoutActions = {
     workoutStore.allWorkoutReps = {};
     workoutStore.allWorkoutRestTimes = {};
     workoutStore.allWorkoutSetsDone = {};
+    workoutStore.skippedExercises = {};
     
     workoutStore.restTimer = 0;
     workoutStore.isRestTimerActive = false;
     workoutStore.isRestDrawerOpen = false;
     workoutStore.isLastSetRest = false;
+  },
+
+  skipExercise(exerciseId: string, reason: string, setsCount: number = 1) {
+    const currentSkipped = JSON.parse(JSON.stringify(workoutStore.skippedExercises || {}));
+    currentSkipped[exerciseId] = { reason };
+    workoutStore.skippedExercises = currentSkipped;
+
+    // Mark all sets of this exercise as done so it counts as completed/skipped
+    const nextDone = JSON.parse(JSON.stringify(workoutStore.allWorkoutSetsDone || {}));
+    nextDone[exerciseId] = new Array(setsCount).fill(true);
+    workoutStore.allWorkoutSetsDone = nextDone;
   },
 
   updateStepIdx(idx: number) {

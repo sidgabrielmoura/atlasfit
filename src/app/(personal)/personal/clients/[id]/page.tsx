@@ -305,6 +305,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   const [customRestBetweenExercises, setCustomRestBetweenExercises] = useState("02:00");
   const [customAllowRepsModification, setCustomAllowRepsModification] = useState(true);
   const [customAllowCompleteView, setCustomAllowCompleteView] = useState(false);
+  const [customAllowSkipExercises, setCustomAllowSkipExercises] = useState(false);
   const [customMuscleGroup, setCustomMuscleGroup] = useState("");
   const [customExercises, setCustomExercises] = useState<any[]>([]);
 
@@ -334,6 +335,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   const [editRestBetweenExercises, setEditRestBetweenExercises] = useState("02:00");
   const [editAllowRepsModification, setEditAllowRepsModification] = useState(true);
   const [editAllowCompleteView, setEditAllowCompleteView] = useState(false);
+  const [editAllowSkipExercises, setEditAllowSkipExercises] = useState(false);
   const [editMuscleGroup, setEditMuscleGroup] = useState("");
   const [editDayOfWeek, setEditDayOfWeek] = useState("1");
   const [editExercises, setEditExercises] = useState<any[]>([]);
@@ -686,6 +688,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
         payload.muscleGroupLabel = customMuscleGroup || "Geral";
         payload.allowRepsModification = customAllowRepsModification;
         payload.allowCompleteView = customAllowCompleteView;
+        payload.allowSkipExercises = customAllowSkipExercises;
         payload.exercises = customExercises.map((ex) => ({
           exerciseId: ex.exerciseId,
           sets: Math.max(1, Number(ex.sets) || 1),
@@ -740,6 +743,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
     setEditRestBetweenExercises(workout.restBetweenExercises || "02:00");
     setEditAllowRepsModification(workout.allowRepsModification !== false);
     setEditAllowCompleteView(workout.allowCompleteView !== false);
+    setEditAllowSkipExercises(workout.allowSkipExercises === true);
     setEditMuscleGroup(workout.muscleGroupLabel || "Geral");
     setEditDayOfWeek(String(workout.dayOfWeek));
 
@@ -819,6 +823,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
           dayOfWeek: Number(editDayOfWeek),
           allowRepsModification: editAllowRepsModification,
           allowCompleteView: editAllowCompleteView,
+          allowSkipExercises: editAllowSkipExercises,
           exercises: editExercises.map((ex) => ({
             exerciseId: ex.exerciseId,
             sets: Math.max(1, Number(ex.sets) || 1),
@@ -5095,7 +5100,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
                 <div className="border-t border-border/40 pt-4 space-y-4">
                   <h4 className="text-xs font-extrabold uppercase text-muted-foreground tracking-wider">Regras de Execução</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div className="flex items-center justify-between p-3 border border-border rounded-xl bg-background/40">
                       <div className="space-y-0.5 max-w-[80%]">
                         <Label className="text-xs font-bold text-neutral-300 cursor-pointer" htmlFor="customAllowRepsModification">Modificar Repetições</Label>
@@ -5118,6 +5123,19 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                         id="customAllowCompleteView"
                         checked={customAllowCompleteView}
                         onCheckedChange={(checked) => setCustomAllowCompleteView(!!checked)}
+                        className="size-5 rounded-md border-neutral-700"
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border border-border rounded-xl bg-background/40">
+                      <div className="space-y-0.5 max-w-[80%]">
+                        <Label className="text-xs font-bold text-neutral-300 cursor-pointer" htmlFor="customAllowSkipExercises">Pular Exercícios</Label>
+                        <p className="text-[10px] text-muted-foreground leading-normal">Permitir que o aluno pule exercícios com justificativa.</p>
+                      </div>
+                      <Checkbox
+                        id="customAllowSkipExercises"
+                        checked={customAllowSkipExercises}
+                        onCheckedChange={(checked) => setCustomAllowSkipExercises(!!checked)}
                         className="size-5 rounded-md border-neutral-700"
                       />
                     </div>
@@ -5368,7 +5386,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                 </label>
                               </div>
                               <div className="flex items-center gap-1.5">
-                                <span className="text-[10px] font-bold text-muted-foreground">Repetições:</span>
+                                <span className="text-[10px] font-bold text-muted-foreground">Modificar Repetições:</span>
                                 <Select
                                   value={ex.allowRepsModification === null ? "inherit" : String(ex.allowRepsModification)}
                                   onValueChange={(val) => {
@@ -5595,7 +5613,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
             <div className="border-t border-border/40 pt-4 space-y-4">
               <h4 className="text-xs font-extrabold uppercase text-muted-foreground tracking-wider">Regras de Execução</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="flex items-center justify-between p-3 border border-border rounded-xl bg-background/40">
                   <div className="space-y-0.5 max-w-[80%]">
                     <Label className="text-xs font-bold text-neutral-300 cursor-pointer" htmlFor="editAllowRepsModification">Modificar Repetições</Label>
@@ -5618,6 +5636,19 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                     id="editAllowCompleteView"
                     checked={editAllowCompleteView}
                     onCheckedChange={(checked) => setEditAllowCompleteView(!!checked)}
+                    className="size-5 rounded-md border-neutral-700"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 border border-border rounded-xl bg-background/40">
+                  <div className="space-y-0.5 max-w-[80%]">
+                    <Label className="text-xs font-bold text-neutral-300 cursor-pointer" htmlFor="editAllowSkipExercises">Pular Exercícios</Label>
+                    <p className="text-[10px] text-muted-foreground leading-normal">Permitir que o aluno pule exercícios com justificativa.</p>
+                  </div>
+                  <Checkbox
+                    id="editAllowSkipExercises"
+                    checked={editAllowSkipExercises}
+                    onCheckedChange={(checked) => setEditAllowSkipExercises(!!checked)}
                     className="size-5 rounded-md border-neutral-700"
                   />
                 </div>
@@ -5924,7 +5955,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                             </label>
                           </div>
                           <div className="flex items-center gap-1.5">
-                            <span className="text-[10px] font-bold text-muted-foreground">Repetições:</span>
+                            <span className="text-[10px] font-bold text-muted-foreground">Modificar Repetições:</span>
                             <Select
                               value={ex.allowRepsModification === null ? "inherit" : String(ex.allowRepsModification)}
                               onValueChange={(val) => {
@@ -6275,7 +6306,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
       {/* Edit Workout - Individual Exercise Method Dialog */}
       <Dialog open={editMethodDialogOpen} onOpenChange={setEditMethodDialogOpen}>
-        <DialogContent className="max-w-md w-[95%] rounded-xl bg-popover border border-border text-foreground">
+        <DialogContent className="max-w-md w-[95%] rounded-xl! bg-popover border border-border text-foreground">
           <DialogHeader>
             <DialogTitle className="text-foreground">Configurar Método Avançado</DialogTitle>
             <DialogDescription className="text-muted-foreground">
@@ -6407,7 +6438,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
       {/* Custom Workout - Method Configuration Dialog */}
       <Dialog open={customMethodDialogOpen} onOpenChange={setCustomMethodDialogOpen}>
-        <DialogContent className="max-w-md w-[95%] rounded-xl bg-popover border border-border text-foreground">
+        <DialogContent className="max-w-md w-[95%] rounded-xl! bg-popover border border-border text-foreground">
           <DialogHeader>
             <DialogTitle className="text-foreground">Configurar Método Avançado</DialogTitle>
             <DialogDescription className="text-muted-foreground">

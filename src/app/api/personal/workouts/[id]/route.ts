@@ -63,7 +63,7 @@ export async function PUT(
 
     const { id } = await params;
     const body = await req.json();
-    const { name, goal, difficulty, duration, muscleGroupLabel, restBetweenExercises, exercises, groups, allowRepsModification, allowCompleteView } = body;
+    const { name, goal, difficulty, duration, muscleGroupLabel, restBetweenExercises, exercises, groups, allowRepsModification, allowCompleteView, allowSkipExercises } = body;
 
     if (!name || !goal || !difficulty || !duration) {
       return new NextResponse("Campos obrigatórios ausentes.", { status: 400 });
@@ -157,6 +157,7 @@ export async function PUT(
           restBetweenExercises: restBetweenExercises || "2 min",
           allowRepsModification: allowRepsModification !== undefined ? Boolean(allowRepsModification) : true,
           allowCompleteView: allowCompleteView !== undefined ? Boolean(allowCompleteView) : false,
+          allowSkipExercises: allowSkipExercises !== undefined ? Boolean(allowSkipExercises) : false,
         },
         include: {
           exercises: {

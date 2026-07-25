@@ -9,7 +9,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, Paintbrush, Image as ImageIcon, UserCircle, Loader2, Palette, CreditCard, XCircle, AlertTriangle, Calendar, AlertCircle } from "lucide-react";
+import { Save, Paintbrush, Image as ImageIcon, UserCircle, Loader2, Palette, CreditCard, XCircle, AlertTriangle, Calendar, AlertCircle, ShieldAlert, Trash2, Building2, UserX } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { updateProfile, updateBrandSettings } from "./actions";
@@ -233,6 +234,126 @@ export default function SettingsPage() {
       toast.error(err.message || "Não foi possível cancelar a assinatura.", { id: toastId });
     } finally {
       setIsCanceling(false);
+    }
+  };
+  const router = useRouter();
+
+  // Data Deletion Request State
+  const [deletionStatus, setDeletionStatus] = useState<{ requested: boolean; requestedAt?: string }>({ requested: false });
+  const [isLoadingDeletionStatus, setIsLoadingDeletionStatus] = useState(false);
+  const [isDataDeletionModalOpen, setIsDataDeletionModalOpen] = useState(false);
+  const [isCancelDeletionModalOpen, setIsCancelDeletionModalOpen] = useState(false);
+  const [isRequestingDeletion, setIsRequestingDeletion] = useState(false);
+
+  // Workspace Deletion State
+  const [isDeleteWorkspaceModalOpen, setIsDeleteWorkspaceModalOpen] = useState(false);
+  const [isDeletingWorkspace, setIsDeletingWorkspace] = useState(false);
+
+  const loadDeletionStatus = async () => {
+    setIsLoadingDeletionStatus(true);
+    try {
+      const res = await fetch("/api/personal/data-deletion");
+      if (res.ok) {
+        const data = await res.json();
+        setDeletionStatus(data);
+      }
+    } catch (err) {
+      console.error("Erro ao carregar status de exclusão de dados:", err);
+    } finally {
+      setIsLoadingDeletionStatus(false);
+    }
+  };
+
+  useEffect(() => {
+    loadDeletionStatus();
+  }, []);
+
+  const handleRequestDataDeletion = async () => {
+    setIsRequestingDeletion(true);
+    const toastId = toast.loading("Enviando solicitação de exclusão de dados...");
+    try {
+      const res = await fetch("/api/personal/data-deletion", {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || "Erro ao solicitar exclusão.");
+      }
+
+      const data = await res.json();
+      setDeletionStatus({ requested: true, requestedAt: data.requestedAt });
+      toast.success("Solicitação de exclusão enviada ao SuperAdmin com sucesso! 🛡️", { id: toastId });
+      setIsDataDeletionModalOpen(false);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Não foi possível enviar a solicitação de exclusão.", { id: toastId });
+    } finally {
+      setIsRequestingDeletion(false);
+    }
+  };
+
+  const handleCancelDataDeletion = async () => {
+    setIsRequestingDeletion(true);
+    const toastId = toast.loading("Cancelando solicitação de exclusão...");
+    try {
+      const res = await fetch("/api/personal/data-deletion", {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || "Erro ao cancelar solicitação.");
+      }
+
+      setDeletionStatus({ requested: false });
+      toast.success("Solicitação de exclusão cancelada com sucesso!", { id: toastId });
+      setIsCancelDeletionModalOpen(false);
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Não foi possível cancelar a solicitação.", { id: toastId });
+    } finally {
+      setIsRequestingDeletion(false);
+    }
+  };
+
+  const handleDeleteWorkspace = async () => {
+    if (!activeWorkspace?.id) {
+      toast.error("Nenhum workspace ativo selecionado para exclusão.");
+      return;
+    }
+
+    setIsDeletingWorkspace(true);
+    const toastId = toast.loading(`Excluindo workspace "${activeWorkspace.name}"...`);
+    try {
+      const res = await fetch(`/api/personal/workspace?workspaceId=${activeWorkspace.id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const errText = await res.text();
+        throw new Error(errText || "Erro ao excluir workspace.");
+      }
+
+      const data = await res.json();
+      toast.success("Workspace excluído com sucesso!", { id: toastId });
+      setIsDeleteWorkspaceModalOpen(false);
+
+      const remaining: any[] = data.remainingWorkspaces || [];
+      workspaceActions.setWorkspaces(remaining);
+
+      if (remaining.length > 0) {
+        workspaceActions.setActiveWorkspace(remaining[0]);
+      } else {
+        workspaceActions.setActiveWorkspaceId("");
+        (workspaceStore as any).activeWorkspace = null;
+        router.push("/personal");
+      }
+    } catch (err: any) {
+      console.error(err);
+      toast.error(err.message || "Não foi possível excluir o workspace.", { id: toastId });
+    } finally {
+      setIsDeletingWorkspace(false);
     }
   };
 
@@ -495,7 +616,7 @@ export default function SettingsPage() {
           <h2 className="text-3xl font-bold tracking-tight">Configurações</h2>
           <p className="text-muted-foreground mt-1">Personalize sua plataforma e gerencie suas informações.</p>
         </div>
-        {activeTab !== "assinatura" && (
+        {activeTab !== "assinatura" && activeTab !== "seguranca" && (
           <Button
             className="shrink-0 gap-2 font-semibold cursor-pointer"
             onClick={handleSave}
@@ -517,7 +638,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-3 max-w-[500px] mb-8">
+        <TabsList className="grid w-full grid-cols-4 max-w-[660px] mb-8">
           <TabsTrigger value="marca" className="gap-2 cursor-pointer">
             <Paintbrush className="size-4" />
             Marca
@@ -529,6 +650,10 @@ export default function SettingsPage() {
           <TabsTrigger value="assinatura" className="gap-2 cursor-pointer" onClick={loadSubData}>
             <CreditCard className="size-4" />
             Assinatura
+          </TabsTrigger>
+          <TabsTrigger value="seguranca" className="gap-2 cursor-pointer text-red-500 hover:text-red-600 data-[state=active]:bg-red-500/10 data-[state=active]:text-red-500">
+            <ShieldAlert className="size-4" />
+            Conta & Dados
           </TabsTrigger>
         </TabsList>
 
@@ -787,15 +912,15 @@ export default function SettingsPage() {
                         <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Plano Atual</span>
                         <CardTitle className="text-xl font-bold flex items-center gap-2">
                           {subscription.status === "trial" ? "Período de Testes" : subscription.planName}
-                          <Badge 
-                            variant="outline" 
+                          <Badge
+                            variant="outline"
                             className={cn(
                               "text-[9px] font-bold px-2 py-0.5 uppercase tracking-wide",
-                              subscription.status === "active" 
-                                ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/20" 
+                              subscription.status === "active"
+                                ? "bg-emerald-500/15 text-emerald-500 border-emerald-500/20"
                                 : subscription.status === "trial" || subscription.status === "canceled"
-                                ? "bg-amber-500/15 text-amber-500 border-amber-500/20"
-                                : "bg-red-500/15 text-red-500 border-red-500/20"
+                                  ? "bg-amber-500/15 text-amber-500 border-amber-500/20"
+                                  : "bg-red-500/15 text-red-500 border-red-500/20"
                             )}
                           >
                             {subscription.status === "active" ? "Ativo" : subscription.status === "trial" ? "Teste Grátis" : subscription.status === "canceled" ? "Cancelado" : "Atrasado"}
@@ -824,11 +949,11 @@ export default function SettingsPage() {
                         <span className="font-bold text-muted-foreground uppercase text-[9px] tracking-wider">Próxima Renovação</span>
                         <p className="font-semibold text-foreground flex items-center gap-1.5">
                           <Calendar className="size-3.5 text-primary shrink-0" />
-                          {subscription.isTestAccount 
-                            ? "Não expira" 
-                            : (subscription.nextBillingDate?.includes("-") 
-                               ? subscription.nextBillingDate.split("-").reverse().join("/") 
-                               : subscription.nextBillingDate)}
+                          {subscription.isTestAccount
+                            ? "Não expira"
+                            : (subscription.nextBillingDate?.includes("-")
+                              ? subscription.nextBillingDate.split("-").reverse().join("/")
+                              : subscription.nextBillingDate)}
                         </p>
                       </div>
                     </div>
@@ -839,8 +964,8 @@ export default function SettingsPage() {
                         <AlertTriangle className="size-4 text-amber-500 shrink-0 mt-0.5" />
                         <p className="text-[11px] text-amber-600 dark:text-amber-400 leading-normal font-medium">
                           <strong>Assinatura Cancelada:</strong> Seu acesso continua ativo até o dia <strong>
-                            {subscription.nextBillingDate?.includes("-") 
-                              ? subscription.nextBillingDate.split("-").reverse().join("/") 
+                            {subscription.nextBillingDate?.includes("-")
+                              ? subscription.nextBillingDate.split("-").reverse().join("/")
                               : subscription.nextBillingDate}
                           </strong> (término do período já pago). Após essa data, nenhuma cobrança adicional será realizada no AbacatePay e o acesso será suspenso.
                         </p>
@@ -873,7 +998,7 @@ export default function SettingsPage() {
                 {/* Micro usage statistics in Settings */}
                 <Card className="md:col-span-4 border border-border/50 bg-card rounded-2xl p-5 space-y-4">
                   <span className="text-[9px] font-black uppercase tracking-widest text-muted-foreground">Estatísticas de Uso</span>
-                  
+
                   <div className="space-y-3.5 text-xs">
                     <div className="space-y-1.5">
                       <div className="flex items-center justify-between font-semibold">
@@ -914,21 +1039,121 @@ export default function SettingsPage() {
             )}
           </TabsContent>
 
+          {/* ================================== */}
+          {/* ABA: CONTA & DADOS (DANGER ZONE)   */}
+          {/* ================================== */}
+          <TabsContent value="seguranca" className="space-y-8 mt-0 outline-none">
+            {/* Card 1: Exclusão de Dados Pessoais */}
+            <Card className="border-red-500/20 shadow-xs bg-card overflow-hidden relative">
+              <div className="absolute top-0 left-0 w-1 h-full bg-red-500" />
+              <CardHeader className="pb-3 border-b border-border/40">
+                <div className="flex items-center gap-2">
+                  <UserX className="size-5 text-red-500" />
+                  <CardTitle className="text-xl font-bold text-foreground">Solicitação de Exclusão de Dados Pessoais</CardTitle>
+                </div>
+                <CardDescription className="text-xs">
+                  Em conformidade com a legislação de privacidade (LGPD/GDPR), você pode solicitar a remoção definitiva da sua conta, workspaces, alunos e todos os seus dados da plataforma.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-5 space-y-4">
+                {deletionStatus.requested ? (
+                  <div className="p-4 rounded-2xl bg-amber-500/10 border border-amber-500/20 space-y-3">
+                    <div className="flex items-center gap-2">
+                      <Badge variant="outline" className="bg-amber-500/20 text-amber-500 border-amber-500/30 text-xs font-bold uppercase">
+                        Solicitação Pendente
+                      </Badge>
+                      {deletionStatus.requestedAt && (
+                        <span className="text-xs text-muted-foreground font-medium">
+                          Enviada em {new Date(deletionStatus.requestedAt).toLocaleString("pt-BR")}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-amber-600 dark:text-amber-400 font-medium leading-relaxed">
+                      Sua solicitação de exclusão total foi registrada com sucesso e está aguardando aprovação do SuperAdmin. Enquanto estiver pendente, seu acesso permanece liberado e você pode cancelar o pedido se desejar.
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      onClick={() => setIsCancelDeletionModalOpen(true)}
+                      className="rounded-xl text-xs font-bold border-amber-500/30 hover:bg-amber-500/10 text-amber-600 dark:text-amber-400 cursor-pointer"
+                    >
+                      Cancelar Solicitação de Exclusão
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="p-4 rounded-2xl bg-secondary/30 border border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <h4 className="text-sm font-bold text-foreground">Solicitar Exclusão de Todos os Meus Dados</h4>
+                      <p className="text-xs text-muted-foreground max-w-lg leading-relaxed">
+                        Ao clicar, será gerado um pedido de expurgo no painel do SuperAdmin. Após a confirmação do SuperAdmin, <strong>TODOS</strong> os seus workspaces, alunos, treinos, relatórios e mensagens serão apagados permanentemente.
+                      </p>
+                    </div>
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      onClick={() => setIsDataDeletionModalOpen(true)}
+                      className="rounded-xl text-xs font-bold shrink-0 cursor-pointer bg-red-600 hover:bg-red-700"
+                    >
+                      <UserX className="size-4 mr-2" />
+                      Solicitar Exclusão de Dados
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Card 2: Exclusão do Workspace Atual */}
+            <Card className="border-red-500/20 shadow-xs bg-card overflow-hidden relative">
+              <div className="absolute top-0 left-0 w-1 h-full bg-red-500" />
+              <CardHeader className="pb-3 border-b border-border/40">
+                <div className="flex items-center gap-2">
+                  <Building2 className="size-5 text-red-500" />
+                  <CardTitle className="text-xl font-bold text-foreground">Exclusão do Workspace Atual</CardTitle>
+                </div>
+                <CardDescription className="text-xs">
+                  Exclua o workspace ativo atualmente. Esta ação apagará permanentemente todos os treinos, alunos cadastrados exclusivamente nele, avaliações e relatórios vinculados a esta assessoria.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="pt-5">
+                <div className="p-4 rounded-2xl bg-secondary/30 border border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <h4 className="text-sm font-bold text-foreground">
+                      Excluir Workspace <span className="text-primary font-mono">{activeWorkspace?.name || "Sem Workspace"}</span>
+                    </h4>
+                    <p className="text-xs text-muted-foreground max-w-lg leading-relaxed">
+                      Ao excluir este workspace, se você possuir outros workspaces cadastrados, o sistema alternará automaticamente para o próximo. Caso não possua outros, você será redirecionado para a tela de seleção/criação de workspace.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="destructive"
+                    onClick={() => setIsDeleteWorkspaceModalOpen(true)}
+                    disabled={!activeWorkspace?.id || isDeletingWorkspace}
+                    className="rounded-xl text-xs font-bold shrink-0 cursor-pointer disabled:opacity-50 bg-red-600 hover:bg-red-700"
+                  >
+                    <Trash2 className="size-4 mr-2" />
+                    Excluir Workspace Atual
+                  </Button>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
         </motion.div>
       </Tabs>
 
-      {/* Cancellation Confirmation Alert Dialog */}
+      {/* Cancellation Subscription Confirmation Alert Dialog */}
       <AlertDialog open={isCancelDialogOpen} onOpenChange={setIsCancelDialogOpen}>
         <AlertDialogContent className="rounded-2xl max-w-md">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-base font-bold text-foreground">Tem certeza que deseja cancelar?</AlertDialogTitle>
             <AlertDialogDescription className="text-xs text-muted-foreground leading-normal">
-              Esta ação cancelará a renovação automática da sua assinatura no AbacatePay. 
+              Esta ação cancelará a renovação automática da sua assinatura no AbacatePay.
               <br />
               <br />
               Seu acesso continuará **totalmente liberado até o dia {
-                subscription?.nextBillingDate?.includes("-") 
-                  ? subscription.nextBillingDate.split("-").reverse().join("/") 
+                subscription?.nextBillingDate?.includes("-")
+                  ? subscription.nextBillingDate.split("-").reverse().join("/")
                   : subscription?.nextBillingDate
               }** (término do período já pago). Após esta data, nenhuma nova cobrança será realizada e seu acesso será interrompido.
             </AlertDialogDescription>
@@ -950,6 +1175,121 @@ export default function SettingsPage() {
                 </>
               ) : (
                 "Confirmar Cancelamento"
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Modal 1: Request Data Deletion Confirmation */}
+      <AlertDialog open={isDataDeletionModalOpen} onOpenChange={setIsDataDeletionModalOpen}>
+        <AlertDialogContent className="rounded-2xl! max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-lg font-extrabold flex items-center gap-2">
+              <ShieldAlert className="size-5" />
+              Solicitar Exclusão Definitiva de Dados?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-muted-foreground leading-relaxed space-y-2">
+              <span>
+                Esta ação enviará uma solicitação formal ao <strong>SuperAdmin</strong> para realizar o expurgo completo dos seus dados.
+              </span>
+              <br />
+              <span className="block text-red-500 dark:text-red-400 font-semibold mt-2">
+                Atenção: Quando o SuperAdmin aprovar a solicitação, sua conta de Personal, TODOS os seus workspaces, alunos vinculados, treinos, conversas e históricos serão apagados de forma permanente e IRREVERSÍVEL.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel disabled={isRequestingDeletion} className="rounded-xl text-xs font-bold">
+              Cancelar
+            </AlertDialogCancel>
+            <Button
+              variant="destructive"
+              onClick={handleRequestDataDeletion}
+              disabled={isRequestingDeletion}
+              className="rounded-xl text-xs font-bold cursor-pointer bg-red-600 hover:bg-red-700"
+            >
+              {isRequestingDeletion ? (
+                <>
+                  <Loader2 className="mr-2 size-3 animate-spin" />
+                  Enviando Solicitação...
+                </>
+              ) : (
+                "Confirmar Solicitação de Exclusão"
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Modal 2: Cancel Data Deletion Request Confirmation */}
+      <AlertDialog open={isCancelDeletionModalOpen} onOpenChange={setIsCancelDeletionModalOpen}>
+        <AlertDialogContent className="rounded-2xl! max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base font-bold text-foreground">
+              Cancelar Solicitação de Exclusão?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-muted-foreground leading-relaxed">
+              O pedido de expurgo será removido do painel do SuperAdmin e sua conta permanecerá ativa e operando normalmente.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel disabled={isRequestingDeletion} className="rounded-xl text-xs font-bold">
+              Voltar
+            </AlertDialogCancel>
+            <Button
+              onClick={handleCancelDataDeletion}
+              disabled={isRequestingDeletion}
+              className="rounded-xl text-xs font-bold cursor-pointer"
+            >
+              {isRequestingDeletion ? (
+                <>
+                  <Loader2 className="mr-2 size-3 animate-spin" />
+                  Cancelando...
+                </>
+              ) : (
+                "Confirmar Cancelamento do Pedido"
+              )}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Modal 3: Delete Workspace Confirmation */}
+      <AlertDialog open={isDeleteWorkspaceModalOpen} onOpenChange={setIsDeleteWorkspaceModalOpen}>
+        <AlertDialogContent className="rounded-2xl! max-w-md">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-lg font-extrabold flex items-center gap-2">
+              <Building2 className="size-5" />
+              Excluir Workspace "{activeWorkspace?.name}"?
+            </AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-muted-foreground leading-relaxed space-y-2">
+              <span>
+                Você está prestes a excluir permanentemente o workspace <strong>{activeWorkspace?.name}</strong>.
+              </span>
+              <br />
+              <span className="block text-red-500 dark:text-red-400 font-semibold mt-2">
+                Impacto da Ação: Todos os alunos cadastrados exclusivamente nesta assessoria, treinos montados, históricos de avaliação, finanças e leads associados a este workspace serão apagados definitivamente. Esta operação NÃO poderá ser desfeita.
+              </span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="gap-2">
+            <AlertDialogCancel disabled={isDeletingWorkspace} className="rounded-xl text-xs font-bold">
+              Manter Workspace
+            </AlertDialogCancel>
+            <Button
+              variant="destructive"
+              onClick={handleDeleteWorkspace}
+              disabled={isDeletingWorkspace}
+              className="rounded-xl text-xs font-bold cursor-pointer bg-red-600 hover:bg-red-700"
+            >
+              {isDeletingWorkspace ? (
+                <>
+                  <Loader2 className="mr-2 size-3 animate-spin" />
+                  Excluindo Workspace...
+                </>
+              ) : (
+                "Excluir Workspace Definitivamente"
               )}
             </Button>
           </AlertDialogFooter>
