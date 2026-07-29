@@ -1,49 +1,68 @@
-import { AbacatePay as OriginalAbacatePay, AbacatePayClient } from "@abacatepay/sdk";
+import { AbacatePay as OriginalAbacatePay } from "@abacatepay/sdk";
 
-export function AbacatePay(config: { secret: string }): AbacatePayClient {
+const ABACATEPAY_BASE = "https://api.abacatepay.com/v2";
+
+export function AbacatePay(config: { secret: string }) {
   const client = OriginalAbacatePay(config);
 
+  const authHeaders = {
+    Authorization: `Bearer ${config.secret}`,
+    "Content-Type": "application/json",
+  };
+
   if (client && client.coupons) {
-    // Monkey-patch toggleStatus because the SDK has a bug (uses HTTP PATCH instead of POST)
     client.coupons.toggleStatus = async (id: string) => {
-      const res = await fetch(`https://api.abacatepay.com/v2/coupons/toggle?id=${encodeURIComponent(id)}`, {
+      const res = await fetch(`${ABACATEPAY_BASE}/coupons/toggle?id=${encodeURIComponent(id)}`, {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${config.secret}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ id })
+        headers: authHeaders,
+        body: JSON.stringify({ id }),
       });
-
       if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`AbacatePay API Error (toggle): ${res.status} - ${errorText}`);
+        throw new Error(`AbacatePay toggle error: ${res.status} - ${await res.text()}`);
       }
-
-      const json = await res.json();
-      return json.data;
+      return (await res.json()).data;
     };
 
-    // Monkey-patch delete because the SDK has a bug (uses HTTP DELETE instead of POST)
     client.coupons.delete = async (id: string) => {
-      const res = await fetch(`https://api.abacatepay.com/v2/coupons/delete?id=${encodeURIComponent(id)}`, {
+      const res = await fetch(`${ABACATEPAY_BASE}/coupons/delete?id=${encodeURIComponent(id)}`, {
         method: "POST",
-        headers: {
-          "Authorization": `Bearer ${config.secret}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({ id })
+        headers: authHeaders,
+        body: JSON.stringify({ id }),
       });
-
       if (!res.ok) {
-        const errorText = await res.text();
-        throw new Error(`AbacatePay API Error (delete): ${res.status} - ${errorText}`);
+        throw new Error(`AbacatePay delete error: ${res.status} - ${await res.text()}`);
       }
-
-      const json = await res.json();
-      return json.data;
+      return (await res.json()).data;
     };
   }
 
-  return client;
+  const extendedProducts = Object.assign(client.products, {
+    update: async (id: string, data: { name?: string; description?: string; price?: number }) => {
+      const res = await fetch(`${ABACATEPAY_BASE}/products/update?id=${encodeURIComponent(id)}`, {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        throw new Error(`AbacatePay products.update error: ${res.status} - ${await res.text()}`);
+      }
+      return (await res.json()).data;
+    },
+    delete: async (param: string | { id: string }) => {
+      const id = typeof param === "string" ? param : param.id;
+      const res = await fetch(`${ABACATEPAY_BASE}/products/delete?id=${encodeURIComponent(id)}`, {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify({ id }),
+      });
+      if (!res.ok) {
+        throw new Error(`AbacatePay products.delete error: ${res.status} - ${await res.text()}`);
+      }
+      return (await res.json()).data;
+    },
+  });
+
+  return Object.assign(client, { products: extendedProducts });
 }
+
+export type AbacatePayClient = ReturnType<typeof AbacatePay>;

@@ -1,6 +1,7 @@
 "use client";
 
 import { Card, CardContent } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { motion } from "framer-motion";
@@ -90,11 +91,22 @@ function PlanCarousel({ plans, isLoading, onEdit }: { plans: any[]; isLoading: b
 
    if (isLoading && plans.length === 0) {
       return (
-         <div className="flex flex-col items-center justify-center py-16 gap-3">
-            <Loader2 className="size-8 animate-spin text-primary" />
-            <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-               Carregando planos...
-            </p>
+         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-6 w-full">
+            {Array.from({ length: 3 }).map((_, i) => (
+               <div key={i} className="p-6 border border-border/80 rounded-2xl bg-card space-y-4 shadow-xs">
+                  <div className="flex justify-between items-center">
+                     <Skeleton className="h-6 w-32 rounded-md" />
+                     <Skeleton className="h-5 w-16 rounded-full" />
+                  </div>
+                  <Skeleton className="h-9 w-28 rounded-md" />
+                  <Skeleton className="h-4 w-full rounded-md" />
+                  <div className="space-y-2 pt-4 border-t border-border/40">
+                     <Skeleton className="h-4 w-4/5 rounded-md" />
+                     <Skeleton className="h-4 w-3/4 rounded-md" />
+                     <Skeleton className="h-4 w-2/3 rounded-md" />
+                  </div>
+               </div>
+            ))}
          </div>
       );
    }

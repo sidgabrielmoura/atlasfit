@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { PersonalMobileNavbar } from "@/components/application/personal-mobile-navbar";
 import { PersonalHeaderWorkspace } from "@/components/application/personal-header-workspace";
+import { PersonalCoinsBadge } from "@/components/application/personal-coins-badge";
 import { NotificationBell } from "@/components/application/notification-bell";
 import { ChatHeaderButton } from "@/components/application/chat-header-button";
 
@@ -76,6 +77,7 @@ export default async function PersonalLayout({
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <PersonalCoinsBadge />
             <ChatHeaderButton />
             <NotificationBell />
           </div>

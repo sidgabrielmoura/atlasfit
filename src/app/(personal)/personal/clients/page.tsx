@@ -53,6 +53,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ButtonNeon } from "@/components/application/neon-button";
 
 const container = {
   hidden: { opacity: 0 },
@@ -528,24 +529,27 @@ export default function ClientsPage() {
               onChange={(e) => setSearchQuery(e.target.value)}
             />
           </div>
-          <Button
-            className="shrink-0 gap-2 h-10 w-full sm:w-auto font-medium"
-            onClick={() => {
-              setName("");
-              setEmail("");
-              setWhatsapp("");
-              setPlan(workspacePlans.length > 0 ? workspacePlans[0] : "Mensal");
-              setModality("PRESENCIAL");
-              setIsCreateOpen(true);
-            }}
-          >
-            <Plus className="size-4" />
-            <span>Novo Aluno</span>
-          </Button>
+          <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full sm:w-auto">
+            <ButtonNeon variant={'default'} size={'sm'} className="text-nowrap cursor-pointer text-sm py-2.5" onClick={() => router.push("/personal/clients/migrate")}>Migrar alunos</ButtonNeon>
+
+            <Button
+              className="shrink-0 gap-2 h-10 w-full sm:w-auto font-medium cursor-pointer"
+              onClick={() => {
+                setName("");
+                setEmail("");
+                setWhatsapp("");
+                setPlan(workspacePlans.length > 0 ? workspacePlans[0] : "Mensal");
+                setModality("PRESENCIAL");
+                setIsCreateOpen(true);
+              }}
+            >
+              <Plus className="size-4" />
+              <span>Novo Aluno</span>
+            </Button>
+          </div>
         </div>
       </div>
 
-      {/* Seção de Alunos Pendentes */}
       {pendingStudents.length > 0 && (
         <div className="space-y-4 bg-card border border-border/80 rounded-xl p-5 md:p-6 shadow-xs">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/40 pb-4">
@@ -689,7 +693,6 @@ export default function ClientsPage() {
                   onClick={() => router.push(`/personal/clients/${student.id}`)}
                 >
                   <CardContent className="p-5 flex flex-col justify-between h-full gap-4">
-                    {/* Header & Avatar */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex items-center gap-3.5 min-w-0">
                         <Avatar className="size-11 border border-border/40 shrink-0">
@@ -706,7 +709,6 @@ export default function ClientsPage() {
                         </div>
                       </div>
 
-                      {/* Dropdown Options */}
                       <div onClick={(e) => e.stopPropagation()}>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>

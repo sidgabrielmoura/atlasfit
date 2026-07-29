@@ -25,6 +25,8 @@ import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
+import { Skeleton } from "@/components/ui/skeleton";
+
 const container = {
   hidden: { opacity: 0 },
   show: { opacity: 1, transition: { staggerChildren: 0.05 } },
@@ -40,10 +42,10 @@ function StatCard({ title, value, change, icon: Icon, description }: {
 }) {
   return (
     <motion.div variants={item as any}>
-      <Card className="border-border/40 bg-card/50 shadow-sm hover:shadow-md transition-all duration-300 group">
+      <Card className="border border-border/80 bg-card shadow-xs hover:border-foreground/20 transition-all duration-200">
         <CardContent className="p-5 space-y-3">
           <div className="flex items-center justify-between">
-            <div className="p-2.5 rounded-xl bg-primary/10 text-primary group-hover:bg-primary group-hover:text-primary-foreground transition-colors duration-300">
+            <div className="p-2.5 rounded-xl bg-primary/10 text-primary transition-colors duration-300">
               <Icon className="size-4" />
             </div>
             {change !== undefined && (
@@ -58,7 +60,7 @@ function StatCard({ title, value, change, icon: Icon, description }: {
           </div>
           <div>
             <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{title}</p>
-            <h3 className="text-2xl font-black tracking-tight mt-1">{value}</h3>
+            <h3 className="text-2xl font-bold tracking-tight mt-1">{value}</h3>
             {description && (
               <p className="text-[10px] text-muted-foreground mt-1 font-medium">{description}</p>
             )}
@@ -71,21 +73,18 @@ function StatCard({ title, value, change, icon: Icon, description }: {
 
 function SectionHeader({ title, icon: Icon, description }: { title: string; icon: any; description: string }) {
   return (
-    <div className="flex items-center gap-4 mb-6 px-1">
-      <div className="p-2.5 rounded-xl bg-primary/10 text-primary border border-primary/20">
-        <Icon className="size-5" />
+    <div className="flex items-center gap-3 mb-4 px-1">
+      <div className="p-2 rounded-lg bg-primary/10 text-primary border border-primary/20">
+        <Icon className="size-4" />
       </div>
       <div>
-        <h2 className="text-lg font-bold tracking-tight leading-none">{title}</h2>
-        <p className="text-xs text-muted-foreground mt-1 font-medium uppercase tracking-wider">{description}</p>
+        <h2 className="text-base font-bold tracking-tight leading-none">{title}</h2>
+        <p className="text-[11px] text-muted-foreground mt-0.5 font-medium">{description}</p>
       </div>
     </div>
   );
 }
 
-// Deep-clone helper: converts Valtio proxy snapshots into plain JS objects
-// so libraries like Recharts that internally mutate/index data won't trigger
-// the "read-only and non-configurable" Proxy invariant violation.
 function deepClone<T>(obj: T): T {
   if (obj === null || obj === undefined) return obj;
   try {
@@ -106,9 +105,30 @@ export default function SuperAdminDashboardPage() {
 
   if (!snap.metrics && snap.isLoading) {
     return (
-      <div className="h-[80vh] flex flex-col items-center justify-center gap-4">
-        <Loader2 className="size-10 text-primary animate-spin" />
-        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Carregando métricas globais...</p>
+      <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/60 pb-5">
+          <div className="space-y-1.5">
+            <Skeleton className="h-6 w-56 rounded-md" />
+            <Skeleton className="h-4 w-96 rounded-md" />
+          </div>
+          <Skeleton className="h-8 w-32 rounded-lg" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="p-5 border border-border/80 rounded-xl bg-card space-y-3 shadow-xs">
+              <div className="flex items-center justify-between">
+                <Skeleton className="h-8 w-8 rounded-lg" />
+                <Skeleton className="h-4 w-12 rounded-full" />
+              </div>
+              <Skeleton className="h-3 w-24" />
+              <Skeleton className="h-7 w-32" />
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <Skeleton className="lg:col-span-7 h-72 w-full rounded-xl" />
+          <Skeleton className="lg:col-span-5 h-72 w-full rounded-xl" />
+        </div>
       </div>
     );
   }

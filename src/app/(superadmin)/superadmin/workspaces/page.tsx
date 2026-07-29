@@ -5,6 +5,7 @@ import { useSnapshot } from "valtio";
 import { toast } from "sonner";
 import { superAdminStore, superAdminActions } from "@/stores/superadmin.store";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -165,9 +166,30 @@ export default function WorkspacesManagementPage() {
 
   if ((snap.workspaces || []).length === 0 && snap.isLoading) {
     return (
-      <div className="h-[80vh] flex flex-col items-center justify-center gap-4">
-        <Loader2 className="size-10 text-primary animate-spin" />
-        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Carregando workspaces...</p>
+      <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-5">
+          <div className="space-y-1">
+            <Skeleton className="h-6 w-48 rounded-md" />
+            <Skeleton className="h-4 w-80 rounded-md" />
+          </div>
+          <Skeleton className="h-9 w-36 rounded-lg" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="p-5 border border-border/80 rounded-xl bg-card space-y-2 shadow-xs">
+              <Skeleton className="h-4 w-24 rounded-md" />
+              <Skeleton className="h-7 w-20 rounded-md" />
+            </div>
+          ))}
+        </div>
+        <div className="border border-border/80 rounded-xl overflow-hidden bg-card p-4 space-y-4 shadow-xs">
+          <Skeleton className="h-10 w-full sm:w-80 rounded-lg" />
+          <div className="space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 w-full rounded-lg" />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }

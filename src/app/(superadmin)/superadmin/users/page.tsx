@@ -70,17 +70,18 @@ import {
 import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function UserStatCard({ title, value, icon: Icon, color }: { title: string; value: string; icon: any; color: string }) {
   return (
-    <Card className="border-border/40 bg-card/50">
-      <CardContent className="p-6 flex items-center gap-4">
+    <Card className="border border-border/80 bg-card shadow-xs">
+      <CardContent className="p-5 flex items-center gap-4">
         <div className={cn("p-2.5 rounded-xl", color)}>
           <Icon className="size-5" />
         </div>
         <div>
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{title}</p>
-          <h3 className="text-xl font-black tracking-tight mt-0.5">{value}</h3>
+          <h3 className="text-xl font-bold tracking-tight mt-0.5">{value}</h3>
         </div>
       </CardContent>
     </Card>
@@ -149,9 +150,30 @@ function UsersContent() {
 
   if ((snap.users || []).length === 0 && snap.isLoading) {
     return (
-      <div className="h-[80vh] flex flex-col items-center justify-center gap-4">
-        <Loader2 className="size-10 text-primary animate-spin" />
-        <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Carregando usuários globais...</p>
+      <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-5">
+          <div className="space-y-1">
+            <Skeleton className="h-6 w-48 rounded-md" />
+            <Skeleton className="h-4 w-80 rounded-md" />
+          </div>
+          <Skeleton className="h-9 w-32 rounded-lg" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="p-5 border border-border/80 rounded-xl bg-card space-y-2 shadow-xs">
+              <Skeleton className="h-4 w-24 rounded-md" />
+              <Skeleton className="h-7 w-20 rounded-md" />
+            </div>
+          ))}
+        </div>
+        <div className="border border-border/80 rounded-xl overflow-hidden bg-card p-4 space-y-4 shadow-xs">
+          <Skeleton className="h-10 w-full sm:w-80 rounded-lg" />
+          <div className="space-y-2">
+            {Array.from({ length: 5 }).map((_, i) => (
+              <Skeleton key={i} className="h-14 w-full rounded-lg" />
+            ))}
+          </div>
+        </div>
       </div>
     );
   }

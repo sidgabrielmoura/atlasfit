@@ -58,6 +58,7 @@ model User {
   experience String?
   cref       String?
   imageKey   String?
+  importCredits Int  @default(0)
 
   subscription           Subscription?
   freeTrial              FreeTrial?
@@ -92,6 +93,10 @@ model User {
   chatParticipations     ConversationParticipant[]
   chatMessages           Message[]
   dataDeletionRequest    DataDeletionRequest?
+
+  createdImportJobs      ImportJob[]                 @relation("CreatedImportJobs")
+  geminiUsageLogs        GeminiUsageLog[]            @relation("GeminiUsageLogs")
+  creditPurchases        CreditPurchase[]
 }
 
 model Workspace {
@@ -108,6 +113,7 @@ model Workspace {
   logoKey         String?
   watermarkKey    String?
   workoutCoverKey String?
+  importCredits   Int                @default(0)
   members         WorkspaceMember[]
   plans           WorkspacePlan[]
   payments        WorkspacePayment[]
@@ -125,6 +131,8 @@ model Workspace {
   createdAt       DateTime           @default(now())
   updatedAt       DateTime           @updatedAt
   conversations   Conversation[]
+  importJobs      ImportJob[]
+  creditPurchases CreditPurchase[]
 }
 
 model WorkspaceMember {
@@ -168,10 +176,11 @@ model Plan {
   id                     String                 @id @default(cuid())
   name                   String
   price                  Float
-  interval               String                 @default("month") // "month" or "year"
+  interval               String                 @default("month")
   features               String?
   maxWorkspaces          Int                    @default(1)
-  maxStudents            Int?                   // Limite de alunos (null = ilimitado)
+  maxStudents            Int?
+  importQuota            Int                    @default(25)
   subscriptions          Subscription[]
   subscriptionActivities SubscriptionActivity[]
 }
@@ -186,6 +195,8 @@ model Subscription {
   startDate         DateTime  @default(now())
   endDate           DateTime?
   isPreSubscription Boolean   @default(false)
+  importQuotaUsed   Int       @default(0)
+  importQuotaResetAt DateTime?
 }
 
 model FreeTrial {
@@ -1082,7 +1093,270 @@ model DataDeletionRequest {
   @@index([status])
 }
 
+enum ImportJobStatus {
+  UPLOADED
+  PROCESSING
+  REVIEW
+  READY
+  IMPORTING
+  COMPLETED
+  PARTIAL
+  FAILED
+  CANCELLED
+}
 
+enum ImportProcessingStep {
+  IDLE
+  PARSING
+  EXTRACTING
+  NORMALIZING
+  MATCHING
+  PREPARING_REVIEW
+  COMMITTING
+}
 
+enum ImportSourceType {
+  MIXED
+  PDF
+  IMAGE
+  TEXT
+  SPREADSHEET
+}
 
+enum ImportSourceStatus {
+  PENDING
+  PARSED
+  EXTRACTED
+  FAILED
+}
+
+enum ImportRecordStatus {
+  EXTRACTED
+  VALIDATED
+  INVALID
+  READY
+  COMMITTED
+  SKIPPED
+  FAILED
+}
+
+enum ImportReviewStatus {
+  NOT_REQUIRED
+  PENDING
+  APPROVED
+  EDITED
+}
+
+enum ImportRecordSource {
+  AI_EXTRACTED
+  DETERMINISTIC
+  USER_EDITED
+}
+
+enum ImportEntityType {
+  STUDENT
+  WORKOUT
+  EXERCISE
+  ASSESSMENT
+  MEASUREMENT
+}
+
+enum ImportEntityAction {
+  CREATED
+  UPDATED
+}
+
+enum DeduplicationMatchLevel {
+  EXACT_MATCH
+  PROBABLE_MATCH
+  NO_MATCH
+}
+
+model ImportJob {
+  id                  String               @id @default(cuid())
+  workspaceId         String
+  createdByUserId     String?
+
+  sourceType          ImportSourceType     @default(MIXED)
+  sourcePlatform      String?
+
+  status              ImportJobStatus      @default(UPLOADED)
+  processingStep      ImportProcessingStep @default(IDLE)
+
+  totalStudents       Int                  @default(0)
+  totalWorkouts       Int                  @default(0)
+  totalExercises      Int                  @default(0)
+  totalAssessments    Int                  @default(0)
+  totalMeasurements   Int                  @default(0)
+
+  promptVersion       String               @default("migration-extraction-v1")
+  schemaVersion       String               @default("migration-v1")
+  modelPrimary        String               @default("gemini-3.5-flash-lite")
+  modelFallback       String               @default("gemini-3.6-flash")
+
+  commitVersion       Int                  @default(1)
+  idempotencyKey      String?              @unique
+  previewValidated    Boolean              @default(false)
+
+  errorCode           String?
+  safeErrorMessage    String?
+
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+
+  workspace           Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdByUser       User?                @relation("CreatedImportJobs", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  sources             ImportSource[]
+  records             ImportRecord[]
+  usageLogs           GeminiUsageLog[]
+  entityResults       ImportEntityResult[]
+
+  @@index([workspaceId])
+  @@index([createdByUserId])
+  @@index([status])
+}
+
+model ImportSource {
+  id                   String             @id @default(cuid())
+  importJobId          String
+
+  type                 ImportSourceType
+  status               ImportSourceStatus @default(PENDING)
+  sortOrder            Int                @default(0)
+
+  originalName         String?
+  mimeType             String?
+  extension            String?
+  sizeBytes            Int?
+  storageKey           String?
+
+  textContent          String?            @db.Text
+
+  sha256               String?
+  geminiFileName       String?
+  geminiFileExpiresAt  DateTime?
+
+  createdAt            DateTime           @default(now())
+
+  importJob            ImportJob          @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+
+  @@index([importJobId])
+  @@index([sha256])
+}
+
+model ImportRecord {
+  id                  String             @id @default(cuid())
+  importJobId         String
+
+  entityType          ImportEntityType
+  temporaryEntityId   String
+
+  sourceData          Json?
+  normalizedData      Json?
+
+  status              ImportRecordStatus @default(EXTRACTED)
+  reviewStatus        ImportReviewStatus @default(NOT_REQUIRED)
+  source              ImportRecordSource @default(AI_EXTRACTED)
+
+  confidence          Float?
+  evidence            Json?
+
+  deduplicationMatch  DeduplicationMatchLevel @default(NO_MATCH)
+  matchedEntityId     String?
+
+  errorCode           String?
+  safeErrorMessage    String?
+
+  createdAt           DateTime           @default(now())
+  updatedAt           DateTime           @updatedAt
+
+  importJob           ImportJob          @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+
+  @@index([importJobId])
+  @@index([entityType])
+  @@index([status])
+  @@index([reviewStatus])
+}
+
+model ImportEntityResult {
+  id                  String             @id @default(cuid())
+  importJobId         String
+
+  action              ImportEntityAction
+  entityType          ImportEntityType
+  temporaryEntityId   String
+  databaseEntityId    String
+
+  createdAt           DateTime           @default(now())
+
+  importJob           ImportJob          @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+
+  @@unique([importJobId, entityType, temporaryEntityId])
+  @@index([importJobId])
+  @@index([databaseEntityId])
+}
+
+model GeminiUsageLog {
+  id                  String             @id @default(cuid())
+  importJobId         String
+  userId              String?
+
+  model               String
+  purpose             String
+
+  inputTokens         Int                @default(0)
+  outputTokens        Int                @default(0)
+  cachedTokens        Int?               @default(0)
+  thinkingTokens      Int?               @default(0)
+  totalTokens         Int                @default(0)
+
+  durationMs          Int
+  success             Boolean            @default(true)
+
+  createdAt           DateTime           @default(now())
+
+  importJob           ImportJob          @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  user                User?              @relation("GeminiUsageLogs", fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([importJobId])
+  @@index([userId])
+}
+
+model CreditPackage {
+  id                   String          @id @default(cuid())
+  name                 String
+  description          String?
+  credits              Int
+  priceInCents         Int
+  abacatePayProductId  String?         @unique
+  isActive             Boolean         @default(true)
+  isHighlighted        Boolean         @default(false)
+  sortOrder            Int             @default(0)
+  createdAt            DateTime        @default(now())
+  updatedAt            DateTime        @updatedAt
+  purchases            CreditPurchase[]
+}
+
+model CreditPurchase {
+  id                   String        @id @default(cuid())
+  workspaceId          String
+  packageId            String
+  userId               String
+  amountInCents        Int
+  credits              Int
+  status               String        @default("PENDING")
+  abacatePayBillingId  String?       @unique
+  abacatePayUrl        String?
+  paidAt               DateTime?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  workspace            Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  package              CreditPackage @relation(fields: [packageId], references: [id])
+  user                 User          @relation(fields: [userId], references: [id])
+
+  @@index([workspaceId])
+  @@index([userId])
+  @@index([status])
+}
 
