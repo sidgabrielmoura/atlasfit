@@ -121,7 +121,7 @@ export default function PersonalCreditsPage() {
       if (!res.ok) throw new Error();
       const data = await res.json();
       if (data.checkoutUrl) {
-        window.open(data.checkoutUrl, "_blank");
+        window.location.href = data.checkoutUrl;
       } else {
         toast.error("URL de checkout não disponível.");
       }

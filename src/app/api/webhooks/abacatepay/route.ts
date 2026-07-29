@@ -12,22 +12,21 @@ export async function POST(req: Request) {
 
   let eventPayload: any;
 
-  // Validação de assinatura criptográfica HMAC
   if (webhookSecret && webhookSecret !== "whsec_placeholder" && apiKey && apiKey !== "abc_dev_placeholder") {
     if (!signature) {
       return new NextResponse("Assinatura ausente.", { status: 401 });
     }
     try {
       const ABACATEPAY_SHARED_KEY = "t9dXRhHHo3yDEj5pVDYz0frf7q6bMKyMRmxxCPIPp3RCplBfXRxqlC6ZpiWmOqj4L63qEaeUOtrCI8P0VMUgo6iIga2ri9ogaHFs0WIIywSMg0q7RmBfybe1E5XJcfC4IW3alNqym0tXoAKkzvfEjZxV6bE0oG2zJrNNYmUCKZyV0KZ3JS8Votf9EAWWYdiDkMkpbMdPggfh1EqHlVkMiTady6jOR3hyzGEHrIz2Ret0xHKMbiqkr9HS1JhNHDX9";
-      
+
       const sigHexSecret = crypto.createHmac("sha256", webhookSecret).update(rawBody).digest("hex");
       const sigBase64Secret = crypto.createHmac("sha256", webhookSecret).update(rawBody).digest("base64");
       const sigBase64Shared = crypto.createHmac("sha256", ABACATEPAY_SHARED_KEY).update(rawBody).digest("base64");
       const sigHexShared = crypto.createHmac("sha256", ABACATEPAY_SHARED_KEY).update(rawBody).digest("hex");
 
-      const isValid = (signature === sigHexSecret) || 
-                      (signature === sigBase64Secret) || 
-                      (signature === sigBase64Shared) || 
+      const isValid = (signature === sigHexSecret) ||
+                      (signature === sigBase64Secret) ||
+                      (signature === sigBase64Shared) ||
                       (signature === sigHexShared);
 
       if (!isValid) {
@@ -40,12 +39,10 @@ export async function POST(req: Request) {
       return new NextResponse("Assinatura inválida.", { status: 401 });
     }
   } else {
-    // Modo de desenvolvimento: analisa o corpo diretamente sem validação criptográfica
     try {
       eventPayload = JSON.parse(rawBody);
-      console.log("Desenvolvimento - Webhook recebido sem verificação de assinatura:", eventPayload);
     } catch (err: any) {
-      console.error("Erro ao converter corpo do webhook em desenvolvimento:", err);
+      console.error("Erro ao converter corpo do webhook:", err);
       await logSystemError({ action: "WEBHOOK_PAYLOAD_PARSE", error: err, entity: "WEBHOOK" });
       return new NextResponse("Payload inválido.", { status: 400 });
     }
@@ -61,15 +58,79 @@ export async function POST(req: Request) {
   }
 
   if (eventType === "billing.paid" || (eventType === "checkout.completed" && targetData.status === "PAID")) {
+    const metadata = targetData.metadata || {};
+    const { packageId, planId, userId, isPreSubscription } = metadata;
     const transactionId = targetData.externalId;
-    const { planId, userId, isPreSubscription } = targetData.metadata || {};
+    const billingId = targetData.id || targetData.billingId;
+
+    if (packageId || (billingId && await prisma.creditPurchase.findFirst({ where: { OR: [{ abacatePayBillingId: billingId }, { id: transactionId }] } }))) {
+      const targetUserId = userId || targetData.userId;
+
+      let purchase = billingId
+        ? await prisma.creditPurchase.findFirst({ where: { OR: [{ abacatePayBillingId: billingId }, { id: transactionId }] } })
+        : null;
+
+      if (!purchase && packageId && targetUserId) {
+        purchase = await prisma.creditPurchase.findFirst({
+          where: {
+            userId: targetUserId,
+            packageId: packageId,
+            status: "PENDING",
+          },
+          orderBy: { createdAt: "desc" },
+        });
+      }
+
+      if (purchase) {
+        if (purchase.status === "PAID") {
+          return NextResponse.json({ success: true, message: "Já processado." });
+        }
+
+        await prisma.$transaction([
+          prisma.creditPurchase.update({
+            where: { id: purchase.id },
+            data: { status: "PAID", paidAt: new Date() },
+          }),
+          prisma.user.update({
+            where: { id: purchase.userId },
+            data: { importCredits: { increment: purchase.credits } },
+          }),
+        ]);
+
+        console.log(`Créditos do Personal ${purchase.userId} atualizados (+${purchase.credits} coins) via Webhook Principal.`);
+        return NextResponse.json({ success: true, processed: "credit_purchase" });
+      } else if (packageId && targetUserId) {
+        const pkg = await prisma.creditPackage.findUnique({ where: { id: packageId } });
+        if (pkg) {
+          await prisma.$transaction([
+            prisma.user.update({
+              where: { id: targetUserId },
+              data: { importCredits: { increment: pkg.credits } },
+            }),
+            prisma.creditPurchase.create({
+              data: {
+                workspaceId: metadata.workspaceId || "",
+                packageId: pkg.id,
+                userId: targetUserId,
+                amountInCents: pkg.priceInCents,
+                credits: pkg.credits,
+                status: "PAID",
+                abacatePayBillingId: billingId,
+                paidAt: new Date(),
+              },
+            }),
+          ]);
+          console.log(`Pacote de créditos ${packageId} ativado diretamente via Webhook para o usuário ${targetUserId}.`);
+          return NextResponse.json({ success: true, processed: "credit_purchase_direct" });
+        }
+      }
+    }
 
     if (!transactionId || !userId || !planId) {
-      console.error("Webhook recebido com metadados ou ID de transação ausentes.");
+      console.error("Webhook de plano recebido com metadados ou ID de transação ausentes.");
       return new NextResponse("Dados insuficientes no payload.", { status: 400 });
     }
 
-    // Identificar cupons aplicados no webhook de checkout / cobrança
     let usedCoupons: string[] = [];
     if (Array.isArray(targetData.coupons)) {
       usedCoupons = targetData.coupons.map((c: any) => typeof c === "string" ? c : c?.code).filter(Boolean);
@@ -108,7 +169,6 @@ export async function POST(req: Request) {
         }
 
         if (transaction.status === "APPROVED") {
-          console.log(`Transação ${transactionId} já está aprovada.`);
           return;
         }
 
@@ -175,14 +235,13 @@ export async function POST(req: Request) {
           }
         });
 
-        // Process referral commission if referrer exists
         const payingUser = await tx.user.findUnique({
           where: { id: userId },
           select: { referredById: true }
         });
 
         if (payingUser?.referredById) {
-          const commissionRate = 0.20; // 20%
+          const commissionRate = 0.20;
           const commissionAmount = transaction.amount * commissionRate;
 
           await tx.referralCommission.create({
@@ -210,7 +269,6 @@ export async function POST(req: Request) {
           });
         }
 
-        // Contabilizar uso dos cupons
         for (const couponCode of usedCoupons) {
           const coupon = await tx.coupon.findUnique({
             where: { code: couponCode.toUpperCase() }
@@ -228,18 +286,13 @@ export async function POST(req: Request) {
               }
             });
 
-            console.log(`Cupom ${coupon.code} usado: ${newUsedCount}/${coupon.maxUses ?? 'ilimitado'}`);
-
             if (shouldDeactivate) {
               deactivatedCoupons.push(coupon.code);
             }
           }
         }
-
-        console.log(`Assinatura ativada com sucesso para o usuário ${userId} no plano ${planId} (Pré-assinatura: ${isPreSub})`);
       });
 
-      // Desativar cupons no AbacatePay fora da transação de forma assíncrona
       if (deactivatedCoupons.length > 0 && apiKey && apiKey !== "abc_dev_placeholder") {
         try {
           const abacate = AbacatePay({ secret: apiKey });
@@ -250,16 +303,13 @@ export async function POST(req: Request) {
                 const abacateActive = existing.status === "ACTIVE" || existing.status === "active";
                 if (abacateActive) {
                   await abacate.coupons.toggleStatus(existing.id);
-                  console.log(`Cupom ${code} atingiu limite máximo de usos e foi desabilitado no AbacatePay.`);
                 }
               }
             } catch (err: any) {
-              console.error(`Erro ao obter/desativar cupom ${code} no AbacatePay:`, err.message);
               await logSystemError({ action: "WEBHOOK_DEACTIVATE_COUPON_GET_ABACATEPAY", error: err, entity: "WEBHOOK" });
             }
           }
         } catch (abacateError) {
-          console.error("Erro ao desativar cupons no AbacatePay via Webhook:", abacateError);
           await logSystemError({ action: "WEBHOOK_DEACTIVATE_COUPONS_ABACATEPAY", error: abacateError, entity: "WEBHOOK" });
         }
       }
@@ -271,10 +321,10 @@ export async function POST(req: Request) {
       return new NextResponse("Erro ao processar ativação.", { status: 500 });
     }
   } else if (
-    eventType === "billing.failed" || 
-    eventType === "charge.failed" || 
-    eventType.includes("fail") || 
-    eventType.includes("past_due") || 
+    eventType === "billing.failed" ||
+    eventType === "charge.failed" ||
+    eventType.includes("fail") ||
+    eventType.includes("past_due") ||
     eventType.includes("unpaid")
   ) {
     let userId = targetData.metadata?.userId;
@@ -296,7 +346,6 @@ export async function POST(req: Request) {
     if (userId) {
       try {
         await prisma.$transaction(async (tx) => {
-          // 1. Atualizar assinatura para atrasada/vencida
           await tx.subscription.update({
             where: { userId },
             data: {
@@ -304,7 +353,6 @@ export async function POST(req: Request) {
             }
           });
 
-          // 2. Se houver transação correspondente, marcar como falha
           if (targetData.externalId) {
             await tx.transaction.updateMany({
               where: { id: targetData.externalId },
@@ -314,7 +362,6 @@ export async function POST(req: Request) {
             });
           }
 
-          // 3. Registrar atividade de falha
           await tx.subscriptionActivity.create({
             data: {
               userId,
@@ -325,8 +372,6 @@ export async function POST(req: Request) {
             }
           });
         });
-
-        console.log(`Webhook - Assinatura do usuário ${userId} marcada como vencida/atrasada devido a falha de cobrança.`);
       } catch (error: any) {
         console.error("Erro ao processar falha de cobrança via Webhook:", error);
         await logSystemError({ action: "WEBHOOK_BILLING_FAILED_PROCESS", error, entity: "WEBHOOK", userId: userId || null });
