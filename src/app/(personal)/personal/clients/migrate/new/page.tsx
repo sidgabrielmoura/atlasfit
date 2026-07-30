@@ -184,7 +184,7 @@ export default function NewMigrationPage() {
           <div className="flex items-center gap-2">
             <h1 className="text-lg sm:text-xl font-black tracking-tight text-foreground">Nova Importação de Alunos</h1>
             <Badge variant="secondary" className="text-[10px] uppercase tracking-widest font-black bg-primary/10 text-primary">
-              IA
+              Automática
             </Badge>
           </div>
           <p className="text-xs text-muted-foreground mt-0.5">

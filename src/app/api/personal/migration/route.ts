@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { checkImportQuota, consumeImportQuota } from "@/lib/migration/quota.service";
+import { calculateTextSha256 } from "@/lib/migration/upload.service";
 
 const AI_MIGRATION_ENABLED = process.env.AI_MIGRATION_ENABLED !== "false";
 
@@ -16,8 +17,25 @@ export async function POST(req: Request) {
   }
 
   try {
-    const body = await req.json().catch(() => ({}));
-    const { workspaceId, sourcePlatform } = body;
+    let workspaceId: string | undefined;
+    let sourcePlatform: string | undefined;
+    let rawText: string | undefined;
+    let files: File[] = [];
+
+    const contentType = req.headers.get("content-type") || "";
+
+    if (contentType.includes("multipart/form-data")) {
+      const formData = await req.formData();
+      workspaceId = (formData.get("workspaceId") as string) || undefined;
+      sourcePlatform = (formData.get("sourcePlatform") as string) || (formData.get("platform") as string) || undefined;
+      rawText = (formData.get("rawText") as string) || undefined;
+      files = formData.getAll("files") as File[];
+    } else {
+      const body = await req.json().catch(() => ({}));
+      workspaceId = body.workspaceId;
+      sourcePlatform = body.sourcePlatform || body.platform;
+      rawText = body.rawText;
+    }
 
     if (!workspaceId) {
       return new NextResponse("workspaceId é obrigatório.", { status: 400 });
@@ -58,10 +76,57 @@ export async function POST(req: Request) {
       },
     });
 
+    // Save Raw Text Source if provided
+    if (rawText && rawText.trim()) {
+      const sha256 = calculateTextSha256(rawText);
+      await prisma.importSource.create({
+        data: {
+          importJobId: job.id,
+          type: "TEXT",
+          status: "PENDING",
+          textContent: rawText.trim(),
+          sha256,
+        },
+      });
+    }
+
+    // Save File Sources if provided
+    for (const file of files) {
+      const buffer = Buffer.from(await file.arrayBuffer());
+      const ext = file.name.split(".").pop()?.toLowerCase();
+
+      let type: "SPREADSHEET" | "PDF" | "IMAGE" | "TEXT" = "TEXT";
+      if (["csv", "xlsx", "xls"].includes(ext || "")) type = "SPREADSHEET";
+      else if (ext === "pdf") type = "PDF";
+      else if (["jpg", "jpeg", "png", "webp"].includes(ext || "")) type = "IMAGE";
+
+      let textContent: string | undefined = undefined;
+      if (type === "SPREADSHEET" && ext === "xlsx") {
+        textContent = `BASE64_XLSX:${buffer.toString("base64")}`;
+      } else if (type === "PDF" || type === "IMAGE") {
+        const mimeType = file.type || (type === "PDF" ? "application/pdf" : "image/png");
+        textContent = `BASE64_FILE:${mimeType}:${buffer.toString("base64")}`;
+      } else {
+        textContent = buffer.toString("utf-8");
+      }
+
+      await prisma.importSource.create({
+        data: {
+          importJobId: job.id,
+          type,
+          status: "PENDING",
+          originalName: file.name,
+          sizeBytes: file.size,
+          textContent,
+        },
+      });
+    }
+
     await consumeImportQuota(workspaceId, session.user.id, quota.source);
 
-    return NextResponse.json({ ...job, quota }, { status: 201 });
+    return NextResponse.json({ ...job, jobId: job.id, quota }, { status: 201 });
   } catch (error) {
+    console.error("[POST /api/personal/migration] Error:", error);
     return new NextResponse("Erro interno ao criar job de migração.", { status: 500 });
   }
 }
@@ -84,9 +149,10 @@ export async function GET(req: Request) {
       where: {
         workspaceId,
         createdByUserId: session.user.id,
+        status: { not: "CANCELLED" },
       },
       orderBy: { createdAt: "desc" },
-      take: 10,
+      take: 20,
     });
 
     return NextResponse.json(jobs);

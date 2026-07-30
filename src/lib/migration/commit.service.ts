@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { parseDayOfWeekToInt } from "./utils/day-of-week";
 import bcryptjs from "bcryptjs";
 import crypto from "crypto";
 
@@ -188,6 +189,11 @@ export async function commitImportJob(
         }
 
         studentIdMap[sr.temporaryEntityId] = realStudentId;
+        if (sr.temporaryEntityId) studentIdMap[sr.temporaryEntityId] = realStudentId;
+        if (norm?.temporaryId) studentIdMap[norm.temporaryId] = realStudentId;
+        if (norm?.temporaryStudentId) studentIdMap[norm.temporaryStudentId] = realStudentId;
+        const baseTempId = sr.temporaryEntityId ? sr.temporaryEntityId.split("_s")[0] : null;
+        if (baseTempId) studentIdMap[baseTempId] = realStudentId;
 
         await tx.importEntityResult.upsert({
           where: {
@@ -214,7 +220,14 @@ export async function commitImportJob(
       // 2. Commit Workouts & WorkoutExercises
       for (const wr of workoutRecords) {
         const norm = wr.normalizedData as any;
-        const targetStudentId = studentIdMap[norm.temporaryStudentId] || null;
+        let targetStudentId =
+          studentIdMap[norm.temporaryStudentId] ||
+          studentIdMap[wr.temporaryEntityId] ||
+          null;
+
+        if (!targetStudentId && Object.keys(studentIdMap).length > 0) {
+          targetStudentId = Object.values(studentIdMap)[0];
+        }
 
         const createdWorkout = await tx.workout.create({
           data: {
@@ -224,7 +237,7 @@ export async function commitImportJob(
             duration: norm.duration || "60 min",
             workspaceId,
             studentId: targetStudentId,
-            dayOfWeek: norm.dayOfWeek ?? null,
+            dayOfWeek: parseDayOfWeekToInt(norm.dayOfWeek),
             muscleGroupLabel: norm.muscleGroupLabel ?? null,
             restBetweenExercises: norm.restBetweenExercises || "2 min",
             isActive: true,
@@ -256,6 +269,14 @@ export async function commitImportJob(
           for (let eIdx = 0; eIdx < norm.exercises.length; eIdx++) {
             const ex = norm.exercises[eIdx];
             let realExerciseId = ex.matchedExerciseId;
+
+            if (realExerciseId) {
+              const existingEx = await tx.exercise.findUnique({
+                where: { id: realExerciseId },
+                select: { id: true },
+              });
+              if (!existingEx) realExerciseId = null;
+            }
 
             if (!realExerciseId) {
               let defaultGroup = await tx.muscleGroup.findFirst({
@@ -292,6 +313,84 @@ export async function commitImportJob(
                 order: eIdx,
               },
             });
+          }
+        }
+      }
+
+      // 2b. Commit Embedded Workouts in Student Records if workoutRecords is empty
+      if (workoutRecords.length === 0) {
+        for (const sr of studentRecords) {
+          const norm = sr.normalizedData as any;
+          const targetStudentId = studentIdMap[sr.temporaryEntityId];
+          if (norm && norm.workouts && Array.isArray(norm.workouts) && targetStudentId) {
+            for (let wIdx = 0; wIdx < norm.workouts.length; wIdx++) {
+              const w = norm.workouts[wIdx];
+              const createdWorkout = await tx.workout.create({
+                data: {
+                  name: w.name || `Treino ${wIdx + 1}`,
+                  goal: w.goal || "Hipertrofia",
+                  difficulty: w.difficulty || "Intermediário",
+                  duration: w.duration || "60 min",
+                  workspaceId,
+                  studentId: targetStudentId,
+                  dayOfWeek: parseDayOfWeekToInt(w.dayOfWeek),
+                  muscleGroupLabel: w.muscleGroupLabel ?? null,
+                  restBetweenExercises: w.restBetweenExercises || "2 min",
+                  isActive: true,
+                },
+              });
+
+              if (w.exercises && Array.isArray(w.exercises)) {
+                for (let eIdx = 0; eIdx < w.exercises.length; eIdx++) {
+                  const ex = w.exercises[eIdx];
+                  let realExerciseId = ex.matchedExerciseId;
+
+                  if (realExerciseId) {
+                    const existingEx = await tx.exercise.findUnique({
+                      where: { id: realExerciseId },
+                      select: { id: true },
+                    });
+                    if (!existingEx) realExerciseId = null;
+                  }
+
+                  if (!realExerciseId) {
+                    let defaultGroup = await tx.muscleGroup.findFirst({
+                      where: { name: "Geral" },
+                    });
+
+                    if (!defaultGroup) {
+                      defaultGroup = await tx.muscleGroup.create({
+                        data: { name: "Geral" },
+                      });
+                    }
+
+                    const newEx = await tx.exercise.create({
+                      data: {
+                        name: ex.name || "Exercício Personalizado",
+                        muscleGroupId: defaultGroup.id,
+                        isOfficial: false,
+                        creatorId: job.createdByUserId,
+                        status: ex.isRequestedOfficial ? "PENDING" : "APPROVED",
+                      },
+                    });
+                    realExerciseId = newEx.id;
+                  }
+
+                  await tx.workoutExercise.create({
+                    data: {
+                      workoutId: createdWorkout.id,
+                      exerciseId: realExerciseId,
+                      sets: ex.sets || 3,
+                      reps: ex.reps || "10-12",
+                      rest: ex.restSeconds ? `${ex.restSeconds}s` : "60s",
+                      load: ex.load ? `${ex.load}kg` : null,
+                      description: ex.notes ?? null,
+                      order: eIdx,
+                    },
+                  });
+                }
+              }
+            }
           }
         }
       }

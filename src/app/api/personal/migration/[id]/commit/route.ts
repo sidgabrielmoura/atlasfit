@@ -18,10 +18,6 @@ export async function POST(
     const body = await req.json().catch(() => ({}));
     const { commitVersion, idempotencyKey } = body;
 
-    if (!commitVersion) {
-      return new NextResponse("commitVersion é obrigatório.", { status: 400 });
-    }
-
     const job = await prisma.importJob.findUnique({
       where: { id: jobId },
     });
@@ -30,10 +26,12 @@ export async function POST(
       return new NextResponse("Job de migração não encontrado.", { status: 404 });
     }
 
+    const versionToUse = commitVersion ?? job.commitVersion;
+
     const result = await commitImportJob(
       jobId,
       job.workspaceId,
-      commitVersion,
+      versionToUse,
       idempotencyKey
     );
 

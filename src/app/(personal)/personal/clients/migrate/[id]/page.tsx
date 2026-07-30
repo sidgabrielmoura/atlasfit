@@ -15,6 +15,7 @@ import {
   Plus,
   PlusCircle,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -42,6 +43,14 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { formatDayOfWeekToString } from "@/lib/migration/utils/day-of-week";
 import { Label } from "@/components/ui/label";
 
 export default function ReviewJobPage({ params }: { params: Promise<{ id: string }> }) {
@@ -69,6 +78,30 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
   const [commitPreview, setCommitPreview] = useState<any | null>(null);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState<boolean>(false);
   const [isCommitting, setIsCommitting] = useState<boolean>(false);
+
+  // Individual record deletion state
+  const [deletingRecordId, setDeletingRecordId] = useState<string | null>(null);
+  const [isDeletingRecord, setIsDeletingRecord] = useState<boolean>(false);
+
+  const handleDeleteRecord = async () => {
+    if (!deletingRecordId || !jobId) return;
+    setIsDeletingRecord(true);
+    try {
+      const res = await fetch(`/api/personal/migration/${jobId}/records/${deletingRecordId}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) throw new Error();
+
+      toast.success("Registro removido da importação.");
+      setRecords((prev) => prev.filter((r) => r.id !== deletingRecordId));
+      setDeletingRecordId(null);
+    } catch {
+      toast.error("Erro ao excluir registro.");
+    } finally {
+      setIsDeletingRecord(false);
+    }
+  };
 
   const fetchJobDetails = useCallback(async () => {
     try {
@@ -173,7 +206,7 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
       const res = await fetch(`/api/personal/migration/${jobId}/commit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workspaceId }),
+        body: JSON.stringify({ workspaceId, commitVersion: commitPreview?.commitVersion }),
       });
 
       if (!res.ok) throw new Error();
@@ -333,14 +366,24 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
                       {isStudent ? norm.name || "Aluno Sem Nome" : isWorkout ? norm.name || "Treino" : "Registro"}
                     </CardTitle>
                   </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 text-xs px-3 rounded-xl gap-1.5 font-semibold shrink-0"
-                    onClick={() => handleOpenEditModal(rec)}
-                  >
-                    <Edit2 className="h-3.5 w-3.5" /> Editar
-                  </Button>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs px-3 rounded-xl gap-1.5 font-semibold shrink-0"
+                      onClick={() => handleOpenEditModal(rec)}
+                    >
+                      <Edit2 className="h-3.5 w-3.5" /> Editar
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-8 w-8 rounded-xl text-muted-foreground hover:text-destructive shrink-0"
+                      onClick={() => setDeletingRecordId(rec.id)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
                 </div>
 
                 <div className="text-xs space-y-2">
@@ -349,6 +392,13 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
                       <div>E-mail: <span className="text-foreground font-semibold">{norm.email || "não informado"}</span></div>
                       <div>WhatsApp: <span className="text-foreground font-semibold">{norm.phone || "não informado"}</span></div>
                       <div>Objetivo: <span className="text-foreground font-semibold">{norm.objective || "não informado"}</span></div>
+
+                      {(!norm.email && !norm.phone) && (
+                        <div className="mt-2 p-2 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[11px] font-medium flex items-center gap-1.5">
+                          <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                          <span>Contato ausente. Cadastre o WhatsApp para enviar o convite do app.</span>
+                        </div>
+                      )}
 
                       {isDuplicate && (
                         <div className="mt-2 p-2.5 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[11px] font-medium flex items-center gap-2">
@@ -359,48 +409,90 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
                     </div>
                   )}
 
-                  {isWorkout && norm.exercises && (
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between text-muted-foreground font-bold text-[11px]">
-                        <span>Exercícios ({norm.exercises.length})</span>
-                      </div>
-                      <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
-                        {norm.exercises.map((ex: any, idx: number) => {
-                          const isMatched = Boolean(ex.matchedExerciseId || ex.matchedExerciseName);
-
-                          return (
-                            <div
-                              key={idx}
-                              className={`flex items-center justify-between p-2.5 rounded-xl border text-[11px] gap-2 transition-colors ${!isMatched
-                                ? "border-amber-500/50 bg-amber-500/10 text-amber-900 dark:text-amber-200"
-                                : "bg-muted/30 border-border/40"
-                                }`}
+                  {isWorkout && (
+                    <div className="space-y-2.5">
+                      {/* Dia de Execução Warning / Badge */}
+                      <div className="flex items-center justify-between gap-2">
+                        {formatDayOfWeekToString(norm.dayOfWeek) ? (
+                          <Badge variant="secondary" className="text-[10px] font-bold rounded-lg bg-primary/10 text-primary">
+                            Dia: {formatDayOfWeekToString(norm.dayOfWeek)}
+                          </Badge>
+                        ) : (
+                          <div className="p-2 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[11px] font-bold flex items-center justify-between gap-2 w-full">
+                            <span className="flex items-center gap-1">
+                              <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                              Dia de execução não definido
+                            </span>
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              className="h-6 text-[10px] px-2 rounded-lg font-bold border-amber-500/40 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 shrink-0"
+                              onClick={() => handleOpenEditModal(rec)}
                             >
-                              <div className="truncate min-w-0">
-                                <span className="font-bold block truncate">{ex.name || "Exercício"}</span>
-                                {isMatched ? (
-                                  <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block">
-                                    ✓ Catálogo: {ex.matchedExerciseName || ex.name}
-                                  </span>
-                                ) : (
-                                  <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1 mt-0.5">
-                                    <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" />
-                                    Não encontrado no catálogo
-                                  </span>
-                                )}
-                                {ex.isRequestedOfficial && (
-                                  <span className="text-[10px] text-amber-600 font-bold block mt-0.5">
-                                    ★ Solicitado para inclusão oficial
-                                  </span>
-                                )}
-                              </div>
-                              <span className="text-muted-foreground font-semibold shrink-0">
-                                {ex.sets || 3}x {ex.reps || "10-12"} {ex.load ? `• ${ex.load}kg` : ""}
-                              </span>
-                            </div>
-                          );
-                        })}
+                              Definir Dia
+                            </Button>
+                          </div>
+                        )}
                       </div>
+
+                      {/* Lista de Exercícios */}
+                      {(!norm.exercises || norm.exercises.length === 0) ? (
+                        <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[11px] font-bold flex items-center justify-between gap-2">
+                          <span className="flex items-center gap-1">
+                            <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                            Nenhum exercício vinculado
+                          </span>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="h-6 text-[10px] px-2 rounded-lg font-bold border-amber-500/40 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 shrink-0"
+                            onClick={() => handleOpenEditModal(rec)}
+                          >
+                            Adicionar
+                          </Button>
+                        </div>
+                      ) : (
+                        <div className="space-y-1.5 max-h-48 overflow-y-auto pr-1">
+                          <div className="flex items-center justify-between text-muted-foreground font-bold text-[11px] pb-0.5">
+                            <span>Exercícios ({norm.exercises.length})</span>
+                          </div>
+                          {norm.exercises.map((ex: any, idx: number) => {
+                            const isMatched = Boolean(ex.matchedExerciseId || ex.matchedExerciseName);
+
+                            return (
+                              <div
+                                key={idx}
+                                className={`flex items-center justify-between p-2.5 rounded-xl border text-[11px] gap-2 transition-colors ${!isMatched
+                                  ? "border-amber-500/50 bg-amber-500/10 text-amber-900 dark:text-amber-200"
+                                  : "bg-muted/30 border-border/40"
+                                  }`}
+                              >
+                                <div className="truncate min-w-0">
+                                  <span className="font-bold block truncate">{ex.name || "Exercício"}</span>
+                                  {isMatched ? (
+                                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block">
+                                      ✓ Catálogo: {ex.matchedExerciseName || ex.name}
+                                    </span>
+                                  ) : (
+                                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1 mt-0.5">
+                                      <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" />
+                                      Não encontrado no catálogo
+                                    </span>
+                                  )}
+                                  {ex.isRequestedOfficial && (
+                                    <span className="text-[10px] text-amber-600 font-bold block mt-0.5">
+                                      ★ Solicitado para inclusão oficial
+                                    </span>
+                                  )}
+                                </div>
+                                <span className="text-muted-foreground font-semibold shrink-0">
+                                  {ex.sets || 3}x {ex.reps || "10-12"} {ex.load ? `• ${ex.load}kg` : ""}
+                                </span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>
@@ -422,31 +514,58 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
         </Button>
       </div>
 
+      {/* CONFIRMAÇÃO DE DELEÇÃO DE REGISTRO */}
+      <AlertDialog open={!!deletingRecordId} onOpenChange={(open) => !open && setDeletingRecordId(null)}>
+        <AlertDialogContent className="w-[92vw] sm:max-w-md rounded-3xl p-5 sm:p-6">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-base font-bold text-destructive">Descartar Registro</AlertDialogTitle>
+            <AlertDialogDescription className="text-xs text-muted-foreground">
+              Tem certeza que deseja remover permanentemente este registro da lista de importação?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter className="flex-col sm:flex-row gap-2 pt-2">
+            <AlertDialogCancel disabled={isDeletingRecord} className="h-10 text-xs rounded-xl w-full sm:w-auto">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              className="h-10 text-xs font-bold rounded-xl w-full sm:w-auto bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-2"
+              disabled={isDeletingRecord}
+              onClick={handleDeleteRecord}
+            >
+              {isDeletingRecord ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+              Excluir Registro
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* CONFIRMATION DIALOG */}
       <AlertDialog open={showConfirmDialog} onOpenChange={setShowConfirmDialog}>
         <AlertDialogContent className="w-[92vw] sm:max-w-md rounded-3xl p-5 sm:p-6 shadow-xl">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-base font-bold">Confirmar Importação no Banco</AlertDialogTitle>
-            <AlertDialogDescription className="space-y-3 pt-1 text-xs text-foreground">
-              {commitPreview && (
-                <div className="space-y-2 bg-muted/40 p-4 rounded-2xl border text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Novos alunos:</span>
-                    <span className="font-bold text-foreground">{commitPreview.newStudentsCount}</span>
+            <AlertDialogDescription asChild>
+              <div className="space-y-3 pt-1 text-xs text-foreground">
+                {commitPreview && (
+                  <div className="space-y-2 bg-muted/40 p-4 rounded-2xl border text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Novos alunos:</span>
+                      <span className="font-bold text-foreground">{commitPreview.newStudentsCount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Alunos a atualizar:</span>
+                      <span className="font-bold text-foreground">{commitPreview.updateStudentsCount}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Treinos vinculados:</span>
+                      <span className="font-bold text-foreground">{commitPreview.workoutsCount}</span>
+                    </div>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Alunos a atualizar:</span>
-                    <span className="font-bold text-foreground">{commitPreview.updateStudentsCount}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-muted-foreground">Treinos vinculados:</span>
-                    <span className="font-bold text-foreground">{commitPreview.workoutsCount}</span>
-                  </div>
-                </div>
-              )}
-              <p className="text-xs text-muted-foreground">
-                Os alunos e treinos serão vinculados diretamente ao seu workspace ativo.
-              </p>
+                )}
+                <p className="text-xs text-muted-foreground">
+                  Os alunos e treinos serão vinculados diretamente ao seu workspace ativo.
+                </p>
+              </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="flex-col sm:flex-row gap-2">
@@ -520,7 +639,45 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
 
               {editingRecord.entityType === "WORKOUT" && (
                 <div className="space-y-3 pt-2">
-                  <div className="flex items-center justify-between">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pb-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold flex items-center gap-1">
+                        Dia de Execução
+                        {!editFormData.dayOfWeek && (
+                          <span className="text-amber-500 font-bold text-[10px]">* PENDENTE</span>
+                        )}
+                      </Label>
+                      <Select
+                        value={editFormData.dayOfWeek || ""}
+                        onValueChange={(val) => setEditFormData({ ...editFormData, dayOfWeek: val })}
+                      >
+                        <SelectTrigger className={`h-10 text-xs rounded-xl ${!editFormData.dayOfWeek ? "border-amber-500/60 bg-amber-500/5 text-amber-700 dark:text-amber-300" : ""}`}>
+                          <SelectValue placeholder="Selecione o dia de execução (ex: Segunda-feira)" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Segunda-feira">Segunda-feira</SelectItem>
+                          <SelectItem value="Terça-feira">Terça-feira</SelectItem>
+                          <SelectItem value="Quarta-feira">Quarta-feira</SelectItem>
+                          <SelectItem value="Quinta-feira">Quinta-feira</SelectItem>
+                          <SelectItem value="Sexta-feira">Sexta-feira</SelectItem>
+                          <SelectItem value="Sábado">Sábado</SelectItem>
+                          <SelectItem value="Domingo">Domingo</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">Objetivo / Foco do Treino</Label>
+                      <Input
+                        value={editFormData.goal || ""}
+                        onChange={(e) => setEditFormData({ ...editFormData, goal: e.target.value })}
+                        placeholder="Ex: Hipertrofia, Emagrecimento, Peito/Tríceps"
+                        className="h-10 text-xs rounded-xl"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2 border-t border-border/40">
                     <Label className="text-xs font-bold">Exercícios do Treino</Label>
                     <Button
                       type="button"

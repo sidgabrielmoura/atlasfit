@@ -3,9 +3,9 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { generateCommitPreview } from "@/lib/migration/commit.service";
 
-export async function POST(
+async function handlePreview(
   req: Request,
-  { params }: { params: Promise<{ id: string }> }
+  params: Promise<{ id: string }>
 ) {
   const session = await auth();
   if (!session?.user) {
@@ -28,4 +28,18 @@ export async function POST(
   } catch (error: any) {
     return new NextResponse(error.message || "Erro ao gerar preview de confirmação.", { status: 500 });
   }
+}
+
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return handlePreview(req, params);
+}
+
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  return handlePreview(req, params);
 }

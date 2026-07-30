@@ -309,7 +309,7 @@ export default function MigrationDashboardPage() {
                             >
                               {isCompleted && "Concluído"}
                               {isReviewNeeded && "Aguardando Revisão"}
-                              {isProcessing && "Processando IA"}
+                              {isProcessing && "Processando Migração"}
                               {isFailed && "Falhou"}
                             </Badge>
                           </div>

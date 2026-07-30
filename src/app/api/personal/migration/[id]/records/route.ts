@@ -14,7 +14,7 @@ export async function GET(
   const { id: jobId } = await params;
   const { searchParams } = new URL(req.url);
 
-  const tabFilter = (searchParams.get("tab") as any) || "ALL";
+  const tabFilter = (searchParams.get("filter") || searchParams.get("tab") || "ALL") as any;
   const entityType = searchParams.get("entityType") || undefined;
   const page = parseInt(searchParams.get("page") || "1", 10);
   const pageSize = parseInt(searchParams.get("pageSize") || "50", 10);
