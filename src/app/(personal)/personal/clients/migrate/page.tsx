@@ -43,6 +43,9 @@ interface MigrationJob {
   sourcePlatform: string;
   status: "UPLOADED" | "PROCESSING" | "REVIEW" | "IMPORTING" | "COMPLETED" | "FAILED" | "CANCELLED";
   processingStep: string;
+  progressPercentage?: number;
+  estimatedSecondsRemaining?: number;
+  progressMessage?: string;
   totalStudents: number;
   totalWorkouts: number;
   totalExercises: number;
@@ -160,19 +163,39 @@ export default function MigrationDashboardPage() {
   };
 
   const getStepProgressPercentage = (job: MigrationJob) => {
-    if (job.status === "COMPLETED") return 100;
-    if (job.status === "REVIEW") return 100;
+    if (job.status === "COMPLETED" || job.status === "REVIEW") return 100;
     if (job.status === "FAILED" || job.status === "CANCELLED") return 0;
+    if (typeof job.progressPercentage === "number" && job.progressPercentage > 0) {
+      return job.progressPercentage;
+    }
 
     switch (job.processingStep) {
-      case "PARSING": return 25;
-      case "EXTRACTING": return 55;
+      case "PARSING": return 20;
+      case "EXTRACTING": return 50;
       case "NORMALIZING": return 80;
       case "MATCHING": return 90;
-      case "PREPARING_REVIEW": return 100;
+      case "PREPARING_REVIEW": return 98;
       default: return 15;
     }
   };
+
+  const getEstimatedSecondsRemaining = (job: MigrationJob) => {
+    if (job.status === "COMPLETED" || job.status === "REVIEW" || job.status === "FAILED") return 0;
+    if (typeof job.estimatedSecondsRemaining === "number") {
+      return job.estimatedSecondsRemaining;
+    }
+    const pct = getStepProgressPercentage(job);
+    return Math.max(5, Math.round((100 - pct) * 0.5));
+  };
+
+  const formatEstimatedTime = (seconds: number) => {
+    if (seconds <= 0) return "Poucos segundos";
+    if (seconds < 60) return `~${seconds} seg`;
+    const mins = Math.ceil(seconds / 60);
+    return `~${mins} min`;
+  };
+
+  const activeProcessingJob = jobs.find(j => j.status === "PROCESSING" || j.status === "UPLOADED");
 
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6 md:p-8 space-y-6 mx-auto max-w-5xl font-sans pb-24 sm:pb-8">
@@ -242,6 +265,41 @@ export default function MigrationDashboardPage() {
           </Link>
         </div>
       ) : null}
+
+      {/* Banner de Tempo Estimado Restante para Job Ativo */}
+      {activeProcessingJob && (
+        <div className="p-4 rounded-3xl bg-primary/10 border border-primary/30 text-foreground space-y-2.5 shadow-2xs">
+          <div className="flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <Loader2 className="h-4 w-4 text-primary animate-spin" />
+              <span className="font-bold text-xs sm:text-sm text-primary">Processamento em Andamento</span>
+            </div>
+            <Badge variant="secondary" className="text-xs font-bold gap-1 bg-background/90 text-foreground border border-primary/20">
+              ⏱️ Tempo Estimado: {formatEstimatedTime(getEstimatedSecondsRemaining(activeProcessingJob))}
+            </Badge>
+          </div>
+          <div className="space-y-1.5">
+            <div className="flex justify-between text-xs font-semibold">
+              <span className="text-muted-foreground">
+                {activeProcessingJob.progressMessage ||
+                  (activeProcessingJob.processingStep === "PARSING" && "Lendo arquivos e fontes de dados...") ||
+                  (activeProcessingJob.processingStep === "EXTRACTING" && "Analisando estrutura e extraindo dados...") ||
+                  (activeProcessingJob.processingStep === "NORMALIZING" && "Normalizando dados e verificando catálogo...") ||
+                  (activeProcessingJob.processingStep === "MATCHING" && "Validando duplicidades...") ||
+                  (activeProcessingJob.processingStep === "PREPARING_REVIEW" && "Finalizando preparação da revisão...") ||
+                  "Processando lote..."}
+              </span>
+              <span className="font-black text-primary">{getStepProgressPercentage(activeProcessingJob)}%</span>
+            </div>
+            <div className="h-2.5 w-full bg-muted/80 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-primary transition-all duration-500 rounded-full"
+                style={{ width: `${getStepProgressPercentage(activeProcessingJob)}%` }}
+              />
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Lista / Tabela de Jobs de Migração */}
       <div className="space-y-4">
@@ -356,16 +414,25 @@ export default function MigrationDashboardPage() {
                     {/* Barra de Progresso Real-Time */}
                     {isProcessing && (
                       <div className="space-y-1.5 bg-muted/30 p-3 rounded-2xl border border-border/40">
-                        <div className="flex items-center justify-between text-xs">
-                          <span className="font-bold text-primary flex items-center gap-2">
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            {job.processingStep === "PARSING" && "Lendo arquivos..."}
-                            {job.processingStep === "EXTRACTING" && "Extraindo dados..."}
-                            {job.processingStep === "NORMALIZING" && "Normalizando dados..."}
-                            {job.processingStep === "MATCHING" && "Buscando equivalências..."}
-                            {job.processingStep === "PREPARING_REVIEW" && "Finalizando preparação..."}
+                        <div className="flex items-center justify-between text-xs gap-2">
+                          <span className="font-bold text-primary flex items-center gap-2 truncate">
+                            <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+                            <span className="truncate">
+                              {job.progressMessage ||
+                                (job.processingStep === "PARSING" && "Lendo arquivos...") ||
+                                (job.processingStep === "EXTRACTING" && "Extraindo dados...") ||
+                                (job.processingStep === "NORMALIZING" && "Normalizando dados...") ||
+                                (job.processingStep === "MATCHING" && "Buscando equivalências...") ||
+                                (job.processingStep === "PREPARING_REVIEW" && "Finalizando preparação...") ||
+                                "Processando..."}
+                            </span>
                           </span>
-                          <span className="font-black text-foreground">{progress}%</span>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <span className="text-[11px] font-semibold text-muted-foreground">
+                              ⏱️ {formatEstimatedTime(getEstimatedSecondsRemaining(job))}
+                            </span>
+                            <span className="font-black text-foreground">{progress}%</span>
+                          </div>
                         </div>
                         <div className="h-2 w-full bg-muted/80 rounded-full overflow-hidden">
                           <div

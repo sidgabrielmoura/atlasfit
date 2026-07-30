@@ -70,7 +70,8 @@ export class GeminiMigrationExtractor implements MigrationExtractor {
     }
 
     try {
-      const response = await client.models.generateContent({
+      const timeoutMs = 45000;
+      const generatePromise = client.models.generateContent({
         model: modelName,
         contents: [
           {
@@ -84,6 +85,14 @@ export class GeminiMigrationExtractor implements MigrationExtractor {
           responseSchema: GEMINI_RESPONSE_SCHEMA as any,
         },
       });
+
+      const timeoutPromise = new Promise((_, reject) => {
+        setTimeout(() => {
+          reject(new Error("Tempo limite de extração por IA excedido (45 segundos). Tente novamente."));
+        }, timeoutMs);
+      });
+
+      const response: any = await Promise.race([generatePromise, timeoutPromise]);
 
       const durationMs = Date.now() - startTime;
 

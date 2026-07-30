@@ -1,9 +1,10 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
+import prisma from "@/lib/prisma";
 
 export const dynamic = "force-dynamic";
 
-let globalAgentsConfig = [
+const DEFAULT_AGENTS_CONFIG = [
   {
     id: "migration-ocr",
     name: "Agente de Migração & Visão Computacional",
@@ -58,6 +59,28 @@ let globalAgentsConfig = [
   },
 ];
 
+async function getPersistedAgents() {
+  const setting = await prisma.systemSetting.findUnique({
+    where: { key: "ai_agents_config" },
+  });
+
+  if (!setting || !setting.value) {
+    return DEFAULT_AGENTS_CONFIG;
+  }
+
+  try {
+    const parsed = JSON.parse(setting.value);
+    if (Array.isArray(parsed) && parsed.length > 0) {
+      return DEFAULT_AGENTS_CONFIG.map((def) => {
+        const found = parsed.find((p: any) => p.id === def.id);
+        return found ? { ...def, ...found } : def;
+      });
+    }
+  } catch {}
+
+  return DEFAULT_AGENTS_CONFIG;
+}
+
 export async function GET() {
   const session = await auth();
 
@@ -65,7 +88,12 @@ export async function GET() {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
-  return NextResponse.json({ agents: globalAgentsConfig });
+  try {
+    const agents = await getPersistedAgents();
+    return NextResponse.json({ agents });
+  } catch (error: any) {
+    return NextResponse.json({ error: error.message || "Erro ao carregar agentes." }, { status: 500 });
+  }
 }
 
 export async function PATCH(req: Request) {
@@ -79,18 +107,31 @@ export async function PATCH(req: Request) {
     const body = await req.json();
     const { agentId, active, model, reasoningLevel, thinkingBudget, temperature } = body;
 
-    const idx = globalAgentsConfig.findIndex((a) => a.id === agentId);
+    const currentAgents = await getPersistedAgents();
+
+    const idx = currentAgents.findIndex((a) => a.id === agentId);
     if (idx === -1) {
       return NextResponse.json({ error: "Agente não encontrado." }, { status: 404 });
     }
 
-    if (typeof active === "boolean") globalAgentsConfig[idx].active = active;
-    if (model) globalAgentsConfig[idx].model = model;
-    if (reasoningLevel) globalAgentsConfig[idx].reasoningLevel = reasoningLevel;
-    if (typeof thinkingBudget === "number") globalAgentsConfig[idx].thinkingBudget = thinkingBudget;
-    if (typeof temperature === "number") globalAgentsConfig[idx].temperature = temperature;
+    if (typeof active === "boolean") currentAgents[idx].active = active;
+    if (model) currentAgents[idx].model = model;
+    if (reasoningLevel) currentAgents[idx].reasoningLevel = reasoningLevel;
+    if (typeof thinkingBudget === "number") currentAgents[idx].thinkingBudget = thinkingBudget;
+    if (typeof temperature === "number") currentAgents[idx].temperature = temperature;
 
-    return NextResponse.json({ success: true, agent: globalAgentsConfig[idx] });
+    await prisma.systemSetting.upsert({
+      where: { key: "ai_agents_config" },
+      create: {
+        key: "ai_agents_config",
+        value: JSON.stringify(currentAgents),
+      },
+      update: {
+        value: JSON.stringify(currentAgents),
+      },
+    });
+
+    return NextResponse.json({ success: true, agent: currentAgents[idx] });
   } catch (error: any) {
     return NextResponse.json({ error: error.message || "Erro ao atualizar agente." }, { status: 500 });
   }

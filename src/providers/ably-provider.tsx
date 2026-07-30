@@ -6,6 +6,8 @@ import { useSession } from "next-auth/react";
 import { useSnapshot } from "valtio";
 import { workspaceStore } from "@/stores/workspace.store";
 import { chatActions, chatStore } from "@/stores/chat.store";
+import { playRestChimeSound } from "@/lib/audio/sound-alert";
+import { toast } from "sonner";
 
 const AblyContext = createContext<Ably.Realtime | null>(null);
 
@@ -249,6 +251,37 @@ export function AblyProvider({ children }: AblyProviderProps) {
       conversationChannelRef.current = null;
     };
   }, [activeConversationId, userId]);
+
+  // 4. Global Migration Realtime Listener for Sound Alerts & Toast Notifications
+  useEffect(() => {
+    const client = ablyRef.current;
+    if (!client || !activeWorkspaceId) return;
+
+    const migrationChannel = client.channels.get(`migration:${activeWorkspaceId}`);
+
+    const handleMigrationUpdate = (message: any) => {
+      const payload = message.data;
+      if (!payload) return;
+
+      if (payload.status === "REVIEW" || payload.status === "COMPLETED") {
+        playRestChimeSound();
+        toast.success("Importação Concluída!", {
+          description: "A importação dos seus alunos e treinos foi finalizada.",
+        });
+      } else if (payload.status === "FAILED") {
+        playRestChimeSound();
+        toast.error("Importação não concluída", {
+          description: "Houve um problema durante o processamento da importação.",
+        });
+      }
+    };
+
+    migrationChannel.subscribe("job_updated", handleMigrationUpdate);
+
+    return () => {
+      migrationChannel.unsubscribe("job_updated", handleMigrationUpdate);
+    };
+  }, [activeWorkspaceId]);
 
   return (
     <AblyContext.Provider value={ablyRef.current}>

@@ -12,6 +12,12 @@ import {
 } from "./normalization/normalization.service";
 import { checkStudentDuplicate } from "./matching/duplicate.service";
 import { matchExerciseName } from "./matching/exercise-matcher.service";
+import { NotificationService } from "@/lib/notifications/service";
+import {
+  NotificationType,
+  NotificationCategory,
+  NotificationPriority,
+} from "@/lib/notifications/types";
 
 export async function processImportJob(jobId: string, workspaceId: string) {
   const job = await prisma.importJob.findUnique({
@@ -39,6 +45,9 @@ export async function processImportJob(jobId: string, workspaceId: string) {
     jobId,
     status: "PROCESSING",
     processingStep: "PARSING",
+    progressPercentage: 15,
+    estimatedSecondsRemaining: 35,
+    progressMessage: "Lendo arquivos e fontes de dados...",
     totalStudents: 0,
     totalWorkouts: 0,
   });
@@ -102,6 +111,17 @@ export async function processImportJob(jobId: string, workspaceId: string) {
         data: { processingStep: "EXTRACTING" },
       });
 
+      await publishToChannel(`migration:${workspaceId}`, "job_updated", {
+        jobId,
+        status: "PROCESSING",
+        processingStep: "EXTRACTING",
+        progressPercentage: 30,
+        estimatedSecondsRemaining: 30,
+        progressMessage: "Analisando documento e sintetizando conteúdo...",
+        totalStudents: 0,
+        totalWorkouts: 0,
+      });
+
       let textContentForAi: string | undefined = undefined;
       let inlineFilesForAi: Array<{ mimeType: string; dataBase64: string }> | undefined = undefined;
 
@@ -119,32 +139,67 @@ export async function processImportJob(jobId: string, workspaceId: string) {
         }
       }
 
+      // Interval ticker for smooth real-time progress while AI extracts
+      let currentProgress = 35;
+      let currentSecs = 25;
+      const progressTicker = setInterval(() => {
+        if (currentProgress < 75) {
+          currentProgress += 5;
+          currentSecs = Math.max(5, currentSecs - 3);
+          publishToChannel(`migration:${workspaceId}`, "job_updated", {
+            jobId,
+            status: "PROCESSING",
+            processingStep: "EXTRACTING",
+            progressPercentage: currentProgress,
+            estimatedSecondsRemaining: currentSecs,
+            progressMessage: currentProgress > 55 ? "Mapeando exercícios e treinos..." : "Extraindo informações do documento...",
+            totalStudents: totalStudentsCount,
+            totalWorkouts: totalWorkoutsCount,
+          }).catch(() => {});
+        }
+      }, 2000);
+
       let aiResult;
       try {
-        aiResult = await extractor.extract({
-          importJobId: jobId,
-          userId: job.createdByUserId,
-          textContent: textContentForAi,
-          inlineFiles: inlineFilesForAi,
-          useFallbackModel: false,
-          purpose: "extraction",
-        });
-      } catch (firstErr) {
-        // Fallback to flash-3.6 if primary flash-lite failed
-        aiResult = await extractor.extract({
-          importJobId: jobId,
-          userId: job.createdByUserId,
-          textContent: textContentForAi,
-          inlineFiles: inlineFilesForAi,
-          useFallbackModel: true,
-          purpose: "fragment_fallback",
-        });
+        try {
+          aiResult = await extractor.extract({
+            importJobId: jobId,
+            userId: job.createdByUserId,
+            textContent: textContentForAi,
+            inlineFiles: inlineFilesForAi,
+            useFallbackModel: false,
+            purpose: "extraction",
+          });
+        } catch (firstErr) {
+          // Fallback to flash-3.6 if primary flash-lite failed
+          aiResult = await extractor.extract({
+            importJobId: jobId,
+            userId: job.createdByUserId,
+            textContent: textContentForAi,
+            inlineFiles: inlineFilesForAi,
+            useFallbackModel: true,
+            purpose: "fragment_fallback",
+          });
+        }
+      } finally {
+        clearInterval(progressTicker);
       }
 
       // Normalization & Matching Step
       await prisma.importJob.update({
         where: { id: jobId },
         data: { processingStep: "NORMALIZING" },
+      });
+
+      await publishToChannel(`migration:${workspaceId}`, "job_updated", {
+        jobId,
+        status: "PROCESSING",
+        processingStep: "NORMALIZING",
+        progressPercentage: 80,
+        estimatedSecondsRemaining: 10,
+        progressMessage: "Normalizando dados e verificando catálogo...",
+        totalStudents: totalStudentsCount,
+        totalWorkouts: totalWorkoutsCount,
       });
 
       if (aiResult && aiResult.students) {
@@ -366,6 +421,19 @@ export async function processImportJob(jobId: string, workspaceId: string) {
       totalMeasurements: totalMeasurementsCount,
     });
 
+    if (job.createdByUserId) {
+      NotificationService.sendNotification({
+        userId: job.createdByUserId,
+        type: NotificationType.SYSTEM,
+        category: NotificationCategory.SYSTEM,
+        title: "Importação Concluída!",
+        description: "A importação dos seus alunos e treinos foi finalizada com sucesso. Clique para revisar.",
+        priority: NotificationPriority.HIGH,
+        deepLink: `/personal/clients/migrate/${jobId}`,
+        workspaceId,
+      }).catch((err) => console.error("[Migration Notification Error]:", err));
+    }
+
     return await prisma.importJob.findUnique({ where: { id: jobId } });
   } catch (error: any) {
     const errStr = String(error?.message || "") + " " + JSON.stringify(error || {});
@@ -398,6 +466,20 @@ export async function processImportJob(jobId: string, workspaceId: string) {
       errorCode,
       safeErrorMessage,
     });
+
+    if (job.createdByUserId) {
+      NotificationService.sendNotification({
+        userId: job.createdByUserId,
+        type: NotificationType.SYSTEM,
+        category: NotificationCategory.SYSTEM,
+        title: "Importação não concluída",
+        description: "Houve um problema durante o processamento da importação.",
+        priority: NotificationPriority.HIGH,
+        deepLink: "/personal/clients/migrate",
+        workspaceId,
+      }).catch((err) => console.error("[Migration Notification Error]:", err));
+    }
+
     throw error;
   }
 }
