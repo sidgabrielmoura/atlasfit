@@ -189,9 +189,19 @@ export async function commitImportJob(
 
         studentIdMap[sr.temporaryEntityId] = realStudentId;
 
-        // Log result in ImportEntityResult ledger
-        await tx.importEntityResult.create({
-          data: {
+        await tx.importEntityResult.upsert({
+          where: {
+            importJobId_entityType_temporaryEntityId: {
+              importJobId: jobId,
+              entityType: "STUDENT",
+              temporaryEntityId: sr.temporaryEntityId,
+            },
+          },
+          update: {
+            action: actionTaken,
+            databaseEntityId: realStudentId,
+          },
+          create: {
             importJobId: jobId,
             action: actionTaken,
             entityType: "STUDENT",
@@ -221,8 +231,19 @@ export async function commitImportJob(
           },
         });
 
-        await tx.importEntityResult.create({
-          data: {
+        await tx.importEntityResult.upsert({
+          where: {
+            importJobId_entityType_temporaryEntityId: {
+              importJobId: jobId,
+              entityType: "WORKOUT",
+              temporaryEntityId: wr.temporaryEntityId,
+            },
+          },
+          update: {
+            action: "CREATED",
+            databaseEntityId: createdWorkout.id,
+          },
+          create: {
             importJobId: jobId,
             action: "CREATED",
             entityType: "WORKOUT",
@@ -237,7 +258,6 @@ export async function commitImportJob(
             let realExerciseId = ex.matchedExerciseId;
 
             if (!realExerciseId) {
-              // Ensure default muscle group exists for unmapped custom exercises
               let defaultGroup = await tx.muscleGroup.findFirst({
                 where: { name: "Geral" },
               });
@@ -254,7 +274,7 @@ export async function commitImportJob(
                   muscleGroupId: defaultGroup.id,
                   isOfficial: false,
                   creatorId: job.createdByUserId,
-                  status: "APPROVED",
+                  status: ex.isRequestedOfficial ? "PENDING" : "APPROVED",
                 },
               });
               realExerciseId = newEx.id;
@@ -296,8 +316,19 @@ export async function commitImportJob(
           },
         });
 
-        await tx.importEntityResult.create({
-          data: {
+        await tx.importEntityResult.upsert({
+          where: {
+            importJobId_entityType_temporaryEntityId: {
+              importJobId: jobId,
+              entityType: "ASSESSMENT",
+              temporaryEntityId: ar.temporaryEntityId,
+            },
+          },
+          update: {
+            action: "CREATED",
+            databaseEntityId: createdAss.id,
+          },
+          create: {
             importJobId: jobId,
             action: "CREATED",
             entityType: "ASSESSMENT",
@@ -334,8 +365,19 @@ export async function commitImportJob(
           },
         });
 
-        await tx.importEntityResult.create({
-          data: {
+        await tx.importEntityResult.upsert({
+          where: {
+            importJobId_entityType_temporaryEntityId: {
+              importJobId: jobId,
+              entityType: "MEASUREMENT",
+              temporaryEntityId: mr.temporaryEntityId,
+            },
+          },
+          update: {
+            action: "CREATED",
+            databaseEntityId: createdMeas.id,
+          },
+          create: {
             importJobId: jobId,
             action: "CREATED",
             entityType: "MEASUREMENT",

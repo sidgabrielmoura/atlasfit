@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { publishToChannel } from "@/lib/ably";
 import { GeminiMigrationExtractor } from "../gemini/extractor";
 import { parseCsvContent } from "./parsers/csv.parser";
 import { parseXlsxBuffer } from "./parsers/spreadsheet.parser";
@@ -20,12 +21,10 @@ export async function processImportJob(jobId: string, workspaceId: string) {
 
   if (!job) throw new Error("Job de migração não encontrado.");
 
-  // Atomic lock check to prevent concurrent processing
   if (job.status === "PROCESSING" || job.status === "IMPORTING") {
     return job;
   }
 
-  // Set processing lock
   await prisma.importJob.update({
     where: { id: jobId },
     data: {
@@ -34,6 +33,14 @@ export async function processImportJob(jobId: string, workspaceId: string) {
       errorCode: null,
       safeErrorMessage: null,
     },
+  });
+
+  await publishToChannel(`migration:${workspaceId}`, "job_updated", {
+    jobId,
+    status: "PROCESSING",
+    processingStep: "PARSING",
+    totalStudents: 0,
+    totalWorkouts: 0,
   });
 
   try {
@@ -143,7 +150,7 @@ export async function processImportJob(jobId: string, workspaceId: string) {
       if (aiResult && aiResult.students) {
         for (let sIdx = 0; sIdx < aiResult.students.length; sIdx++) {
           const rawStudent = aiResult.students[sIdx];
-          const tempStudentId = rawStudent.temporaryId || `temp_student_${sIdx + 1}`;
+          const tempStudentId = rawStudent.temporaryId ? `${rawStudent.temporaryId}_s${sIdx + 1}` : `temp_student_${sIdx + 1}`;
 
           const normPhone = normalizePhone(rawStudent.phone);
           const normEmail = normalizeEmail(rawStudent.email);
@@ -203,7 +210,7 @@ export async function processImportJob(jobId: string, workspaceId: string) {
           if (rawStudent.workouts) {
             for (let wIdx = 0; wIdx < rawStudent.workouts.length; wIdx++) {
               const rawWorkout = rawStudent.workouts[wIdx];
-              const tempWorkoutId = rawWorkout.temporaryId || `temp_workout_${sIdx + 1}_${wIdx + 1}`;
+              const tempWorkoutId = rawWorkout.temporaryId ? `${rawWorkout.temporaryId}_s${sIdx + 1}_w${wIdx + 1}` : `temp_workout_${sIdx + 1}_${wIdx + 1}`;
 
               const exercisesWithMatches = [];
               if (rawWorkout.exercises) {
@@ -256,7 +263,7 @@ export async function processImportJob(jobId: string, workspaceId: string) {
           if (rawStudent.assessments) {
             for (let aIdx = 0; aIdx < rawStudent.assessments.length; aIdx++) {
               const rawAss = rawStudent.assessments[aIdx];
-              const tempAssId = rawAss.temporaryId || `temp_ass_${sIdx + 1}_${aIdx + 1}`;
+              const tempAssId = rawAss.temporaryId ? `${rawAss.temporaryId}_s${sIdx + 1}_a${aIdx + 1}` : `temp_ass_${sIdx + 1}_${aIdx + 1}`;
 
               const normalizedAssessment = {
                 temporaryStudentId: tempStudentId,
@@ -292,7 +299,7 @@ export async function processImportJob(jobId: string, workspaceId: string) {
           if (rawStudent.measurements) {
             for (let mIdx = 0; mIdx < rawStudent.measurements.length; mIdx++) {
               const rawMeas = rawStudent.measurements[mIdx];
-              const tempMeasId = rawMeas.temporaryId || `temp_meas_${sIdx + 1}_${mIdx + 1}`;
+              const tempMeasId = rawMeas.temporaryId ? `${rawMeas.temporaryId}_s${sIdx + 1}_m${mIdx + 1}` : `temp_meas_${sIdx + 1}_${mIdx + 1}`;
 
               const normalizedMeasurement = {
                 temporaryStudentId: tempStudentId,
@@ -348,6 +355,17 @@ export async function processImportJob(jobId: string, workspaceId: string) {
       },
     });
 
+    await publishToChannel(`migration:${workspaceId}`, "job_updated", {
+      jobId,
+      status: "REVIEW",
+      processingStep: "PREPARING_REVIEW",
+      totalStudents: totalStudentsCount,
+      totalWorkouts: totalWorkoutsCount,
+      totalExercises: totalExercisesCount,
+      totalAssessments: totalAssessmentsCount,
+      totalMeasurements: totalMeasurementsCount,
+    });
+
     return await prisma.importJob.findUnique({ where: { id: jobId } });
   } catch (error: any) {
     const errStr = String(error?.message || "") + " " + JSON.stringify(error || {});
@@ -371,6 +389,14 @@ export async function processImportJob(jobId: string, workspaceId: string) {
         errorCode,
         safeErrorMessage,
       },
+    });
+
+    await publishToChannel(`migration:${workspaceId}`, "job_updated", {
+      jobId,
+      status: "FAILED",
+      processingStep: "IDLE",
+      errorCode,
+      safeErrorMessage,
     });
     throw error;
   }

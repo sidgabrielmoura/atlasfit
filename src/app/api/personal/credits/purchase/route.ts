@@ -124,8 +124,8 @@ export async function POST(req: Request) {
       baseUrl = "http://localhost:3000";
     }
 
-    const returnUrl = `${baseUrl}/personal/credits?status=success`;
-    const completionUrl = `${baseUrl}/api/webhooks/abacatepay/credits`;
+    const returnUrl = `${baseUrl}/personal/credits`;
+    const completionUrl = `${baseUrl}/personal/credits?status=success`;
 
     const createCheckoutPayload = (prodId: string) => ({
       methods: ["PIX"],

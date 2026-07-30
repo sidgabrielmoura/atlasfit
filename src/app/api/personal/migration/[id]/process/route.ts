@@ -23,9 +23,12 @@ export async function POST(
       return new NextResponse("Job de migração não encontrado.", { status: 404 });
     }
 
-    // Trigger process in backend
-    const processedJob = await processImportJob(jobId, job.workspaceId);
-    return NextResponse.json(processedJob);
+    // Trigger background process & emit real-time updates via Ably
+    processImportJob(jobId, job.workspaceId).catch((error) => {
+      console.error("[Background processImportJob] Error:", error);
+    });
+
+    return NextResponse.json({ success: true, jobId, status: "PROCESSING" });
   } catch (error: any) {
     console.error("[POST process] Erro:", error);
     const errStr = String(error?.message || "") + " " + JSON.stringify(error || {});

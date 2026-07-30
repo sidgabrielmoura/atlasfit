@@ -530,7 +530,7 @@ export default function ClientsPage() {
             />
           </div>
           <div className="flex flex-col sm:flex-row items-center gap-2.5 w-full sm:w-auto">
-            <ButtonNeon variant={'default'} size={'sm'} className="text-nowrap cursor-pointer text-sm py-2.5" onClick={() => router.push("/personal/clients/migrate")}>Migrar alunos</ButtonNeon>
+            <ButtonNeon variant={'default'} size={'sm'} className="text-nowrap cursor-pointer text-sm py-2.5 w-full" onClick={() => router.push("/personal/clients/migrate")}>Migrar alunos</ButtonNeon>
 
             <Button
               className="shrink-0 gap-2 h-10 w-full sm:w-auto font-medium cursor-pointer"
