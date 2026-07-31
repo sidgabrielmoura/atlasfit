@@ -49,6 +49,8 @@ export const ZImportedMeasurement = z.object({
   leftArm: z.number().nullable().default(null),
   rightThigh: z.number().nullable().default(null),
   leftThigh: z.number().nullable().default(null),
+  rightCalf: z.number().nullable().default(null),
+  leftCalf: z.number().nullable().default(null),
   notes: z.string().nullable().default(null),
 });
 
@@ -170,6 +172,8 @@ export const GEMINI_RESPONSE_SCHEMA = {
                 leftArm: { type: "NUMBER", nullable: true },
                 rightThigh: { type: "NUMBER", nullable: true },
                 leftThigh: { type: "NUMBER", nullable: true },
+                rightCalf: { type: "NUMBER", nullable: true },
+                leftCalf: { type: "NUMBER", nullable: true },
                 notes: { type: "STRING", nullable: true },
               },
             },

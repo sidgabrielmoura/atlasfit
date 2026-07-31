@@ -17,16 +17,16 @@ export async function GET() {
         hasApiKey: false,
         models: [
           {
-            name: "models/gemini-3-flash-preview",
-            displayName: "Gemini 3 Flash",
+            name: "models/gemini-2.5-flash",
+            displayName: "Gemini 2.5 Flash",
             description: "Modelo multimodal ultrarrápido otimizado para extração de dados e OCR",
             inputTokenLimit: 1048576,
             outputTokenLimit: 8192,
             supportedCapabilities: ["generateContent", "structuredOutput", "thinking"],
           },
           {
-            name: "models/gemini-3-pro-preview",
-            displayName: "Gemini 3 Pro",
+            name: "models/gemini-2.5-pro",
+            displayName: "Gemini 2.5 Pro",
             description: "Modelo de raciocínio profundo para tarefas complexas de codificação e análise",
             inputTokenLimit: 1048576,
             outputTokenLimit: 8192,

@@ -371,6 +371,8 @@ export async function processImportJob(jobId: string, workspaceId: string) {
                 leftArm: normalizeNumber(rawMeas.leftArm).normalizedValue,
                 rightThigh: normalizeNumber(rawMeas.rightThigh).normalizedValue,
                 leftThigh: normalizeNumber(rawMeas.leftThigh).normalizedValue,
+                rightCalf: normalizeNumber(rawMeas.rightCalf).normalizedValue,
+                leftCalf: normalizeNumber(rawMeas.leftCalf).normalizedValue,
                 notes: rawMeas.notes ?? null,
               };
 

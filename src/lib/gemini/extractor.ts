@@ -8,6 +8,8 @@ import {
 } from "./schemas/migration-schema";
 import { trackGeminiUsage } from "./usage";
 
+import prisma from "@/lib/prisma";
+
 export interface MigrationExtractionInput {
   importJobId: string;
   userId?: string | null;
@@ -31,9 +33,24 @@ export interface MigrationExtractor {
 export class GeminiMigrationExtractor implements MigrationExtractor {
   async extract(input: MigrationExtractionInput): Promise<MigrationExtractionResponse> {
     const startTime = Date.now();
-    const modelName = input.useFallbackModel
+    let modelName = input.useFallbackModel
       ? GEMINI_MODELS.extractionFallback
       : GEMINI_MODELS.extraction;
+
+    try {
+      const setting = await prisma.systemSetting.findUnique({
+        where: { key: "ai_agents_config" },
+      });
+      if (setting?.value) {
+        const agents = JSON.parse(setting.value);
+        const ocrAgent = agents.find((a: any) => a.id === "migration-ocr");
+        if (ocrAgent && ocrAgent.active && ocrAgent.model) {
+          modelName = input.useFallbackModel
+            ? (ocrAgent.fallbackModel || GEMINI_MODELS.extractionFallback)
+            : ocrAgent.model;
+        }
+      }
+    } catch {}
 
     const client = getGeminiClient();
 

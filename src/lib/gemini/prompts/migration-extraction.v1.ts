@@ -80,7 +80,7 @@ Prefira null a qualquer valor inventado ou estimado.
 [SEÇÃO 4 — MEDIDAS CORPORAIS]
 
 4.1 Campos de measurement (valores em cm, exceto weight em kg e bodyFat em %):
-    weight, height, bodyFat, muscleMass, chest (peitoral), waist (cintura), abdomen, hips (quadril), rightArm, leftArm, rightThigh, leftThigh.
+    weight, height, bodyFat, muscleMass, chest (peitoral), waist (cintura), abdomen, hips (quadril), rightArm, leftArm, rightThigh, leftThigh, rightCalf, leftCalf.
 
 4.2 Mapeamento de termos PT-BR para campos:
     chest       ← "Peitoral", "Tórax", "Peito"
@@ -91,6 +91,8 @@ Prefira null a qualquer valor inventado ou estimado.
     leftArm     ← "Braço Esquerdo", "BE"
     rightThigh  ← "Coxa Direita", "CD"
     leftThigh   ← "Coxa Esquerda", "CE"
+    rightCalf   ← "Panturrilha Direita", "Panturrilha Dir.", "PD"
+    leftCalf    ← "Panturrilha Esquerda", "Panturrilha Esq.", "PE"
 
 [SEÇÃO 5 — MÚLTIPLOS ALUNOS POR DOCUMENTO]
 
