@@ -145,19 +145,19 @@ export async function GET(req: Request) {
   }
 
   try {
-    // Auto-recover/fail any job stuck in PROCESSING or IMPORTING for over 3 minutes
-    const threeMinutesAgo = new Date(Date.now() - 3 * 60 * 1000);
+    // Auto-recover/fail any job stuck in PROCESSING or IMPORTING for over 2 minutes
+    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
     await prisma.importJob.updateMany({
       where: {
         workspaceId,
         status: { in: ["PROCESSING", "IMPORTING"] },
-        updatedAt: { lt: threeMinutesAgo },
+        updatedAt: { lt: twoMinutesAgo },
       },
       data: {
         status: "FAILED",
         processingStep: "IDLE",
         errorCode: "TIMEOUT_EXCEEDED",
-        safeErrorMessage: "O processamento foi encerrado por atingir o tempo limite de segurança (3 minutos). Por favor, tente importar novamente.",
+        safeErrorMessage: "O processamento anterior foi interrompido. Clique em 'Tentar Novamente' para reprocessar com o novo modelo.",
       },
     });
 

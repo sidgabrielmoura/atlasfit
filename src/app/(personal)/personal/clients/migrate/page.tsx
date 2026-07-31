@@ -17,6 +17,7 @@ import {
   Dumbbell,
   ArrowLeft,
   Zap,
+  RefreshCw,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -66,6 +67,28 @@ export default function MigrationDashboardPage() {
   const [isLoadingJobs, setIsLoadingJobs] = useState(true);
   const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [reprocessingJobId, setReprocessingJobId] = useState<string | null>(null);
+
+  const handleRetryJob = async (jobId: string) => {
+    setReprocessingJobId(jobId);
+    try {
+      const res = await fetch(`/api/personal/migration/${jobId}/process`, {
+        method: "POST",
+      });
+
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Erro ao reiniciar processamento.");
+      }
+
+      toast.success("Processamento reiniciado!");
+      fetchJobs();
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao reprocessar.");
+    } finally {
+      setReprocessingJobId(null);
+    }
+  };
 
   const [quotaBalance, setQuotaBalance] = useState<{
     allowed: boolean;
@@ -394,11 +417,20 @@ export default function MigrationDashboardPage() {
                           </Link>
                         )}
                         {isFailed && (
-                          <Link href="/personal/clients/migrate/new">
-                            <Button variant="secondary" size="sm" className="h-9 px-3 rounded-xl text-xs font-semibold">
-                              Tentar Novamente
-                            </Button>
-                          </Link>
+                          <Button
+                            variant="secondary"
+                            size="sm"
+                            className="h-9 px-3 rounded-xl text-xs font-semibold gap-1.5"
+                            disabled={reprocessingJobId === job.id}
+                            onClick={() => handleRetryJob(job.id)}
+                          >
+                            {reprocessingJobId === job.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <RefreshCw className="h-3.5 w-3.5" />
+                            )}
+                            Tentar Novamente
+                          </Button>
                         )}
                         <Button
                           variant="ghost"

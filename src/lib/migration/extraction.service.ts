@@ -27,10 +27,6 @@ export async function processImportJob(jobId: string, workspaceId: string) {
 
   if (!job) throw new Error("Job de migração não encontrado.");
 
-  if (job.status === "PROCESSING" || job.status === "IMPORTING") {
-    return job;
-  }
-
   await prisma.importJob.update({
     where: { id: jobId },
     data: {
@@ -222,6 +218,15 @@ export async function processImportJob(jobId: string, workspaceId: string) {
             gender: rawStudent.gender ?? null,
             notes: rawStudent.notes || [],
           };
+
+          const hasWorkouts = Array.isArray(rawStudent.workouts) && rawStudent.workouts.length > 0;
+          const hasAssessments = Array.isArray(rawStudent.assessments) && rawStudent.assessments.length > 0;
+          const hasMeasurements = Array.isArray(rawStudent.measurements) && rawStudent.measurements.length > 0;
+
+          // Skip completely empty ghost student placeholders
+          if (!normalizedStudent.name && !normalizedStudent.email && !normalizedStudent.phone && !hasWorkouts && !hasAssessments && !hasMeasurements) {
+            continue;
+          }
 
           // Deduplication Matching
           await prisma.importJob.update({

@@ -21,6 +21,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { workspaceStore } from "@/stores/workspace.store";
@@ -53,6 +54,44 @@ import {
 import { formatDayOfWeekToString } from "@/lib/migration/utils/day-of-week";
 import { Label } from "@/components/ui/label";
 
+export function checkRecordPendingStatus(rec: any): { isPending: boolean; reasons: string[] } {
+  const norm = rec.normalizedData || {};
+  const reasons: string[] = [];
+
+  if (rec.reviewStatus === "PENDING") {
+    reasons.push("Pendente de revisão");
+  }
+
+  if (rec.entityType === "WORKOUT") {
+    const hasValidDay = Boolean(formatDayOfWeekToString(norm.dayOfWeek));
+    if (!hasValidDay) {
+      reasons.push("Dia de execução não definido");
+    }
+
+    if (!norm.exercises || norm.exercises.length === 0) {
+      reasons.push("Nenhum exercício vinculado");
+    } else {
+      const hasUnmatched = norm.exercises.some(
+        (ex: any) => !ex.matchedExerciseId && !ex.matchedExerciseName && !ex.isRequestedOfficial
+      );
+      if (hasUnmatched) {
+        reasons.push("Exercício fora do catálogo");
+      }
+    }
+  }
+
+  if (rec.entityType === "STUDENT") {
+    if (!norm.email && !norm.phone) {
+      reasons.push("Contato ausente");
+    }
+  }
+
+  return {
+    isPending: reasons.length > 0,
+    reasons,
+  };
+}
+
 export default function ReviewJobPage({ params }: { params: Promise<{ id: string }> }) {
   const { id: jobId } = use(params);
   const router = useRouter();
@@ -62,6 +101,7 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
   const [jobSummary, setJobSummary] = useState<any>(null);
   const [reviewTab, setReviewTab] = useState<string>("ALL");
   const [records, setRecords] = useState<any[]>([]);
+  const [allRecords, setAllRecords] = useState<any[]>([]);
   const [isLoadingRecords, setIsLoadingRecords] = useState<boolean>(true);
 
   // Edit Record Modal State
@@ -115,6 +155,16 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
     }
   }, [jobId]);
 
+  const fetchAllRecords = useCallback(async () => {
+    try {
+      const res = await fetch(`/api/personal/migration/${jobId}/records?filter=ALL`);
+      if (res.ok) {
+        const data = await res.json();
+        setAllRecords(data.records || []);
+      }
+    } catch {}
+  }, [jobId]);
+
   const loadRecords = useCallback(async (filter: string) => {
     setIsLoadingRecords(true);
     try {
@@ -122,13 +172,18 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
       if (res.ok) {
         const data = await res.json();
         setRecords(data.records || []);
+        if (filter === "ALL") {
+          setAllRecords(data.records || []);
+        } else {
+          fetchAllRecords();
+        }
       }
     } catch {
       toast.error("Erro ao carregar registros para revisão.");
     } finally {
       setIsLoadingRecords(false);
     }
-  }, [jobId]);
+  }, [jobId, fetchAllRecords]);
 
   const fetchExercisesCatalog = useCallback(async () => {
     setIsLoadingExercises(true);
@@ -181,6 +236,18 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
   const handleOpenConfirmation = async () => {
     if (!jobId) return;
 
+    const recordsToCheck = allRecords.length > 0 ? allRecords : records;
+    const pendingRecords = recordsToCheck.filter((r) => checkRecordPendingStatus(r).isPending);
+
+    if (pendingRecords.length > 0) {
+      toast.error(`Importação bloqueada: Existem ${pendingRecords.length} pendência(s) a resolver.`, {
+        description: "Por favor, corrija os dias de execução, exercícios ou contatos antes de finalizar.",
+      });
+      setReviewTab("ATTENTION");
+      loadRecords("ATTENTION");
+      return;
+    }
+
     setIsGeneratingPreview(true);
     try {
       const res = await fetch(`/api/personal/migration/${jobId}/preview`);
@@ -189,10 +256,11 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
         setCommitPreview(data);
         setShowConfirmDialog(true);
       } else {
-        throw new Error();
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || errData.message || "Erro ao validar pré-visualização.");
       }
-    } catch {
-      toast.error("Erro ao gerar pré-visualização de confirmação.");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao gerar pré-visualização de confirmação.");
     } finally {
       setIsGeneratingPreview(false);
     }
@@ -261,6 +329,9 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
     });
   };
 
+  const pendingRecordsList = (allRecords.length > 0 ? allRecords : records).filter((r) => checkRecordPendingStatus(r).isPending);
+  const pendingCount = pendingRecordsList.length;
+
   return (
     <div className="min-h-screen bg-background p-4 sm:p-6 md:p-8 space-y-6 mx-auto max-w-5xl font-sans pb-24 sm:pb-8">
       {/* Header Corporativo */}
@@ -289,12 +360,23 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
 
         <Button
           size="lg"
-          className="hidden sm:flex gap-2 font-bold rounded-2xl h-11 px-5 shadow-xs shrink-0"
-          disabled={isGeneratingPreview}
+          className={`hidden sm:flex gap-2 font-bold rounded-2xl h-11 px-5 shadow-xs shrink-0 transition-all ${
+            pendingCount > 0 ? "opacity-75" : ""
+          }`}
+          disabled={pendingCount > 0 || isGeneratingPreview}
           onClick={handleOpenConfirmation}
         >
-          {isGeneratingPreview ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+          {isGeneratingPreview ? (
+            <Loader2 className="h-4 w-4 animate-spin" />
+          ) : (
+            <ShieldCheck className="h-4 w-4" />
+          )}
           Finalizar Importação
+          {pendingCount > 0 && (
+            <span className="text-[10px] font-bold bg-amber-500/20 text-amber-600 dark:text-amber-400 px-2 py-0.5 rounded-full ml-1">
+              {pendingCount} pendência{pendingCount > 1 ? "s" : ""}
+            </span>
+          )}
         </Button>
       </div>
 
@@ -347,23 +429,42 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
             const norm = rec.normalizedData || {};
             const isStudent = rec.entityType === "STUDENT";
             const isWorkout = rec.entityType === "WORKOUT";
+            const isAssessment = rec.entityType === "ASSESSMENT";
+            const isMeasurement = rec.entityType === "MEASUREMENT";
             const isDuplicate = rec.deduplicationMatch && rec.deduplicationMatch !== "NO_MATCH";
+            const { isPending, reasons } = checkRecordPendingStatus(rec);
 
             return (
               <Card
                 key={rec.id}
-                className={`border transition-all rounded-3xl p-4 sm:p-5 shadow-2xs space-y-3 ${rec.reviewStatus === "PENDING" || isDuplicate
-                  ? "border-amber-500/40 bg-amber-500/5"
-                  : "border-border/80 bg-card"
-                  }`}
+                className={`border transition-all rounded-2xl p-4 sm:p-5 shadow-2xs space-y-3 bg-card ${
+                  isPending
+                    ? "border-l-4 border-l-amber-500/90 border-border/70"
+                    : "border-border/70"
+                }`}
               >
                 <div className="flex items-start justify-between gap-2 border-b border-border/40 pb-3">
                   <div>
-                    <Badge variant="outline" className="text-[10px] font-mono uppercase mb-1 rounded-md">
-                      {rec.entityType}
-                    </Badge>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <Badge variant="outline" className="text-[10px] font-mono uppercase rounded-md">
+                        {rec.entityType}
+                      </Badge>
+                      {isPending && (
+                        <Badge variant="outline" className="text-[10px] font-semibold border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5 rounded-md">
+                          Pendente
+                        </Badge>
+                      )}
+                    </div>
                     <CardTitle className="text-sm font-bold text-foreground">
-                      {isStudent ? norm.name || "Aluno Sem Nome" : isWorkout ? norm.name || "Treino" : "Registro"}
+                      {isStudent
+                        ? norm.name || "Aluno Sem Nome"
+                        : isWorkout
+                        ? norm.name || "Treino"
+                        : isAssessment
+                        ? norm.type || "Avaliação Física"
+                        : isMeasurement
+                        ? "Medidas Corporais"
+                        : "Registro"}
                     </CardTitle>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
@@ -394,15 +495,15 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
                       <div>Objetivo: <span className="text-foreground font-semibold">{norm.objective || "não informado"}</span></div>
 
                       {(!norm.email && !norm.phone) && (
-                        <div className="mt-2 p-2 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[11px] font-medium flex items-center gap-1.5">
-                          <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
+                        <div className="mt-2 text-[11px] font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1.5 pt-1">
+                          <span className="size-1.5 rounded-full bg-amber-500 shrink-0" />
                           <span>Contato ausente. Cadastre o WhatsApp para enviar o convite do app.</span>
                         </div>
                       )}
 
                       {isDuplicate && (
-                        <div className="mt-2 p-2.5 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[11px] font-medium flex items-center gap-2">
-                          <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0" />
+                        <div className="mt-2 text-[11px] font-medium text-amber-600 dark:text-amber-400 flex items-center gap-1.5 pt-1">
+                          <span className="size-1.5 rounded-full bg-amber-500 shrink-0" />
                           <span>Aluno já cadastrado neste workspace.</span>
                         </div>
                       )}
@@ -418,18 +519,18 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
                             Dia: {formatDayOfWeekToString(norm.dayOfWeek)}
                           </Badge>
                         ) : (
-                          <div className="p-2 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[11px] font-bold flex items-center justify-between gap-2 w-full">
-                            <span className="flex items-center gap-1">
-                              <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                              Dia de execução não definido
+                          <div className="flex items-center justify-between p-2 rounded-xl bg-muted/20 border border-border/40 text-[11px] w-full">
+                            <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-medium">
+                              <span className="size-1.5 rounded-full bg-amber-500 shrink-0" />
+                              Dia de execução pendente
                             </span>
                             <Button
-                              variant="outline"
+                              variant="ghost"
                               size="sm"
-                              className="h-6 text-[10px] px-2 rounded-lg font-bold border-amber-500/40 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 shrink-0"
+                              className="h-6 text-[10px] px-2 rounded-lg font-semibold text-primary hover:bg-primary/10 shrink-0"
                               onClick={() => handleOpenEditModal(rec)}
                             >
-                              Definir Dia
+                              Definir
                             </Button>
                           </div>
                         )}
@@ -437,15 +538,15 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
 
                       {/* Lista de Exercícios */}
                       {(!norm.exercises || norm.exercises.length === 0) ? (
-                        <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-700 dark:text-amber-300 text-[11px] font-bold flex items-center justify-between gap-2">
-                          <span className="flex items-center gap-1">
-                            <AlertTriangle className="h-3.5 w-3.5 text-amber-600 shrink-0" />
-                            Nenhum exercício vinculado
+                        <div className="flex items-center justify-between p-2 rounded-xl bg-muted/20 border border-border/40 text-[11px]">
+                          <span className="flex items-center gap-1.5 text-amber-600 dark:text-amber-400 font-medium">
+                            <span className="size-1.5 rounded-full bg-amber-500 shrink-0" />
+                            Sem exercícios cadastrados
                           </span>
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
-                            className="h-6 text-[10px] px-2 rounded-lg font-bold border-amber-500/40 text-amber-700 dark:text-amber-300 hover:bg-amber-500/20 shrink-0"
+                            className="h-6 text-[10px] px-2 rounded-lg font-semibold text-primary hover:bg-primary/10 shrink-0"
                             onClick={() => handleOpenEditModal(rec)}
                           >
                             Adicionar
@@ -462,35 +563,111 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
                             return (
                               <div
                                 key={idx}
-                                className={`flex items-center justify-between p-2.5 rounded-xl border text-[11px] gap-2 transition-colors ${!isMatched
-                                  ? "border-amber-500/50 bg-amber-500/10 text-amber-900 dark:text-amber-200"
-                                  : "bg-muted/30 border-border/40"
+                                className={`flex items-center justify-between p-2 rounded-xl border text-[11px] gap-2 transition-colors ${!isMatched
+                                  ? "bg-card border-amber-500/30 text-foreground"
+                                  : "bg-muted/20 border-border/40"
                                   }`}
                               >
                                 <div className="truncate min-w-0">
-                                  <span className="font-bold block truncate">{ex.name || "Exercício"}</span>
+                                  <span className="font-semibold block truncate text-foreground">{ex.name || "Exercício"}</span>
                                   {isMatched ? (
-                                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold block">
-                                      ✓ Catálogo: {ex.matchedExerciseName || ex.name}
+                                    <span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium block">
+                                      ✓ {ex.matchedExerciseName || ex.name}
                                     </span>
                                   ) : (
-                                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-bold flex items-center gap-1 mt-0.5">
-                                      <AlertTriangle className="h-3 w-3 shrink-0 text-amber-500" />
-                                      Não encontrado no catálogo
+                                    <span className="text-[10px] text-amber-600 dark:text-amber-400 font-medium flex items-center gap-1 mt-0.5">
+                                      <span className="size-1 rounded-full bg-amber-500 shrink-0" />
+                                      Fora do catálogo
                                     </span>
                                   )}
                                   {ex.isRequestedOfficial && (
-                                    <span className="text-[10px] text-amber-600 font-bold block mt-0.5">
+                                    <span className="text-[10px] text-amber-600 font-medium block mt-0.5">
                                       ★ Solicitado para inclusão oficial
                                     </span>
                                   )}
                                 </div>
-                                <span className="text-muted-foreground font-semibold shrink-0">
+                                <span className="text-muted-foreground font-medium shrink-0">
                                   {ex.sets || 3}x {ex.reps || "10-12"} {ex.load ? `• ${ex.load}kg` : ""}
                                 </span>
                               </div>
                             );
                           })}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {isAssessment && (
+                    <div className="space-y-2 text-muted-foreground">
+                      <div className="text-[11px] font-semibold text-foreground">
+                        Data: {norm.date || "não informada"}
+                      </div>
+                      <div className="grid grid-cols-2 gap-2 text-[11px] pt-1">
+                        <div className="bg-muted/40 p-2 rounded-xl border border-border/40">
+                          <span className="text-muted-foreground block text-[10px]">Peso</span>
+                          <span className="font-bold text-foreground">{norm.weight ? `${norm.weight} kg` : "—"}</span>
+                        </div>
+                        <div className="bg-muted/40 p-2 rounded-xl border border-border/40">
+                          <span className="text-muted-foreground block text-[10px]">Altura</span>
+                          <span className="font-bold text-foreground">{norm.height ? `${norm.height} m` : "—"}</span>
+                        </div>
+                        <div className="bg-muted/40 p-2 rounded-xl border border-border/40">
+                          <span className="text-muted-foreground block text-[10px]">% Gordura</span>
+                          <span className="font-bold text-foreground">{norm.bodyFat ? `${norm.bodyFat}%` : "—"}</span>
+                        </div>
+                        <div className="bg-muted/40 p-2 rounded-xl border border-border/40">
+                          <span className="text-muted-foreground block text-[10px]">Massa Muscular</span>
+                          <span className="font-bold text-foreground">{norm.muscleMass ? `${norm.muscleMass} kg` : "—"}</span>
+                        </div>
+                      </div>
+                      {norm.notes && (
+                        <div className="text-[11px] bg-muted/20 p-2 rounded-xl border border-border/30 text-foreground">
+                          <span className="font-semibold block text-[10px] text-muted-foreground">Observações:</span>
+                          {norm.notes}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {isMeasurement && (
+                    <div className="space-y-2 text-muted-foreground">
+                      <div className="text-[11px] font-semibold text-foreground">
+                        Data: {norm.date || "não informada"}
+                      </div>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 gap-1.5 text-[11px] pt-1">
+                        <div className="bg-muted/40 p-2 rounded-xl border border-border/40">
+                          <span className="text-muted-foreground block text-[10px]">Peitoral</span>
+                          <span className="font-bold text-foreground">{norm.chest ? `${norm.chest} cm` : "—"}</span>
+                        </div>
+                        <div className="bg-muted/40 p-2 rounded-xl border border-border/40">
+                          <span className="text-muted-foreground block text-[10px]">Cintura</span>
+                          <span className="font-bold text-foreground">{norm.waist ? `${norm.waist} cm` : "—"}</span>
+                        </div>
+                        <div className="bg-muted/40 p-2 rounded-xl border border-border/40">
+                          <span className="text-muted-foreground block text-[10px]">Abdômen</span>
+                          <span className="font-bold text-foreground">{norm.abdomen ? `${norm.abdomen} cm` : "—"}</span>
+                        </div>
+                        <div className="bg-muted/40 p-2 rounded-xl border border-border/40">
+                          <span className="text-muted-foreground block text-[10px]">Quadril</span>
+                          <span className="font-bold text-foreground">{norm.hips ? `${norm.hips} cm` : "—"}</span>
+                        </div>
+                        <div className="bg-muted/40 p-2 rounded-xl border border-border/40">
+                          <span className="text-muted-foreground block text-[10px]">Braço D / E</span>
+                          <span className="font-bold text-foreground">{norm.rightArm || "—"} / {norm.leftArm || "—"} cm</span>
+                        </div>
+                        <div className="bg-muted/40 p-2 rounded-xl border border-border/40">
+                          <span className="text-muted-foreground block text-[10px]">Coxa D / E</span>
+                          <span className="font-bold text-foreground">{norm.rightThigh || "—"} / {norm.leftThigh || "—"} cm</span>
+                        </div>
+                        <div className="bg-muted/40 p-2 rounded-xl border border-border/40 col-span-2 sm:col-span-1">
+                          <span className="text-muted-foreground block text-[10px]">Panturrilha D / E</span>
+                          <span className="font-bold text-foreground">{norm.rightCalf || "—"} / {norm.leftCalf || "—"} cm</span>
+                        </div>
+                      </div>
+                      {norm.notes && (
+                        <div className="text-[11px] bg-muted/20 p-2 rounded-xl border border-border/30 text-foreground">
+                          <span className="font-semibold block text-[10px] text-muted-foreground">Observações:</span>
+                          {norm.notes}
                         </div>
                       )}
                     </div>
@@ -503,10 +680,16 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
       )}
 
       {/* Sticky Bottom Action Bar no Mobile */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-md border-t border-border/60 z-40">
+      <div className="sm:hidden fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-md border-t border-border/60 z-40 space-y-2">
+        {pendingCount > 0 && (
+          <div className="text-[11px] font-medium text-amber-600 dark:text-amber-400 text-center flex items-center justify-center gap-1.5">
+            <span className="size-1.5 rounded-full bg-amber-500 shrink-0" />
+            <span>{pendingCount} pendência(s) a resolver antes de finalizar</span>
+          </div>
+        )}
         <Button
           className="w-full h-12 gap-2 font-bold rounded-2xl text-sm shadow-md"
-          disabled={isGeneratingPreview}
+          disabled={pendingCount > 0 || isGeneratingPreview}
           onClick={handleOpenConfirmation}
         >
           {isGeneratingPreview ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
@@ -780,6 +963,207 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
                         </div>
                       );
                     })}
+                  </div>
+                </div>
+              )}
+
+              {editingRecord.entityType === "ASSESSMENT" && (
+                <div className="space-y-3 pt-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">Data da Avaliação</Label>
+                      <Input
+                        value={editFormData.date || ""}
+                        onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
+                        placeholder="Ex: 22/07/2026"
+                        className="h-10 text-xs rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">Tipo / Descrição</Label>
+                      <Input
+                        value={editFormData.type || ""}
+                        onChange={(e) => setEditFormData({ ...editFormData, type: e.target.value })}
+                        placeholder="Ex: Avaliação Física Inicial"
+                        className="h-10 text-xs rounded-xl"
+                      />
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">Peso (kg)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={editFormData.weight ?? ""}
+                        onChange={(e) => setEditFormData({ ...editFormData, weight: parseFloat(e.target.value) || null })}
+                        className="h-10 text-xs rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">Altura (m)</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        value={editFormData.height ?? ""}
+                        onChange={(e) => setEditFormData({ ...editFormData, height: parseFloat(e.target.value) || null })}
+                        className="h-10 text-xs rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">% Gordura</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={editFormData.bodyFat ?? ""}
+                        onChange={(e) => setEditFormData({ ...editFormData, bodyFat: parseFloat(e.target.value) || null })}
+                        className="h-10 text-xs rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">Massa Muscular (kg)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={editFormData.muscleMass ?? ""}
+                        onChange={(e) => setEditFormData({ ...editFormData, muscleMass: parseFloat(e.target.value) || null })}
+                        className="h-10 text-xs rounded-xl"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1 pt-1">
+                    <Label className="text-xs font-bold">Observações / Anotações</Label>
+                    <Textarea
+                      value={editFormData.notes || ""}
+                      onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
+                      placeholder="Observações da avaliação..."
+                      className="text-xs rounded-xl min-h-[70px]"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {editingRecord.entityType === "MEASUREMENT" && (
+                <div className="space-y-3 pt-1">
+                  <div className="space-y-1">
+                    <Label className="text-xs font-bold">Data da Medição</Label>
+                    <Input
+                      value={editFormData.date || ""}
+                      onChange={(e) => setEditFormData({ ...editFormData, date: e.target.value })}
+                      placeholder="Ex: 22/07/2026"
+                      className="h-10 text-xs rounded-xl"
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">Peitoral (cm)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={editFormData.chest ?? ""}
+                        onChange={(e) => setEditFormData({ ...editFormData, chest: parseFloat(e.target.value) || null })}
+                        className="h-9 text-xs rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">Cintura (cm)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={editFormData.waist ?? ""}
+                        onChange={(e) => setEditFormData({ ...editFormData, waist: parseFloat(e.target.value) || null })}
+                        className="h-9 text-xs rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">Abdômen (cm)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={editFormData.abdomen ?? ""}
+                        onChange={(e) => setEditFormData({ ...editFormData, abdomen: parseFloat(e.target.value) || null })}
+                        className="h-9 text-xs rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">Quadril (cm)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={editFormData.hips ?? ""}
+                        onChange={(e) => setEditFormData({ ...editFormData, hips: parseFloat(e.target.value) || null })}
+                        className="h-9 text-xs rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">Braço Dir (cm)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={editFormData.rightArm ?? ""}
+                        onChange={(e) => setEditFormData({ ...editFormData, rightArm: parseFloat(e.target.value) || null })}
+                        className="h-9 text-xs rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">Braço Esq (cm)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={editFormData.leftArm ?? ""}
+                        onChange={(e) => setEditFormData({ ...editFormData, leftArm: parseFloat(e.target.value) || null })}
+                        className="h-9 text-xs rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">Coxa Dir (cm)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={editFormData.rightThigh ?? ""}
+                        onChange={(e) => setEditFormData({ ...editFormData, rightThigh: parseFloat(e.target.value) || null })}
+                        className="h-9 text-xs rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">Coxa Esq (cm)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={editFormData.leftThigh ?? ""}
+                        onChange={(e) => setEditFormData({ ...editFormData, leftThigh: parseFloat(e.target.value) || null })}
+                        className="h-9 text-xs rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">Panturrilha Dir (cm)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={editFormData.rightCalf ?? ""}
+                        onChange={(e) => setEditFormData({ ...editFormData, rightCalf: parseFloat(e.target.value) || null })}
+                        className="h-9 text-xs rounded-xl"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs font-bold">Panturrilha Esq (cm)</Label>
+                      <Input
+                        type="number"
+                        step="0.1"
+                        value={editFormData.leftCalf ?? ""}
+                        onChange={(e) => setEditFormData({ ...editFormData, leftCalf: parseFloat(e.target.value) || null })}
+                        className="h-9 text-xs rounded-xl"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-1 pt-1">
+                    <Label className="text-xs font-bold">Observações / Anotações</Label>
+                    <Textarea
+                      value={editFormData.notes || ""}
+                      onChange={(e) => setEditFormData({ ...editFormData, notes: e.target.value })}
+                      placeholder="Observações das medidas corporais..."
+                      className="text-xs rounded-xl min-h-[70px]"
+                    />
                   </div>
                 </div>
               )}

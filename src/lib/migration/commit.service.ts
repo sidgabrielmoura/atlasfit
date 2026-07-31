@@ -70,6 +70,25 @@ export async function generateCommitPreview(jobId: string, workspaceId: string):
     }
   }
 
+  const pendingRecords = job.records.filter((r) => {
+    if (r.status === "SKIPPED") return false;
+    if (r.reviewStatus === "PENDING") return true;
+    const norm = (r.normalizedData as any) || {};
+    if (r.entityType === "WORKOUT") {
+      if (norm.dayOfWeek === null || norm.dayOfWeek === undefined || !parseDayOfWeekToInt(norm.dayOfWeek)) return true;
+      if (!norm.exercises || norm.exercises.length === 0) return true;
+      if (norm.exercises.some((ex: any) => !ex.matchedExerciseId && !ex.matchedExerciseName && !ex.isRequestedOfficial)) return true;
+    }
+    if (r.entityType === "STUDENT") {
+      if (!norm.email && !norm.phone) return true;
+    }
+    return false;
+  });
+
+  if (pendingRecords.length > 0) {
+    throw new Error(`Existem ${pendingRecords.length} registro(s) com pendências (dias de execução não definidos, falta de contatos ou exercícios fora do catálogo). Corrija os itens em destaque antes de prosseguir.`);
+  }
+
   // Mark job as previewValidated = true for the current commitVersion
   await prisma.importJob.update({
     where: { id: jobId },
