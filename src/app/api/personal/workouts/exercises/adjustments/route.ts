@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { NotificationService } from "@/lib/notifications/service";
+import { NotificationType, NotificationCategory, NotificationPriority } from "@/lib/notifications/types";
 
 // GET /api/personal/workouts/exercises/adjustments
 export async function GET(req: Request) {
@@ -118,6 +120,20 @@ export async function POST(req: Request) {
         isReadByAdmin: false,  // Unread by SuperAdmin
       },
     });
+
+    try {
+      const personalName = session.user.name || session.user.email || "Personal Trainer";
+      await NotificationService.sendToSuperAdmins({
+        type: NotificationType.SYSTEM,
+        category: NotificationCategory.MESSAGE,
+        title: "Solicitação de Reajuste 🔄",
+        description: `${personalName} solicitou reajuste no exercício "${exerciseExists.name}": "${description.trim().substring(0, 80)}..."`,
+        priority: NotificationPriority.HIGH,
+        deepLink: "/superadmin/exercises"
+      });
+    } catch (notifErr) {
+      console.error("Erro ao notificar superadmins sobre reajuste:", notifErr);
+    }
 
     return NextResponse.json(adjustmentRequest);
   } catch (error) {

@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { NotificationService } from "@/lib/notifications/service";
+import { NotificationType, NotificationCategory, NotificationPriority } from "@/lib/notifications/types";
 
 // GET /api/personal/workouts/exercises
 export async function GET(req: Request) {
@@ -40,12 +42,13 @@ export async function GET(req: Request) {
           OR: [
             { isOfficial: true },
             { status: "READY" },
-            { status: "APPROVED" }
+            { status: "APPROVED" },
+            { creatorId: session.user.id }
           ]
         },
         {
           status: {
-            notIn: ["PENDING", "NEEDS_CONFIG", "REJECTED"]
+            notIn: ["REJECTED"]
           }
         }
       ]
@@ -208,6 +211,20 @@ export async function POST(req: Request) {
         status: "PENDING",
       },
     });
+
+    try {
+      const personalName = session.user.name || session.user.email || "Personal Trainer";
+      await NotificationService.sendToSuperAdmins({
+        type: NotificationType.SYSTEM,
+        category: NotificationCategory.SYSTEM,
+        title: "Novo Exercício Solicitado 🏋️",
+        description: `O personal ${personalName} solicitou o exercício "${exerciseRequest.name}".`,
+        priority: NotificationPriority.HIGH,
+        deepLink: "/superadmin/exercises"
+      });
+    } catch (notifErr) {
+      console.error("Erro ao notificar superadmins sobre novo exercício:", notifErr);
+    }
 
     return NextResponse.json(exerciseRequest, { status: 201 });
   } catch (error) {

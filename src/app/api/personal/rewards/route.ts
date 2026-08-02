@@ -233,29 +233,19 @@ export async function POST(req: Request) {
     });
 
     try {
-      // Find all superadmins
-      const superadmins = await prisma.user.findMany({
-        where: { role: "SUPERADMIN" },
-        select: { id: true }
-      });
-
-      // Find requesting trainer's name
       const trainer = await prisma.user.findUnique({
         where: { id: userId },
         select: { name: true }
       });
 
-      for (const admin of superadmins) {
-        await NotificationService.sendNotification({
-          userId: admin.id,
-          type: "SYSTEM",
-          category: "FINANCE",
-          title: "Novo Pedido de Saque PIX 💸",
-          description: `${trainer?.name || "Um personal trainer"} solicitou um resgate de ${amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} via PIX.`,
-          priority: "HIGH",
-          deepLink: "/superadmin/finance/payouts"
-        });
-      }
+      await NotificationService.sendToSuperAdmins({
+        type: "SYSTEM",
+        category: "FINANCE",
+        title: "Novo Pedido de Saque PIX 💸",
+        description: `${trainer?.name || "Um personal trainer"} solicitou um resgate de ${amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} via PIX.`,
+        priority: "HIGH",
+        deepLink: "/superadmin/finance/payouts"
+      });
     } catch (err) {
       console.error("Erro ao enviar notificações de saque para superadmin:", err);
     }

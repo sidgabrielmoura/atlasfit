@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { NotificationService } from "@/lib/notifications/service";
+import { NotificationType, NotificationCategory, NotificationPriority } from "@/lib/notifications/types";
 
 // POST /api/personal/workouts/exercises/adjustments/[id]/messages
 export async function POST(
@@ -61,6 +63,48 @@ export async function POST(
           isReadByTrainer: true,
         },
       });
+    }
+
+    // Publish real-time message via Ably
+    try {
+      const { publishToChannel } = await import("@/lib/ably");
+      await publishToChannel(`adjustment-request-${requestId}`, "new_message", {
+        ...newMessage,
+        sender: {
+          id: session.user.id,
+          name: session.user.name,
+          role: session.user.role,
+        },
+      });
+    } catch (ablyErr) {
+      console.error("Ably publish error:", ablyErr);
+    }
+
+    // Send in-app & push notification
+    try {
+      if (isTrainer) {
+        const senderName = session.user.name || "Personal Trainer";
+        await NotificationService.sendToSuperAdmins({
+          type: NotificationType.MESSAGE_RECEIVED,
+          category: NotificationCategory.MESSAGE,
+          title: "Nova Mensagem em Reajuste 💬",
+          description: `${senderName}: "${message.trim().substring(0, 80)}"`,
+          priority: NotificationPriority.NORMAL,
+          deepLink: "/superadmin/exercises"
+        });
+      } else if (isAdmin) {
+        await NotificationService.sendNotification({
+          userId: request.requesterId,
+          type: NotificationType.MESSAGE_RECEIVED,
+          category: NotificationCategory.MESSAGE,
+          title: "Resposta do Administrador 💬",
+          description: `SuperAdmin enviou uma mensagem sobre seu pedido de reajuste.`,
+          priority: NotificationPriority.NORMAL,
+          deepLink: "/personal/workouts"
+        });
+      }
+    } catch (notifErr) {
+      console.error("Erro ao enviar notificação de mensagem de reajuste:", notifErr);
     }
 
     return NextResponse.json(newMessage);

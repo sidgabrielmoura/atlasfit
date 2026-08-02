@@ -77,6 +77,7 @@ import {
 } from "@/components/ui/sheet";
 import { useSnapshot } from "valtio";
 import { workspaceStore } from "@/stores/workspace.store";
+import { useAbly } from "@/providers/ably-provider";
 
 const container = {
   hidden: { opacity: 0 },
@@ -144,6 +145,83 @@ export default function WorkoutsPage() {
   // Exercise Preview State
   const [previewExercise, setPreviewExercise] = useState<any>(null);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+
+  // Ver Todos e Limpar States
+  const [isAllRequestedModalOpen, setIsAllRequestedModalOpen] = useState(false);
+  const [isAllAdjustmentsModalOpen, setIsAllAdjustmentsModalOpen] = useState(false);
+  const [isClearRequestedAlertOpen, setIsClearRequestedAlertOpen] = useState(false);
+  const [isClearAdjustmentsAlertOpen, setIsClearAdjustmentsAlertOpen] = useState(false);
+  const [isClearingRequested, setIsClearingRequested] = useState(false);
+  const [isClearingAdjustments, setIsClearingAdjustments] = useState(false);
+
+  const ably = useAbly();
+
+  // Escuta tempo real do Ably para o Chat de Reajuste
+  useEffect(() => {
+    if (!ably || !selectedAdjustment?.id || !isAdjustmentDetailModalOpen) return;
+
+    const channelName = `adjustment-request-${selectedAdjustment.id}`;
+    const channel = ably.channels.get(channelName);
+
+    const handleNewMessage = (msg: any) => {
+      const payload = msg.data;
+      if (!payload || !payload.id) return;
+
+      setSelectedAdjustment((prev: any) => {
+        if (!prev || prev.id !== selectedAdjustment.id) return prev;
+        const exists = prev.messages?.some((m: any) => m.id === payload.id);
+        if (exists) return prev;
+        return {
+          ...prev,
+          messages: [...(prev.messages || []), payload],
+        };
+      });
+    };
+
+    channel.subscribe("new_message", handleNewMessage);
+
+    return () => {
+      channel.unsubscribe("new_message", handleNewMessage);
+    };
+  }, [ably, selectedAdjustment?.id, isAdjustmentDetailModalOpen]);
+
+  const handleClearRequestedExercises = async () => {
+    try {
+      setIsClearingRequested(true);
+      const res = await fetch("/api/personal/workouts/exercises/requested/clear", { method: "POST" });
+      if (res.ok) {
+        toast.success("Solicitações de exercícios limpas com sucesso.");
+        fetchRequestedExercises();
+        setIsAllRequestedModalOpen(false);
+      } else {
+        toast.error("Erro ao limpar solicitações de exercícios.");
+      }
+    } catch (err) {
+      toast.error("Erro ao limpar solicitações.");
+    } finally {
+      setIsClearingRequested(false);
+      setIsClearRequestedAlertOpen(false);
+    }
+  };
+
+  const handleClearAdjustmentRequests = async () => {
+    try {
+      setIsClearingAdjustments(true);
+      const res = await fetch("/api/personal/workouts/exercises/adjustments/clear", { method: "POST" });
+      if (res.ok) {
+        toast.success("Solicitações de reajuste limpas com sucesso.");
+        fetchAdjustmentRequests();
+        setIsAllAdjustmentsModalOpen(false);
+      } else {
+        toast.error("Erro ao limpar reajustes.");
+      }
+    } catch (err) {
+      toast.error("Erro ao limpar solicitações.");
+    } finally {
+      setIsClearingAdjustments(false);
+      setIsClearAdjustmentsAlertOpen(false);
+    }
+  };
 
   // Debounce exercise search
   useEffect(() => {
@@ -730,17 +808,38 @@ export default function WorkoutsPage() {
 
           {adjustmentRequests.length > 0 && (
             <div className="space-y-4 p-5 rounded-xl border border-border/80 bg-card/25 backdrop-blur-md shadow-sm">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <h3 className="font-semibold text-base flex items-center gap-2 text-foreground">
                   <RefreshCw className="size-4.5 text-primary" />
-                  Solicitações de Reajuste de Exercícios
+                  Solicitações de Reajuste
+                  <Badge variant="secondary" className="text-[11px] bg-primary/10 text-primary font-bold rounded-full px-2 py-0.5 ml-1">
+                    {adjustmentRequests.length}
+                  </Badge>
                 </h3>
-                <Badge variant="secondary" className="text-xs bg-primary/10 text-primary hover:bg-primary/20 rounded-full px-2.5">
-                  {adjustmentRequests.length} {adjustmentRequests.length === 1 ? "solicitação" : "solicitações"}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs font-semibold rounded-xl gap-1.5"
+                    onClick={() => setIsAllAdjustmentsModalOpen(true)}
+                  >
+                    Ver Todos ({adjustmentRequests.length})
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs font-semibold rounded-xl gap-1.5 text-muted-foreground hover:text-destructive"
+                    onClick={() => setIsClearAdjustmentsAlertOpen(true)}
+                  >
+                    <Trash2 className="size-3.5" /> Limpar
+                  </Button>
+                </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {adjustmentRequests.map((request) => {
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {adjustmentRequests.slice(0, 3).map((request) => {
                   const unreadMessagesCount = request.messages.filter(
                     (m: any) => m.senderId !== request.requesterId && !m.isReadByTrainer
                   ).length;
@@ -748,15 +847,15 @@ export default function WorkoutsPage() {
                   return (
                     <div
                       key={request.id}
-                      className="p-4 rounded-xl border border-border/50 bg-secondary/5 hover:bg-secondary/10 transition-all flex items-center justify-between gap-4 min-w-0 cursor-pointer relative"
+                      className="p-3.5 rounded-xl border border-border/50 bg-secondary/5 hover:bg-secondary/10 transition-all flex items-center justify-between gap-3 min-w-0 cursor-pointer relative"
                       onClick={() => {
                         setSelectedAdjustment(request);
                         setIsAdjustmentDetailModalOpen(true);
                       }}
                     >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <div className="size-9 rounded-lg bg-secondary/40 flex items-center justify-center shrink-0 border border-border/20 relative">
-                          <AlertTriangle className="size-4 text-muted-foreground/60" />
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div className="size-8 rounded-lg bg-secondary/40 flex items-center justify-center shrink-0 border border-border/20 relative">
+                          <AlertTriangle className="size-3.5 text-muted-foreground/60" />
                           {unreadMessagesCount > 0 && (
                             <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white animate-pulse">
                               {unreadMessagesCount}
@@ -764,17 +863,17 @@ export default function WorkoutsPage() {
                           )}
                         </div>
                         <div className="min-w-0">
-                          <h4 className="font-medium text-sm truncate text-foreground leading-snug">
+                          <h4 className="font-semibold text-xs truncate text-foreground leading-snug">
                             {request.exercise?.name || "Exercício"}
                           </h4>
-                          <p className="text-xs text-muted-foreground mt-0.5 truncate max-w-[200px]">
+                          <p className="text-[11px] text-muted-foreground truncate">
                             {request.description}
                           </p>
                         </div>
                       </div>
                       <Badge
                         className={cn(
-                          "text-[10px] px-2 py-0.5 rounded-full shrink-0 border font-medium bg-transparent shadow-none",
+                          "text-[9px] px-2 py-0.5 rounded-full shrink-0 border font-medium bg-transparent shadow-none",
                           request.status === "PENDING" && "text-amber-500 border-amber-500/20 bg-amber-500/5",
                           request.status === "RESOLVED" && "text-emerald-500 border-emerald-500/20 bg-emerald-500/5"
                         )}
@@ -790,45 +889,58 @@ export default function WorkoutsPage() {
 
           {requestedExercises.length > 0 && (
             <div className="space-y-4 p-5 rounded-xl border border-border/80 bg-card/25 backdrop-blur-md shadow-sm">
-              <div className="flex items-center justify-between">
+              <div className="flex items-center justify-between gap-2 flex-wrap">
                 <h3 className="font-semibold text-base flex items-center gap-2 text-foreground">
                   <MessageSquarePlus className="size-4.5 text-primary" />
                   Exercícios Solicitados
+                  <Badge variant="secondary" className="text-[11px] bg-primary/10 text-primary font-bold rounded-full px-2 py-0.5 ml-1">
+                    {requestedExercises.length}
+                  </Badge>
                 </h3>
-                <Badge variant="secondary" className="text-xs bg-primary/10 text-primary hover:bg-primary/20 rounded-full px-2.5">
-                  {requestedExercises.length} {requestedExercises.length === 1 ? "solicitação" : "solicitações"}
-                </Badge>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="h-8 text-xs font-semibold rounded-xl gap-1.5"
+                    onClick={() => setIsAllRequestedModalOpen(true)}
+                  >
+                    Ver Todos ({requestedExercises.length})
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="h-8 text-xs font-semibold rounded-xl gap-1.5 text-muted-foreground hover:text-destructive"
+                    onClick={() => setIsClearRequestedAlertOpen(true)}
+                  >
+                    <Trash2 className="size-3.5" /> Limpar
+                  </Button>
+                </div>
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-                {requestedExercises.map((request) => (
+
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {requestedExercises.slice(0, 3).map((request) => (
                   <div
                     key={request.id}
-                    className="p-4 rounded-xl border border-border/50 bg-secondary/5 hover:bg-secondary/10 transition-all flex items-center justify-between gap-4 min-w-0"
+                    className="p-3.5 rounded-xl border border-border/50 bg-secondary/5 hover:bg-secondary/10 transition-all flex items-center justify-between gap-3 min-w-0"
                   >
-                    <div className="flex items-center gap-3 min-w-0">
-                      <div className="size-9 rounded-lg bg-secondary/40 flex items-center justify-center shrink-0 border border-border/20">
-                        <PlaySquare className="size-4 text-muted-foreground/60" />
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <div className="size-8 rounded-lg bg-secondary/40 flex items-center justify-center shrink-0 border border-border/20">
+                        <PlaySquare className="size-3.5 text-muted-foreground/60" />
                       </div>
                       <div className="min-w-0">
-                        <h4 className="font-medium text-sm truncate text-foreground leading-snug">{request.name}</h4>
-                        <p className="text-xs text-muted-foreground mt-0.5 flex items-center gap-1.5">
-                          <Activity className="size-3 shrink-0" />
-                          <span className="truncate">
-                            {request.muscleGroups && request.muscleGroups.length > 0
-                              ? request.muscleGroups.map((g: any) => g.name).join(", ")
-                              : (request.muscleGroup?.name || "Sem grupo")}
-                          </span>
-                          {request.videoUrl && (
-                            <span className="flex items-center gap-1 text-primary/80 border-l border-border/60 pl-1.5 shrink-0">
-                              Vídeo
-                            </span>
-                          )}
+                        <h4 className="font-semibold text-xs truncate text-foreground leading-snug">{request.name}</h4>
+                        <p className="text-[11px] text-muted-foreground truncate">
+                          {request.muscleGroups && request.muscleGroups.length > 0
+                            ? request.muscleGroups.map((g: any) => g.name).join(", ")
+                            : (request.muscleGroup?.name || "Sem grupo")}
                         </p>
                       </div>
                     </div>
                     <Badge
                       className={cn(
-                        "text-[10px] px-2 py-0.5 rounded-full shrink-0 border font-medium bg-transparent shadow-none",
+                        "text-[9px] px-2 py-0.5 rounded-full shrink-0 border font-medium bg-transparent shadow-none",
                         request.status === "PENDING" && "text-amber-500 border-amber-500/20 bg-amber-500/5",
                         request.status === "APPROVED" && "text-emerald-500 border-emerald-500/20 bg-emerald-500/5",
                         request.status === "REJECTED" && "text-rose-500 border-rose-500/20 bg-rose-500/5"
@@ -1225,6 +1337,171 @@ export default function WorkoutsPage() {
           <AlertDialogFooter>
             <AlertDialogCancel className="bg-transparent border-border text-muted-foreground hover:text-foreground hover:bg-secondary rounded-xl">Cancelar</AlertDialogCancel>
             <AlertDialogAction onClick={handleConfirmDelete} className="bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-xl">Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Modal: Todos os Exercícios Solicitados */}
+      <Dialog open={isAllRequestedModalOpen} onOpenChange={setIsAllRequestedModalOpen}>
+        <DialogContent className="max-w-2xl w-[95%] rounded-2xl! bg-card border border-border text-foreground p-5 sm:p-6 space-y-4">
+          <DialogHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-3">
+            <div>
+              <DialogTitle className="text-lg font-bold text-foreground">Todos os Exercícios Solicitados</DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Histórico completo de solicitações enviadas ao SuperAdmin.
+              </DialogDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="text-xs rounded-xl gap-1 text-destructive border-destructive/30 hover:bg-destructive/10 shrink-0"
+              onClick={() => setIsClearRequestedAlertOpen(true)}
+            >
+              <Trash2 className="size-3.5" /> Limpar Histórico
+            </Button>
+          </DialogHeader>
+
+          <div className="max-h-[60vh] overflow-y-auto space-y-2 pr-1">
+            {requestedExercises.length === 0 ? (
+              <p className="text-center py-8 text-xs text-muted-foreground">Nenhum exercício solicitado registrado.</p>
+            ) : (
+              requestedExercises.map((request) => (
+                <div
+                  key={request.id}
+                  className="p-3.5 rounded-xl border border-border/50 bg-secondary/5 flex items-center justify-between gap-3 text-xs"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="size-8 rounded-lg bg-secondary/40 flex items-center justify-center shrink-0 border border-border/20">
+                      <PlaySquare className="size-3.5 text-muted-foreground/60" />
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="font-semibold text-sm truncate text-foreground">{request.name}</h4>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {request.muscleGroups && request.muscleGroups.length > 0
+                          ? request.muscleGroups.map((g: any) => g.name).join(", ")
+                          : (request.muscleGroup?.name || "Sem grupo")}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge
+                    className={cn(
+                      "text-[10px] px-2 py-0.5 rounded-full shrink-0 border font-semibold bg-transparent shadow-none",
+                      request.status === "PENDING" && "text-amber-500 border-amber-500/20 bg-amber-500/5",
+                      request.status === "APPROVED" && "text-emerald-500 border-emerald-500/20 bg-emerald-500/5",
+                      request.status === "REJECTED" && "text-rose-500 border-rose-500/20 bg-rose-500/5"
+                    )}
+                  >
+                    {request.status === "PENDING" && "Pendente"}
+                    {request.status === "APPROVED" && "Aprovado"}
+                    {request.status === "REJECTED" && "Recusado"}
+                  </Badge>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal: Todas as Solicitações de Reajuste */}
+      <Dialog open={isAllAdjustmentsModalOpen} onOpenChange={setIsAllAdjustmentsModalOpen}>
+        <DialogContent className="max-w-2xl w-[95%] rounded-2xl bg-card border border-border text-foreground p-5 sm:p-6 space-y-4">
+          <DialogHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-3">
+            <div>
+              <DialogTitle className="text-lg font-bold text-foreground">Todas as Solicitações de Reajuste</DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Histórico de solicitações de reajuste enviadas para a equipe.
+              </DialogDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="text-xs rounded-xl gap-1 text-destructive border-destructive/30 hover:bg-destructive/10 shrink-0"
+              onClick={() => setIsClearAdjustmentsAlertOpen(true)}
+            >
+              <Trash2 className="size-3.5" /> Limpar Histórico
+            </Button>
+          </DialogHeader>
+
+          <div className="max-h-[60vh] overflow-y-auto space-y-2 pr-1">
+            {adjustmentRequests.length === 0 ? (
+              <p className="text-center py-8 text-xs text-muted-foreground">Nenhuma solicitação de reajuste registrada.</p>
+            ) : (
+              adjustmentRequests.map((request) => (
+                <div
+                  key={request.id}
+                  className="p-3.5 rounded-xl border border-border/50 bg-secondary/5 hover:bg-secondary/10 transition-all flex items-center justify-between gap-3 min-w-0 cursor-pointer"
+                  onClick={() => {
+                    setSelectedAdjustment(request);
+                    setIsAllAdjustmentsModalOpen(false);
+                    setIsAdjustmentDetailModalOpen(true);
+                  }}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="size-8 rounded-lg bg-secondary/40 flex items-center justify-center shrink-0 border border-border/20">
+                      <AlertTriangle className="size-3.5 text-muted-foreground/60" />
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="font-semibold text-sm truncate text-foreground">{request.exercise?.name || "Exercício"}</h4>
+                      <p className="text-xs text-muted-foreground truncate">{request.description}</p>
+                    </div>
+                  </div>
+                  <Badge
+                    className={cn(
+                      "text-[10px] px-2 py-0.5 rounded-full shrink-0 border font-semibold bg-transparent shadow-none",
+                      request.status === "PENDING" && "text-amber-500 border-amber-500/20 bg-amber-500/5",
+                      request.status === "RESOLVED" && "text-emerald-500 border-emerald-500/20 bg-emerald-500/5"
+                    )}
+                  >
+                    {request.status === "PENDING" ? "Em Aberto" : "Resolvido"}
+                  </Badge>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirmações de Limpeza */}
+      <AlertDialog open={isClearRequestedAlertOpen} onOpenChange={setIsClearRequestedAlertOpen}>
+        <AlertDialogContent className="bg-card border border-border text-foreground rounded-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Limpar Solicitações de Exercícios?</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              Esta ação irá remover o histórico de solicitações de exercícios concluídas e recusadas do seu painel.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isClearingRequested}
+              onClick={handleClearRequestedExercises}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-xl"
+            >
+              {isClearingRequested ? <Loader2 className="size-4 animate-spin" /> : "Limpar Solicitações"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isClearAdjustmentsAlertOpen} onOpenChange={setIsClearAdjustmentsAlertOpen}>
+        <AlertDialogContent className="bg-card border border-border text-foreground rounded-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Limpar Histórico de Reajustes?</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              Esta ação irá remover os reajustes marcados como resolvidos do seu painel.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isClearingAdjustments}
+              onClick={handleClearAdjustmentRequests}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-xl"
+            >
+              {isClearingAdjustments ? <Loader2 className="size-4 animate-spin" /> : "Limpar Histórico"}
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

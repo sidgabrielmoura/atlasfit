@@ -44,6 +44,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { RestTimeInput } from "@/components/application/RestTimeInput";
+import { CreateCustomExerciseDialog } from "@/components/workouts/create-custom-exercise-dialog";
 
 interface EditWorkoutPageProps {
   params: Promise<{ id: string }>;
@@ -216,6 +217,7 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
   const [loadingExercises, setLoadingExercises] = useState(false);
   const [tempSelected, setTempSelected] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isCreateCustomOpen, setIsCreateCustomOpen] = useState(false);
 
   // Load existing workout details
   useEffect(() => {
@@ -931,9 +933,20 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
                     </div>
 
                     <div className="space-y-2">
-                      <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
-                        Exercícios Disponíveis
-                      </span>
+                      <div className="flex items-center justify-between gap-2">
+                        <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
+                          Exercícios Disponíveis
+                        </span>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          className="h-7 text-[11px] font-semibold gap-1 rounded-lg border-dashed border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 shrink-0"
+                          onClick={() => setIsCreateCustomOpen(true)}
+                        >
+                          <Plus className="h-3 w-3" /> Criar Personalizado
+                        </Button>
+                      </div>
                       <Input
                         type="text"
                         placeholder="Pesquisar exercício pelo nome..."
@@ -951,10 +964,21 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
                         ) : availableExercises.filter((ex) =>
                           ex.name.toLowerCase().includes(searchQuery.toLowerCase())
                         ).length === 0 ? (
-                          <div className="py-10 text-center text-xs text-muted-foreground">
-                            {searchQuery
-                              ? "Nenhum exercício corresponde à sua pesquisa."
-                              : "Nenhum exercício registrado para este grupo."}
+                          <div className="py-10 text-center text-xs text-muted-foreground space-y-2">
+                            <p>
+                              {searchQuery
+                                ? "Nenhum exercício corresponde à sua pesquisa."
+                                : "Nenhum exercício registrado para este grupo."}
+                            </p>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              className="text-xs gap-1.5 rounded-xl border-dashed border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                              onClick={() => setIsCreateCustomOpen(true)}
+                            >
+                              <Plus className="h-3.5 w-3.5" /> Criar "{searchQuery || "Exercício"}"
+                            </Button>
                           </div>
                         ) : (
                           availableExercises
@@ -964,6 +988,7 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
                             .map((exercise) => {
                               const isAdded = selectedExercises.some((ex) => ex.exerciseId === exercise.id);
                               const isChecked = tempSelected.some((ex) => ex.id === exercise.id);
+                              const isCustom = !exercise.isOfficial || exercise.status === "PENDING";
                               return (
                                 <div
                                   key={exercise.id}
@@ -980,9 +1005,14 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
                                     type="button"
                                     disabled={isAdded}
                                     onClick={() => handleToggleTempSelected(exercise)}
-                                    className="flex-1 text-left font-medium min-w-0 truncate disabled:cursor-not-allowed"
+                                    className="flex-1 text-left font-medium min-w-0 flex items-center gap-1.5 truncate disabled:cursor-not-allowed"
                                   >
-                                    {exercise.name}
+                                    <span className="truncate">{exercise.name}</span>
+                                    {isCustom && (
+                                      <Badge variant="outline" className="text-[9px] font-semibold border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5 rounded-md px-1.5 py-0 shrink-0">
+                                        Fora do catálogo
+                                      </Badge>
+                                    )}
                                   </button>
                                   <div className="flex items-center gap-1.5 shrink-0">
                                     {exercise.videoUrl && (
@@ -1680,6 +1710,17 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
         exercise={previewExercise}
         open={isPreviewModalOpen}
         onOpenChange={setIsPreviewModalOpen}
+      />
+
+      <CreateCustomExerciseDialog
+        open={isCreateCustomOpen}
+        onOpenChange={setIsCreateCustomOpen}
+        muscleGroups={muscleGroups}
+        defaultMuscleGroupId={selectedMuscleGroupId}
+        onExerciseCreated={(newEx) => {
+          setAvailableExercises((prev) => [newEx, ...prev]);
+          setTempSelected((prev) => [...prev, newEx]);
+        }}
       />
     </div>
   );

@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 
 import { CommandMenu } from "@/components/application/command-menu";
 import { SuperAdminBreadcrumbs } from "@/components/application/superadmin-breadcrumbs";
+import { NotificationBell } from "@/components/application/notification-bell";
 
 export default function SuperAdminLayout({
   children,
@@ -25,11 +26,7 @@ export default function SuperAdminLayout({
 
           <div className="flex items-center gap-4">
             <CommandMenu />
-            
-            <Button variant="ghost" size="icon" className="size-9 rounded-lg hover:bg-secondary transition-all relative">
-              <Bell className="size-4" />
-              <span className="absolute top-2 right-2 size-2 bg-primary rounded-full border-2 border-background" />
-            </Button>
+            <NotificationBell />
           </div>
         </header>
         

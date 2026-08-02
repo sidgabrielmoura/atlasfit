@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
 import { logSystemError } from "@/lib/logger";
+import { NotificationService } from "@/lib/notifications/service";
+import { NotificationType, NotificationCategory, NotificationPriority } from "@/lib/notifications/types";
 
 export async function GET() {
   const session = await auth();
@@ -110,6 +112,19 @@ export async function POST(req: Request) {
 
       return workspace;
     });
+
+    try {
+      await NotificationService.sendToSuperAdmins({
+        type: NotificationType.SYSTEM,
+        category: NotificationCategory.SYSTEM,
+        title: "Novo Workspace Criado 🏢",
+        description: `O workspace "${newWorkspace.name}" (${newWorkspace.slug}) foi criado com sucesso.`,
+        priority: NotificationPriority.NORMAL,
+        deepLink: "/superadmin/workspaces"
+      });
+    } catch (notifErr) {
+      console.error("Erro ao notificar superadmins sobre novo workspace:", notifErr);
+    }
 
     return NextResponse.json(newWorkspace, { status: 201 });
   } catch (error) {

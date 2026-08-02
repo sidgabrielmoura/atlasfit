@@ -1,5 +1,6 @@
 import prisma from "@/lib/prisma";
 import { getAdminMessaging } from "@/lib/firebase-admin";
+import { publishToChannel } from "@/lib/ably";
 import {
   NotificationType,
   NotificationCategory,
@@ -43,6 +44,36 @@ export class NotificationService {
     });
 
     return pref.settings as unknown as UserPreferencesSettings;
+  }
+
+  static async sendToSuperAdmins(params: {
+    type: NotificationType | string;
+    category: NotificationCategory | string;
+    title: string;
+    description: string;
+    image?: string;
+    icon?: string;
+    priority?: NotificationPriority | string;
+    payload?: Record<string, any>;
+    deepLink?: string;
+    source?: string;
+    workspaceId?: string;
+  }) {
+    try {
+      const superadmins = await prisma.user.findMany({
+        where: { role: "SUPERADMIN" },
+        select: { id: true }
+      });
+
+      for (const admin of superadmins) {
+        await this.sendNotification({
+          ...params,
+          userId: admin.id
+        });
+      }
+    } catch (err) {
+      console.error("Error in sendToSuperAdmins:", err);
+    }
   }
 
   static async sendNotification(params: {
@@ -99,6 +130,12 @@ export class NotificationService {
         }
       });
       notificationId = created.id;
+
+      try {
+        await publishToChannel(`user:${userId}:notifications`, "notification:new", created);
+      } catch (ablyErr) {
+        console.warn("Failed to publish notification via Ably:", ablyErr);
+      }
     }
 
     if (catPref.push) {

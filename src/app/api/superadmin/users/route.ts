@@ -3,6 +3,8 @@ import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
 import bcryptjs from "bcryptjs";
 import { logSystemError } from "@/lib/logger";
+import { NotificationService } from "@/lib/notifications/service";
+import { NotificationType, NotificationCategory, NotificationPriority } from "@/lib/notifications/types";
 
 export async function GET() {
   const session = await auth();
@@ -89,6 +91,19 @@ export async function POST(req: Request) {
 
     // Remove password from response
     const { password: _, ...userWithoutPassword } = newUser;
+
+    try {
+      await NotificationService.sendToSuperAdmins({
+        type: NotificationType.SYSTEM,
+        category: NotificationCategory.SYSTEM,
+        title: "Novo Usuário Cadastrado 👤",
+        description: `O usuário "${newUser.name}" (${newUser.email}) foi cadastrado como ${newUser.role}.`,
+        priority: NotificationPriority.NORMAL,
+        deepLink: "/superadmin/users"
+      });
+    } catch (notifErr) {
+      console.error("Erro ao notificar superadmins sobre novo usuário:", notifErr);
+    }
 
     return NextResponse.json(userWithoutPassword, { status: 201 });
   } catch (error) {

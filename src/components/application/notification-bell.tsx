@@ -44,6 +44,9 @@ import {
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useSession } from "next-auth/react";
+import { useAbly } from "@/providers/ably-provider";
+import { playRestChimeSound } from "@/lib/audio/sound-alert";
 import { formatDistanceToNow } from "date-fns";
 import { ptBR } from "date-fns/locale";
 
@@ -157,6 +160,9 @@ export function NotificationBell() {
     }
   };
 
+  const { data: session } = useSession();
+  const ably = useAbly();
+
   useEffect(() => {
     fetchNotifications();
     fetchPreferences();
@@ -168,6 +174,38 @@ export function NotificationBell() {
     window.addEventListener("fcm-message-received", handleNewMessage);
     return () => window.removeEventListener("fcm-message-received", handleNewMessage);
   }, [activeWorkspaceId]);
+
+  // Escuta tempo real do Ably para novas notificações do usuário
+  useEffect(() => {
+    if (!ably || !session?.user?.id) return;
+
+    const channelName = `user:${session.user.id}:notifications`;
+    const channel = ably.channels.get(channelName);
+
+    const handleNewNotification = (msg: any) => {
+      const notification = msg.data;
+      if (!notification || !notification.id) return;
+
+      setNotifications((prev) => {
+        if (prev.some((n) => n.id === notification.id)) return prev;
+        return [notification, ...prev];
+      });
+
+      // Toca efeito sonoro de notificação
+      playRestChimeSound();
+
+      // Exibe toast contextual
+      toast(notification.title || "Nova Notificação", {
+        description: notification.description,
+      });
+    };
+
+    channel.subscribe("notification:new", handleNewNotification);
+
+    return () => {
+      channel.unsubscribe("notification:new", handleNewNotification);
+    };
+  }, [ably, session?.user?.id]);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 

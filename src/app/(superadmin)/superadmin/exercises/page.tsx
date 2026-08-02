@@ -67,6 +67,7 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import { useAbly } from "@/providers/ably-provider";
 
 const generatePages = (currentPage: number, totalPages: number) => {
   const pages: (number | string)[] = [];
@@ -137,6 +138,83 @@ function ExercisesContent() {
   const [sendingReply, setSendingReply] = useState(false);
   const [resolvingRequest, setResolvingRequest] = useState(false);
   const [isAllResolvedOpen, setIsAllResolvedOpen] = useState(false);
+
+  // Ver Todos e Limpar States no Superadmin
+  const [isAllRequestedModalOpen, setIsAllRequestedModalOpen] = useState(false);
+  const [isAllAdjustmentsModalOpen, setIsAllAdjustmentsModalOpen] = useState(false);
+  const [isClearRequestedAlertOpen, setIsClearRequestedAlertOpen] = useState(false);
+  const [isClearAdjustmentsAlertOpen, setIsClearAdjustmentsAlertOpen] = useState(false);
+  const [isClearingRequested, setIsClearingRequested] = useState(false);
+  const [isClearingAdjustments, setIsClearingAdjustments] = useState(false);
+
+  const ably = useAbly();
+
+  // Escuta tempo real do Ably para o Chat de Reajuste no SuperAdmin
+  useEffect(() => {
+    if (!ably || !selectedAdjustment?.id || !isReplyModalOpen) return;
+
+    const channelName = `adjustment-request-${selectedAdjustment.id}`;
+    const channel = ably.channels.get(channelName);
+
+    const handleNewMessage = (msg: any) => {
+      const payload = msg.data;
+      if (!payload || !payload.id) return;
+
+      setSelectedAdjustment((prev: any) => {
+        if (!prev || prev.id !== selectedAdjustment.id) return prev;
+        const exists = prev.messages?.some((m: any) => m.id === payload.id);
+        if (exists) return prev;
+        return {
+          ...prev,
+          messages: [...(prev.messages || []), payload],
+        };
+      });
+    };
+
+    channel.subscribe("new_message", handleNewMessage);
+
+    return () => {
+      channel.unsubscribe("new_message", handleNewMessage);
+    };
+  }, [ably, selectedAdjustment?.id, isReplyModalOpen]);
+
+  const handleClearRequestedExercises = async () => {
+    try {
+      setIsClearingRequested(true);
+      const res = await fetch("/api/personal/workouts/exercises/requested/clear", { method: "POST" });
+      if (res.ok) {
+        toast.success("Solicitações de exercícios limpas com sucesso.");
+        superAdminActions.fetchExercises();
+        setIsAllRequestedModalOpen(false);
+      } else {
+        toast.error("Erro ao limpar solicitações de exercícios.");
+      }
+    } catch (err) {
+      toast.error("Erro ao limpar solicitações.");
+    } finally {
+      setIsClearingRequested(false);
+      setIsClearRequestedAlertOpen(false);
+    }
+  };
+
+  const handleClearAdjustmentRequests = async () => {
+    try {
+      setIsClearingAdjustments(true);
+      const res = await fetch("/api/personal/workouts/exercises/adjustments/clear", { method: "POST" });
+      if (res.ok) {
+        toast.success("Solicitações de reajuste limpas com sucesso.");
+        fetchAdjustments();
+        setIsAllAdjustmentsModalOpen(false);
+      } else {
+        toast.error("Erro ao limpar reajustes.");
+      }
+    } catch (err) {
+      toast.error("Erro ao limpar solicitações.");
+    } finally {
+      setIsClearingAdjustments(false);
+      setIsClearAdjustmentsAlertOpen(false);
+    }
+  };
 
   const getRemainingTime = (updatedAt: string) => {
     const now = new Date();
@@ -1088,8 +1166,8 @@ function ExercisesContent() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Conversa/Resposta de Reajuste */}
-      <Dialog
+      {/* Sheet de Conversa/Resposta de Reajuste no Superadmin */}
+      <Sheet
         open={isReplyModalOpen}
         onOpenChange={(open) => {
           setIsReplyModalOpen(open);
@@ -1099,77 +1177,81 @@ function ExercisesContent() {
           }
         }}
       >
-        <DialogContent className="max-w-md w-[95%] rounded-xl flex flex-col h-[520px] p-0 overflow-hidden">
+        <SheetContent side="right" className="max-w-2xl! w-full border-l border-border bg-card/95 backdrop-blur-md flex flex-col h-full p-0 overflow-hidden text-foreground">
           {selectedAdjustment && (
             <>
-              <DialogHeader className="p-5 border-b border-border/60">
-                <DialogTitle className="flex items-center gap-2 justify-between">
-                  <span className="truncate">Responder Reajuste: {selectedAdjustment.exercise?.name}</span>
+              <SheetHeader className="p-6 border-b border-border/40 bg-muted/10">
+                <SheetTitle className="flex items-center gap-3.5 justify-between">
+                  <span className="truncate text-foreground font-extrabold tracking-tight">
+                    Responder Reajuste: {selectedAdjustment.exercise?.name}
+                  </span>
                   <Badge
                     className={cn(
-                      "text-[10px] px-2 py-0.5 rounded-full shrink-0 border font-medium bg-transparent shadow-none",
-                      selectedAdjustment.status === "PENDING" && "text-amber-500 border-amber-500/20 bg-amber-500/5",
-                      selectedAdjustment.status === "RESOLVED" && "text-emerald-500 border-emerald-500/20 bg-emerald-500/5"
+                      "text-[10px] px-2.5 py-0.5 rounded-full shrink-0 border font-bold bg-transparent shadow-none tracking-wider",
+                      selectedAdjustment.status === "PENDING" && "text-amber-500 border-amber-500/25 bg-amber-500/5",
+                      selectedAdjustment.status === "RESOLVED" && "text-emerald-500 border-emerald-500/25 bg-emerald-500/5"
                     )}
                   >
                     {selectedAdjustment.status === "PENDING" ? "Em Aberto" : "Resolvido"}
                   </Badge>
-                </DialogTitle>
-                <DialogDescription className="text-xs text-muted-foreground mt-1">
+                </SheetTitle>
+                <SheetDescription className="text-xs text-muted-foreground mt-1 font-medium">
                   Solicitado por <span className="font-semibold text-foreground">{selectedAdjustment.requester?.name}</span> em {new Date(selectedAdjustment.createdAt).toLocaleDateString("pt-BR")}
-                </DialogDescription>
-              </DialogHeader>
+                </SheetDescription>
+              </SheetHeader>
 
               {/* Chat Container */}
-              <div className="flex-1 overflow-y-auto p-5 space-y-4 bg-secondary/5">
+              <div className="flex-1 overflow-y-auto p-6 space-y-5 bg-muted/20">
                 {/* Motivo Original */}
-                <div className="flex flex-col gap-1.5 p-3.5 rounded-xl border border-border bg-card shadow-sm">
-                  <span className="text-xs font-semibold text-primary uppercase tracking-wider text-[10px]">Motivo da Solicitação:</span>
-                  <p className="text-sm text-foreground leading-relaxed">{selectedAdjustment.description}</p>
+                <div className="flex flex-col gap-2 p-4 rounded-xl border border-border/45 bg-muted/40 backdrop-blur-sm shadow-inner">
+                  <span className="text-[10px] font-black text-primary uppercase tracking-widest">Motivo da Solicitação</span>
+                  <p className="text-sm text-foreground/90 leading-relaxed font-medium">{selectedAdjustment.description}</p>
                 </div>
 
-                <div className="relative flex items-center justify-center my-4">
+                <div className="relative flex items-center justify-center my-6">
                   <div className="absolute inset-0 flex items-center">
-                    <span className="w-full border-t border-border/60" />
+                    <span className="w-full border-t border-border/20" />
                   </div>
-                  <span className="relative bg-background px-3 text-[9px] text-muted-foreground uppercase tracking-widest font-bold">
-                    Histórico de Mensagens
+                  <span className="relative bg-card px-4 text-[9px] font-black text-muted-foreground uppercase tracking-widest">
+                    Conversa com o Personal Trainer
                   </span>
                 </div>
 
                 {/* Messages Thread */}
                 {selectedAdjustment.messages.length === 0 ? (
-                  <div className="text-center py-6 text-xs text-muted-foreground">
+                  <div className="text-center py-8 text-xs text-muted-foreground font-medium italic">
                     Nenhuma mensagem trocada ainda. Escreva uma resposta abaixo.
                   </div>
                 ) : (
-                  selectedAdjustment.messages.map((message: any) => {
-                    const isMe = message.senderId === null || message.sender?.role === "SUPERADMIN";
-                    return (
-                      <div
-                        key={message.id}
-                        className={cn(
-                          "flex flex-col max-w-[80%] rounded-2xl p-3 shadow-sm text-sm leading-relaxed",
-                          isMe
-                            ? "bg-primary text-primary-foreground ml-auto rounded-tr-none"
-                            : "bg-card border border-border text-foreground mr-auto rounded-tl-none"
-                        )}
-                      >
-                        <span className="text-[10px] opacity-80 mb-1 font-semibold">
-                          {isMe ? "Você (SuperAdmin)" : selectedAdjustment.requester?.name}
-                        </span>
-                        <p>{message.message}</p>
-                        <span className="text-[9px] opacity-60 mt-1 self-end">
-                          {new Date(message.createdAt).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })}
-                        </span>
-                      </div>
-                    );
-                  })
+                  <div className="space-y-4">
+                    {selectedAdjustment.messages.map((message: any) => {
+                      const isMe = message.senderId === null || message.sender?.role === "SUPERADMIN";
+                      return (
+                        <div
+                          key={message.id}
+                          className={cn(
+                            "flex flex-col max-w-[85%] rounded-2xl px-4 py-3 shadow-md text-sm leading-relaxed transition-all",
+                            isMe
+                              ? "bg-gradient-to-br from-blue-600 to-blue-700 text-white ml-auto rounded-tr-none shadow-blue-500/10"
+                              : "bg-muted border border-border/40 text-foreground mr-auto rounded-tl-none"
+                          )}
+                        >
+                          <span className="text-[9px] opacity-75 mb-1.5 font-bold uppercase tracking-wider">
+                            {isMe ? "Você (SuperAdmin)" : (selectedAdjustment.requester?.name || "Personal")}
+                          </span>
+                          <p className="font-medium whitespace-pre-wrap">{message.message}</p>
+                          <span className="text-[8px] opacity-60 mt-1.5 self-end font-semibold">
+                            {new Date(message.createdAt).toLocaleTimeString("pt-BR", { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
                 )}
               </div>
 
               {/* Footer / Input Bar */}
-              <div className="p-4 border-t border-border/60 bg-background flex flex-col gap-3">
+              <div className="p-5 border-t border-border/40 bg-muted/10 flex flex-col gap-3">
                 {selectedAdjustment.status === "PENDING" ? (
                   <>
                     <form onSubmit={handleSendReply} className="flex gap-2">
@@ -1177,10 +1259,10 @@ function ExercisesContent() {
                         placeholder="Digite sua resposta..."
                         value={replyText}
                         onChange={(e) => setReplyText(e.target.value)}
-                        className="bg-card border-border h-10 flex-1"
+                        className="bg-card border-border h-11 flex-1 text-xs rounded-xl"
                         disabled={sendingReply}
                       />
-                      <Button type="submit" size="icon" className="h-10 w-10 shrink-0" disabled={sendingReply}>
+                      <Button type="submit" size="icon" className="h-11 w-11 rounded-xl shrink-0" disabled={sendingReply}>
                         {sendingReply ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
                       </Button>
                     </form>
@@ -1188,23 +1270,199 @@ function ExercisesContent() {
                       variant="outline"
                       onClick={handleResolveRequest}
                       disabled={resolvingRequest}
-                      className="w-full h-10 gap-2 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600 font-medium"
+                      className="w-full h-10 gap-2 border-emerald-500/20 text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600 font-bold text-xs rounded-xl"
                     >
                       {resolvingRequest ? <Loader2 className="size-4 animate-spin" /> : <CheckCircle2 className="size-4" />}
                       Marcar como Resolvido
                     </Button>
                   </>
                 ) : (
-                  <div className="p-3 bg-emerald-500/5 border border-emerald-500/20 rounded-lg flex items-center justify-center gap-2 text-emerald-600 text-sm font-medium">
-                    <CheckCircle2 className="size-4" />
-                    Esta solicitação foi resolvida.
+                  <div className="text-center py-2 text-xs text-muted-foreground font-bold">
+                    Esta solicitação foi marcada como resolvida.
                   </div>
                 )}
               </div>
             </>
           )}
+        </SheetContent>
+      </Sheet>
+
+      {/* Modal: Todos os Exercícios em Análise no SuperAdmin */}
+      <Dialog open={isAllRequestedModalOpen} onOpenChange={setIsAllRequestedModalOpen}>
+        <DialogContent className="max-w-3xl w-[95%] rounded-2xl bg-card border border-border text-foreground p-5 sm:p-6 space-y-4">
+          <DialogHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-3">
+            <div>
+              <DialogTitle className="text-lg font-bold text-foreground">Todos os Exercícios Solicitados</DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Lista completa de exercícios personalizados aguardando aprovação ou já revisados.
+              </DialogDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="text-xs rounded-xl gap-1 text-destructive border-destructive/30 hover:bg-destructive/10 shrink-0"
+              onClick={() => setIsClearRequestedAlertOpen(true)}
+            >
+              <Trash2 className="size-3.5" /> Limpar Histórico
+            </Button>
+          </DialogHeader>
+
+          <div className="max-h-[60vh] overflow-y-auto space-y-2.5 pr-1">
+            {pendingExercisesRaw.length === 0 ? (
+              <p className="text-center py-8 text-xs text-muted-foreground">Nenhuma solicitação pendente no momento.</p>
+            ) : (
+              pendingExercisesRaw.map((ex: any) => (
+                <div
+                  key={ex.id}
+                  className="p-3.5 rounded-xl border border-border/50 bg-secondary/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <ExerciseThumbnail videoUrl={ex.videoUrl} className="size-9 rounded-lg shrink-0" />
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-sm text-foreground truncate">{ex.name}</h4>
+                      <p className="text-xs text-muted-foreground truncate">
+                        Solicitado por {ex.creator?.name || "Personal"} • {ex.muscleGroup?.name || "Sem Grupo"}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+                    <Badge
+                      className={cn(
+                        "text-[10px] px-2 py-0.5 rounded-full border font-semibold bg-transparent shadow-none shrink-0",
+                        ex.status === "PENDING" && "text-amber-500 border-amber-500/20 bg-amber-500/5",
+                        ex.status === "APPROVED" && "text-emerald-500 border-emerald-500/20 bg-emerald-500/5",
+                        ex.status === "REJECTED" && "text-rose-500 border-rose-500/20 bg-rose-500/5"
+                      )}
+                    >
+                      {ex.status === "PENDING" && "Pendente"}
+                      {ex.status === "APPROVED" && "Aprovado"}
+                      {ex.status === "REJECTED" && "Recusado"}
+                    </Badge>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="h-8 text-xs rounded-xl gap-1.5"
+                      onClick={() => {
+                        setIsAllRequestedModalOpen(false);
+                        openConfigModal(ex);
+                      }}
+                    >
+                      <Settings2 className="size-3.5" /> Avaliar
+                    </Button>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
         </DialogContent>
       </Dialog>
+
+      {/* Modal: Todas as Solicitações de Reajuste no SuperAdmin */}
+      <Dialog open={isAllAdjustmentsModalOpen} onOpenChange={setIsAllAdjustmentsModalOpen}>
+        <DialogContent className="max-w-3xl w-[95%] rounded-2xl bg-card border border-border text-foreground p-5 sm:p-6 space-y-4">
+          <DialogHeader className="flex flex-row items-center justify-between border-b border-border/40 pb-3">
+            <div>
+              <DialogTitle className="text-lg font-bold text-foreground">Todas as Solicitações de Reajuste</DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Lista completa de solicitações de reajuste de exercícios.
+              </DialogDescription>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="text-xs rounded-xl gap-1 text-destructive border-destructive/30 hover:bg-destructive/10 shrink-0"
+              onClick={() => setIsClearAdjustmentsAlertOpen(true)}
+            >
+              <Trash2 className="size-3.5" /> Limpar Histórico
+            </Button>
+          </DialogHeader>
+
+          <div className="max-h-[60vh] overflow-y-auto space-y-2.5 pr-1">
+            {adjustments.length === 0 ? (
+              <p className="text-center py-8 text-xs text-muted-foreground">Nenhuma solicitação de reajuste registrada.</p>
+            ) : (
+              adjustments.map((req: any) => (
+                <div
+                  key={req.id}
+                  className="p-3.5 rounded-xl border border-border/50 bg-secondary/5 hover:bg-secondary/10 transition-all flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs cursor-pointer"
+                  onClick={() => {
+                    setSelectedAdjustment(req);
+                    setIsAllAdjustmentsModalOpen(false);
+                    setIsReplyModalOpen(true);
+                  }}
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <div className="size-8 rounded-lg bg-secondary/40 flex items-center justify-center shrink-0 border border-border/20">
+                      <AlertTriangle className="size-3.5 text-muted-foreground/60" />
+                    </div>
+                    <div className="min-w-0">
+                      <h4 className="font-bold text-sm text-foreground truncate">{req.exercise?.name || "Exercício"}</h4>
+                      <p className="text-xs text-muted-foreground truncate">
+                        Solicitado por {req.requester?.name || "Personal"} • {req.description}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge
+                    className={cn(
+                      "text-[10px] px-2 py-0.5 rounded-full shrink-0 border font-semibold bg-transparent shadow-none",
+                      req.status === "PENDING" && "text-amber-500 border-amber-500/20 bg-amber-500/5",
+                      req.status === "RESOLVED" && "text-emerald-500 border-emerald-500/20 bg-emerald-500/5"
+                    )}
+                  >
+                    {req.status === "PENDING" ? "Em Aberto" : "Resolvido"}
+                  </Badge>
+                </div>
+              ))
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* AlertDialogs para Confirmação de Limpeza no Superadmin */}
+      <AlertDialog open={isClearRequestedAlertOpen} onOpenChange={setIsClearRequestedAlertOpen}>
+        <AlertDialogContent className="bg-card border border-border text-foreground rounded-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Limpar Solicitações de Exercícios?</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              Esta ação removerá o histórico de solicitações de exercícios aprovadas e recusadas do sistema.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isClearingRequested}
+              onClick={handleClearRequestedExercises}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-xl"
+            >
+              {isClearingRequested ? <Loader2 className="size-4 animate-spin" /> : "Limpar Solicitações"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isClearAdjustmentsAlertOpen} onOpenChange={setIsClearAdjustmentsAlertOpen}>
+        <AlertDialogContent className="bg-card border border-border text-foreground rounded-3xl">
+          <AlertDialogHeader>
+            <AlertDialogTitle>Limpar Histórico de Reajustes?</AlertDialogTitle>
+            <AlertDialogDescription className="text-muted-foreground">
+              Esta ação removerá do histórico todas as solicitações de reajuste marcadas como resolvidas.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel className="rounded-xl">Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={isClearingAdjustments}
+              onClick={handleClearAdjustmentRequests}
+              className="bg-destructive hover:bg-destructive/90 text-destructive-foreground rounded-xl"
+            >
+              {isClearingAdjustments ? <Loader2 className="size-4 animate-spin" /> : "Limpar Histórico"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       <AlertDialog open={!!exerciseToDelete} onOpenChange={(open) => !open && setExerciseToDelete(null)}>
         <AlertDialogContent className="rounded-2xl border-border/40">

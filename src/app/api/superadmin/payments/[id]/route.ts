@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
+import { NotificationService } from "@/lib/notifications/service";
+import { NotificationType, NotificationCategory, NotificationPriority } from "@/lib/notifications/types";
 
 export async function PATCH(
   req: Request,
@@ -29,6 +31,19 @@ export async function PATCH(
       where: { id },
       data: { status }
     });
+
+    try {
+      await NotificationService.sendToSuperAdmins({
+        type: NotificationType.PAYMENT_CONFIRMED,
+        category: NotificationCategory.FINANCE,
+        title: "Status de Pagamento Atualizado 💳",
+        description: `O pagamento no valor de R$ ${updatedPayment.amount.toFixed(2)} foi marcado como "${status}".`,
+        priority: NotificationPriority.NORMAL,
+        deepLink: "/superadmin/financial"
+      });
+    } catch (notifErr) {
+      console.error("Erro ao notificar superadmins sobre pagamento:", notifErr);
+    }
 
     return NextResponse.json(updatedPayment, { status: 200 });
   } catch (error) {
