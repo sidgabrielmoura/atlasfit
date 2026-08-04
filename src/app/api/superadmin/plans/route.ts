@@ -12,13 +12,32 @@ export async function GET() {
   }
 
   try {
-    const plans = await prisma.plan.findMany({
-      include: {
-        _count: {
-          select: { subscriptions: { where: { status: { in: ["active", "ACTIVE"] } } } }
+    let plans: any[];
+    try {
+      plans = await prisma.plan.findMany({
+        include: {
+          _count: {
+            select: { subscriptions: { where: { status: { in: ["active", "ACTIVE"] } } } }
+          }
         }
-      }
-    });
+      });
+    } catch (err) {
+      plans = await prisma.plan.findMany({
+        select: {
+          id: true,
+          name: true,
+          price: true,
+          interval: true,
+          features: true,
+          maxWorkspaces: true,
+          maxStudents: true,
+          importQuota: true,
+          _count: {
+            select: { subscriptions: { where: { status: { in: ["active", "ACTIVE"] } } } }
+          }
+        }
+      });
+    }
     return NextResponse.json(plans);
   } catch (error) {
     await logSystemError({ action: "GET_PLANS", error, entity: "PLAN" });

@@ -63,30 +63,69 @@ export async function getWorkspaceStorageBytes(workspaceId: string): Promise<{ t
  * Calculates storage metrics for a specific Personal Trainer
  */
 export async function getPersonalTrainerStorageMetrics(userId: string): Promise<PersonalStorageMetric> {
-  const user = await prisma.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      name: true,
-      email: true,
-      isTestAccount: true,
-      freeTrial: {
-        select: { isActive: true },
+  let user: any = null;
+  try {
+    user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        isTestAccount: true,
+        freeTrial: {
+          select: { isActive: true },
+        },
+        workspaces: {
+          select: { workspaceId: true },
+        },
+        subscription: {
+          include: { plan: true },
+        },
       },
-      workspaces: {
-        select: { workspaceId: true },
+    });
+  } catch (err: any) {
+    // Fallback if production DB hasn't run migration for new Plan columns like storageLimitMb
+    console.warn(`[Storage Quota] Fallback query for user ${userId} due to DB schema version:`, err?.message);
+    user = await prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        isTestAccount: true,
+        freeTrial: {
+          select: { isActive: true },
+        },
+        workspaces: {
+          select: { workspaceId: true },
+        },
+        subscription: {
+          select: {
+            id: true,
+            status: true,
+            plan: {
+              select: {
+                id: true,
+                name: true,
+                price: true,
+                interval: true,
+                features: true,
+                maxWorkspaces: true,
+                maxStudents: true,
+                importQuota: true,
+              },
+            },
+          },
+        },
       },
-      subscription: {
-        include: { plan: true },
-      },
-    },
-  });
+    });
+  }
 
   if (!user) {
     throw new Error("Usuário não encontrado.");
   }
 
-  const workspaceIds = user.workspaces ? user.workspaces.map((w) => w.workspaceId) : [];
+  const workspaceIds = user.workspaces ? user.workspaces.map((w: any) => w.workspaceId) : [];
   let totalUsedBytes = 0;
   let totalFiles = 0;
 
