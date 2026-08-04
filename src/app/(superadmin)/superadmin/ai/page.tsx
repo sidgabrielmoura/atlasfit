@@ -385,8 +385,9 @@ export default function SuperAdminAIPage() {
                         <SelectValue placeholder="Selecione o modelo" />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="gemini-1.5-flash" className="text-xs">Gemini 1.5 Flash (Recomendado)</SelectItem>
-                        <SelectItem value="gemini-1.5-pro" className="text-xs">Gemini 1.5 Pro (Visão & Raciocínio Avançado)</SelectItem>
+                        <SelectItem value="gemini-3.6-flash" className="text-xs">Gemini 3.6 Flash (Recomendado - Ultrafast OCR)</SelectItem>
+                        <SelectItem value="gemini-flash-latest" className="text-xs">Gemini Flash (Versão Estável Mais Recente)</SelectItem>
+                        <SelectItem value="gemini-pro-latest" className="text-xs">Gemini Pro (Raciocínio & Visão Avançada)</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

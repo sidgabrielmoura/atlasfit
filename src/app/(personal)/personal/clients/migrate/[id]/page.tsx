@@ -162,7 +162,7 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
         const data = await res.json();
         setAllRecords(data.records || []);
       }
-    } catch {}
+    } catch { }
   }, [jobId]);
 
   const loadRecords = useCallback(async (filter: string) => {
@@ -360,9 +360,8 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
 
         <Button
           size="lg"
-          className={`hidden sm:flex gap-2 font-bold rounded-2xl h-11 px-5 shadow-xs shrink-0 transition-all ${
-            pendingCount > 0 ? "opacity-75" : ""
-          }`}
+          className={`hidden sm:flex gap-2 font-bold rounded-2xl h-11 px-5 shadow-xs shrink-0 transition-all ${pendingCount > 0 ? "opacity-75" : ""
+            }`}
           disabled={pendingCount > 0 || isGeneratingPreview}
           onClick={handleOpenConfirmation}
         >
@@ -437,11 +436,10 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
             return (
               <Card
                 key={rec.id}
-                className={`border transition-all rounded-2xl p-4 sm:p-5 shadow-2xs space-y-3 bg-card ${
-                  isPending
-                    ? "border-l-4 border-l-amber-500/90 border-border/70"
-                    : "border-border/70"
-                }`}
+                className={`border transition-all rounded-2xl p-4 sm:p-5 shadow-2xs space-y-3 bg-card ${isPending
+                  ? "border-l-4 border-l-amber-500/90 border-border/70"
+                  : "border-border/70"
+                  }`}
               >
                 <div className="flex items-start justify-between gap-2 border-b border-border/40 pb-3">
                   <div>
@@ -459,12 +457,12 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
                       {isStudent
                         ? norm.name || "Aluno Sem Nome"
                         : isWorkout
-                        ? norm.name || "Treino"
-                        : isAssessment
-                        ? norm.type || "Avaliação Física"
-                        : isMeasurement
-                        ? "Medidas Corporais"
-                        : "Registro"}
+                          ? norm.name || "Treino"
+                          : isAssessment
+                            ? norm.type || "Avaliação Física"
+                            : isMeasurement
+                              ? "Medidas Corporais"
+                              : "Registro"}
                     </CardTitle>
                   </div>
                   <div className="flex items-center gap-1 shrink-0">
@@ -679,8 +677,7 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
         </div>
       )}
 
-      {/* Sticky Bottom Action Bar no Mobile */}
-      <div className="sm:hidden fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-md border-t border-border/60 z-40 space-y-2">
+      <div className="sm:hidden fixed bottom-18 left-0 right-0 p-4 bg-linear-to-b! from-background/70 to-transparent backdrop-blur-sm border-t border-border/60 z-40 space-y-2">
         {pendingCount > 0 && (
           <div className="text-[11px] font-medium text-amber-600 dark:text-amber-400 text-center flex items-center justify-center gap-1.5">
             <span className="size-1.5 rounded-full bg-amber-500 shrink-0" />

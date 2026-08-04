@@ -159,16 +159,12 @@ export default function NewMigrationPage() {
       const data = await res.json();
       const jobId = data.id || data.jobId;
 
-      const processRes = await fetch(`/api/personal/migration/${jobId}/process`, {
+      // Fire background extraction non-blocking so the user is immediately redirected to the tracking page
+      fetch(`/api/personal/migration/${jobId}/process`, {
         method: "POST",
+      }).catch((err) => {
+        console.error("[Migration process background error]:", err);
       });
-
-      if (!processRes.ok) {
-        const processErr = await processRes.json().catch(() => ({}));
-        toast.error(processErr.error || "Erro no processamento por IA.");
-        router.push("/personal/clients/migrate");
-        return;
-      }
 
       toast.success("Processamento iniciado! Acompanhe o progresso em tempo real.");
       router.push("/personal/clients/migrate");
@@ -192,7 +188,7 @@ export default function NewMigrationPage() {
         </Button>
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-lg sm:text-xl font-black tracking-tight text-foreground">Nova Importação de Alunos</h1>
+            <h1 className="text-lg sm:text-xl font-black tracking-tight text-foreground">Nova Importação</h1>
             <Badge variant="secondary" className="text-[10px] uppercase tracking-widest font-black bg-primary/10 text-primary">
               Automática
             </Badge>
@@ -417,12 +413,11 @@ export default function NewMigrationPage() {
             onClick={startMigrationProcess}
           >
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            <span>Iniciar Processamento</span>
+            <span>{isSubmitting ? "Iniciando..." : "Iniciar Processamento"}</span>
           </Button>
         </div>
 
-        {/* Sticky Action Bar no Mobile */}
-        <div className="sm:hidden fixed bottom-0 left-0 right-0 p-4 bg-background/95 backdrop-blur-md border-t border-border/60 z-40 shadow-xl">
+        <div className="sm:hidden fixed bottom-18 backdrop-blur-sm! left-0 right-0 p-4 bg-background/70 border-t border-border/60 z-40 shadow-xl">
           <Button
             size="lg"
             className="w-full h-12 gap-2 font-bold rounded-2xl text-sm shadow-md"
@@ -430,16 +425,15 @@ export default function NewMigrationPage() {
             onClick={startMigrationProcess}
           >
             {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-            <span>Iniciar Processamento</span>
+            <span>{isSubmitting ? "Iniciando..." : "Iniciar Processamento"}</span>
           </Button>
         </div>
       </motion.div>
 
-      {/* FILE PREVIEW DIALOG */}
       <Dialog open={!!previewingFile} onOpenChange={(open) => !open && setPreviewingFile(null)}>
-        <DialogContent className="w-[92vw] sm:max-w-md rounded-3xl p-5">
+        <DialogContent className="w-[92vw] sm:max-w-md! rounded-3xl p-5">
           <DialogHeader className="pb-2 border-b border-border/40">
-            <DialogTitle className="text-sm font-bold truncate pr-4">
+            <DialogTitle className="text-sm font-bold pr-4">
               {previewingFile?.name}
             </DialogTitle>
             <DialogDescription className="text-xs">

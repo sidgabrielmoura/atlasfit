@@ -21,16 +21,24 @@ export async function getPersonalWorkspaces() {
       const ws = member.workspace;
 
       // Find the owner of the workspace and their active subscription
-      const owner = await prisma.user.findUnique({
-        where: { id: ws.ownerId },
-        include: {
-          subscription: {
-            include: {
-              plan: true,
+      let owner: any = null;
+      try {
+        owner = await prisma.user.findUnique({
+          where: { id: ws.ownerId },
+          select: {
+            id: true,
+            subscription: {
+              select: {
+                plan: {
+                  select: { name: true },
+                },
+              },
             },
           },
-        },
-      });
+        });
+      } catch (err) {
+        console.warn("[getPersonalWorkspaces] Error fetching workspace owner plan:", err);
+      }
 
       const logo = ws.name
         .split(" ")

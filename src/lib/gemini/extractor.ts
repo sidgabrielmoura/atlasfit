@@ -31,12 +31,16 @@ export interface MigrationExtractor {
 }
 
 function sanitizeModelName(name?: string): string {
-  if (!name || typeof name !== "string") return "gemini-1.5-flash";
+  if (!name || typeof name !== "string") return "gemini-3.6-flash";
   const trimmed = name.trim().replace(/^models\//, "");
-  if (trimmed.includes("2.5") || trimmed.includes("gemini-3") || trimmed.includes("2.0")) {
-    return "gemini-1.5-flash";
+  if (
+    trimmed.includes("1.5") ||
+    trimmed.includes("2.0") ||
+    trimmed.includes("2.5")
+  ) {
+    return "gemini-3.6-flash";
   }
-  return trimmed || "gemini-1.5-flash";
+  return trimmed || "gemini-3.6-flash";
 }
 
 function normalizeMimeType(mime?: string): string {

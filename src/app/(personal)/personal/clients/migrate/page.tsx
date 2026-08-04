@@ -255,16 +255,18 @@ export default function MigrationDashboardPage() {
 
       {/* Banner de Saldo de Importação */}
       {isLoadingQuota ? (
-        <Skeleton className="h-16 w-full rounded-3xl" />
+        <Skeleton className="h-14 w-full rounded-2xl" />
       ) : quotaBalance && !quotaBalance.allowed ? (
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-4 rounded-3xl border border-destructive/30 bg-destructive/5 shadow-2xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3.5 sm:p-4 rounded-2xl border border-destructive/20 bg-destructive/5 backdrop-blur-xs">
           <div className="space-y-0.5">
-            <p className="text-sm font-bold text-destructive">Limite de importações atingido</p>
-            <p className="text-xs text-muted-foreground">Adquira um pacote de créditos para importar novas fichas de alunos.</p>
+            <p className="text-xs font-bold text-destructive flex items-center gap-1.5">
+              <AlertTriangle className="size-3.5" /> Limite de importações atingido
+            </p>
+            <p className="text-[11px] text-muted-foreground">Adquira mais créditos para continuar importando planilhas e fotos de alunos.</p>
           </div>
-          <Link href="/personal/credits" className="w-full sm:w-auto">
-            <Button size="sm" className="h-10 w-full sm:w-auto rounded-xl font-bold gap-2">
-              <Zap className="size-4" /> Comprar Créditos
+          <Link href="/personal/credits" className="w-full sm:w-auto shrink-0">
+            <Button size="sm" className="h-9 w-full sm:w-auto rounded-xl font-bold text-xs gap-1.5">
+              <Zap className="size-3.5" /> Comprar Créditos
             </Button>
           </Link>
         </div>
@@ -289,68 +291,33 @@ export default function MigrationDashboardPage() {
         </div>
       ) : null}
 
-      {/* Banner de Tempo Estimado Restante para Job Ativo */}
-      {activeProcessingJob && (
-        <div className="p-4 rounded-3xl bg-primary/10 border border-primary/30 text-foreground space-y-2.5 shadow-2xs">
-          <div className="flex items-center justify-between gap-2">
-            <div className="flex items-center gap-2">
-              <Loader2 className="h-4 w-4 text-primary animate-spin" />
-              <span className="font-bold text-xs sm:text-sm text-primary">Processamento em Andamento</span>
-            </div>
-            <Badge variant="secondary" className="text-xs font-bold gap-1 bg-background/90 text-foreground border border-primary/20">
-              ⏱️ Tempo Estimado: {formatEstimatedTime(getEstimatedSecondsRemaining(activeProcessingJob))}
-            </Badge>
-          </div>
-          <div className="space-y-1.5">
-            <div className="flex justify-between text-xs font-semibold">
-              <span className="text-muted-foreground">
-                {activeProcessingJob.progressMessage ||
-                  (activeProcessingJob.processingStep === "PARSING" && "Lendo arquivos e fontes de dados...") ||
-                  (activeProcessingJob.processingStep === "EXTRACTING" && "Analisando estrutura e extraindo dados...") ||
-                  (activeProcessingJob.processingStep === "NORMALIZING" && "Normalizando dados e verificando catálogo...") ||
-                  (activeProcessingJob.processingStep === "MATCHING" && "Validando duplicidades...") ||
-                  (activeProcessingJob.processingStep === "PREPARING_REVIEW" && "Finalizando preparação da revisão...") ||
-                  "Processando lote..."}
-              </span>
-              <span className="font-black text-primary">{getStepProgressPercentage(activeProcessingJob)}%</span>
-            </div>
-            <div className="h-2.5 w-full bg-muted/80 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-primary transition-all duration-500 rounded-full"
-                style={{ width: `${getStepProgressPercentage(activeProcessingJob)}%` }}
-              />
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Lista / Tabela de Jobs de Migração */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between px-1">
-          <h2 className="text-sm font-bold text-foreground">Histórico de Importações</h2>
-          <span className="text-xs text-muted-foreground font-medium">{jobs.length} registro(s)</span>
+      {/* Lista de Importações */}
+      <div className="space-y-3">
+        <div className="flex items-center justify-between px-0.5">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Histórico de Importações</h2>
+          <span className="text-xs text-muted-foreground/80 font-medium">{jobs.length} registro(s)</span>
         </div>
 
         {isLoadingJobs ? (
           <div className="space-y-3">
-            <Skeleton className="h-28 w-full rounded-3xl" />
-            <Skeleton className="h-28 w-full rounded-3xl" />
+            <Skeleton className="h-32 w-full rounded-2xl" />
+            <Skeleton className="h-32 w-full rounded-2xl" />
           </div>
         ) : jobs.length === 0 ? (
-          <Card className="py-14 text-center border-dashed rounded-3xl">
+          <Card className="py-12 text-center border-dashed rounded-3xl bg-card/30">
             <CardContent className="space-y-3 max-w-sm mx-auto">
-              <div className="size-14 rounded-3xl bg-muted/40 flex items-center justify-center text-muted-foreground mx-auto">
-                <FileSpreadsheet className="h-7 w-7" />
+              <div className="size-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
+                <FileSpreadsheet className="h-6 w-6" />
               </div>
               <div className="space-y-1">
                 <p className="font-bold text-sm text-foreground">Nenhuma importação realizada</p>
                 <p className="text-xs text-muted-foreground">
-                  Traga os dados de outros sistemas por PDFs, planilhas ou fotos.
+                  Importe alunos, treinos e dados via PDF, planilha ou foto.
                 </p>
               </div>
-              <Link href="/personal/clients/migrate/new" className="inline-block pt-2">
-                <Button size="sm" className="font-bold rounded-xl gap-2">
-                  <Plus className="h-4 w-4" /> Criar Primeira Importação
+              <Link href="/personal/clients/migrate/new" className="inline-block pt-1">
+                <Button size="sm" className="font-bold rounded-xl gap-2 text-xs">
+                  <Plus className="h-3.5 w-3.5" /> Criar Primeira Importação
                 </Button>
               </Link>
             </CardContent>
@@ -365,90 +332,100 @@ export default function MigrationDashboardPage() {
               const isFailed = job.status === "FAILED";
 
               return (
-                <motion.div key={job.id} initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}>
-                  <Card className="border border-border/80 rounded-3xl p-4 sm:p-5 bg-card shadow-2xs hover:border-primary/30 transition-all space-y-4">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-border/40 pb-3">
-                      <div className="flex items-center gap-3">
-                        <div className="size-10 rounded-2xl bg-primary/10 text-primary flex items-center justify-center shrink-0">
-                          <FileSpreadsheet className="h-5 w-5" />
+                <motion.div key={job.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}>
+                  <Card className={`border rounded-2xl p-4 sm:p-5 bg-card/80 backdrop-blur-xs transition-all space-y-4 hover:border-border ${isProcessing ? "border-primary/40 shadow-xs" : "border-border/50"
+                    }`}>
+                    <section className="flex flex-col items-end space-y-1.5">
+                      {isCompleted && (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                          <span className="size-1.5 rounded-full bg-emerald-500 shrink-0" />
+                          Concluído
+                        </span>
+                      )}
+                      {isReviewNeeded && (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                          <span className="size-1.5 rounded-full bg-amber-500 shrink-0" />
+                          Aguardando Revisão
+                        </span>
+                      )}
+                      {isProcessing && (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                          <span className="size-1.5 rounded-full bg-primary animate-pulse shrink-0" />
+                          Processando
+                        </span>
+                      )}
+                      {isFailed && (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-destructive/10 text-destructive border border-destructive/20">
+                          <span className="size-1.5 rounded-full bg-destructive shrink-0" />
+                          Falhou
+                        </span>
+                      )}
+                      <div className="flex items-center justify-between w-full">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="size-9 rounded-xl bg-muted/60 flex items-center justify-center shrink-0 border border-border/40">
+                            <FileSpreadsheet className="h-4 w-4 text-primary" />
+                          </div>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <span className="font-bold text-sm text-foreground tracking-tight truncate">
+                                {job.sourcePlatform}
+                              </span>
+                            </div>
+                            <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                              <Clock className="size-3" />
+                              <span>{new Date(job.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                            </p>
+                          </div>
                         </div>
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-bold text-sm text-foreground uppercase tracking-wider">
-                              {job.sourcePlatform}
-                            </span>
-                            <Badge
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          {isReviewNeeded && (
+                            <Link href={`/personal/clients/migrate/${job.id}`}>
+                              <Button size="sm" className="h-8 px-3.5 rounded-xl text-xs font-bold gap-1 shadow-2xs">
+                                Revisar <ChevronRight className="h-3.5 w-3.5" />
+                              </Button>
+                            </Link>
+                          )}
+                          {isCompleted && (
+                            <Link href={`/personal/clients/migrate/${job.id}`}>
+                              <Button variant="outline" size="sm" className="h-8 px-3 rounded-xl text-xs font-semibold gap-1 border-border/60 hover:bg-muted/40">
+                                Ver Resumo <ChevronRight className="h-3.5 w-3.5" />
+                              </Button>
+                            </Link>
+                          )}
+                          {isFailed && (
+                            <Button
                               variant="outline"
-                              className={`text-[10px] font-bold rounded-md uppercase tracking-wider ${isCompleted
-                                ? "border-emerald-500/40 text-emerald-600 bg-emerald-500/10"
-                                : isReviewNeeded
-                                  ? "border-amber-500/40 text-amber-600 bg-amber-500/10"
-                                  : isProcessing
-                                    ? "border-primary/40 text-primary bg-primary/10"
-                                    : "border-destructive/40 text-destructive bg-destructive/10"
-                                }`}
+                              size="sm"
+                              className="h-8 px-3 rounded-xl text-xs font-semibold gap-1 border-border/60"
+                              disabled={reprocessingJobId === job.id}
+                              onClick={() => handleRetryJob(job.id)}
                             >
-                              {isCompleted && "Concluído"}
-                              {isReviewNeeded && "Aguardando Revisão"}
-                              {isProcessing && "Processando Migração"}
-                              {isFailed && "Falhou"}
-                            </Badge>
-                          </div>
-                          <div className="flex items-center gap-2 text-[11px] text-muted-foreground mt-0.5">
-                            <Clock className="h-3 w-3" />
-                            <span>{new Date(job.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
-                          </div>
+                              {reprocessingJobId === job.id ? (
+                                <Loader2 className="h-3 w-3 animate-spin" />
+                              ) : (
+                                <RefreshCw className="h-3 w-3" />
+                              )}
+                              Tentar Novamente
+                            </Button>
+                          )}
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 rounded-lg text-muted-foreground/70 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                            onClick={() => setDeletingJobId(job.id)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" />
+                          </Button>
                         </div>
                       </div>
+                    </section>
 
-                      <div className="flex items-center gap-2 self-end sm:self-center shrink-0">
-                        {isReviewNeeded && (
-                          <Link href={`/personal/clients/migrate/${job.id}`}>
-                            <Button size="sm" className="h-9 px-4 rounded-xl text-xs font-bold gap-1.5">
-                              Revisar Registros <ChevronRight className="h-4 w-4" />
-                            </Button>
-                          </Link>
-                        )}
-                        {isCompleted && (
-                          <Link href={`/personal/clients/migrate/${job.id}`}>
-                            <Button variant="outline" size="sm" className="h-9 px-3 rounded-xl text-xs font-semibold gap-1.5">
-                              Ver Resumo <ChevronRight className="h-4 w-4" />
-                            </Button>
-                          </Link>
-                        )}
-                        {isFailed && (
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            className="h-9 px-3 rounded-xl text-xs font-semibold gap-1.5"
-                            disabled={reprocessingJobId === job.id}
-                            onClick={() => handleRetryJob(job.id)}
-                          >
-                            {reprocessingJobId === job.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <RefreshCw className="h-3.5 w-3.5" />
-                            )}
-                            Tentar Novamente
-                          </Button>
-                        )}
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-9 w-9 rounded-xl text-muted-foreground hover:text-destructive"
-                          onClick={() => setDeletingJobId(job.id)}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-
-                    {/* Barra de Progresso Real-Time */}
                     {isProcessing && (
-                      <div className="space-y-1.5 bg-muted/30 p-3 rounded-2xl border border-border/40">
+                      <div className="space-y-2 p-3 rounded-xl bg-primary/5 border border-primary/15">
                         <div className="flex items-center justify-between text-xs gap-2">
-                          <span className="font-bold text-primary flex items-center gap-2 truncate">
-                            <Loader2 className="h-3.5 w-3.5 animate-spin shrink-0" />
+                          <span className="font-medium text-foreground flex items-center gap-1.5 truncate text-[11px]">
+                            <Loader2 className="h-3.5 w-3.5 text-primary animate-spin shrink-0" />
                             <span className="truncate">
                               {job.progressMessage ||
                                 (job.processingStep === "PARSING" && "Lendo arquivos...") ||
@@ -459,14 +436,14 @@ export default function MigrationDashboardPage() {
                                 "Processando..."}
                             </span>
                           </span>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-[11px] font-semibold text-muted-foreground">
+                          <div className="flex items-center gap-2 shrink-0 text-[11px]">
+                            <span className="text-muted-foreground font-mono">
                               ⏱️ {formatEstimatedTime(getEstimatedSecondsRemaining(job))}
                             </span>
-                            <span className="font-black text-foreground">{progress}%</span>
+                            <span className="font-bold text-primary">{progress}%</span>
                           </div>
                         </div>
-                        <div className="h-2 w-full bg-muted/80 rounded-full overflow-hidden">
+                        <div className="h-1.5 w-full bg-muted/60 rounded-full overflow-hidden">
                           <div
                             className="h-full bg-primary transition-all duration-500 rounded-full"
                             style={{ width: `${progress}%` }}
@@ -475,42 +452,40 @@ export default function MigrationDashboardPage() {
                       </div>
                     )}
 
-                    {/* Mensagem de Erro se Houver */}
                     {isFailed && job.safeErrorMessage && (
-                      <div className="p-3 rounded-2xl bg-destructive/10 text-destructive text-xs font-medium flex items-center gap-2">
-                        <AlertTriangle className="h-4 w-4 shrink-0" />
+                      <div className="p-2.5 rounded-xl bg-destructive/10 text-destructive text-[11px] font-medium flex items-center gap-2 border border-destructive/20">
+                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
                         <span>{job.safeErrorMessage}</span>
                       </div>
                     )}
 
-                    {/* Estatísticas Extraídas */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                      <div className="p-2.5 rounded-2xl bg-muted/20 border border-border/40 flex items-center gap-2.5">
-                        <Users className="h-4 w-4 text-primary shrink-0" />
-                        <div>
-                          <span className="font-black text-foreground block">{job.totalStudents}</span>
-                          <span className="text-[10px] text-muted-foreground font-semibold">Alunos</span>
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border-t border-border/30">
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/15 border border-border/30">
+                        <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="font-bold text-xs text-foreground">{job.totalStudents}</span>
+                          <span className="text-[10px] text-muted-foreground">Alunos</span>
                         </div>
                       </div>
-                      <div className="p-2.5 rounded-2xl bg-muted/20 border border-border/40 flex items-center gap-2.5">
-                        <Dumbbell className="h-4 w-4 text-primary shrink-0" />
-                        <div>
-                          <span className="font-black text-foreground block">{job.totalWorkouts}</span>
-                          <span className="text-[10px] text-muted-foreground font-semibold">Treinos</span>
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/15 border border-border/30">
+                        <Dumbbell className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="font-bold text-xs text-foreground">{job.totalWorkouts}</span>
+                          <span className="text-[10px] text-muted-foreground">Treinos</span>
                         </div>
                       </div>
-                      <div className="p-2.5 rounded-2xl bg-muted/20 border border-border/40 flex items-center gap-2.5">
-                        <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0" />
-                        <div>
-                          <span className="font-black text-foreground block">{job.totalAssessments}</span>
-                          <span className="text-[10px] text-muted-foreground font-semibold">Avaliações</span>
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/15 border border-border/30">
+                        <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="font-bold text-xs text-foreground">{job.totalAssessments}</span>
+                          <span className="text-[10px] text-muted-foreground">Avaliações</span>
                         </div>
                       </div>
-                      <div className="p-2.5 rounded-2xl bg-muted/20 border border-border/40 flex items-center gap-2.5">
-                        <Info className="h-4 w-4 text-blue-500 shrink-0" />
-                        <div>
-                          <span className="font-black text-foreground block">{job.totalMeasurements}</span>
-                          <span className="text-[10px] text-muted-foreground font-semibold">Medidas</span>
+                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/15 border border-border/30">
+                        <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="font-bold text-xs text-foreground">{job.totalMeasurements}</span>
+                          <span className="text-[10px] text-muted-foreground">Medidas</span>
                         </div>
                       </div>
                     </div>

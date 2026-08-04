@@ -1,4 +1,4 @@
 export const GEMINI_MODELS = {
-  extraction: process.env.GEMINI_EXTRACTION_MODEL ?? "gemini-1.5-flash",
-  extractionFallback: process.env.GEMINI_EXTRACTION_FALLBACK_MODEL ?? "gemini-1.5-pro",
+  extraction: process.env.GEMINI_EXTRACTION_MODEL ?? "gemini-3.6-flash",
+  extractionFallback: process.env.GEMINI_EXTRACTION_FALLBACK_MODEL ?? "gemini-flash-latest",
 };
