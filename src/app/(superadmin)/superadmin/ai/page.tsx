@@ -169,29 +169,30 @@ export default function SuperAdminAIPage() {
   const activeModelsList = modelsData?.models || [];
 
   return (
-    <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto font-sans">
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/60 pb-5">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 max-w-7xl mx-auto font-sans">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-5">
         <div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-wrap">
             <h1 className="text-xl font-bold tracking-tight text-foreground">Inteligência Artificial & Agentes</h1>
             <Badge variant="secondary" className="text-[10px] uppercase font-semibold tracking-wider">
               Google AI Studio
             </Badge>
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
-            Gestão unificada de consumo de tokens, orquestração de agentes e níveis de raciocínio.
+          <p className="text-xs text-muted-foreground mt-1">
+            Monitoramento de consumo de tokens, latência, custos e governança dos agentes IA.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border/60 bg-card text-xs font-medium">
-            <div className="size-2 rounded-full bg-emerald-500 animate-pulse" />
-            <span>Google API Conectada</span>
-          </div>
-          <Button variant="outline" size="sm" className="h-9 gap-1.5 text-xs font-medium" onClick={fetchData}>
-            <RefreshCw className="size-3.5" /> Atualizar Data
-          </Button>
-        </div>
+        <Button
+          onClick={() => fetchData()}
+          disabled={loading}
+          variant="outline"
+          size="sm"
+          className="gap-2 h-9 text-xs font-semibold self-start sm:self-auto w-full sm:w-auto"
+        >
+          <RefreshCw className={cn("size-3.5", loading && "animate-spin")} />
+          Atualizar Métricas
+        </Button>
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -226,14 +227,14 @@ export default function SuperAdminAIPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="h-9 bg-card border border-border/80 p-1 gap-1">
-          <TabsTrigger value="telemetry" className="text-xs h-7 gap-1.5">
+        <TabsList className="h-fit! bg-card flex flex-col w-full  border border-border/80 p-1 gap-1">
+          <TabsTrigger value="telemetry" className="text-xs h-7 gap-1.5 w-full">
             <BarChart3 className="size-3.5" /> Telemetria & Custos
           </TabsTrigger>
-          <TabsTrigger value="agents" className="text-xs h-7 gap-1.5">
+          <TabsTrigger value="agents" className="text-xs h-7 gap-1.5 w-full">
             <Bot className="size-3.5" /> Agentes & Raciocínio
           </TabsTrigger>
-          <TabsTrigger value="models" className="text-xs h-7 gap-1.5">
+          <TabsTrigger value="models" className="text-xs h-7 gap-1.5 w-full">
             <Layers className="size-3.5" /> Modelos Google Studio
           </TabsTrigger>
         </TabsList>

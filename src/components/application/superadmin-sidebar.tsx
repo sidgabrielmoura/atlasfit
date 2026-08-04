@@ -26,6 +26,7 @@ import {
   UserX,
   Sparkles,
   PackagePlus,
+  HardDrive,
 } from "lucide-react";
 import {
   Sidebar,
@@ -65,6 +66,7 @@ const superAdminNavItems = [
 const platformNavItems = [
   { title: "Inteligência IA", href: "/superadmin/ai", icon: Sparkles },
   { title: "Créditos de Importação", href: "/superadmin/credits", icon: PackagePlus },
+  { title: "Armazenamento Cloud", href: "/superadmin/storage", icon: HardDrive },
   { title: "Exercícios", href: "/superadmin/exercises", icon: Dumbbell },
   { title: "Arquivos & Documentos", href: "/superadmin/files", icon: Folder },
   { title: "Assinaturas", href: "/superadmin/subscriptions", icon: BadgeCheck },

@@ -318,7 +318,7 @@ export const superAdminActions = {
       superAdminStore.isLoading = false;
     }
   },
-  async createPlan(data: { name: string; price: number; interval: string; features: string; maxWorkspaces?: number; maxStudents?: number | null }) {
+  async createPlan(data: { name: string; price: number; interval: string; features: string; maxWorkspaces?: number; maxStudents?: number | null; importQuota?: number | null; storageLimitMb?: number | null }) {
     try {
       await api.post("/superadmin/plans", data);
       await superAdminActions.fetchPlans();
@@ -326,7 +326,7 @@ export const superAdminActions = {
       throw new Error(err.response?.data || err.message);
     }
   },
-  async updatePlan(id: string, data: { name?: string; price?: number; interval?: string; features?: string; maxWorkspaces?: number; maxStudents?: number | null }) {
+  async updatePlan(id: string, data: { name?: string; price?: number; interval?: string; features?: string; maxWorkspaces?: number; maxStudents?: number | null; importQuota?: number | null; storageLimitMb?: number | null }) {
     try {
       await api.patch(`/superadmin/plans/${id}`, data);
       await superAdminActions.fetchPlans();

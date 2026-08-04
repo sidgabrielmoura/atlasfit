@@ -1,4 +1,4 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const accessKeyId = process.env.CLOUDFLARE_ID_TOKEN_ACCESS || process.env.CLOUDFLARE_TOKEN_VALUE;
@@ -79,4 +79,64 @@ export const storageService = {
       contentLength: response.ContentLength,
     };
   },
+
+  /**
+   * Fetches real-time statistics and recent files directly from Cloudflare R2 bucket
+   */
+  async getBucketStats() {
+    try {
+      const command = new ListObjectsV2Command({
+        Bucket: bucketName,
+        MaxKeys: 100,
+      });
+
+      const response = await s3Client.send(command);
+      const contents = response.Contents || [];
+
+      let totalBytes = 0;
+      const filesList = contents.map((item) => {
+        const size = item.Size || 0;
+        totalBytes += size;
+        return {
+          key: item.Key || "",
+          size,
+          sizeFormatted: (size / (1024 * 1024)).toFixed(2) + " MB",
+          lastModified: item.LastModified || new Date(),
+          eTag: item.ETag || "",
+          fileUrl: `/api/storage/file?key=${encodeURIComponent(item.Key || "")}`,
+        };
+      });
+
+      // Sort recent files descending
+      filesList.sort((a, b) => new Date(b.lastModified).getTime() - new Date(a.lastModified).getTime());
+
+      const totalMb = parseFloat((totalBytes / (1024 * 1024)).toFixed(2));
+      const totalGb = parseFloat((totalMb / 1024).toFixed(3));
+
+      return {
+        bucketName,
+        totalBytes,
+        totalMb,
+        totalGb,
+        totalObjects: response.KeyCount || contents.length,
+        isTruncated: response.IsTruncated || false,
+        files: filesList,
+        liveCloudflare: true,
+      };
+    } catch (err: any) {
+      console.warn("Cloudflare R2 live fetch warning:", err.message);
+      return {
+        bucketName,
+        totalBytes: 0,
+        totalMb: 0,
+        totalGb: 0,
+        totalObjects: 0,
+        isTruncated: false,
+        files: [],
+        liveCloudflare: false,
+        error: err.message,
+      };
+    }
+  },
 };
+

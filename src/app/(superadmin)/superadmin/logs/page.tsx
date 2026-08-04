@@ -110,16 +110,16 @@ export default function LogsManagementPage() {
   const activeAction = snap.logFilters.action;
 
   return (
-    <div className="p-6 md:p-8 space-y-8 max-w-[1600px] mx-auto animate-in fade-in duration-500">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-8 max-w-400 mx-auto animate-in fade-in duration-500">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 border-b border-border/40 pb-6">
         <div className="space-y-1">
-          <h1 className="text-3xl font-black tracking-tight">Monitoramento de Erros e Logs</h1>
-          <p className="text-muted-foreground text-sm font-medium">
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Monitoramento de Erros e Logs</h1>
+          <p className="text-muted-foreground text-xs sm:text-sm font-medium">
             Rastreamento de erros críticos do sistema, webhooks e auditoria geral da plataforma.
           </p>
         </div>
-        <Button variant="outline" className="h-11 rounded-xl gap-2 font-bold text-xs border-border/60 px-6 bg-background hover:bg-secondary/20 transition-all">
+        <Button variant="outline" className="h-11 rounded-xl gap-2 font-bold text-xs border-border/60 px-6 bg-background hover:bg-secondary/20 transition-all w-full sm:w-auto">
           <Download className="size-4" /> EXPORTAR ERROS (CSV)
         </Button>
       </div>
@@ -130,13 +130,13 @@ export default function LogsManagementPage() {
         onValueChange={handleSeverityFilter}
         className="w-full"
       >
-        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-secondary/10 border border-border/40 p-2 rounded-2xl">
-          <TabsList className="bg-transparent border-none p-0 flex gap-1 h-auto">
+        <div className="flex flex-col sm:flex-row justify-between items-start h-fit! sm:items-center gap-4 bg-secondary/10 border border-border/40 p-2 rounded-2xl">
+          <TabsList className="bg-transparent border-none p-0 flex max-sm:flex-col gap-1 h-fit! w-full">
             <TabsTrigger
               value="danger"
               className={cn(
-                "rounded-xl px-4 py-2 font-bold text-xs uppercase transition-all tracking-wider flex items-center",
-                "data-[state=active]:bg-rose-500 data-[state=active]:text-white data-[state=active]:shadow-lg data-[state=active]:shadow-rose-500/20",
+                "rounded-xl px-4 flex-1 truncate w-full! py-5! font-bold text-xs uppercase transition-all flex items-center",
+                "data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:shadow-lg",
                 "hover:text-rose-400"
               )}
             >
@@ -145,7 +145,7 @@ export default function LogsManagementPage() {
             <TabsTrigger
               value="all"
               className={cn(
-                "rounded-xl px-4 py-2 font-bold text-xs uppercase transition-all tracking-wider flex items-center",
+                "rounded-xl px-4 flex-1 truncate w-full! py-5! font-bold text-xs uppercase transition-all flex items-center",
                 "data-[state=active]:bg-foreground data-[state=active]:text-background data-[state=active]:shadow-lg",
                 "hover:text-foreground/80"
               )}
@@ -157,9 +157,9 @@ export default function LogsManagementPage() {
           <div className="flex items-center gap-2 w-full sm:w-auto">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="h-10 rounded-xl gap-2 font-bold text-xs border-border/40 bg-background w-full sm:w-auto min-w-[140px] shadow-sm">
+                <Button variant="outline" className="h-10 rounded-xl gap-2 font-bold text-xs border-border/40 bg-background flex-1 shadow-sm">
                   <User className="size-3.5" />
-                  <span className="truncate max-w-[100px] uppercase">
+                  <span className="truncate max-w-25 uppercase">
                     {activeUser?.name || "TODOS USUÁRIOS"}
                   </span>
                   <ChevronDown className="size-3 opacity-50 ml-auto" />
@@ -179,7 +179,7 @@ export default function LogsManagementPage() {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" className="h-10 rounded-xl gap-2 font-bold text-xs border-border/40 bg-background w-full sm:w-auto min-w-[140px] shadow-sm">
+                <Button variant="outline" className="h-10 rounded-xl gap-2 font-bold text-xs border-border/40 bg-background flex-1 shadow-sm">
                   <Building2 className="size-3.5" />
                   <span className="truncate max-w-[100px] uppercase">
                     {activeWorkspace?.name || "TODOS WORKSPACES"}

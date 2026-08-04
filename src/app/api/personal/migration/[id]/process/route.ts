@@ -38,8 +38,18 @@ export async function POST(
       errStr.includes("prepayment credits");
 
     const safeMessage = isRateLimit
-      ? "Os créditos ou a cota da sua API do Gemini no Google AI Studio estão esgotados (Erro 429). Para processar PDFs ou Fotos por IA, adicione créditos em ai.studio/projects. Dica: Planilhas em CSV ou XLSX funcionam 100% localmente sem consumir créditos!"
+      ? "Os créditos ou a cota da sua API do Gemini no Google AI Studio estão esgotados (Erro 429). Para processar PDFs ou Fotos por IA, verifique as configurações no Google AI Studio. Dica: Planilhas em CSV ou XLSX funcionam 100% localmente sem consumir créditos!"
       : error.message || "Erro ao processar extração do job de migração.";
+
+    await prisma.importJob.update({
+      where: { id: jobId },
+      data: {
+        status: "FAILED",
+        processingStep: "IDLE",
+        errorCode: isRateLimit ? "GEMINI_RATE_LIMIT" : "EXTRACTION_FAILED",
+        safeErrorMessage: safeMessage,
+      },
+    }).catch(() => {});
 
     return NextResponse.json(
       { error: safeMessage, errorCode: isRateLimit ? "GEMINI_RATE_LIMIT" : "EXTRACTION_FAILED" },

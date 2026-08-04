@@ -17,11 +17,13 @@ export default function SuperAdminLayout({
     <SidebarProvider>
       <SuperAdminSidebar />
       <SidebarInset className="bg-background">
-        <header className="flex h-16 shrink-0 items-center justify-between border-b border-border/40 px-6 sticky top-0 z-40 bg-background/80 backdrop-blur-md">
-          <div className="flex items-center gap-4">
+        <header className="flex h-16 shrink-0 items-center justify-between border-b border-border/40 px-4 md:px-6 sticky top-0 z-40 bg-background/80 backdrop-blur-md">
+          <div className="flex items-center gap-2 sm:gap-4">
             <SidebarTrigger className="size-9 rounded-lg hover:bg-secondary transition-all" />
             <Separator orientation="vertical" className="h-6 opacity-50" />
-            <SuperAdminBreadcrumbs />
+            <div className="hidden sm:block">
+              <SuperAdminBreadcrumbs />
+            </div>
           </div>
 
           <div className="flex items-center gap-4">

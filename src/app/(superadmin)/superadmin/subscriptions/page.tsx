@@ -175,6 +175,14 @@ function PlanCarousel({ plans, isLoading, onEdit }: { plans: any[]; isLoading: b
                                  <span>Limite Alunos</span>
                                  <span>{plan.maxStudents !== null && plan.maxStudents !== undefined ? `${plan.maxStudents}` : "Ilimitado"}</span>
                               </div>
+                              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground pt-0.5">
+                                 <span>Importações</span>
+                                 <span>{plan.importQuota !== null && plan.importQuota !== undefined && plan.importQuota > 0 ? `${plan.importQuota}/mês` : "Ilimitadas"}</span>
+                              </div>
+                              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground pt-0.5">
+                                 <span>Armazenamento</span>
+                                 <span>{plan.storageLimitMb !== null && plan.storageLimitMb !== undefined && plan.storageLimitMb > 0 ? (plan.storageLimitMb >= 1024 ? `${(plan.storageLimitMb / 1024).toFixed(0)} GB` : `${plan.storageLimitMb} MB`) : "Ilimitado"}</span>
+                              </div>
                            </div>
                            <p className="text-[10px] text-muted-foreground font-medium leading-relaxed italic">
                               {plan.features || "Sem descrição"}
@@ -237,6 +245,47 @@ function SectionHeader({ title, icon: Icon, description }: { title: string; icon
          </div>
       </div>
    );
+}
+
+function isAutoFeature(feature: string): boolean {
+   const trimmed = feature.trim().toLowerCase();
+   if (/^até\s+\d+\s+alunos\s+ativos$/i.test(trimmed) || /^alunos\s+ilimitados$/i.test(trimmed)) return true;
+   if (/^\d+\s+importações\s+de\s+alunos\/mês$/i.test(trimmed) || /^importações\s+de\s+alunos\s+ilimitadas$/i.test(trimmed)) return true;
+   if (/^\d+\s+workspace(s)?\s+de\s+trabalho$/i.test(trimmed) || /^workspaces\s+ilimitados$/i.test(trimmed)) return true;
+   if (/^.*armazenamento\s+em\s+nuvem.*$/i.test(trimmed)) return true;
+   return false;
+}
+
+function buildAutoFeatures(maxStudents: string, importQuota: string, maxWorkspaces: string, storageLimitMb: string = "1024"): string[] {
+   const studentsNum = maxStudents ? parseInt(maxStudents) : null;
+   const studentsText = studentsNum && studentsNum > 0 ? `Até ${studentsNum} alunos ativos` : "Alunos ilimitados";
+
+   const quotaNum = importQuota ? parseInt(importQuota) : null;
+   const importsText = quotaNum && quotaNum > 0 ? `${quotaNum} importações de alunos/mês` : "Importações de alunos ilimitadas";
+
+   const wsNum = maxWorkspaces ? parseInt(maxWorkspaces) : 1;
+   const workspacesText = wsNum > 1 ? `${wsNum} workspaces de trabalho` : (wsNum === 1 ? "1 workspace de trabalho" : "Workspaces ilimitados");
+
+   const storageNum = storageLimitMb ? parseInt(storageLimitMb) : 1024;
+   let storageText = "Armazenamento em nuvem ilimitado";
+   if (storageNum > 0) {
+      if (storageNum >= 1024 && storageNum % 1024 === 0) {
+         storageText = `${storageNum / 1024} GB de armazenamento em nuvem`;
+      } else {
+         storageText = `${storageNum} MB de armazenamento em nuvem`;
+      }
+   }
+
+   return [studentsText, importsText, workspacesText, storageText];
+}
+
+function updateFeaturesWithFields(currentFeatures: string, maxStudents: string, importQuota: string, maxWorkspaces: string, storageLimitMb: string = "1024"): string {
+   const autoFeatures = buildAutoFeatures(maxStudents, importQuota, maxWorkspaces, storageLimitMb);
+   const existingList = currentFeatures ? currentFeatures.split(",").map(f => f.trim()).filter(Boolean) : [];
+   
+   const customFeatures = existingList.filter(f => !isAutoFeature(f));
+   
+   return [...autoFeatures, ...customFeatures].join(", ");
 }
 
 interface FeaturesManagerProps {
@@ -312,6 +361,7 @@ function FeaturesManager({ value, onChange, label }: FeaturesManagerProps) {
             ) : (
                featuresList.map((feature, index) => {
                   const isEditing = editingIndex === index;
+                  const isAuto = isAutoFeature(feature);
                   return (
                      <div
                         key={index}
@@ -356,6 +406,11 @@ function FeaturesManager({ value, onChange, label }: FeaturesManagerProps) {
                                  <span className="text-xs text-foreground font-medium truncate">
                                     {feature}
                                  </span>
+                                 {isAuto && (
+                                    <Badge variant="outline" className="text-[9px] font-bold border-primary/30 text-primary bg-primary/10 px-1.5 py-0 shrink-0">
+                                       Auto
+                                    </Badge>
+                                 )}
                               </div>
                               <div className="flex items-center gap-1 shrink-0">
                                  <Button
@@ -445,8 +500,33 @@ export default function SubscriptionsManagementPage() {
    const [isSubmitting, setIsSubmitting] = useState(false);
    const [isDeleting, setIsDeleting] = useState(false);
    const [selectedPlan, setSelectedPlan] = useState<any>(null);
-   const [formData, setFormData] = useState({ name: "", price: "", interval: "month", features: "", maxWorkspaces: "1", maxStudents: "" });
-   const [editFormData, setEditFormData] = useState({ name: "", price: "", interval: "month", features: "", maxWorkspaces: "1", maxStudents: "" });
+
+   const defaultQuota = "25";
+   const defaultStudents = "50";
+   const defaultWs = "1";
+   const defaultStorage = "1024";
+   const defaultFeatures = buildAutoFeatures(defaultStudents, defaultQuota, defaultWs, defaultStorage).join(", ");
+
+   const [formData, setFormData] = useState({
+      name: "",
+      price: "",
+      interval: "month",
+      features: defaultFeatures,
+      maxWorkspaces: defaultWs,
+      maxStudents: defaultStudents,
+      importQuota: defaultQuota,
+      storageLimitMb: defaultStorage
+   });
+   const [editFormData, setEditFormData] = useState({
+      name: "",
+      price: "",
+      interval: "month",
+      features: "",
+      maxWorkspaces: "1",
+      maxStudents: "",
+      importQuota: defaultQuota,
+      storageLimitMb: defaultStorage
+   });
    const [mounted, setMounted] = useState(false);
 
    useEffect(() => {
@@ -454,6 +534,36 @@ export default function SubscriptionsManagementPage() {
       superAdminActions.fetchPlans();
       superAdminActions.fetchSubscriptions();
    }, []);
+
+   const updateFormQuantities = (updates: Partial<{ maxStudents: string; importQuota: string; maxWorkspaces: string; storageLimitMb: string }>) => {
+      setFormData((prev) => {
+         const nextStudents = updates.maxStudents !== undefined ? updates.maxStudents : prev.maxStudents;
+         const nextQuota = updates.importQuota !== undefined ? updates.importQuota : prev.importQuota;
+         const nextWs = updates.maxWorkspaces !== undefined ? updates.maxWorkspaces : prev.maxWorkspaces;
+         const nextStorage = updates.storageLimitMb !== undefined ? updates.storageLimitMb : prev.storageLimitMb;
+         const newFeatures = updateFeaturesWithFields(prev.features, nextStudents, nextQuota, nextWs, nextStorage);
+         return {
+            ...prev,
+            ...updates,
+            features: newFeatures,
+         };
+      });
+   };
+
+   const updateEditFormQuantities = (updates: Partial<{ maxStudents: string; importQuota: string; maxWorkspaces: string; storageLimitMb: string }>) => {
+      setEditFormData((prev) => {
+         const nextStudents = updates.maxStudents !== undefined ? updates.maxStudents : prev.maxStudents;
+         const nextQuota = updates.importQuota !== undefined ? updates.importQuota : prev.importQuota;
+         const nextWs = updates.maxWorkspaces !== undefined ? updates.maxWorkspaces : prev.maxWorkspaces;
+         const nextStorage = updates.storageLimitMb !== undefined ? updates.storageLimitMb : prev.storageLimitMb;
+         const newFeatures = updateFeaturesWithFields(prev.features, nextStudents, nextQuota, nextWs, nextStorage);
+         return {
+            ...prev,
+            ...updates,
+            features: newFeatures,
+         };
+      });
+   };
 
    const handleCreatePlan = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -466,10 +576,21 @@ export default function SubscriptionsManagementPage() {
             features: formData.features,
             maxWorkspaces: parseInt(formData.maxWorkspaces) || 1,
             maxStudents: formData.maxStudents ? parseInt(formData.maxStudents) : null,
+            importQuota: formData.importQuota ? parseInt(formData.importQuota) : 25,
+            storageLimitMb: formData.storageLimitMb ? parseInt(formData.storageLimitMb) : 1024,
          });
          toast.success("Plano criado com sucesso!");
          setIsModalOpen(false);
-         setFormData({ name: "", price: "", interval: "month", features: "", maxWorkspaces: "1", maxStudents: "" });
+         setFormData({
+            name: "",
+            price: "",
+            interval: "month",
+            features: defaultFeatures,
+            maxWorkspaces: defaultWs,
+            maxStudents: defaultStudents,
+            importQuota: defaultQuota,
+            storageLimitMb: defaultStorage
+         });
       } catch (error: any) {
          toast.error(error.message || "Erro ao criar plano.");
       } finally {
@@ -489,6 +610,8 @@ export default function SubscriptionsManagementPage() {
             features: editFormData.features,
             maxWorkspaces: parseInt(editFormData.maxWorkspaces) || 1,
             maxStudents: editFormData.maxStudents ? parseInt(editFormData.maxStudents) : null,
+            importQuota: editFormData.importQuota ? parseInt(editFormData.importQuota) : 25,
+            storageLimitMb: editFormData.storageLimitMb ? parseInt(editFormData.storageLimitMb) : 1024,
          });
          toast.success("Plano atualizado com sucesso!");
          setIsEditModalOpen(false);
@@ -535,13 +658,21 @@ export default function SubscriptionsManagementPage() {
 
    const openEditModal = (plan: any) => {
       setSelectedPlan(plan);
+      const initialQuota = plan.importQuota !== null && plan.importQuota !== undefined ? plan.importQuota.toString() : "25";
+      const initialStudents = plan.maxStudents !== null && plan.maxStudents !== undefined ? plan.maxStudents.toString() : "";
+      const initialWs = (plan.maxWorkspaces ?? 1).toString();
+      const initialStorage = plan.storageLimitMb !== null && plan.storageLimitMb !== undefined ? plan.storageLimitMb.toString() : "1024";
+      const syncedFeatures = updateFeaturesWithFields(plan.features || "", initialStudents, initialQuota, initialWs, initialStorage);
+
       setEditFormData({
          name: plan.name,
          price: plan.price.toString(),
          interval: plan.interval || "month",
-         features: plan.features || "",
-         maxWorkspaces: (plan.maxWorkspaces ?? 1).toString(),
-         maxStudents: plan.maxStudents !== null && plan.maxStudents !== undefined ? plan.maxStudents.toString() : "",
+         features: syncedFeatures,
+         maxWorkspaces: initialWs,
+         maxStudents: initialStudents,
+         importQuota: initialQuota,
+         storageLimitMb: initialStorage,
       });
       setIsEditModalOpen(true);
    };
@@ -556,20 +687,20 @@ export default function SubscriptionsManagementPage() {
    const chartData = snap.subscriptionMetrics?.activeSubsHistory || [];
 
    return (
-      <div className="p-6 md:p-8 space-y-12 max-w-[1600px] mx-auto animate-in fade-in duration-700">
+      <div className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-12 max-w-[1600px] mx-auto animate-in fade-in duration-700">
          {/* 1. Cabeçalho alinhado com o Dashboard Global */}
-         <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-border/40 pb-8">
+         <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 border-b border-border/40 pb-6 md:pb-8">
             <div className="space-y-1">
                <div className="flex items-center gap-2 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-2">
                   <ShieldAlert className="size-4" />
                   Global Control Panel
                </div>
-               <h1 className="text-3xl md:text-4xl font-black tracking-tight">Gestão de Assinaturas</h1>
-               <p className="text-muted-foreground text-sm font-medium">Configuração de planos, precificação e acompanhamento de receita recorrente em tempo real.</p>
+               <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight">Gestão de Assinaturas</h1>
+               <p className="text-muted-foreground text-xs sm:text-sm font-medium">Configuração de planos, precificação e acompanhamento de receita recorrente em tempo real.</p>
             </div>
             <Button
                onClick={() => setIsModalOpen(true)}
-               className="w-full md:w-auto h-11 rounded-xl gap-2 font-bold bg-primary text-primary-foreground shadow-lg shadow-primary/20 cursor-pointer hover:bg-primary/90 transition-all duration-200"
+               className="w-full sm:w-auto h-11 rounded-xl gap-2 font-bold bg-primary text-primary-foreground shadow-lg shadow-primary/20 cursor-pointer hover:bg-primary/90 transition-all duration-200"
             >
                <Plus className="size-4" /> CRIAR NOVO PLANO
             </Button>
@@ -1169,7 +1300,7 @@ export default function SubscriptionsManagementPage() {
                               required
                               placeholder="1"
                               value={formData.maxWorkspaces}
-                              onChange={(e) => setFormData({ ...formData, maxWorkspaces: e.target.value })}
+                              onChange={(e) => updateFormQuantities({ maxWorkspaces: e.target.value })}
                               className="rounded-xl h-11"
                            />
                         </div>
@@ -1181,7 +1312,31 @@ export default function SubscriptionsManagementPage() {
                               min="1"
                               placeholder="Ilimitado"
                               value={formData.maxStudents}
-                              onChange={(e) => setFormData({ ...formData, maxStudents: e.target.value })}
+                              onChange={(e) => updateFormQuantities({ maxStudents: e.target.value })}
+                              className="rounded-xl h-11"
+                           />
+                        </div>
+                        <div className="space-y-2">
+                           <Label htmlFor="plan-imports" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Quota de Importações (alunos/mês)</Label>
+                           <Input
+                              id="plan-imports"
+                              type="number"
+                              min="0"
+                              placeholder="Ex: 25 (0 = ilimitadas)"
+                              value={formData.importQuota}
+                              onChange={(e) => updateFormQuantities({ importQuota: e.target.value })}
+                              className="rounded-xl h-11"
+                           />
+                        </div>
+                        <div className="space-y-2">
+                           <Label htmlFor="plan-storage" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Limite de Armazenamento (MB)</Label>
+                           <Input
+                              id="plan-storage"
+                              type="number"
+                              min="0"
+                              placeholder="Ex: 1024 (0 = ilimitado)"
+                              value={formData.storageLimitMb}
+                              onChange={(e) => updateFormQuantities({ storageLimitMb: e.target.value })}
                               className="rounded-xl h-11"
                            />
                         </div>
@@ -1267,7 +1422,7 @@ export default function SubscriptionsManagementPage() {
                               required
                               placeholder="1"
                               value={editFormData.maxWorkspaces}
-                              onChange={(e) => setEditFormData({ ...editFormData, maxWorkspaces: e.target.value })}
+                              onChange={(e) => updateEditFormQuantities({ maxWorkspaces: e.target.value })}
                               className="rounded-xl h-11"
                            />
                         </div>
@@ -1279,7 +1434,31 @@ export default function SubscriptionsManagementPage() {
                               min="1"
                               placeholder="Ilimitado"
                               value={editFormData.maxStudents}
-                              onChange={(e) => setEditFormData({ ...editFormData, maxStudents: e.target.value })}
+                              onChange={(e) => updateEditFormQuantities({ maxStudents: e.target.value })}
+                              className="rounded-xl h-11"
+                           />
+                        </div>
+                        <div className="space-y-2">
+                           <Label htmlFor="edit-plan-imports" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Quota de Importações (alunos/mês)</Label>
+                           <Input
+                              id="edit-plan-imports"
+                              type="number"
+                              min="0"
+                              placeholder="Ex: 25 (0 = ilimitadas)"
+                              value={editFormData.importQuota}
+                              onChange={(e) => updateEditFormQuantities({ importQuota: e.target.value })}
+                              className="rounded-xl h-11"
+                           />
+                        </div>
+                        <div className="space-y-2">
+                           <Label htmlFor="edit-plan-storage" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Limite de Armazenamento (MB)</Label>
+                           <Input
+                              id="edit-plan-storage"
+                              type="number"
+                              min="0"
+                              placeholder="Ex: 1024 (0 = ilimitado)"
+                              value={editFormData.storageLimitMb}
+                              onChange={(e) => updateEditFormQuantities({ storageLimitMb: e.target.value })}
                               className="rounded-xl h-11"
                            />
                         </div>

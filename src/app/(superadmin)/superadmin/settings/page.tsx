@@ -241,16 +241,16 @@ export default function SuperAdminSettingsPage() {
   const isMaintenance = formData.maintenance_mode === "true";
 
   return (
-    <div className="p-6 md:p-8 space-y-12 max-w-[1200px] mx-auto animate-in fade-in duration-500">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-12 max-w-[1200px] mx-auto animate-in fade-in duration-500">
       {/* Page Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-border/40 pb-8">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6 border-b border-border/40 pb-6 md:pb-8">
         <div className="space-y-1">
-          <h1 className="text-3xl font-black tracking-tight">Configurações do Sistema</h1>
-          <p className="text-muted-foreground text-sm font-medium">Controle global de infraestrutura, segurança e variáveis de ambiente.</p>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Configurações do Sistema</h1>
+          <p className="text-muted-foreground text-xs sm:text-sm font-medium">Controle global de infraestrutura, segurança e variáveis de ambiente.</p>
         </div>
 
         {isMaintenance && (
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-500 animate-pulse">
+          <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-rose-500/10 border border-rose-500/20 text-rose-500 animate-pulse self-start sm:self-auto">
             <ShieldAlert className="size-4" />
             <span className="text-xs font-bold uppercase tracking-widest">Modo Manutenção Ativo</span>
           </div>

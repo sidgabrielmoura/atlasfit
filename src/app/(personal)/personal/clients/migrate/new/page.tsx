@@ -151,19 +151,29 @@ export default function NewMigrationPage() {
         return;
       }
 
-      if (!res.ok) throw new Error("Erro ao criar job.");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.message || errData.error || "Erro ao iniciar importação.");
+      }
 
       const data = await res.json();
       const jobId = data.id || data.jobId;
 
-      await fetch(`/api/personal/migration/${jobId}/process`, {
+      const processRes = await fetch(`/api/personal/migration/${jobId}/process`, {
         method: "POST",
       });
 
+      if (!processRes.ok) {
+        const processErr = await processRes.json().catch(() => ({}));
+        toast.error(processErr.error || "Erro no processamento por IA.");
+        router.push("/personal/clients/migrate");
+        return;
+      }
+
       toast.success("Processamento iniciado! Acompanhe o progresso em tempo real.");
       router.push("/personal/clients/migrate");
-    } catch {
-      toast.error("Erro ao iniciar o processamento.");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao iniciar o processamento.");
       setIsSubmitting(false);
     }
   };

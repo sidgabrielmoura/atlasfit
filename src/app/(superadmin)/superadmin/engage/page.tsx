@@ -332,23 +332,23 @@ function EngageContent() {
   };
 
   return (
-    <div className="p-6 md:p-8 space-y-8 max-w-[1600px] mx-auto animate-in fade-in duration-500">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-8 max-w-[1600px] mx-auto animate-in fade-in duration-500">
       {/* Header Area */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-border/40 pb-8">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 border-b border-border/40 pb-6 md:pb-8">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-2">
             <Megaphone className="size-4 animate-pulse" />
             Atlas Engage Studio
           </div>
-          <h1 className="text-3xl font-black tracking-tight">Experiências e Campanhas</h1>
-          <p className="text-muted-foreground text-sm font-medium">
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Experiências e Campanhas</h1>
+          <p className="text-muted-foreground text-xs sm:text-sm font-medium">
             Gerencie avisos, novidades, pesquisas e desafios interativos na plataforma globalmente.
           </p>
         </div>
 
         <Button
           onClick={handleOpenCreate}
-          className="h-11 rounded-xl gap-2 font-bold bg-primary text-primary-foreground shadow-lg shadow-primary/20 cursor-pointer"
+          className="h-11 rounded-xl gap-2 font-bold bg-primary text-primary-foreground shadow-lg shadow-primary/20 cursor-pointer w-full sm:w-auto"
         >
           <Plus className="size-4" /> CRIAR EXPERIÊNCIA
         </Button>

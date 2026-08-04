@@ -182,7 +182,7 @@ export default function SuperAdminFilesPage() {
         method: "DELETE"
       });
       if (!res.ok) throw new Error("Falha ao excluir arquivo");
-      
+
       toast.success("Arquivo removido permanentemente!", { id: toastId });
       setIsDeleteAlertOpen(false);
       setIsFileDetailOpen(false);
@@ -202,28 +202,28 @@ export default function SuperAdminFilesPage() {
   };
 
   return (
-    <div className="p-6 md:p-8 space-y-10 max-w-[1600px] mx-auto animate-in fade-in duration-500 pb-24">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-10 max-w-[1600px] mx-auto animate-in fade-in duration-500 pb-24">
       {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-border/40 pb-6">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 border-b border-border/40 pb-6">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-2">
             <Folder className="size-4" />
             File Moderation Panel
           </div>
-          <h1 className="text-3xl md:text-4xl font-black tracking-tight">Auditoria de Arquivos</h1>
-          <p className="text-muted-foreground text-sm font-medium">Controle de exames, meal plans e mídias compartilhadas no ecossistema AtlasFit.</p>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight">Auditoria de Arquivos</h1>
+          <p className="text-muted-foreground text-xs sm:text-sm font-medium">Controle de exames, meal plans e mídias compartilhadas no ecossistema AtlasFit.</p>
         </div>
       </div>
 
       {/* Filter and Search Bar */}
-      <Card className="border-border/40 bg-secondary/5 shadow-none">
+      <Card className="border-border/40 bg-secondary/5 shadow-none p-0">
         <CardContent className="p-4 flex flex-col md:flex-row gap-4">
           <form onSubmit={handleSearchSubmit} className="flex-1 flex gap-2">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-              <Input 
-                placeholder="Pesquisar por nome do arquivo, aluno ou workspace..." 
-                className="pl-9 h-10 rounded-xl border-border/40 bg-background text-xs font-semibold" 
+              <Input
+                placeholder="Pesquisar por nome do arquivo, aluno ou workspace..."
+                className="pl-9 h-10 rounded-xl border-border/40 bg-background text-xs font-semibold"
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
               />
@@ -233,8 +233,8 @@ export default function SuperAdminFilesPage() {
               BUSCAR
             </Button>
           </form>
-          
-          <div className="flex items-center gap-2">
+
+          <div className="flex items-center gap-2 overflow-x-auto">
             <Button
               variant={category === "todos" ? "default" : "outline"}
               onClick={() => setCategory("todos")}
@@ -268,12 +268,12 @@ export default function SuperAdminFilesPage() {
       </Card>
 
       {/* Files List Table */}
-      <Card className="border-border/40 shadow-sm overflow-hidden">
+      <Card className="border-border/40 shadow-sm overflow-hidden p-0">
         <CardContent className="p-0">
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
-                <TableRow className="bg-secondary/5 border-b border-border/30 hover:bg-secondary/5">
+                <TableRow className="bg-secondary/5 border-b border-border/30 hover:bg-secondary/5 text-nowrap">
                   <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-left">Arquivo</th>
                   <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-left">Categoria</th>
                   <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-left">Aluno / Dono</th>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { checkImportQuota, consumeImportQuota } from "@/lib/migration/quota.service";
+import { checkStorageQuota } from "@/lib/storage-quota.service";
 import { calculateTextSha256 } from "@/lib/migration/upload.service";
 
 const AI_MIGRATION_ENABLED = process.env.AI_MIGRATION_ENABLED !== "false";
@@ -63,6 +64,18 @@ export async function POST(req: Request) {
           quota,
         },
         { status: 402 }
+      );
+    }
+
+    const storageQuota = await checkStorageQuota(workspaceId, session.user.id, 5 * 1024 * 1024);
+    if (!storageQuota.allowed) {
+      return NextResponse.json(
+        {
+          error: "STORAGE_EXCEEDED",
+          message: storageQuota.message || "Armazenamento lotado. Faça upgrade do seu plano para continuar importando.",
+          storageQuota,
+        },
+        { status: 400 }
       );
     }
 

@@ -181,6 +181,7 @@ model Plan {
   maxWorkspaces          Int                    @default(1)
   maxStudents            Int?
   importQuota            Int                    @default(25)
+  storageLimitMb         Int                    @default(1024)
   subscriptions          Subscription[]
   subscriptionActivities SubscriptionActivity[]
 }

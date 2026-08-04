@@ -30,10 +30,30 @@ export interface MigrationExtractor {
   extract(input: MigrationExtractionInput): Promise<MigrationExtractionResponse>;
 }
 
+function sanitizeModelName(name?: string): string {
+  if (!name || typeof name !== "string") return "gemini-2.0-flash";
+  const trimmed = name.trim();
+  if (trimmed.includes("2.5") || trimmed.includes("gemini-3")) {
+    return "gemini-2.0-flash";
+  }
+  return trimmed;
+}
+
+function normalizeMimeType(mime?: string): string {
+  if (!mime) return "image/jpeg";
+  const lower = mime.toLowerCase().trim();
+  if (lower === "image/jpg" || lower === "image/pjpeg" || lower === "image/jfif") return "image/jpeg";
+  if (lower.startsWith("image/png")) return "image/png";
+  if (lower.startsWith("image/jpeg")) return "image/jpeg";
+  if (lower.startsWith("image/webp")) return "image/webp";
+  if (lower.startsWith("application/pdf")) return "application/pdf";
+  return lower || "image/jpeg";
+}
+
 export class GeminiMigrationExtractor implements MigrationExtractor {
   async extract(input: MigrationExtractionInput): Promise<MigrationExtractionResponse> {
     const startTime = Date.now();
-    let modelName = input.useFallbackModel
+    let rawModel = input.useFallbackModel
       ? GEMINI_MODELS.extractionFallback
       : GEMINI_MODELS.extraction;
 
@@ -45,12 +65,14 @@ export class GeminiMigrationExtractor implements MigrationExtractor {
         const agents = JSON.parse(setting.value);
         const ocrAgent = agents.find((a: any) => a.id === "migration-ocr");
         if (ocrAgent && ocrAgent.active && ocrAgent.model) {
-          modelName = input.useFallbackModel
+          rawModel = input.useFallbackModel
             ? (ocrAgent.fallbackModel || GEMINI_MODELS.extractionFallback)
             : ocrAgent.model;
         }
       }
     } catch {}
+
+    const modelName = sanitizeModelName(rawModel);
 
     const client = getGeminiClient();
 
@@ -64,7 +86,7 @@ export class GeminiMigrationExtractor implements MigrationExtractor {
       for (const file of input.inlineFiles) {
         userParts.push({
           inlineData: {
-            mimeType: file.mimeType || "image/jpeg",
+            mimeType: normalizeMimeType(file.mimeType),
             data: file.dataBase64,
           },
         });
@@ -76,7 +98,7 @@ export class GeminiMigrationExtractor implements MigrationExtractor {
         userParts.push({
           fileData: {
             fileUri: rFile.geminiFileName,
-            mimeType: rFile.mimeType,
+            mimeType: normalizeMimeType(rFile.mimeType),
           },
         });
       }

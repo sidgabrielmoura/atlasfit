@@ -123,16 +123,16 @@ export default function SuperAdminPayoutsPage() {
     .reduce((sum, p) => sum + p.amount, 0);
 
   return (
-    <div className="p-6 md:p-8 space-y-10 max-w-[1600px] mx-auto animate-in fade-in duration-500">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-10 max-w-[1600px] mx-auto animate-in fade-in duration-500">
       {/* 1. Header Section */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-border/40 pb-8">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 border-b border-border/40 pb-6 md:pb-8">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-2">
             <DollarSign className="size-4" />
             Payout Ledger
           </div>
-          <h1 className="text-3xl font-black tracking-tight">Solicitações de Saque</h1>
-          <p className="text-muted-foreground text-sm font-medium">
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Solicitações de Saque</h1>
+          <p className="text-muted-foreground text-xs sm:text-sm font-medium">
             Gerencie e libere transferências PIX pendentes dos personal trainers afiliados.
           </p>
         </div>
@@ -214,7 +214,7 @@ export default function SuperAdminPayoutsPage() {
               <Card className="border-border/40 overflow-hidden p-0 space-y-0!">
                 <CardContent className="p-0">
                   <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
+                    <table className="w-full text-left border-collapse text-nowrap">
                       <thead className="bg-secondary/10 border-b border-border/40">
                         <tr>
                           <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Personal Trainer</th>
@@ -314,11 +314,11 @@ export default function SuperAdminPayoutsPage() {
                     <table className="w-full text-left border-collapse">
                       <thead className="bg-secondary/10 border-b border-border/40">
                         <tr>
-                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Personal Trainer</th>
-                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Valor</th>
-                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Destinatário (Chave PIX)</th>
-                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Status / Justificativa</th>
-                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Data da Ação</th>
+                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-nowrap">Personal Trainer</th>
+                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-nowrap">Valor</th>
+                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-nowrap">Destinatário (Chave PIX)</th>
+                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-nowrap">Status / Justificativa</th>
+                          <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-nowrap">Data da Ação</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-border/30">
@@ -340,7 +340,7 @@ export default function SuperAdminPayoutsPage() {
                             }).format(dateObj);
 
                             return (
-                              <tr key={payout.id} className="hover:bg-secondary/20 transition-colors">
+                              <tr key={payout.id} className="hover:bg-secondary/20 transition-colors text-nowrap">
                                 <td className="px-6 py-4">
                                   <div className="flex flex-col">
                                     <span className="text-sm font-bold">{payout.user?.name}</span>

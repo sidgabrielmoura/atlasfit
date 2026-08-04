@@ -285,21 +285,21 @@ export default function CreditsManagementPage() {
   };
 
   return (
-    <div className="p-6 md:p-8 space-y-10 max-w-[1400px] mx-auto animate-in fade-in duration-700">
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-border/40 pb-8">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-10 max-w-[1400px] mx-auto animate-in fade-in duration-700">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 border-b border-border/40 pb-6 md:pb-8">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-2">
             <ShieldAlert className="size-4" />
             Global Control Panel
           </div>
-          <h1 className="text-3xl md:text-4xl font-black tracking-tight">Créditos de Importação</h1>
-          <p className="text-muted-foreground text-sm font-medium">
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight">Créditos de Importação</h1>
+          <p className="text-muted-foreground text-xs sm:text-sm font-medium">
             Gerencie pacotes de créditos vendidos via AbacatePay para importações de alunos.
           </p>
         </div>
         <Button
           onClick={() => setIsCreateOpen(true)}
-          className="w-full md:w-auto h-11 rounded-xl gap-2 font-bold bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90 transition-all duration-200"
+          className="h-11 rounded-xl gap-2 font-bold bg-primary text-primary-foreground shadow-lg shadow-primary/20 hover:bg-primary/90 cursor-pointer w-full sm:w-auto"
         >
           <Plus className="size-4" /> CRIAR PACOTE
         </Button>

@@ -237,22 +237,22 @@ export default function FinanceManagementPage() {
   const chartData = data.mrrHistory || [];
 
   return (
-    <div className="p-6 md:p-8 space-y-10 max-w-[1600px] mx-auto animate-in fade-in duration-500">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-10 max-w-[1600px] mx-auto animate-in fade-in duration-500">
       {/* 1. Cabeçalho alinhado com o padrão Aluno/Personal */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-border/40 pb-8">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 border-b border-border/40 pb-6 md:pb-8">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-2">
             <DollarSign className="size-4" />
             Global Treasury
           </div>
-          <h1 className="text-3xl font-black tracking-tight">Financeiro Global</h1>
-          <p className="text-muted-foreground text-sm font-medium">Consolidado de receita, assinaturas e saúde econômica da plataforma.</p>
+          <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Financeiro Global</h1>
+          <p className="text-muted-foreground text-xs sm:text-sm font-medium">Consolidado de receita, assinaturas e saúde econômica da plataforma.</p>
         </div>
-        <div className="flex max-md:flex-col items-center gap-3">
-          <Button variant="outline" className="h-11 max-md:w-full rounded-xl gap-2 font-bold text-xs border-border/60 px-6 cursor-pointer">
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
+          <Button variant="outline" className="h-11 w-full sm:w-auto rounded-xl gap-2 font-bold text-xs border-border/60 px-6 cursor-pointer">
             <Download className="size-4" /> EXPORTAR RELATÓRIO
           </Button>
-          <Button className="h-11 max-md:w-full rounded-xl gap-2 font-bold bg-primary text-primary-foreground px-6 shadow-lg shadow-primary/20 cursor-pointer hover:bg-primary/90 transition-colors">
+          <Button className="h-11 w-full sm:w-auto rounded-xl gap-2 font-bold bg-primary text-primary-foreground px-6 shadow-lg shadow-primary/20 cursor-pointer hover:bg-primary/90 transition-colors">
             CONCILIAR PAGAMENTOS
           </Button>
         </div>

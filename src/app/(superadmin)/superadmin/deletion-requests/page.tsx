@@ -111,14 +111,13 @@ export default function DeletionRequestsPage() {
   };
 
   return (
-    <div className="flex-1 space-y-8 p-4 md:p-8 pt-6 w-full">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-8 max-w-[1600px] mx-auto animate-in fade-in duration-500">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-6">
         <div>
-          <h2 className="text-3xl font-bold tracking-tight flex items-center gap-3">
-            <UserX className="size-8 text-red-500" />
+          <h2 className="text-2xl sm:text-3xl font-bold tracking-tight flex items-center gap-3">
             Solicitações de Exclusão de Dados
           </h2>
-          <p className="text-muted-foreground mt-1">
+          <p className="text-muted-foreground text-xs sm:text-sm mt-1">
             Gerencie os pedidos de remoção definitiva de contas de Personal Trainers e seus dados associados.
           </p>
         </div>
@@ -126,7 +125,7 @@ export default function DeletionRequestsPage() {
           variant="outline"
           onClick={fetchRequests}
           disabled={isLoading}
-          className="shrink-0 gap-2 font-semibold cursor-pointer"
+          className="shrink-0 gap-2 font-semibold cursor-pointer w-full sm:w-auto"
         >
           {isLoading ? <Loader2 className="size-4 animate-spin" /> : "Atualizar Lista"}
         </Button>

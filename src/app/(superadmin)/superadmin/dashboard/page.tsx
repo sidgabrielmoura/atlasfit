@@ -145,19 +145,19 @@ export default function SuperAdminDashboardPage() {
   const financialGrowthData: any[] = deepClone(metrics.financialGrowthData) || [];
 
   return (
-    <div className="p-6 md:p-8 space-y-10 max-w-400 mx-auto animate-in fade-in duration-700">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-10 max-w-400 mx-auto animate-in fade-in duration-700">
       {/* 1. Cabeçalho Principal */}
-      <div className="flex flex-col md:flex-row md:items-end justify-between gap-6 border-b border-border/40 pb-8">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 border-b border-border/40 pb-6 md:pb-8">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-2">
             <ShieldAlert className="size-4" />
             Global Control Panel
           </div>
-          <h1 className="text-3xl md:text-4xl font-black tracking-tight">Dashboard Global</h1>
-          <p className="text-muted-foreground text-sm font-medium">Visão completa e métricas em tempo real da plataforma AtlasFit.</p>
+          <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight">Dashboard Global</h1>
+          <p className="text-muted-foreground text-xs sm:text-sm font-medium">Visão completa e métricas em tempo real da plataforma AtlasFit.</p>
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex flex-col items-end">
+        <div className="flex items-center gap-3 self-start sm:self-auto">
+          <div className="flex flex-col sm:items-end">
             <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest">Status da Plataforma</span>
             <span className="text-xs font-bold text-emerald-500 flex items-center gap-1.5 mt-0.5">
               <div className="size-1.5 rounded-full bg-emerald-500 animate-pulse" />

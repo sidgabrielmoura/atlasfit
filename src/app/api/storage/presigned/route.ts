@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { storageService } from "@/lib/storage.service";
+import { checkStorageQuota } from "@/lib/storage-quota.service";
 
 const MAX_IMAGE_SIZE = 10 * 1024 * 1024; // 10MB
 const MAX_FILE_SIZE = 20 * 1024 * 1024; // 20MB
@@ -51,6 +52,17 @@ export async function POST(req: Request) {
 
     if (!fileName || !contentType || !fileSize || !targetType) {
       return new NextResponse("Campos obrigatórios ausentes (fileName, contentType, fileSize, targetType).", { status: 400 });
+    }
+
+    // Storage Quota Pre-check
+    if (workspaceId && targetType !== "campaign" && targetType !== "campaign_banner") {
+      const quotaCheck = await checkStorageQuota(workspaceId, session.user.id, fileSize);
+      if (!quotaCheck.allowed) {
+        return NextResponse.json(
+          { error: "STORAGE_EXCEEDED", message: quotaCheck.message || "Armazenamento lotado. Faça upgrade do seu plano para enviar mais arquivos." },
+          { status: 400 }
+        );
+      }
     }
 
     // 1. Validate size and MIME types

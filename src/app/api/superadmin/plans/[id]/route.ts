@@ -18,7 +18,7 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    const { name, price, interval, features, maxWorkspaces, maxStudents } = body;
+    const { name, price, interval, features, maxWorkspaces, maxStudents, importQuota, storageLimitMb } = body;
 
     const plan = await prisma.plan.update({
       where: { id },
@@ -28,7 +28,9 @@ export async function PATCH(
         interval,
         features,
         maxWorkspaces: maxWorkspaces !== undefined ? parseInt(maxWorkspaces) : undefined,
-        maxStudents: maxStudents !== undefined ? (maxStudents === "" || maxStudents === null ? null : parseInt(maxStudents)) : undefined
+        maxStudents: maxStudents !== undefined ? (maxStudents === "" || maxStudents === null ? null : parseInt(maxStudents)) : undefined,
+        importQuota: importQuota !== undefined ? (importQuota === "" || importQuota === null ? 0 : parseInt(importQuota)) : undefined,
+        storageLimitMb: storageLimitMb !== undefined ? (storageLimitMb === "" || storageLimitMb === null ? 1024 : parseInt(storageLimitMb)) : undefined
       }
     });
 
