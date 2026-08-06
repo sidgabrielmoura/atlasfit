@@ -5,7 +5,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter }
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import { CheckCircle2, Zap, CreditCard, AlertCircle, Loader2, Calendar, Clock, Infinity as InfinityIcon } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
+import { CheckCircle2, Zap, CreditCard, AlertCircle, Loader2, Calendar, Clock, Infinity as InfinityIcon, ChevronDown, ChevronUp } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
@@ -61,6 +62,7 @@ interface PlatformPlan {
   buttonText: string;
   disabled: boolean;
   isCurrent: boolean;
+  rawInterval?: string;
 }
 
 interface ApiResponse {
@@ -73,6 +75,12 @@ export default function SubscriptionPage() {
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState<string | null>(null);
+  const [billingCycle, setBillingCycle] = useState<"mensal" | "anual">("mensal");
+  const [expandedPlans, setExpandedPlans] = useState<Record<string, boolean>>({});
+
+  const toggleExpandPlan = (planId: string) => {
+    setExpandedPlans((prev) => ({ ...prev, [planId]: !prev[planId] }));
+  };
 
   const loadSubscriptionData = useCallback(async () => {
     setIsLoading(true);
@@ -230,81 +238,154 @@ export default function SubscriptionPage() {
           <div className="text-center space-y-2 pt-4">
             <h3 className="text-2xl font-bold tracking-tight">Escolha o seu Plano</h3>
             <p className="text-muted-foreground">Selecione o plano ideal para escalar seu negócio com o AtlasFit.</p>
-          </div>
 
-          <div className="grid md:grid-cols-3 gap-8 items-start pt-8 pb-12">
-            {platformPlans.map((plan) => {
-              const isPlanProcessing = isProcessing === plan.id;
-              const isAnyProcessing = isProcessing !== null;
+            {/* Switch de Cobrança Mensal / Anual */}
+            <div className="flex items-center justify-center gap-3 pt-4">
+              <span
+                onClick={() => setBillingCycle("mensal")}
+                className={cn(
+                  "text-xs font-semibold cursor-pointer select-none transition-colors",
+                  billingCycle === "mensal" ? "text-foreground font-bold" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Cobrança Mensal
+              </span>
 
-              return (
-                <Card
-                  key={plan.id}
+              <Switch
+                checked={billingCycle === "anual"}
+                onCheckedChange={(checked) => setBillingCycle(checked ? "anual" : "mensal")}
+              />
+
+              <div
+                onClick={() => setBillingCycle("anual")}
+                className="flex items-center gap-2 cursor-pointer select-none"
+              >
+                <span
                   className={cn(
-                    "relative flex flex-col h-full transition-all duration-300 overflow-visible",
-                    plan.highlight
-                      ? "border-primary shadow-lg shadow-primary/10 scale-100 md:scale-105 z-10"
-                      : "border-border/50 bg-card/50 hover:bg-card"
+                    "text-xs font-semibold transition-colors",
+                    billingCycle === "anual" ? "text-foreground font-bold" : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  {plan.highlight && (
-                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-20">
-                      <Badge className="bg-primary text-primary-foreground font-bold px-4 py-1.5 shadow-md">
-                        Recomendado
-                      </Badge>
-                    </div>
-                  )}
+                  Cobrança Anual
+                </span>
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-0.5"
+                >
+                  Economize 20%
+                </Badge>
+              </div>
+            </div>
+          </div>
 
-                  <CardHeader className="text-center pb-8 pt-8">
-                    <CardTitle className="text-xl mb-2">{plan.name}</CardTitle>
-                    <div className="flex items-center justify-center gap-1">
-                      <span className="text-4xl font-extrabold tracking-tight">{plan.price}</span>
-                      <span className="text-muted-foreground font-medium">{plan.interval}</span>
-                    </div>
-                    <CardDescription className="mt-4 text-sm h-10 flex items-center justify-center">
-                      {plan.description}
-                    </CardDescription>
-                  </CardHeader>
+          <div className="grid md:grid-cols-3 gap-8 items-start pt-6 pb-12">
+            {(() => {
+              const filtered = platformPlans.filter((plan) => {
+                const raw = (plan.rawInterval || plan.interval || "").toLowerCase();
+                const isAnnual = raw.includes("year") || raw.includes("ano") || raw.includes("anual");
+                return billingCycle === "anual" ? isAnnual : !isAnnual;
+              });
+              const displayPlans = filtered.length > 0 ? filtered : platformPlans;
 
-                  <CardContent className="flex-1">
-                    <ul className="space-y-4">
-                      {plan.features.map((feature, idx) => (
-                        <li key={idx} className="flex items-start gap-3">
-                          <CheckCircle2 className="size-5 text-primary shrink-0" />
-                          <span className="text-sm font-medium text-foreground/80">{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
-                  </CardContent>
+              return displayPlans.map((plan) => {
+                const isPlanProcessing = isProcessing === plan.id;
+                const isAnyProcessing = isProcessing !== null;
 
-                  <CardFooter className="pt-6">
-                    <Button
-                      onClick={() => handlePlanAction(plan.id, plan.name, plan.isCurrent)}
-                      className={cn(
-                        "w-full cursor-pointer transition-all duration-200",
-                        plan.highlight
-                          ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                          : "hover:bg-accent hover:text-accent-foreground"
+                const isExpanded = !!expandedPlans[plan.id];
+                const visibleFeatures = isExpanded ? plan.features : plan.features.slice(0, 3);
+                const hasMoreFeatures = plan.features.length > 3;
+
+                return (
+                  <Card
+                    key={plan.id}
+                    className={cn(
+                      "relative flex flex-col h-full transition-all duration-300 overflow-visible",
+                      plan.highlight
+                        ? "border-primary shadow-lg shadow-primary/10 scale-100 md:scale-105 z-10"
+                        : "border-border/50 bg-card/50 hover:bg-card"
+                    )}
+                  >
+                    {plan.highlight && (
+                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-20">
+                        <Badge className="bg-primary text-primary-foreground font-bold px-4 py-1.5 shadow-md">
+                          Recomendado
+                        </Badge>
+                      </div>
+                    )}
+
+                    <CardHeader className="text-center pb-6 pt-8">
+                      <CardTitle className="text-xl mb-2">{plan.name}</CardTitle>
+                      <div className="flex items-center justify-center gap-1">
+                        <span className="text-3xl sm:text-4xl font-extrabold tracking-tight">{plan.price}</span>
+                        <span className="text-muted-foreground font-medium text-xs">{plan.interval}</span>
+                      </div>
+                      <CardDescription className="mt-3 text-xs sm:text-sm min-h-[2.5rem] flex items-center justify-center">
+                        {plan.description}
+                      </CardDescription>
+                    </CardHeader>
+
+                    <CardContent className="flex-1">
+                      <ul className="space-y-3">
+                        {visibleFeatures.map((feature, idx) => (
+                          <li key={idx} className="flex items-start gap-2.5">
+                            <CheckCircle2 className="size-4 text-primary shrink-0 mt-0.5" />
+                            <span className="text-xs font-medium text-foreground/80">{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      {hasMoreFeatures && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleExpandPlan(plan.id)}
+                          className="mt-3 w-full h-8 text-xs font-semibold text-primary hover:text-primary/90 hover:bg-primary/5 flex items-center justify-center gap-1 rounded-xl transition-colors"
+                        >
+                          {isExpanded ? (
+                            <>
+                              <span>Recolher vantagens</span>
+                              <ChevronUp className="size-3.5" />
+                            </>
+                          ) : (
+                            <>
+                              <span>Exibir mais (+{plan.features.length - 3} vantagens)</span>
+                              <ChevronDown className="size-3.5" />
+                            </>
+                          )}
+                        </Button>
                       )}
-                      variant={plan.highlight ? "default" : "outline"}
-                      disabled={plan.isCurrent || isAnyProcessing}
-                    >
-                      {isPlanProcessing ? (
-                        <>
-                          <Loader2 className="mr-2 size-4 animate-spin" />
-                          Processando...
-                        </>
-                      ) : (
-                        <>
-                          {plan.highlight && <Zap className="mr-2 size-4" />}
-                          Assinar
-                        </>
-                      )}
-                    </Button>
-                  </CardFooter>
-                </Card>
-              );
-            })}
+                    </CardContent>
+
+                    <CardFooter className="pt-6">
+                      <Button
+                        onClick={() => handlePlanAction(plan.id, plan.name, plan.isCurrent)}
+                        className={cn(
+                          "w-full cursor-pointer transition-all duration-200",
+                          plan.highlight
+                            ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                            : "hover:bg-accent hover:text-accent-foreground"
+                        )}
+                        variant={plan.highlight ? "default" : "outline"}
+                        disabled={plan.isCurrent || isAnyProcessing}
+                      >
+                        {isPlanProcessing ? (
+                          <>
+                            <Loader2 className="mr-2 size-4 animate-spin" />
+                            Processando...
+                          </>
+                        ) : (
+                          <>
+                            {plan.highlight && <Zap className="mr-2 size-4" />}
+                            Assinar
+                          </>
+                        )}
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                );
+              });
+            })()}
           </div>
         </section>
       </div>
@@ -607,6 +688,44 @@ export default function SubscriptionPage() {
           <div className="text-center space-y-2 pt-8">
             <h3 className="text-2xl font-bold tracking-tight">Cresça a sua Consultoria</h3>
             <p className="text-muted-foreground">Escolha o plano ideal para escalar seu negócio com o AtlasFit.</p>
+
+            {/* Switch de Cobrança Mensal / Anual */}
+            <div className="flex items-center justify-center gap-3 pt-4">
+              <span
+                onClick={() => setBillingCycle("mensal")}
+                className={cn(
+                  "text-xs font-semibold cursor-pointer select-none transition-colors",
+                  billingCycle === "mensal" ? "text-foreground font-bold" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Cobrança Mensal
+              </span>
+
+              <Switch
+                checked={billingCycle === "anual"}
+                onCheckedChange={(checked) => setBillingCycle(checked ? "anual" : "mensal")}
+              />
+
+              <div
+                onClick={() => setBillingCycle("anual")}
+                className="flex items-center gap-2 cursor-pointer select-none"
+              >
+                <span
+                  className={cn(
+                    "text-xs font-semibold transition-colors",
+                    billingCycle === "anual" ? "text-foreground font-bold" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Cobrança Anual
+                </span>
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-0.5"
+                >
+                  Economize 20%
+                </Badge>
+              </div>
+            </div>
           </div>
 
           {subscription.status === "trial" && (
@@ -618,49 +737,83 @@ export default function SubscriptionPage() {
             </div>
           )}
 
-          <div className="grid md:grid-cols-3 gap-8 items-start pt-8 pb-12">
-            {platformPlans.map((plan) => {
-              const isPlanProcessing = isProcessing === plan.id;
-              const isAnyProcessing = isProcessing !== null;
+          <div className="grid md:grid-cols-3 gap-8 items-start pt-6 pb-12">
+            {(() => {
+              const filtered = platformPlans.filter((plan) => {
+                const raw = (plan.rawInterval || plan.interval || "").toLowerCase();
+                const isAnnual = raw.includes("year") || raw.includes("ano") || raw.includes("anual");
+                return billingCycle === "anual" ? isAnnual : !isAnnual;
+              });
+              const displayPlans = filtered.length > 0 ? filtered : platformPlans;
 
-              return (
-                <Card
-                  key={plan.id}
-                  className={cn(
-                    "relative flex flex-col h-full transition-all duration-300 overflow-visible",
-                    plan.highlight
-                      ? "border-primary shadow-lg shadow-primary/10 scale-100 md:scale-105 z-10"
-                      : "border-border/50 bg-card/50 hover:bg-card"
-                  )}
-                >
-                  {plan.highlight && (
-                    <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-20">
-                      <Badge className="bg-primary text-primary-foreground font-bold px-4 py-1.5 shadow-md">
-                        Recomendado
-                      </Badge>
-                    </div>
-                  )}
+              return displayPlans.map((plan) => {
+                const isPlanProcessing = isProcessing === plan.id;
+                const isAnyProcessing = isProcessing !== null;
 
-                  <CardHeader className="text-center pb-8 pt-8">
-                    <CardTitle className="text-xl mb-2">{plan.name}</CardTitle>
-                    <div className="flex items-center justify-center gap-1">
-                      <span className="text-4xl font-extrabold tracking-tight">{plan.price}</span>
-                      <span className="text-muted-foreground font-medium">{plan.interval}</span>
-                    </div>
-                    <CardDescription className="mt-4 text-sm h-10 flex items-center justify-center">
-                      {plan.description}
-                    </CardDescription>
-                  </CardHeader>
+                const isExpanded = !!expandedPlans[plan.id];
+                const visibleFeatures = isExpanded ? plan.features : plan.features.slice(0, 3);
+                const hasMoreFeatures = plan.features.length > 3;
+
+                return (
+                  <Card
+                    key={plan.id}
+                    className={cn(
+                      "relative flex flex-col h-full transition-all duration-300 overflow-visible",
+                      plan.highlight
+                        ? "border-primary shadow-lg shadow-primary/10 scale-100 md:scale-105 z-10"
+                        : "border-border/50 bg-card/50 hover:bg-card"
+                    )}
+                  >
+                    {plan.highlight && (
+                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-20">
+                        <Badge className="bg-primary text-primary-foreground font-bold px-4 py-1.5 shadow-md">
+                          Recomendado
+                        </Badge>
+                      </div>
+                    )}
+
+                    <CardHeader className="text-center pb-6 pt-8">
+                      <CardTitle className="text-xl mb-2">{plan.name}</CardTitle>
+                      <div className="flex items-center justify-center gap-1">
+                        <span className="text-3xl sm:text-4xl font-extrabold tracking-tight">{plan.price}</span>
+                        <span className="text-muted-foreground font-medium text-xs">{plan.interval}</span>
+                      </div>
+                      <CardDescription className="mt-3 text-xs sm:text-sm min-h-[2.5rem] flex items-center justify-center">
+                        {plan.description}
+                      </CardDescription>
+                    </CardHeader>
 
                   <CardContent className="flex-1">
-                    <ul className="space-y-4">
-                      {plan.features.map((feature, idx) => (
-                        <li key={idx} className="flex items-start gap-3">
-                          <CheckCircle2 className="size-5 text-primary shrink-0" />
-                          <span className="text-sm font-medium text-foreground/80">{feature}</span>
+                    <ul className="space-y-3">
+                      {visibleFeatures.map((feature, idx) => (
+                        <li key={idx} className="flex items-start gap-2.5">
+                          <CheckCircle2 className="size-4 text-primary shrink-0 mt-0.5" />
+                          <span className="text-xs font-medium text-foreground/80">{feature}</span>
                         </li>
                       ))}
                     </ul>
+
+                    {hasMoreFeatures && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => toggleExpandPlan(plan.id)}
+                        className="mt-3 w-full h-8 text-xs font-semibold text-primary hover:text-primary/90 hover:bg-primary/5 flex items-center justify-center gap-1 rounded-xl transition-colors"
+                      >
+                        {isExpanded ? (
+                          <>
+                            <span>Recolher vantagens</span>
+                            <ChevronUp className="size-3.5" />
+                          </>
+                        ) : (
+                          <>
+                            <span>Exibir mais (+{plan.features.length - 3} vantagens)</span>
+                            <ChevronDown className="size-3.5" />
+                          </>
+                        )}
+                      </Button>
+                    )}
                   </CardContent>
 
                   <CardFooter className="pt-6">
@@ -693,8 +846,9 @@ export default function SubscriptionPage() {
                     </Button>
                   </CardFooter>
                 </Card>
-              );
-            })}
+                );
+              });
+            })()}
           </div>
         </section>
 

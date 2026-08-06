@@ -221,3 +221,16 @@ body.has-impersonation-banner header {
   pointer-events: none;
 }
 
+/* Disable pinch-to-zoom gestures and double-tap zoom */
+html, body {
+  touch-action: manipulation;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Prevent iOS Safari automatic viewport zoom when focusing inputs on mobile */
+@media (max-width: 768px) {
+  input, select, textarea {
+    font-size: 16px !important;
+  }
+}
+

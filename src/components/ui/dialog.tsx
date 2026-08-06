@@ -88,7 +88,7 @@ function DialogContent({
         className={cn(
           "fixed z-50 grid w-full gap-6 bg-popover p-6 text-sm text-popover-foreground duration-100 outline-none data-open:animate-in data-open:fade-in-0 data-open:zoom-in-95 data-closed:animate-out data-closed:fade-out-0 data-closed:zoom-out-95",
           // Mobile style: fullscreen
-          "inset-0 h-[100dvh] max-w-none max-h-none rounded-none border-0 overflow-y-auto",
+          "inset-0 h-[100dvh] max-w-none max-h-none rounded-none border-0 overflow-y-auto overflow-x-hidden max-w-full",
           // Desktop style: centered card
           "sm:top-1/2 sm:left-1/2 sm:right-auto sm:bottom-auto sm:h-auto sm:max-h-[90vh] sm:w-full sm:max-w-2xl sm:-translate-x-1/2 sm:-translate-y-1/2 sm:rounded-4xl sm:ring-1 sm:ring-foreground/5 sm:border sm:overflow-visible",
           makeResponsive(className)

@@ -4,6 +4,14 @@ import { useEffect } from "react";
 
 export function PWARegister() {
   useEffect(() => {
+    // Prevent Safari pinch gesture zoom
+    const preventGesture = (e: Event) => {
+      e.preventDefault();
+    };
+    document.addEventListener("gesturestart", preventGesture, { passive: false });
+    document.addEventListener("gesturechange", preventGesture, { passive: false });
+    document.addEventListener("gestureend", preventGesture, { passive: false });
+
     if (
       typeof window !== "undefined" &&
       "serviceWorker" in navigator &&
@@ -20,6 +28,12 @@ export function PWARegister() {
           });
       });
     }
+
+    return () => {
+      document.removeEventListener("gesturestart", preventGesture);
+      document.removeEventListener("gesturechange", preventGesture);
+      document.removeEventListener("gestureend", preventGesture);
+    };
   }, []);
 
   return null;

@@ -2327,15 +2327,15 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                         return (
                                           <div
                                             key={we.id}
-                                            className="flex items-center justify-between gap-4 p-2.5 rounded-xl bg-muted/35 dark:bg-zinc-900/35 border border-border/40 hover:bg-muted/65 dark:hover:bg-zinc-900/65 transition-colors"
+                                            className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 p-3 rounded-xl bg-muted/35 dark:bg-zinc-900/35 border border-border/40 hover:bg-muted/65 dark:hover:bg-zinc-900/65 transition-colors"
                                           >
-                                            <span className="flex items-center justify-center size-6 shrink-0 rounded-lg bg-muted dark:bg-zinc-900 border border-border/50 text-[10px] font-black text-muted-foreground">
-                                              {idx + 1}
-                                            </span>
-                                            <div className="flex flex-col w-full gap-2.5 min-w-0">
-                                              <div className="min-w-0">
-                                                <div className="flex items-center gap-1.5 flex-wrap mb-1">
-                                                  <span className="text-xs font-bold text-foreground block leading-none">
+                                            <div className="flex items-start sm:items-center gap-2.5 min-w-0 w-full">
+                                              <span className="flex items-center justify-center size-6 shrink-0 rounded-lg bg-muted dark:bg-zinc-900 border border-border/50 text-[10px] font-black text-muted-foreground mt-0.5 sm:mt-0">
+                                                {idx + 1}
+                                              </span>
+                                              <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+                                                  <span className="text-xs font-bold text-foreground block leading-tight">
                                                     {we.exercise?.name}
                                                   </span>
                                                   {we.groupId && (
@@ -2366,39 +2366,39 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                                     : (we.exercise?.muscleGroup?.name || "Geral")}
                                                 </span>
                                                 {we.description && (
-                                                  <p className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold italic mt-1 leading-normal max-w-sm">
+                                                  <p className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold italic mt-1 leading-normal break-words">
                                                     Obs: "{we.description}"
                                                   </p>
                                                 )}
                                               </div>
+                                            </div>
 
-                                              <div className="flex w-fit items-center gap-1.5 shrink-0 text-[10px] text-muted-foreground bg-muted/60 dark:bg-zinc-900/60 px-2.5 py-1 rounded-lg border border-border/60">
-                                                <span className="font-bold text-foreground">{we.sets}</span>
-                                                <span>séries</span>
-                                                <span className="text-border/40">|</span>
-                                                <span className="font-bold text-foreground">{repsArr[0] || "10"}</span>
-                                                <span>reps</span>
-                                                {loadArr[0] && (
-                                                  <>
-                                                    <span className="text-border/40">|</span>
-                                                    {loadArr[0].toLowerCase().includes("p.c") ? (
-                                                      <span className="font-bold text-primary">Peso do Corpo</span>
-                                                    ) : (
-                                                      <>
-                                                        <span className="font-bold text-foreground">{loadArr[0]}</span>
-                                                        <span>kg</span>
-                                                      </>
-                                                    )}
-                                                  </>
-                                                )}
-                                                {restArr[0] && (
-                                                  <>
-                                                    <span className="text-border/40">|</span>
-                                                    <span className="font-bold text-foreground">{restArr[0]}</span>
-                                                    <span>desc</span>
-                                                  </>
-                                                )}
-                                              </div>
+                                            <div className="flex flex-wrap items-center gap-1.5 shrink-0 text-[10px] text-muted-foreground bg-muted/60 dark:bg-zinc-900/60 px-2.5 py-1 rounded-lg border border-border/60 self-start sm:self-auto">
+                                              <span className="font-bold text-foreground">{we.sets}</span>
+                                              <span>séries</span>
+                                              <span className="text-border/40">|</span>
+                                              <span className="font-bold text-foreground">{repsArr[0] || "10"}</span>
+                                              <span>reps</span>
+                                              {loadArr[0] && (
+                                                <>
+                                                  <span className="text-border/40">|</span>
+                                                  {loadArr[0].toLowerCase().includes("p.c") ? (
+                                                    <span className="font-bold text-primary">Peso do Corpo</span>
+                                                  ) : (
+                                                    <>
+                                                      <span className="font-bold text-foreground">{loadArr[0]}</span>
+                                                      <span>kg</span>
+                                                    </>
+                                                  )}
+                                                </>
+                                              )}
+                                              {restArr[0] && (
+                                                <>
+                                                  <span className="text-border/40">|</span>
+                                                  <span className="font-bold text-foreground">{restArr[0]}</span>
+                                                  <span>desc</span>
+                                                </>
+                                              )}
                                             </div>
                                           </div>
                                         );
@@ -2547,14 +2547,14 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                             return (
                                               <div
                                                 key={we.id}
-                                                className="flex items-center justify-between gap-4 p-2.5 rounded-xl bg-muted/35 dark:bg-zinc-900/35 border border-border/40 hover:bg-muted/65 dark:hover:bg-zinc-900/65 transition-colors"
+                                                className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-4 p-3 rounded-xl bg-muted/35 dark:bg-zinc-900/35 border border-border/40 hover:bg-muted/65 dark:hover:bg-zinc-900/65 transition-colors"
                                               >
-                                                <div className="flex items-center gap-2.5 min-w-0">
-                                                  <span className="flex items-center justify-center size-6 shrink-0 rounded-lg bg-muted dark:bg-zinc-900 border border-border/50 text-[10px] font-black text-muted-foreground">
+                                                <div className="flex items-start sm:items-center gap-2.5 min-w-0 w-full">
+                                                  <span className="flex items-center justify-center size-6 shrink-0 rounded-lg bg-muted dark:bg-zinc-900 border border-border/50 text-[10px] font-black text-muted-foreground mt-0.5 sm:mt-0">
                                                     {idx + 1}
                                                   </span>
-                                                  <div className="min-w-0">
-                                                    <div className="flex items-center gap-1.5 flex-wrap mb-1">
+                                                  <div className="min-w-0 flex-1">
+                                                    <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
                                                       {we.exercise?.videoUrl && (
                                                         <Button
                                                           type="button"
@@ -2570,7 +2570,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                                           <Play className="size-3 fill-primary" />
                                                         </Button>
                                                       )}
-                                                      <span className="text-xs font-bold text-foreground block leading-none">
+                                                      <span className="text-xs font-bold text-foreground block leading-tight">
                                                         {we.exercise?.name}
                                                       </span>
                                                       {we.groupId && (
@@ -2601,14 +2601,14 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                                         : (we.exercise?.muscleGroup?.name || "Geral")}
                                                     </span>
                                                     {we.description && (
-                                                      <p className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold italic mt-1 leading-normal max-w-sm">
+                                                      <p className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold italic mt-1 leading-normal break-words">
                                                         Obs: "{we.description}"
                                                       </p>
                                                     )}
                                                   </div>
                                                 </div>
 
-                                                <div className="flex items-center gap-1.5 shrink-0 text-[10px] text-muted-foreground bg-muted/60 dark:bg-zinc-900/60 px-2.5 py-1 rounded-lg border border-border/60">
+                                                <div className="flex flex-wrap items-center gap-1.5 shrink-0 text-[10px] text-muted-foreground bg-muted/60 dark:bg-zinc-900/60 px-2.5 py-1 rounded-lg border border-border/60 self-start sm:self-auto">
                                                   <span className="font-bold text-foreground">{we.sets}</span>
                                                   <span>séries</span>
                                                   <span className="text-border/40">|</span>
@@ -6678,7 +6678,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
         <DialogContent className="w-full max-w-[calc(100%-2rem)] sm:max-w-3xl bg-popover border border-border text-foreground max-h-[90vh] overflow-y-auto!">
           <DialogHeader>
             <DialogTitle className="text-xl font-extrabold flex items-center gap-2 text-foreground">
-              <Scale className="size-5 text-primary" /> Registrar Novas Medidas Corporais
+              Registrar Novas Medidas
             </DialogTitle>
             <DialogDescription className="text-muted-foreground">
               Insira o peso, altura, composição corporal e as circunferências do aluno. Deixe campos em branco caso não tenham sido mensurados.

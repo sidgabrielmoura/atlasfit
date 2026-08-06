@@ -164,7 +164,8 @@ export async function GET(req: Request) {
         highlight: p.name.toLowerCase().includes("pro") || p.name.toLowerCase().includes("professional"),
         buttonText: isCurrent ? "Seu Plano Atual" : (effectiveSub.plan ? (p.price > effectiveSub.plan.price ? "Fazer Upgrade" : "Regredir Plano") : "Assinar"),
         disabled: isCurrent,
-        isCurrent
+        isCurrent,
+        rawInterval: p.interval,
       };
     });
 

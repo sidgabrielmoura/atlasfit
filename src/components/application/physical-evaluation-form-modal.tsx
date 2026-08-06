@@ -635,7 +635,6 @@ export function PhysicalEvaluationFormModal({
       <DialogContent className="w-full gap-0 max-w-[calc(100%-1.5rem)] md:max-w-4xl bg-card dark:bg-neutral-950 border border-border dark:border-neutral-900 text-foreground h-[92vh] md:h-[85vh] max-h-200 rounded-2xl! shadow-2xl p-0 flex flex-col overflow-hidden">
         <DialogHeader className="p-6 border-b border-border dark:border-neutral-900 shrink-0">
           <DialogTitle className="text-lg font-black flex items-center gap-2">
-            <ClipboardCheck className="size-5 text-primary" />
             Avaliação Física de Alta Precisão
           </DialogTitle>
           <DialogDescription className="text-xs text-muted-foreground">
@@ -828,7 +827,7 @@ export function PhysicalEvaluationFormModal({
                 <TabsContent value="antropometria" className="space-y-4 outline-none mt-0">
                   <div className="border-b border-border/50 dark:border-neutral-900 pb-2">
                     <h3 className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
-                      <Ruler className="size-4 text-primary" /> 2. Antropometria Básica & Circunferências Corporais
+                      <Ruler className="size-4 text-primary" /> 2. Antropometria Básica
                     </h3>
                   </div>
 
@@ -1038,7 +1037,7 @@ export function PhysicalEvaluationFormModal({
                 <TabsContent value="dobras" className="space-y-4 outline-none mt-0">
                   <div className="border-b border-border/50 dark:border-neutral-900 pb-2 flex flex-col items-start">
                     <h3 className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
-                      <Flame className="size-4 text-primary" /> 3. Dobras Cutâneas (Protocolo Pollock 3 Dobras)
+                      <Flame className="size-4 text-primary" /> 3. Dobras Cutâneas
                     </h3>
                     <Badge variant="outline" className="bg-primary/10 mt-1 text-primary border border-primary/20 text-[10px] font-bold py-0.5 px-2">
                       Fórmula Ativa: {anamneseGender === "male" ? "Jackson-Pollock Masculino" : "Jackson-Pollock Feminino"}
@@ -1169,7 +1168,7 @@ export function PhysicalEvaluationFormModal({
                 <TabsContent value="postural" className="space-y-4 outline-none mt-0">
                   <div className="border-b border-border/50 dark:border-neutral-900 pb-2">
                     <h3 className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
-                      <Activity className="size-4 text-primary" /> 4. Avaliação Postural & Relatório Visual
+                      <Activity className="size-4 text-primary" /> 4. Avaliação Postural
                     </h3>
                   </div>
 
@@ -1405,7 +1404,7 @@ export function PhysicalEvaluationFormModal({
                 <TabsContent value="dor" className="space-y-4 outline-none mt-0">
                   <div className="border-b border-border/50 dark:border-neutral-900 pb-2">
                     <h3 className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
-                      <Heart className="size-4 text-primary" /> 5. Avaliação de Dor & Mobilidade
+                      <Heart className="size-4 text-primary" /> 5. Avaliação de Dor e Mobilidade
                     </h3>
                   </div>
 
@@ -1535,7 +1534,7 @@ export function PhysicalEvaluationFormModal({
                 <TabsContent value="testes" className="space-y-4 outline-none mt-0">
                   <div className="border-b border-border/50 dark:border-neutral-900 pb-2">
                     <h3 className="text-sm font-extrabold text-foreground flex items-center gap-1.5">
-                      <FileText className="size-4 text-primary" /> 6. Testes Físicos (Flexibilidade, Cardio e Força)
+                      <FileText className="size-4 text-primary" /> 6. Testes Físicos
                     </h3>
                   </div>
 
