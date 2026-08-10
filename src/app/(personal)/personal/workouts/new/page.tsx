@@ -859,7 +859,7 @@ export default function NewWorkoutPage() {
                                     onClick={() => handleToggleTempSelected(exercise)}
                                     className="flex-1 text-left font-medium min-w-0 flex items-center gap-1.5 truncate disabled:cursor-not-allowed"
                                   >
-                                    <span className="truncate">{exercise.name}</span>
+                                    <span className="line-clamp-1 max-w-100">{exercise.name}</span>
                                     {isCustom && (
                                       <Badge variant="outline" className="text-[9px] font-semibold border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5 rounded-md px-1.5 py-0 shrink-0">
                                         Fora do catálogo

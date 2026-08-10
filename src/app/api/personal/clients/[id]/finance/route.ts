@@ -112,6 +112,9 @@ export async function GET(req: Request, { params }: RouteParams) {
         billingCategory: studentMember.billingCategory,
         billingPaymentMethod: studentMember.billingPaymentMethod,
         billingIsActive: studentMember.billingIsActive,
+        billingSource: (studentMember as any).billingSource || "MANUAL",
+        asaasSubscriptionId: (studentMember as any).asaasSubscriptionId || null,
+        billingCreatedAt: (studentMember as any).billingCreatedAt ? (studentMember as any).billingCreatedAt.toISOString() : (studentMember as any).createdAt?.toISOString() || null,
         planEndDate: studentMember.planEndDate ? studentMember.planEndDate.toISOString().split("T")[0] : null,
       },
       payments: payments.map((p) => ({
@@ -223,6 +226,9 @@ export async function PUT(req: Request, { params }: RouteParams) {
       billingCategory,
       billingPaymentMethod,
       billingIsActive,
+      billingSource,
+      asaasSubscriptionId,
+      billingCreatedAt,
       planEndDate,
     } = body;
 
@@ -230,7 +236,6 @@ export async function PUT(req: Request, { params }: RouteParams) {
       return new NextResponse("ID do workspace é obrigatório.", { status: 400 });
     }
 
-    // Verify trainer belongs to the workspace
     const trainerMember = await prisma.workspaceMember.findFirst({
       where: {
         userId: session.user.id,
@@ -242,7 +247,6 @@ export async function PUT(req: Request, { params }: RouteParams) {
       return new NextResponse("Acesso negado a este workspace.", { status: 403 });
     }
 
-    // Find student member
     const studentMember = await prisma.workspaceMember.findFirst({
       where: {
         userId: studentId,
@@ -255,7 +259,6 @@ export async function PUT(req: Request, { params }: RouteParams) {
       return new NextResponse("Aluno não encontrado neste workspace.", { status: 404 });
     }
 
-    // Prepare billing update object
     const updateData: any = {};
     if (billingControlType !== undefined) updateData.billingControlType = billingControlType;
     if (billingPrice !== undefined) updateData.billingPrice = parseFloat(billingPrice);
@@ -274,6 +277,9 @@ export async function PUT(req: Request, { params }: RouteParams) {
     if (billingCategory !== undefined) updateData.billingCategory = billingCategory;
     if (billingPaymentMethod !== undefined) updateData.billingPaymentMethod = billingPaymentMethod;
     if (billingIsActive !== undefined) updateData.billingIsActive = billingIsActive;
+    if (billingSource !== undefined) updateData.billingSource = billingSource;
+    if (asaasSubscriptionId !== undefined) updateData.asaasSubscriptionId = asaasSubscriptionId;
+    if (billingCreatedAt !== undefined) updateData.billingCreatedAt = billingCreatedAt ? new Date(billingCreatedAt) : new Date();
     
     if (planEndDate !== undefined) {
       updateData.planEndDate = planEndDate ? new Date(planEndDate) : null;

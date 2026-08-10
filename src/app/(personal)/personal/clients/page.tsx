@@ -28,6 +28,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { isValidCPF, formatCPF } from "@/lib/cpf-validator";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -138,6 +139,7 @@ export default function ClientsPage() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
+  const [cpfCnpj, setCpfCnpj] = useState("");
   const [plan, setPlan] = useState("Mensal");
   const [modality, setModality] = useState("PRESENCIAL");
 
@@ -314,6 +316,14 @@ export default function ClientsPage() {
   const handleCreateStudent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!activeWorkspaceId) return;
+
+    if (cpfCnpj.trim()) {
+      if (!isValidCPF(cpfCnpj)) {
+        toast.error("O CPF informado é inválido. Digite um CPF válido ou deixe o campo em branco.");
+        return;
+      }
+    }
+
     setCreateLoading(true);
 
     try {
@@ -325,6 +335,7 @@ export default function ClientsPage() {
           name,
           email,
           whatsapp,
+          cpfCnpj: cpfCnpj ? cpfCnpj.replace(/\D/g, "") : undefined,
           plan,
           modality,
         }),
@@ -336,10 +347,10 @@ export default function ClientsPage() {
 
       toast.success("Aluno cadastrado com sucesso! 🎉");
       setIsCreateOpen(false);
-      // Reset form
       setName("");
       setEmail("");
       setWhatsapp("");
+      setCpfCnpj("");
       setPlan(workspacePlans.length > 0 ? workspacePlans[0] : "Mensal");
       setModality("PRESENCIAL");
 
@@ -891,6 +902,17 @@ export default function ClientsPage() {
                 className="bg-background border-border"
                 value={whatsapp}
                 onChange={handleWhatsAppChange}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="create-cpf">CPF do Aluno (Opcional)</Label>
+              <Input
+                id="create-cpf"
+                placeholder="000.000.000-00"
+                className="bg-background border-border"
+                value={cpfCnpj}
+                onChange={(e) => setCpfCnpj(formatCPF(e.target.value))}
               />
             </div>
 

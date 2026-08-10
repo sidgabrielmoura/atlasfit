@@ -9,6 +9,7 @@ import { PersonalHeaderWorkspace } from "@/components/application/personal-heade
 import { PersonalCoinsBadge } from "@/components/application/personal-coins-badge";
 import { NotificationBell } from "@/components/application/notification-bell";
 import { ChatHeaderButton } from "@/components/application/chat-header-button";
+import { TopBannerCarousel } from "@/components/application/top-banner-carousel";
 
 export default async function PersonalLayout({
   children,
@@ -47,9 +48,9 @@ export default async function PersonalLayout({
   });
 
   const isTrialActive = freeTrial ? new Date() <= new Date(freeTrial.endDate) : false;
-  const isSubscriptionActive = subscription 
-    ? (subscription.status.toLowerCase() === "active" || 
-       (subscription.status.toLowerCase() === "canceled" && subscription.endDate && new Date() < new Date(subscription.endDate)))
+  const isSubscriptionActive = subscription
+    ? (subscription.status.toLowerCase() === "active" ||
+      (subscription.status.toLowerCase() === "canceled" && subscription.endDate && new Date() < new Date(subscription.endDate)))
     : false;
   const isTestAccount = user?.isTestAccount || false;
 
@@ -91,8 +92,8 @@ export default async function PersonalLayout({
                 <strong>ASSINATURA EXPIRADA:</strong> O AbacatePay não conseguiu processar a renovação automática da sua mensalidade. Regularize seu pagamento para evitar a suspensão dos seus painéis.
               </span>
             </div>
-            <a 
-              href="/personal/subscription" 
+            <a
+              href="/personal/subscription"
               className="px-3.5 py-1.5 rounded-lg bg-destructive hover:bg-destructive/90 text-white font-bold text-[10px] tracking-wide uppercase transition-colors shrink-0 text-center"
             >
               Regularizar Assinatura
@@ -100,7 +101,8 @@ export default async function PersonalLayout({
           </div>
         )}
 
-        <div className="flex-1 min-w-0 overflow-x-hidden overflow-y-auto pb-24 md:pb-6">
+        <div className="flex-1 min-w-0 overflow-x-hidden">
+          <TopBannerCarousel role="PERSONAL" />
           {children}
         </div>
         <PersonalMobileNavbar />

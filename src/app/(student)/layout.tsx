@@ -11,6 +11,8 @@ import { StudentMobileNavbar } from "@/components/application/student-mobile-nav
 import { NotificationBell } from "@/components/application/notification-bell";
 import { ChatHeaderButton } from "@/components/application/chat-header-button";
 import { WorkoutManager } from "@/components/application/WorkoutManager";
+import { TopBannerCarousel } from "@/components/application/top-banner-carousel";
+import { StudentBillingTopBanner } from "@/components/application/student-billing-top-banner";
 
 export default async function StudentLayout({
   children,
@@ -81,6 +83,7 @@ export default async function StudentLayout({
     <SidebarProvider>
       <StudentSidebar />
       <SidebarInset className="bg-background">
+        <StudentBillingTopBanner />
         <header className="sticky top-0 z-30 flex h-16 shrink-0 items-center justify-between gap-2 border-b border-border/50 bg-background/80 backdrop-blur-md px-4 md:px-6">
           <div className="flex items-center gap-2 min-w-0">
             <SidebarTrigger className="-ml-1 hidden md:inline-flex" />
@@ -133,7 +136,8 @@ export default async function StudentLayout({
           </div>
         </header>
 
-        <main className="flex flex-col max-w-7xl mx-auto w-full pb-24 md:pb-6">
+        <main className="flex flex-col max-w-7xl mx-auto w-full">
+          <TopBannerCarousel role="STUDENT" />
           {children}
         </main>
         <StudentMobileNavbar />

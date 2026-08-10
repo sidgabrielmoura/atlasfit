@@ -64,7 +64,10 @@ import {
   MessageSquare,
   Lock,
   SkipForward,
+  Copy,
 } from "lucide-react";
+import { useSession } from "next-auth/react";
+import { useAbly } from "@/providers/ably-provider";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -188,14 +191,45 @@ export default function StudentWorkoutsPage() {
   const workspaceSnap = useSnapshot(workspaceStore);
   const activeWs = workspaceSnap.activeWorkspace;
   const router = useRouter();
+  const { data: session } = useSession();
+  const ablyClient = useAbly();
 
-  // State Management
   const [workouts, setWorkouts] = useState<any[]>([]);
   const [historyLogs, setHistoryLogs] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [lockStatus, setLockStatus] = useState<{
+    status: "OK" | "WARNING" | "LOCKED";
+    daysUntilLock: number | null;
+    overdueBilling: any | null;
+  }>({ status: "OK", daysUntilLock: null, overdueBilling: null });
 
-  // Calendar / Selection States
+  const fetchLockStatus = async () => {
+    try {
+      const res = await fetch("/api/student/lock-status");
+      if (res.ok) {
+        const json = await res.json();
+        setLockStatus(json);
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    fetchLockStatus();
+  }, []);
+
+  useEffect(() => {
+    if (!ablyClient || !session?.user?.id) return;
+    const userChannel = ablyClient.channels.get(`user:${session.user.id}`);
+    const handleWalletUpdate = () => {
+      fetchLockStatus();
+    };
+    userChannel.subscribe("wallet:updated", handleWalletUpdate);
+    return () => {
+      userChannel.unsubscribe("wallet:updated", handleWalletUpdate);
+    };
+  }, [ablyClient, session?.user?.id]);
+
   const daysOfWeekLabels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
   const [selectedDay, setSelectedDay] = useState<number>(new Date().getDay());
 
@@ -943,6 +977,82 @@ export default function StudentWorkoutsPage() {
         <Button onClick={() => loadWorkoutsData()} className="rounded-xl font-bold h-11 px-6">
           Recarregar
         </Button>
+      </div>
+    );
+  }
+
+  if (lockStatus.status === "LOCKED") {
+    return (
+      <div className="min-h-[80vh] p-4 sm:p-6 lg:p-8 flex items-center justify-center">
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className="w-full max-w-md p-6 sm:p-8 rounded-3xl bg-neutral-950/80 border border-primary/20 shadow-2xl backdrop-blur-xl text-center space-y-6 relative overflow-hidden"
+        >
+          <div className="absolute top-0 right-0 size-48 bg-primary/10 rounded-full blur-3xl pointer-events-none" />
+
+          <div className="size-16 rounded-3xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary mx-auto shadow-inner">
+            <Lock className="size-8 text-primary" />
+          </div>
+
+          <div className="space-y-2">
+            <Badge className="bg-primary/10 text-primary border border-primary/20 text-[10px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
+              Acesso Temporariamente Pausado
+            </Badge>
+            <h2 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+              Fichas de Treino Privadas
+            </h2>
+            <p className="text-xs sm:text-sm text-muted-foreground leading-relaxed">
+              Sua consultoria está temporariamente pausada. Quite sua mensalidade via Pix em 1 clique para continuar seus treinos agora mesmo.
+            </p>
+          </div>
+
+          {lockStatus.overdueBilling && (
+            <div className="p-4 rounded-2xl bg-muted/40 border border-border/50 space-y-3 text-left">
+              <div className="flex justify-between items-center text-xs">
+                <span className="text-muted-foreground font-semibold">{lockStatus.overdueBilling.title}</span>
+                <span className="font-bold text-foreground font-mono">
+                  R$ {(Number(lockStatus.overdueBilling.grossAmountInCents) / 100).toFixed(2).replace(".", ",")}
+                </span>
+              </div>
+
+              {lockStatus.overdueBilling.pixCopyPaste && (
+                <Button
+                  onClick={() => {
+                    navigator.clipboard.writeText(lockStatus.overdueBilling.pixCopyPaste);
+                    toast.success("Código Pix Copia e Cola copiado!");
+                  }}
+                  className="w-full h-10 text-xs font-bold bg-primary hover:bg-primary/90 text-white rounded-xl gap-2 shadow-lg shadow-primary/20"
+                >
+                  <Copy className="size-4" />
+                  <span>Copiar Código Pix Copia e Cola</span>
+                </Button>
+              )}
+
+              {lockStatus.overdueBilling.hostedInvoiceUrl && (
+                <Button
+                  asChild
+                  variant="outline"
+                  className="w-full h-9 text-xs font-semibold rounded-xl"
+                >
+                  <a href={lockStatus.overdueBilling.hostedInvoiceUrl} target="_blank" rel="noopener noreferrer">
+                    Abrir Fatura / Boleto Completo
+                  </a>
+                </Button>
+              )}
+            </div>
+          )}
+
+          <div className="pt-2">
+            <Button
+              variant="ghost"
+              onClick={() => router.push("/student/finance")}
+              className="text-xs text-muted-foreground hover:text-white"
+            >
+              Ir para meu Portal Financeiro
+            </Button>
+          </div>
+        </motion.div>
       </div>
     );
   }

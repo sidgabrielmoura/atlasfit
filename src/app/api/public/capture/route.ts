@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { rateLimit } from "@/lib/rate-limit";
+import { isValidCPF } from "@/lib/cpf-validator";
 
 export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "127.0.0.1";
@@ -19,10 +20,15 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { workspaceSlug, name, email, whatsapp, plan } = body;
+    const { workspaceSlug, name, email, whatsapp, cpfCnpj, plan } = body;
+    const cleanCpf = cpfCnpj ? cpfCnpj.replace(/\D/g, "") : "";
 
-    if (!workspaceSlug || !name || !email || !plan) {
-      return new NextResponse("Campos obrigatórios ausentes.", { status: 400 });
+    if (!workspaceSlug || !name || !email || !plan || !cleanCpf) {
+      return new NextResponse("CPF, Nome, E-mail e Plano são campos obrigatórios.", { status: 400 });
+    }
+
+    if (!isValidCPF(cleanCpf)) {
+      return new NextResponse("O CPF informado é inválido.", { status: 400 });
     }
 
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -30,7 +36,6 @@ export async function POST(req: Request) {
       return new NextResponse("Formato de e-mail inválido.", { status: 400 });
     }
 
-    // 1. Find the workspace
     const workspace = await prisma.workspace.findUnique({
       where: { slug: workspaceSlug.toLowerCase() },
     });
@@ -39,7 +44,6 @@ export async function POST(req: Request) {
       return new NextResponse("Workspace não encontrado.", { status: 404 });
     }
 
-    // 2. Check if email already exists as a User
     const existingUser = await prisma.user.findUnique({
       where: { email },
     });
@@ -51,7 +55,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Check if whatsapp already exists as a User
     if (whatsapp) {
       const existingUserPhone = await prisma.user.findFirst({
         where: { whatsapp },
@@ -64,7 +67,6 @@ export async function POST(req: Request) {
       }
     }
 
-    // 3. Check if email already exists as a Pending Student
     const existingPending = await prisma.pendingStudent.findUnique({
       where: { email },
     });
@@ -76,7 +78,6 @@ export async function POST(req: Request) {
       );
     }
 
-    // Check if whatsapp already exists as a Pending Student
     if (whatsapp) {
       const existingPendingPhone = await prisma.pendingStudent.findFirst({
         where: { whatsapp },
@@ -89,13 +90,13 @@ export async function POST(req: Request) {
       }
     }
 
-    // 5. Create the Pending Student
     await prisma.pendingStudent.create({
       data: {
         name,
         email,
         password: null,
         whatsapp,
+        cpfCnpj: cleanCpf,
         plan,
         workspaceId: workspace.id,
       },

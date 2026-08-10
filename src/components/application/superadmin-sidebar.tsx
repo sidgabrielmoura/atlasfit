@@ -17,16 +17,15 @@ import {
   LogOut,
   Sun,
   Moon,
-  ChevronRight,
   Globe,
   Database,
-  Search,
   Folder,
   Megaphone,
   UserX,
   Sparkles,
   PackagePlus,
   HardDrive,
+  Wallet,
 } from "lucide-react";
 import {
   Sidebar,
@@ -54,13 +53,20 @@ import { cn } from "@/lib/utils";
 import { layoutStore } from "@/stores/layout";
 import { useSnapshot } from "valtio";
 
-const superAdminNavItems = [
+const controlNavItems = [
   { title: "Dashboard Global", href: "/superadmin/dashboard", icon: LayoutDashboard },
+];
+
+const accountsNavItems = [
   { title: "Usuários", href: "/superadmin/users", icon: Users },
   { title: "Solicitações de Exclusão", href: "/superadmin/deletion-requests", icon: UserX },
   { title: "Workspaces", href: "/superadmin/workspaces", icon: Building2 },
+];
+
+const financeNavItems = [
   { title: "Financeiro", href: "/superadmin/finance", icon: DollarSign },
   { title: "Solicitações de Saque", href: "/superadmin/finance/payouts", icon: BadgeCheck },
+  { title: "Métricas Asaas (BaaS)", href: "/superadmin/asaas", icon: Wallet },
 ];
 
 const platformNavItems = [
@@ -68,10 +74,13 @@ const platformNavItems = [
   { title: "Créditos de Importação", href: "/superadmin/credits", icon: PackagePlus },
   { title: "Armazenamento Cloud", href: "/superadmin/storage", icon: HardDrive },
   { title: "Exercícios", href: "/superadmin/exercises", icon: Dumbbell },
-  { title: "Arquivos & Documentos", href: "/superadmin/files", icon: Folder },
+  { title: "Arquivos e Documentos", href: "/superadmin/files", icon: Folder },
   { title: "Assinaturas", href: "/superadmin/subscriptions", icon: BadgeCheck },
   { title: "Atlas Engage", href: "/superadmin/engage", icon: Megaphone },
-  { title: "Logs & Auditoria", href: "/superadmin/logs", icon: Database },
+];
+
+const auditNavItems = [
+  { title: "Logs e Auditoria", href: "/superadmin/logs", icon: Database },
   { title: "Configurações", href: "/superadmin/settings", icon: Settings },
 ];
 
@@ -92,6 +101,41 @@ export function SuperAdminSidebar() {
     setMounted(true);
   }, []);
 
+  const renderNavSection = (label: string, items: typeof controlNavItems) => (
+    <SidebarGroup className="py-2">
+      <SidebarGroupLabel className="px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/60 mb-1">
+        {label}
+      </SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {items.map((item) => {
+            const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
+            return (
+              <SidebarMenuItem key={item.href}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive}
+                  tooltip={item.title}
+                  className={cn(
+                    "h-9 px-4 rounded-xl transition-all duration-200",
+                    isActive
+                      ? "bg-primary/10! text-primary font-bold shadow-xs"
+                      : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+                  )}
+                >
+                  <Link href={item.href}>
+                    <item.icon className={cn("size-4", isActive && "text-primary")} />
+                    <span className="text-xs font-semibold">{item.title}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
+
   return (
     <Sidebar variant="sidebar" collapsible="icon" className="border-r border-border/40">
       <SidebarHeader className="px-6 py-5">
@@ -108,68 +152,20 @@ export function SuperAdminSidebar() {
 
       <SidebarSeparator className="max-w-[85%] mx-auto opacity-50" />
 
-      <SidebarContent className="">
-        <SidebarGroup>
-          <SidebarGroupLabel className="px-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Visão Geral</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {superAdminNavItems.map((item) => {
-                const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      tooltip={item.title}
-                      className={cn(
-                        "h-10 px-4 rounded-xl transition-all duration-200",
-                        isActive
-                          ? "bg-primary/10! text-primary font-bold shadow-xs"
-                          : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
-                      )}
-                    >
-                      <Link href={item.href}>
-                        <item.icon className={cn("size-4", isActive && "text-primary")} />
-                        <span className="text-sm">{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+      <SidebarContent className="space-y-1 py-2">
+        {renderNavSection("Painel de Controle", controlNavItems)}
+        <SidebarSeparator className="max-w-[85%] mx-auto opacity-40" />
 
-        <SidebarGroup className="mt-4">
-          <SidebarGroupLabel className="px-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60 mb-2">Plataforma</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {platformNavItems.map((item) => {
-                const isActive = pathname === item.href || pathname?.startsWith(item.href + "/");
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      tooltip={item.title}
-                      className={cn(
-                        "h-10 px-4 rounded-xl transition-all duration-200",
-                        isActive
-                          ? "bg-primary/10! text-primary font-bold shadow-xs"
-                          : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
-                      )}
-                    >
-                      <Link href={item.href}>
-                        <item.icon className={cn("size-4", isActive && "text-primary")} />
-                        <span className="text-sm">{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {renderNavSection("Gestão de Usuários e Contas", accountsNavItems)}
+        <SidebarSeparator className="max-w-[85%] mx-auto opacity-40" />
+
+        {renderNavSection("Operações Financeiras e BaaS", financeNavItems)}
+        <SidebarSeparator className="max-w-[85%] mx-auto opacity-40" />
+
+        {renderNavSection("Recursos da Plataforma", platformNavItems)}
+        <SidebarSeparator className="max-w-[85%] mx-auto opacity-40" />
+
+        {renderNavSection("Auditoria e Definições", auditNavItems)}
       </SidebarContent>
 
       <SidebarFooter>
@@ -178,14 +174,14 @@ export function SuperAdminSidebar() {
             <SidebarMenuButton
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               tooltip="Alternar Tema"
-              className=" rounded-xl text-muted-foreground hover:bg-secondary/60 hover:text-foreground transition-all mb-2"
+              className="rounded-xl text-muted-foreground hover:bg-secondary/60 hover:text-foreground transition-all mb-2"
             >
               <div className="relative flex items-center justify-center size-4 overflow-hidden">
                 <Sun className="absolute size-4 rotate-0 scale-100 transition-all duration-500 ease-in-out dark:-rotate-90 dark:scale-0 text-amber-500" />
                 <Moon className="absolute size-4 rotate-90 scale-0 transition-all duration-500 ease-in-out dark:rotate-0 dark:scale-100 text-slate-300" />
               </div>
               {!sidebarOpen && (
-                <span className="text-sm font-medium">{mounted ? (theme === "dark" ? "Modo Claro" : "Modo Escuro") : "Tema"}</span>
+                <span className="text-xs font-medium">{mounted ? (theme === "dark" ? "Modo Claro" : "Modo Escuro") : "Tema"}</span>
               )}
             </SidebarMenuButton>
           </SidebarMenuItem>

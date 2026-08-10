@@ -28,6 +28,7 @@ export async function GET(req: Request) {
         medicalConditions: true,
         weight: true,
         height: true,
+        cpfCnpj: true,
       },
     });
 
@@ -132,6 +133,7 @@ export async function PATCH(req: Request) {
           city: city ?? null,
           bio: bio ?? null,
           objective: objective ?? null,
+          cpfCnpj: body.cpfCnpj ? body.cpfCnpj.replace(/\D/g, "") : undefined,
           image: image ?? undefined,
           imageKey: body.imageKey ?? undefined,
         },

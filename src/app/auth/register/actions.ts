@@ -7,12 +7,14 @@ export async function registerTrainer(formData: {
   name: string;
   email: string;
   password: string;
+  cpfCnpj?: string;
   referralCode?: string;
 }) {
   try {
     const name = formData.name.trim();
     const email = formData.email.trim().toLowerCase();
     const password = formData.password;
+    const cpfCnpj = formData.cpfCnpj?.replace(/\D/g, "") || undefined;
     const refCodeInput = formData.referralCode?.trim();
 
     if (!name || !email || !password) {
@@ -55,6 +57,7 @@ export async function registerTrainer(formData: {
           name,
           email,
           password: hashedPassword,
+          cpfCnpj,
           role: "TRAINER",
           referralCode: generatedReferralCode,
           referredById,

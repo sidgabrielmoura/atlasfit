@@ -1,6 +1,8 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { useAbly } from "@/providers/ably-provider";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSnapshot } from "valtio";
 import { workspaceStore } from "@/stores/workspace.store";
@@ -70,12 +72,48 @@ export default function StudentDashboardPage() {
   const workspaceSnap = useSnapshot(workspaceStore);
   const activeWs = workspaceSnap.activeWorkspace;
 
+  const { data: session } = useSession();
+  const ablyClient = useAbly();
+
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeWorkoutIdx, setActiveWorkoutIdx] = useState(0);
   const [selectedDayIdx, setSelectedDayIdx] = useState(new Date().getDay());
   const [mounted, setMounted] = useState(false);
+  const [lockStatus, setLockStatus] = useState<{
+    status: "OK" | "WARNING" | "LOCKED";
+    daysUntilLock: number | null;
+    overdueBilling: any | null;
+  }>({ status: "OK", daysUntilLock: null, overdueBilling: null });
+
+  const fetchLockStatus = async () => {
+    try {
+      const res = await fetch("/api/student/lock-status");
+      if (res.ok) {
+        const json = await res.json();
+        setLockStatus(json);
+      }
+    } catch {}
+  };
+
+  useEffect(() => {
+    fetchLockStatus();
+  }, []);
+
+  useEffect(() => {
+    if (!ablyClient || !session?.user?.id) return;
+    const userChannel = ablyClient.channels.get(`user:${session.user.id}`);
+
+    const handleWalletUpdate = () => {
+      fetchLockStatus();
+    };
+
+    userChannel.subscribe("wallet:updated", handleWalletUpdate);
+    return () => {
+      userChannel.unsubscribe("wallet:updated", handleWalletUpdate);
+    };
+  }, [ablyClient, session?.user?.id]);
 
   useEffect(() => {
     setMounted(true);
@@ -199,51 +237,7 @@ export default function StudentDashboardPage() {
       </div>
 
       {/* Plan Expiration Warning Card */}
-      {showExpirationAlert && (
-        <motion.div
-          initial={{ opacity: 0, y: -10 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.3 }}
-        >
-          <Card className={cn(
-            "p-5 rounded-2xl flex flex-col sm:flex-row items-center justify-between gap-4 border shadow-md relative overflow-hidden",
-            isExpired 
-              ? "border-rose-500/30 bg-rose-500/10 text-rose-200" 
-              : "border-amber-500/25 bg-amber-500/5 text-amber-200/90"
-          )}>
-            <div className="flex items-center gap-4">
-              <div className={cn(
-                "size-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm",
-                isExpired ? "bg-rose-500/20 text-rose-500" : "bg-amber-500/20 text-amber-500"
-              )}>
-                <AlertTriangle className="size-5 shrink-0" />
-              </div>
-              <div className="space-y-1 text-center sm:text-left">
-                <h4 className="font-extrabold text-sm tracking-tight text-white">
-                  {isExpired ? "Acesso Expirado" : "Seu plano está vencendo"}
-                </h4>
-                <p className="text-xs text-muted-foreground leading-relaxed max-w-md">
-                  {isExpired 
-                    ? "Seu plano no AtlasFit venceu. Renove agora para continuar acessando seus treinos sem interrupção."
-                    : `Restam apenas ${daysRemaining} ${daysRemaining === 1 ? "dia" : "dias"} de validade no seu plano atual.`}
-                </p>
-              </div>
-            </div>
-            <Button
-              onClick={handleWhatsAppRenewalClick}
-              className={cn(
-                "font-bold text-xs h-10 px-5 rounded-xl flex items-center gap-2 cursor-pointer transition-all active:scale-95 shadow-md w-full sm:w-auto justify-center shrink-0",
-                isExpired 
-                  ? "bg-rose-600 hover:bg-rose-500 text-white shadow-rose-600/10" 
-                  : "bg-amber-500 hover:bg-amber-600 text-zinc-950 shadow-amber-500/10"
-              )}
-            >
-              <MessageSquare className="size-4" />
-              Mandar mensagem no WhatsApp
-            </Button>
-          </Card>
-        </motion.div>
-      )}
+
 
       {/* Photo Request Warning Card */}
       {data.photoRequest && (

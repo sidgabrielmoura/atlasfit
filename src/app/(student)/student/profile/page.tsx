@@ -202,6 +202,7 @@ export default function StudentProfilePage() {
               { label: "Peso Corporal", value: physical?.weight ? `${physical.weight} kg` : "—", icon: Weight, color: "text-blue-400" },
               { label: "Altura Base", value: physical?.height ? `${physical.height} cm` : "—", icon: Ruler, color: "text-emerald-400" },
               { label: "Objetivo Principal", value: getObjectiveLabel(user?.objective) || "Definir nas Configurações", icon: Target, color: "text-primary" },
+              { label: "CPF / CNPJ (Mensalidades)", value: user?.cpfCnpj ? user.cpfCnpj.replace(/(\d{3})(\d{3})(\d{3})(\d{2})/, "$1.$2.$3-$4") : "Não informado", icon: CreditCard, color: "text-indigo-400" },
             ].map((bioItem, idx) => (
               <motion.div key={idx} variants={item}>
                 <Card className="bg-card dark:bg-neutral-950/40 border border-border dark:border-white/[0.06] shadow-sm hover:border-primary/30 transition-all rounded-2xl overflow-hidden">

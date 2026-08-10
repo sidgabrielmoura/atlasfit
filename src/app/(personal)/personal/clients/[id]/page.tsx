@@ -447,6 +447,8 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   const [recCategory, setRecCategory] = useState("Mensalidade");
   const [recPaymentMethod, setRecPaymentMethod] = useState("PIX");
   const [recIsActive, setRecIsActive] = useState(true);
+  const [recSource, setRecSource] = useState("MANUAL");
+  const [recCreatedAt, setRecCreatedAt] = useState<string | null>(null);
 
   const [paymentPlanName, setPaymentPlanName] = useState("");
   const [paymentAmount, setPaymentAmount] = useState("");
@@ -1227,6 +1229,8 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
           setRecCategory(data.recurrence.billingCategory || "Mensalidade");
           setRecPaymentMethod(data.recurrence.billingPaymentMethod || "PIX");
           setRecIsActive(data.recurrence.billingIsActive ?? true);
+          setRecSource(data.recurrence.billingSource || "MANUAL");
+          setRecCreatedAt(data.recurrence.billingCreatedAt || null);
         }
       } else {
         toast.error("Erro ao carregar histórico financeiro.");
@@ -3783,193 +3787,235 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                   </div>
                 </div>
 
-                <form onSubmit={handleSaveRecurrence} className="space-y-4">
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-1.5">
-                      <Label htmlFor="recControlType" className="text-xs font-bold text-muted-foreground">Tipo de Controle</Label>
-                      <Select value={recControlType} onValueChange={(val) => setRecControlType(val)}>
-                        <SelectTrigger id="recControlType" className="bg-muted/50 w-full dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl">
-                          <SelectValue placeholder="Selecione o tipo" />
-                        </SelectTrigger>
-                        <SelectContent className="bg-muted dark:bg-zinc-900 border-border/60 dark:border-white/[0.08]">
-                          <SelectItem value="MANUAL" className="text-xs">Manual (Sem automação)</SelectItem>
-                          <SelectItem value="CONFIRMATION" className="text-xs">Recorrência com confirmação</SelectItem>
-                          <SelectItem value="AUTOMATIC" className="text-xs">Recorrência automática (Baixa auto)</SelectItem>
-                        </SelectContent>
-                      </Select>
+                {recSource === "ATLAS_PAY" || recControlType === "ATLAS_PAY_CREDIT_CARD" ? (
+                  <div className="p-5 rounded-2xl bg-gradient-to-br from-card via-background to-primary/5 border border-primary/20 space-y-4 text-card-foreground">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20 text-[10px] font-extrabold px-2.5 py-0.5 rounded-full">
+                          Recorrência Ativa via Atlas Pay
+                        </Badge>
+                        <Badge variant="outline" className="text-[10px] font-bold">
+                          Cartão de Crédito
+                        </Badge>
+                      </div>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-primary">
+                        Asaas BaaS
+                      </span>
                     </div>
 
-                    {recControlType !== "MANUAL" && (
-                      <>
-                        <div className="space-y-1.5">
-                          <Label htmlFor="recPrice" className="text-xs font-bold text-muted-foreground">Valor Recorrente (R$)</Label>
-                          <Input
-                            id="recPrice"
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl focus-visible:ring-0 focus-visible:ring-offset-0"
-                            value={recPrice}
-                            onChange={(e) => setRecPrice(e.target.value)}
-                            required
-                          />
-                        </div>
+                    <div className="space-y-1">
+                      <p className="text-sm font-extrabold text-foreground">
+                        Feita pelo Atlas Pay (Cartão de Crédito)
+                      </p>
+                      <p className="text-xs text-muted-foreground font-medium leading-relaxed">
+                        Esta mensalidade foi configurada via Atlas Pay no cartão de crédito do aluno. As cobranças ocorrem automaticamente a cada mês pelo Asaas com split de taxas.
+                      </p>
+                    </div>
 
-                        <div className="space-y-1.5">
-                          <Label htmlFor="recPaymentMethod" className="text-xs font-bold text-muted-foreground">Método de Pagamento</Label>
-                          <Select value={recPaymentMethod} onValueChange={(val) => setRecPaymentMethod(val)}>
-                            <SelectTrigger id="recPaymentMethod" className="bg-muted/50 dark:bg-zinc-900/60 w-full! border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl">
-                              <SelectValue placeholder="Método" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-muted dark:bg-zinc-900 border-border/60 dark:border-white/[0.08]">
-                              <SelectItem value="PIX" className="text-xs">PIX</SelectItem>
-                              <SelectItem value="CREDIT_CARD" className="text-xs">Cartão de Crédito</SelectItem>
-                              <SelectItem value="BOLETO" className="text-xs">Boleto</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-                      </>
-                    )}
+                    <div className="pt-3 border-t border-border/50 grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs">
+                      <div className="space-y-0.5">
+                        <span className="text-muted-foreground block text-[10px] uppercase font-extrabold">Data de Criação</span>
+                        <span className="font-bold text-foreground">
+                          {recCreatedAt ? new Date(recCreatedAt).toLocaleDateString('pt-BR') : "Data de cadastro"}
+                        </span>
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className="text-muted-foreground block text-[10px] uppercase font-extrabold">Valor da Mensalidade</span>
+                        <span className="font-extrabold text-emerald-600 dark:text-emerald-400 font-mono">
+                          R$ {parseFloat(recPrice || "0").toFixed(2)}
+                        </span>
+                      </div>
+                    </div>
                   </div>
+                ) : (
+                  <form onSubmit={handleSaveRecurrence} className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="space-y-1.5">
+                        <Label htmlFor="recControlType" className="text-xs font-bold text-muted-foreground">Tipo de Controle</Label>
+                        <Select value={recControlType} onValueChange={(val) => setRecControlType(val)}>
+                          <SelectTrigger id="recControlType" className="bg-muted/50 w-full dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl">
+                            <SelectValue placeholder="Selecione o tipo" />
+                          </SelectTrigger>
+                          <SelectContent className="bg-muted dark:bg-zinc-900 border-border/60 dark:border-white/[0.08]">
+                            <SelectItem value="MANUAL" className="text-xs">Manual (Sem automação)</SelectItem>
+                            <SelectItem value="CONFIRMATION" className="text-xs">Recorrência com confirmação</SelectItem>
+                            <SelectItem value="AUTOMATIC" className="text-xs">Recorrência automática (Baixa auto)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
 
-                  {recControlType === "MANUAL" ? (
-                    <div className="p-4 bg-muted/20 dark:bg-zinc-950/20 border border-border/50 dark:border-white/[0.04] rounded-xl text-xs text-muted-foreground">
-                      O controle financeiro está definido como <strong>Manual</strong>. O sistema não gerará faturas automaticamente para este aluno. Utilize o botão "Registrar Lançamento" acima para cadastrar transações manualmente.
-                    </div>
-                  ) : (
-                    <div className="space-y-4 pt-2 border-t border-border/40 dark:border-white/[0.04]">
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="space-y-1.5">
-                          <Label htmlFor="recPeriodicity" className="text-xs font-bold text-muted-foreground">Periodicidade</Label>
-                          <Select value={recPeriodicity} onValueChange={(val) => setRecPeriodicity(val)}>
-                            <SelectTrigger id="recPeriodicity" className="bg-muted/50 w-full dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl">
-                              <SelectValue placeholder="Periodicidade" />
-                            </SelectTrigger>
-                            <SelectContent className="bg-muted dark:bg-zinc-900 border-border/60 dark:border-white/[0.08]">
-                              <SelectItem value="MENSAL" className="text-xs">Mensal</SelectItem>
-                              <SelectItem value="QUINZENAL" className="text-xs">Quinzenal</SelectItem>
-                              <SelectItem value="SEMANAL" className="text-xs">Semanal</SelectItem>
-                              <SelectItem value="ANUAL" className="text-xs">Anual</SelectItem>
-                              <SelectItem value="PERSONALIZADA" className="text-xs">Personalizada</SelectItem>
-                            </SelectContent>
-                          </Select>
-                        </div>
-
-                        {recPeriodicity === "PERSONALIZADA" && (
-                          <div className="grid grid-cols-2 gap-2">
-                            <div className="space-y-1.5">
-                              <Label htmlFor="recCustomCount" className="text-xs font-bold text-muted-foreground">A cada</Label>
-                              <Input
-                                id="recCustomCount"
-                                type="number"
-                                min="1"
-                                className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl "
-                                value={recCustomCount}
-                                onChange={(e) => setRecCustomCount(e.target.value)}
-                              />
-                            </div>
-                            <div className="space-y-1.5">
-                              <Label htmlFor="recCustomUnit" className="text-xs font-bold text-muted-foreground">Unidade</Label>
-                              <Select value={recCustomUnit} onValueChange={(val) => setRecCustomUnit(val)}>
-                                <SelectTrigger id="recCustomUnit" className="bg-muted/50 w-full dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-12 text-xs rounded-xl ">
-                                  <SelectValue />
-                                </SelectTrigger>
-                                <SelectContent className="bg-muted dark:bg-zinc-900 border-border/60 dark:border-white/[0.08]">
-                                  <SelectItem value="dias" className="text-xs">dias</SelectItem>
-                                  <SelectItem value="semanas" className="text-xs">semanas</SelectItem>
-                                  <SelectItem value="meses" className="text-xs">meses</SelectItem>
-                                  <SelectItem value="anos" className="text-xs">anos</SelectItem>
-                                </SelectContent>
-                              </Select>
-                            </div>
-                          </div>
-                        )}
-
-                        {(recPeriodicity === "MENSAL" || recPeriodicity === "ANUAL" || (recPeriodicity === "PERSONALIZADA" && (recCustomUnit === "meses" || recCustomUnit === "anos"))) && (
+                      {recControlType !== "MANUAL" && (
+                        <>
                           <div className="space-y-1.5">
-                            <Label htmlFor="recDueDay" className="text-xs font-bold text-muted-foreground">Dia do Vencimento (1 a 31)</Label>
+                            <Label htmlFor="recPrice" className="text-xs font-bold text-muted-foreground">Valor Recorrente (R$)</Label>
                             <Input
-                              id="recDueDay"
+                              id="recPrice"
                               type="number"
-                              min="1"
-                              max="31"
-                              className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl "
-                              value={recDueDay}
-                              onChange={(e) => setRecDueDay(e.target.value)}
+                              step="0.01"
+                              placeholder="0.00"
+                              className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl focus-visible:ring-0 focus-visible:ring-offset-0"
+                              value={recPrice}
+                              onChange={(e) => setRecPrice(e.target.value)}
+                              required
                             />
                           </div>
-                        )}
-                      </div>
 
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                        <div className="space-y-1.5">
-                          <Label htmlFor="recFirstDueDate" className="text-xs font-bold text-muted-foreground">Data da Primeira Cobrança</Label>
-                          <Input
-                            id="recFirstDueDate"
-                            type="date"
-                            className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl "
-                            value={recFirstDueDate}
-                            onChange={(e) => setRecFirstDueDate(e.target.value)}
-                            required
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <Label htmlFor="recStartDate" className="text-xs font-bold text-muted-foreground">Início da Recorrência</Label>
-                          <Input
-                            id="recStartDate"
-                            type="date"
-                            className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl "
-                            value={recStartDate}
-                            onChange={(e) => setRecStartDate(e.target.value)}
-                            required
-                          />
-                        </div>
-
-                        <div className="space-y-1.5">
-                          <Label htmlFor="recDescription" className="text-xs font-bold text-muted-foreground">Descrição da Cobrança</Label>
-                          <Input
-                            id="recDescription"
-                            placeholder="Ex: Mensalidade de Assessoria"
-                            className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl "
-                            value={recDescription}
-                            onChange={(e) => setRecDescription(e.target.value)}
-                          />
-                        </div>
-                      </div>
-
-                      <div className="flex items-center justify-between p-4 bg-muted/20 dark:bg-zinc-950/20 border border-border/50 dark:border-white/[0.04] rounded-xl">
-                        <div className="space-y-0.5">
-                          <span className="block text-xs font-bold ">Recorrência Ativa</span>
-                          <span className="block text-[10px] text-muted-foreground">Se desmarcado, novas faturas recorrentes não serão geradas.</span>
-                        </div>
-                        <input
-                          type="checkbox"
-                          className="size-4 accent-emerald-500 rounded cursor-pointer"
-                          checked={recIsActive}
-                          onChange={(e) => setRecIsActive(e.target.checked)}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex justify-end pt-2">
-                    <Button
-                      type="submit"
-                      disabled={submittingRecurrence}
-                      className="bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold rounded-xl text-xs h-9 px-6 transition-all duration-300 shadow-md shadow-emerald-500/10"
-                    >
-                      {submittingRecurrence ? (
-                        <>
-                          <Loader2 className="animate-spin size-3.5 mr-2" />
-                          Salvando...
+                          <div className="space-y-1.5">
+                            <Label htmlFor="recPaymentMethod" className="text-xs font-bold text-muted-foreground">Método de Pagamento</Label>
+                            <Select value={recPaymentMethod} onValueChange={(val) => setRecPaymentMethod(val)}>
+                              <SelectTrigger id="recPaymentMethod" className="bg-muted/50 dark:bg-zinc-900/60 w-full! border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl">
+                                <SelectValue placeholder="Método" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-muted dark:bg-zinc-900 border-border/60 dark:border-white/[0.08]">
+                                <SelectItem value="PIX" className="text-xs">PIX</SelectItem>
+                                <SelectItem value="CREDIT_CARD" className="text-xs">Cartão de Crédito</SelectItem>
+                                <SelectItem value="BOLETO" className="text-xs">Boleto</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
                         </>
-                      ) : (
-                        "Salvar Configuração de Recorrência"
                       )}
-                    </Button>
-                  </div>
-                </form>
+                    </div>
+
+                    {recControlType === "MANUAL" ? (
+                      <div className="p-4 bg-muted/20 dark:bg-zinc-950/20 border border-border/50 dark:border-white/[0.04] rounded-xl text-xs text-muted-foreground">
+                        O controle financeiro está definido como <strong>Manual</strong>. O sistema não gerará faturas automaticamente para este aluno. Utilize o botão "Registrar Lançamento" acima para cadastrar transações manualmente.
+                      </div>
+                    ) : (
+                      <div className="space-y-4 pt-2 border-t border-border/40 dark:border-white/[0.04]">
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="recPeriodicity" className="text-xs font-bold text-muted-foreground">Periodicidade</Label>
+                            <Select value={recPeriodicity} onValueChange={(val) => setRecPeriodicity(val)}>
+                              <SelectTrigger id="recPeriodicity" className="bg-muted/50 w-full dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl">
+                                <SelectValue placeholder="Periodicidade" />
+                              </SelectTrigger>
+                              <SelectContent className="bg-muted dark:bg-zinc-900 border-border/60 dark:border-white/[0.08]">
+                                <SelectItem value="MENSAL" className="text-xs">Mensal</SelectItem>
+                                <SelectItem value="QUINZENAL" className="text-xs">Quinzenal</SelectItem>
+                                <SelectItem value="SEMANAL" className="text-xs">Semanal</SelectItem>
+                                <SelectItem value="ANUAL" className="text-xs">Anual</SelectItem>
+                                <SelectItem value="PERSONALIZADA" className="text-xs">Personalizada</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {recPeriodicity === "PERSONALIZADA" && (
+                            <div className="grid grid-cols-2 gap-2">
+                              <div className="space-y-1.5">
+                                <Label htmlFor="recCustomCount" className="text-xs font-bold text-muted-foreground">A cada</Label>
+                                <Input
+                                  id="recCustomCount"
+                                  type="number"
+                                  min="1"
+                                  className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl "
+                                  value={recCustomCount}
+                                  onChange={(e) => setRecCustomCount(e.target.value)}
+                                />
+                              </div>
+                              <div className="space-y-1.5">
+                                <Label htmlFor="recCustomUnit" className="text-xs font-bold text-muted-foreground">Unidade</Label>
+                                <Select value={recCustomUnit} onValueChange={(val) => setRecCustomUnit(val)}>
+                                  <SelectTrigger id="recCustomUnit" className="bg-muted/50 w-full dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-12 text-xs rounded-xl ">
+                                    <SelectValue />
+                                  </SelectTrigger>
+                                  <SelectContent className="bg-muted dark:bg-zinc-900 border-border/60 dark:border-white/[0.08]">
+                                    <SelectItem value="dias" className="text-xs">dias</SelectItem>
+                                    <SelectItem value="semanas" className="text-xs">semanas</SelectItem>
+                                    <SelectItem value="meses" className="text-xs">meses</SelectItem>
+                                    <SelectItem value="anos" className="text-xs">anos</SelectItem>
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                            </div>
+                          )}
+
+                          {(recPeriodicity === "MENSAL" || recPeriodicity === "ANUAL" || (recPeriodicity === "PERSONALIZADA" && (recCustomUnit === "meses" || recCustomUnit === "anos"))) && (
+                            <div className="space-y-1.5">
+                              <Label htmlFor="recDueDay" className="text-xs font-bold text-muted-foreground">Dia do Vencimento (1 a 31)</Label>
+                              <Input
+                                id="recDueDay"
+                                type="number"
+                                min="1"
+                                max="31"
+                                className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl "
+                                value={recDueDay}
+                                onChange={(e) => setRecDueDay(e.target.value)}
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                          <div className="space-y-1.5">
+                            <Label htmlFor="recFirstDueDate" className="text-xs font-bold text-muted-foreground">Data da Primeira Cobrança</Label>
+                            <Input
+                              id="recFirstDueDate"
+                              type="date"
+                              className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl "
+                              value={recFirstDueDate}
+                              onChange={(e) => setRecFirstDueDate(e.target.value)}
+                              required
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Label htmlFor="recStartDate" className="text-xs font-bold text-muted-foreground">Início da Recorrência</Label>
+                            <Input
+                              id="recStartDate"
+                              type="date"
+                              className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl "
+                              value={recStartDate}
+                              onChange={(e) => setRecStartDate(e.target.value)}
+                              required
+                            />
+                          </div>
+
+                          <div className="space-y-1.5">
+                            <Label htmlFor="recDescription" className="text-xs font-bold text-muted-foreground">Descrição da Cobrança</Label>
+                            <Input
+                              id="recDescription"
+                              placeholder="Ex: Mensalidade de Assessoria"
+                              className="bg-muted/50 dark:bg-zinc-900/60 border-border/50 dark:border-white/[0.06] h-10 text-xs rounded-xl "
+                              value={recDescription}
+                              onChange={(e) => setRecDescription(e.target.value)}
+                            />
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between p-4 bg-muted/20 dark:bg-zinc-950/20 border border-border/50 dark:border-white/[0.04] rounded-xl">
+                          <div className="space-y-0.5">
+                            <span className="block text-xs font-bold ">Recorrência Ativa</span>
+                            <span className="block text-[10px] text-muted-foreground">Se desmarcado, novas faturas recorrentes não serão geradas.</span>
+                          </div>
+                          <input
+                            type="checkbox"
+                            className="size-4 accent-emerald-500 rounded cursor-pointer"
+                            checked={recIsActive}
+                            onChange={(e) => setRecIsActive(e.target.checked)}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex justify-end pt-2">
+                      <Button
+                        type="submit"
+                        disabled={submittingRecurrence}
+                        className="bg-emerald-500 hover:bg-emerald-600 text-zinc-950 font-bold rounded-xl text-xs h-9 px-6 transition-all duration-300 shadow-md shadow-emerald-500/10"
+                      >
+                        {submittingRecurrence ? (
+                          <>
+                            <Loader2 className="animate-spin size-3.5 mr-2" />
+                            Salvando...
+                          </>
+                        ) : (
+                          "Salvar Configuração de Recorrência"
+                        )}
+                      </Button>
+                    </div>
+                  </form>
+                )}
               </Card>
 
               {/* Transactions list */}

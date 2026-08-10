@@ -1,8 +1,8 @@
 "use client";
 
 import { useSearchParams, useRouter } from "next/navigation";
-import { useState, Suspense } from "react";
-import { setupPassword } from "@/components/auth/actions";
+import { useState, useEffect, Suspense } from "react";
+import { setupPassword, getSetupInfo } from "@/components/auth/actions";
 import { AuthLayout } from "@/components/auth/auth-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Eye, EyeOff, Lock, ArrowRight, CheckCircle2 } from "lucide-react";
 import { motion } from "framer-motion";
+import { isValidCPF, formatCPF } from "@/lib/cpf-validator";
 
 function SetupPasswordForm() {
   const searchParams = useSearchParams();
@@ -18,10 +19,22 @@ function SetupPasswordForm() {
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [cpfCnpj, setCpfCnpj] = useState("");
+  const [needsCpf, setNeedsCpf] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+
+  useEffect(() => {
+    if (token) {
+      getSetupInfo(token).then((res) => {
+        if (res.success && res.needsCpf) {
+          setNeedsCpf(true);
+        }
+      });
+    }
+  }, [token]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -29,6 +42,17 @@ function SetupPasswordForm() {
     if (!token) {
       toast.error("Token de acesso inválido ou expirado.");
       return;
+    }
+
+    if (needsCpf) {
+      if (!cpfCnpj) {
+        toast.error("O CPF é obrigatório para concluir o cadastro.");
+        return;
+      }
+      if (!isValidCPF(cpfCnpj)) {
+        toast.error("O CPF informado é inválido. Digite um CPF válido com 11 dígitos.");
+        return;
+      }
     }
 
     if (password.length < 6) {
@@ -44,7 +68,7 @@ function SetupPasswordForm() {
     setIsLoading(true);
 
     try {
-      const result = await setupPassword(token, password);
+      const result = await setupPassword(token, password, needsCpf ? cpfCnpj : undefined);
 
       if (result.error) {
         toast.error(result.error);
@@ -91,6 +115,26 @@ function SetupPasswordForm() {
 
       <form onSubmit={handleSubmit} className="space-y-6">
         <div className="space-y-4">
+          {needsCpf && (
+            <div className="space-y-2">
+              <Label htmlFor="cpf" className="font-semibold text-xs uppercase tracking-wider">
+                CPF do Aluno (Obrigatório)
+              </Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3 size-4 text-muted-foreground" />
+                <Input
+                  id="cpf"
+                  required
+                  placeholder="000.000.000-00"
+                  className="pl-10 h-12 rounded-xl bg-secondary/30 border-border/50 focus:bg-secondary/50 transition-all text-xs"
+                  value={cpfCnpj}
+                  onChange={(e) => setCpfCnpj(formatCPF(e.target.value))}
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="password">Nova Senha</Label>
             <div className="relative">
@@ -99,7 +143,7 @@ function SetupPasswordForm() {
                 id="password"
                 type={showPassword ? "text" : "password"}
                 placeholder="No mínimo 6 caracteres"
-                className="pl-10 pr-10 h-12 rounded-xl bg-secondary/30 border-border/50 focus:bg-secondary/50 transition-all"
+                className="pl-10 pr-10 h-12 rounded-xl bg-secondary/30 border-border/50 focus:bg-secondary/50 transition-all text-xs"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -126,7 +170,7 @@ function SetupPasswordForm() {
                 id="confirm-password"
                 type={showConfirmPassword ? "text" : "password"}
                 placeholder="Repita a nova senha"
-                className="pl-10 pr-10 h-12 rounded-xl bg-secondary/30 border-border/50 focus:bg-secondary/50 transition-all"
+                className="pl-10 pr-10 h-12 rounded-xl bg-secondary/30 border-border/50 focus:bg-secondary/50 transition-all text-xs"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required

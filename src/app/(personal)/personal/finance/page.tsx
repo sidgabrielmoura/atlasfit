@@ -29,6 +29,8 @@ import { workspaceStore } from "@/stores/workspace.store";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { useAbly } from "@/providers/ably-provider";
+import { TopBannerCarousel } from "@/components/application/top-banner-carousel";
 
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -271,9 +273,32 @@ export default function FinancePage() {
     }
   };
 
+  const ablyClient = useAbly();
+
   useEffect(() => {
     fetchFinanceData();
   }, [activeWorkspaceId]);
+
+  useEffect(() => {
+    if (!ablyClient || !activeWorkspaceId) return;
+
+    const wsChannel = ablyClient.channels.get(`workspace:${activeWorkspaceId}`);
+
+    const handleFinancialUpdate = (msg: { data?: { type?: string } }) => {
+      if (msg.data?.type === "FINANCIAL_PAYMENT_UPDATED") {
+        toast.success("Financeiro atualizado em tempo real!", {
+          description: "O recebimento do pagamento foi confirmado e registrado."
+        });
+        fetchFinanceData();
+      }
+    };
+
+    wsChannel.subscribe("financial:updated", handleFinancialUpdate);
+
+    return () => {
+      wsChannel.unsubscribe("financial:updated", handleFinancialUpdate);
+    };
+  }, [ablyClient, activeWorkspaceId]);
 
   // Open creation modal
   const handleOpenCreateModal = () => {
@@ -1135,7 +1160,7 @@ export default function FinancePage() {
                                   <div className="flex items-center gap-3 min-w-0">
                                     <div className={cn(
                                       "size-10 rounded-full flex items-center justify-center shrink-0 border",
-                                      isManual ? "bg-zinc-800/40 text-zinc-400 border-zinc-700/50" :
+                                      isManual ? "bg-muted text-muted-foreground border-border" :
                                         isPaused ? "bg-rose-500/10 text-rose-500 border-rose-500/25" :
                                           isAuto ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/25" :
                                             "bg-amber-500/10 text-amber-500 border-amber-500/25"

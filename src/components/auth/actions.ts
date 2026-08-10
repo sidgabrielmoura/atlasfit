@@ -16,6 +16,7 @@ import {
   getTwoFactorEmailHtml,
   getTwoFactorEmailText
 } from "@/lib/email-templates";
+import { isValidCPF } from "@/lib/cpf-validator";
 
 export async function login(formData: {
   email: string;
@@ -26,7 +27,7 @@ export async function login(formData: {
   try {
     const ipHeaders = await headers();
     const ip = ipHeaders.get("x-forwarded-for") || ipHeaders.get("x-real-ip") || "127.0.0.1";
-    const limiter = await rateLimit(`login:${ip}`, 10, 60000); // Expanded rate limit to allow OTP attempts
+    const limiter = await rateLimit(`login:${ip}`, 10, 60000);
 
     if (!limiter.success) {
       return { error: "Muitas tentativas de login. Tente novamente mais tarde." };
@@ -46,7 +47,6 @@ export async function login(formData: {
       redirect("/maintenance");
     }
 
-    // If a 2FA OTP code is submitted
     if (formData.code) {
       const identifier = `2FA:${formData.email}`;
       const dbToken = await prisma.verificationToken.findFirst({
@@ -61,7 +61,6 @@ export async function login(formData: {
         return { error: "Código de verificação inválido ou expirado." };
       }
 
-      // Delete the verified token
       await prisma.verificationToken.delete({
         where: { token: dbToken.token }
       });
@@ -74,24 +73,20 @@ export async function login(formData: {
       return { success: true, role: user.role };
     }
 
-    // Verify Password first
     const isPasswordValid = user.password ? await bcryptjs.compare(formData.password, user.password) : false;
     if (!isPasswordValid) {
       return { error: "Credenciais inválidas. Tente novamente." };
     }
 
-    // Check if global 2FA is active
     const global2FA = await prisma.systemSetting.findUnique({
       where: { key: "two_factor_auth_enabled" }
     });
     const isGlobal2FA = global2FA?.value === "true";
     
-    // User-specific configuration overrides global setting if explicitly set (not null)
     const is2FAEnabled = user.twoFactorEnabled !== null 
       ? user.twoFactorEnabled 
       : isGlobal2FA;
 
-    // If 2FA is NOT enabled (taking override logic into account), bypass and log in immediately
     if (!is2FAEnabled) {
       await signIn("credentials", {
         email: formData.email,
@@ -101,33 +96,44 @@ export async function login(formData: {
       return { success: true, role: user.role };
     }
 
-    // Generate 6-digit code
     const code = Math.floor(100000 + Math.random() * 900000).toString();
     const identifier = `2FA:${formData.email}`;
 
-    // Clean up old active 2FA codes for this email
     await prisma.verificationToken.deleteMany({
       where: { identifier }
     });
 
-    // Save token
     await prisma.verificationToken.create({
       data: {
         identifier,
         token: code,
-        expires: new Date(Date.now() + 5 * 60 * 1000) // 5 minutes validity
+        expires: new Date(Date.now() + 5 * 60 * 1000)
       }
     });
 
-    // Send email using Resend integration
     const fromEmail = process.env.EMAIL_FROM || "AtlasFit <noreply@app.atlasfit.site>";
-    await resend.emails.send({
-      from: fromEmail,
-      to: formData.email,
-      subject: `${code} é seu código de segurança do AtlasFit`,
-      html: getTwoFactorEmailHtml(code),
-      text: getTwoFactorEmailText(code),
-    });
+    
+    try {
+      const emailResult = await resend.emails.send({
+        from: fromEmail,
+        to: formData.email,
+        subject: `${code} é seu código de segurança do AtlasFit`,
+        html: getTwoFactorEmailHtml(code),
+        text: getTwoFactorEmailText(code),
+      });
+
+      if (emailResult.error) {
+        console.error("2FA_EMAIL_DISPATCH_FAILED:", emailResult.error);
+        return { 
+          error: `Erro ao enviar o e-mail de verificação: ${emailResult.error.message || "Domínio de e-mail não verificado ou chave API inválida"}` 
+        };
+      }
+    } catch (sendErr: any) {
+      console.error("2FA_EMAIL_DISPATCH_EXCEPTION:", sendErr);
+      return { 
+        error: `Falha no serviço de e-mail: ${sendErr?.message || "Não foi possível enviar o código"}` 
+      };
+    }
 
     return { requires2FA: true, email: formData.email };
   } catch (error) {
@@ -143,7 +149,21 @@ export async function login(formData: {
   }
 }
 
-export async function setupPassword(token: string, passwordStr: string) {
+export async function getSetupInfo(token: string) {
+  if (!token) return { error: "Token de acesso inválido ou expirado." };
+  try {
+    const user = await prisma.user.findUnique({
+      where: { setupToken: token },
+      select: { id: true, name: true, email: true, cpfCnpj: true }
+    });
+    if (!user) return { error: "Link de ativação inválido ou já utilizado." };
+    return { success: true, needsCpf: !user.cpfCnpj, user };
+  } catch (err) {
+    return { error: "Erro ao verificar token de acesso." };
+  }
+}
+
+export async function setupPassword(token: string, passwordStr: string, cpfCnpjStr?: string) {
   if (!token) {
     return { error: "Token de acesso inválido ou expirado." };
   }
@@ -160,6 +180,17 @@ export async function setupPassword(token: string, passwordStr: string) {
       return { error: "Link de ativação inválido ou já utilizado." };
     }
 
+    let cleanCpf: string | undefined = undefined;
+    if (!user.cpfCnpj) {
+      if (!cpfCnpjStr) {
+        return { error: "O CPF é obrigatório para ativar sua conta de aluno." };
+      }
+      if (!isValidCPF(cpfCnpjStr)) {
+        return { error: "O CPF informado é inválido. Digite um CPF válido." };
+      }
+      cleanCpf = cpfCnpjStr.replace(/\D/g, "");
+    }
+
     const hashedPassword = await bcryptjs.hash(passwordStr, 10);
 
     await prisma.user.update({
@@ -167,6 +198,7 @@ export async function setupPassword(token: string, passwordStr: string) {
       data: {
         password: hashedPassword,
         setupToken: null,
+        ...(cleanCpf ? { cpfCnpj: cleanCpf } : {})
       }
     });
 
@@ -178,7 +210,6 @@ export async function setupPassword(token: string, passwordStr: string) {
 }
 
 export async function requestPasswordReset(email: string) {
-
   if (!email || !email.includes("@")) {
     return { error: "E-mail inválido." };
   }
@@ -205,7 +236,7 @@ export async function requestPasswordReset(email: string) {
       return { success: true, message: "Se o e-mail estiver cadastrado, você receberá um link de recuperação." };
     }
 
-    const deleted = await prisma.passwordResetToken.deleteMany({
+    await prisma.passwordResetToken.deleteMany({
       where: { email: normalizedEmail }
     });
 
@@ -223,7 +254,7 @@ export async function requestPasswordReset(email: string) {
     const protocol = host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https";
     const resetLink = `${protocol}://${host}/auth/reset-password?token=${token}`;
 
-    const fromEmail = process.env.EMAIL_FROM || "AtlasFit <noreply@resend.dev>";
+    const fromEmail = process.env.EMAIL_FROM || "AtlasFit <noreply@app.atlasfit.site>";
 
     const { data, error } = await resend.emails.send({
       from: fromEmail,
@@ -234,12 +265,14 @@ export async function requestPasswordReset(email: string) {
     });
 
     if (error) {
-      throw new Error(`Resend email dispatch failed: ${error.message}`);
+      console.error("RESET_PASSWORD_EMAIL_FAILED:", error);
+      throw new Error(`Falha ao enviar e-mail de redefinição: ${error.message}`);
     }
 
     return { success: true, message: "Se o e-mail estiver cadastrado, você receberá um link de recuperação." };
   } catch (error) {
-    return { error: "Ocorreu um erro interno ao enviar o link de redefinição." };
+    const msg = error instanceof Error ? error.message : "Ocorreu um erro interno ao enviar o link de redefinição.";
+    return { error: msg };
   }
 }
 

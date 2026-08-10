@@ -58,26 +58,24 @@ export default function StudentSettingsPage() {
   const [email, setEmail] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
   const [city, setCity] = useState("");
-  const [objective, setObjective] = useState(""); // Represents fitness goal / objective
+  const [cpfCnpj, setCpfCnpj] = useState("");
+  const [objective, setObjective] = useState("");
   const [avatarBase64, setAvatarBase64] = useState("");
   const [avatarFile, setAvatarFile] = useState<File | null>(null);
   const [imageKey, setImageKey] = useState("");
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
 
-  // Physical data states
   const [weight, setWeight] = useState("");
   const [height, setHeight] = useState("");
   const [bodyFat, setBodyFat] = useState("");
   const [muscleMass, setMuscleMass] = useState("");
   const [isUpdatingPhysical, setIsUpdatingPhysical] = useState(false);
 
-  // Security password states
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [isUpdatingPassword, setIsUpdatingPassword] = useState(false);
 
-  // Preferences local states
   const [unit, setUnit] = useState("kg");
   const [autoTimer, setAutoTimer] = useState(true);
 
@@ -91,12 +89,12 @@ export default function StudentSettingsPage() {
       }
       const rawData = await res.json();
 
-      // Load user profile details
       if (rawData.user) {
         setName(rawData.user.name || "");
         setEmail(rawData.user.email || "");
         setWhatsapp(rawData.user.whatsapp || "");
         setCity(rawData.user.city || "");
+        setCpfCnpj(rawData.user.cpfCnpj || "");
         setObjective(rawData.user.objective || "");
         setAvatarBase64(rawData.user.image || "");
         setImageKey(rawData.user.imageKey || "");
@@ -193,6 +191,7 @@ export default function StudentSettingsPage() {
           name,
           whatsapp: whatsapp.trim() || null,
           city: city.trim() || null,
+          cpfCnpj: cpfCnpj.trim() || null,
           objective: objective || null,
           image: finalAvatarUrl || null,
           imageKey: finalImageKey || null,
@@ -427,6 +426,17 @@ export default function StudentSettingsPage() {
                       placeholder="Ex: São Paulo - SP"
                       value={city}
                       onChange={(e) => setCity(e.target.value)}
+                      disabled={isUpdatingProfile}
+                      className="bg-secondary/35 border-border/50 text-sm h-10 rounded-xl focus:bg-secondary/50 transition-all"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <Label className="text-xs font-bold text-muted-foreground">CPF ou CNPJ (para Faturamento e Cobranças)</Label>
+                    <Input
+                      placeholder="000.000.000-00"
+                      value={cpfCnpj}
+                      onChange={(e) => setCpfCnpj(e.target.value.replace(/\D/g, ""))}
                       disabled={isUpdatingProfile}
                       className="bg-secondary/35 border-border/50 text-sm h-10 rounded-xl focus:bg-secondary/50 transition-all"
                     />

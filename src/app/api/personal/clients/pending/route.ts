@@ -242,6 +242,13 @@ export async function POST(req: Request) {
         }
 
         // If existing user has no password and no token, generate a token
+        if (pendingStudent.cpfCnpj && !existingUser.cpfCnpj) {
+          await tx.user.update({
+            where: { id: finalUserId },
+            data: { cpfCnpj: pendingStudent.cpfCnpj }
+          });
+        }
+
         if (!existingUser.password && !existingUser.setupToken) {
           await tx.user.update({
             where: { id: finalUserId },
@@ -250,7 +257,6 @@ export async function POST(req: Request) {
         }
       } else {
         const setupToken = crypto.randomUUID();
-        // Create new User & membership
         const createdUser = await tx.user.create({
           data: {
             name: pendingStudent.name,
@@ -259,6 +265,7 @@ export async function POST(req: Request) {
             setupToken,
             role: "STUDENT",
             whatsapp: pendingStudent.whatsapp,
+            cpfCnpj: pendingStudent.cpfCnpj,
           },
         });
 

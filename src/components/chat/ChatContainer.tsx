@@ -35,7 +35,13 @@ import {
   ZoomOut,
   Dumbbell,
   Play,
+  QrCode,
+  CreditCard,
+  ArrowUpRight,
+  Receipt,
 } from "lucide-react";
+import Link from "next/link";
+import { StudentChargeModal } from "@/components/application/student-charge-modal";
 
 import { chatStore, chatActions, Message, Conversation } from "@/stores/chat.store";
 import { workspaceStore } from "@/stores/workspace.store";
@@ -216,6 +222,9 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
   const [contacts, setContacts] = useState<any[]>([]);
   const [isContactDialogOpen, setIsContactDialogOpen] = useState(false);
   const [isTypingState, setIsTypingState] = useState(false);
+  const [isChatChargeOpen, setIsChatChargeOpen] = useState(false);
+  const [chatChargeStudentId, setChatChargeStudentId] = useState("");
+  const [chatChargeStudentName, setChatChargeStudentName] = useState("");
   const typingTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
@@ -421,20 +430,19 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
     }
   };
 
-  // 4. Send Text Message
-  const handleSendMessage = async (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    const textToSend = inputText.trim();
+  const handleSendMessage = async (e?: React.FormEvent | string, customAttachment?: any) => {
+    if (e && typeof e !== "string") e.preventDefault();
+    const textToSend = (typeof e === "string" ? e : inputText).trim();
     if (!textToSend || !activeConversationId || !currentUserId) return;
 
-    const attachmentPayload = workoutMention ? {
+    const attachmentPayload = customAttachment || (workoutMention ? {
       type: "workout_exercise_mention",
       workoutId: workoutMention.workoutId,
       workoutName: workoutMention.workoutName,
       exerciseId: workoutMention.exerciseId,
       exerciseName: workoutMention.exerciseName,
       observation: workoutMention.observation
-    } : null;
+    } : null);
 
     const optimisticMessage: Message = {
       id: `temp-${Date.now()}`,
@@ -1307,19 +1315,38 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                 </div>
               </div>
 
-              <Button
-                type="button"
-                size="icon"
-                variant="ghost"
-                onClick={() => setIsMaximized((prev) => !prev)}
-                className="size-8 rounded-lg text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
-              >
-                {isMaximized ? (
-                  <Minimize2 className="size-4" />
-                ) : (
-                  <Maximize2 className="size-4" />
+              <div className="flex items-center gap-2">
+                {userRole !== "STUDENT" && otherParticipant?.user?.id && (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      setChatChargeStudentId(otherParticipant.user.id);
+                      setChatChargeStudentName(otherParticipant.user.name);
+                      setIsChatChargeOpen(true);
+                    }}
+                    className="h-8 px-2.5 text-xs font-bold gap-1.5 border-primary/30 bg-primary/10 text-primary hover:bg-primary/20 rounded-xl cursor-pointer shrink-0"
+                  >
+                    <QrCode className="size-3.5" />
+                    <span className="hidden sm:inline">Cobrar via Atlas Pay</span>
+                  </Button>
                 )}
-              </Button>
+
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  onClick={() => setIsMaximized((prev) => !prev)}
+                  className="size-8 rounded-lg text-muted-foreground hover:text-foreground cursor-pointer shrink-0"
+                >
+                  {isMaximized ? (
+                    <Minimize2 className="size-4" />
+                  ) : (
+                    <Maximize2 className="size-4" />
+                  )}
+                </Button>
+              </div>
             </div>
 
             <div
@@ -1506,6 +1533,69 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                                         </Button>
                                       </div>
                                     )}
+
+                                    {m.attachment && (m.attachment as any).type === "student_billing" && (
+                                       <div className={cn(
+                                         "p-3.5 rounded-2xl border text-left space-y-3 my-1.5 w-full max-w-[280px] select-none shadow-lg backdrop-blur-md transition-all",
+                                         isSelf 
+                                           ? "bg-white/10 border-white/20 text-white" 
+                                           : "bg-neutral-900/90 border-primary/30 text-white"
+                                       )}>
+                                         <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-2">
+                                           <div className="flex items-center gap-1.5">
+                                             <div className="size-6 rounded-md bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                                               <QrCode className="size-3.5" />
+                                             </div>
+                                             <span className="text-xs font-black text-emerald-400 tracking-tight">Atlas Pay</span>
+                                           </div>
+                                           <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[9px] font-extrabold px-2 py-0.5 rounded-full">
+                                             Pendente
+                                           </Badge>
+                                         </div>
+
+                                         <div className="space-y-0.5">
+                                           <h4 className="text-xs font-extrabold text-white line-clamp-1">{(m.attachment as any).title || "Mensalidade Consultoria"}</h4>
+                                           {(m.attachment as any).amountInCents && (
+                                             <span className="text-base font-black text-emerald-400 font-mono block">
+                                               R$ {(Number((m.attachment as any).amountInCents) / 100).toFixed(2).replace(".", ",")}
+                                             </span>
+                                           )}
+                                         </div>
+
+                                         <div className="space-y-1.5 pt-1">
+                                           <Button
+                                             size="sm"
+                                             onClick={() => {
+                                               if ((m.attachment as any).pixCopyPaste) {
+                                                 navigator.clipboard.writeText((m.attachment as any).pixCopyPaste);
+                                                 toast.success("Código Pix Copia e Cola copiado!");
+                                               } else if ((m.attachment as any).hostedInvoiceUrl) {
+                                                 window.open((m.attachment as any).hostedInvoiceUrl, "_blank");
+                                               } else {
+                                                 window.location.href = "/student/finance";
+                                               }
+                                             }}
+                                             className="w-full h-9 text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-black rounded-xl gap-1.5 shadow-md shadow-emerald-500/20 cursor-pointer"
+                                           >
+                                             <CreditCard className="size-3.5" />
+                                             <span>Abrir Pagamento</span>
+                                             <ArrowUpRight className="size-3.5" />
+                                           </Button>
+
+                                           {!isSelf && (
+                                             <Button
+                                               asChild
+                                               variant="ghost"
+                                               className="w-full h-7 text-[10px] font-bold text-neutral-300 hover:text-white rounded-lg cursor-pointer"
+                                             >
+                                               <Link href="/student/finance">
+                                                 Ver no Portal Financeiro
+                                               </Link>
+                                             </Button>
+                                           )}
+                                         </div>
+                                       </div>
+                                     )}
 
                                     {m.attachment && (m.attachment as any).type === "workout_exercise_mention" && (
                                       <div className={cn(
@@ -2449,6 +2539,31 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
             open={isPreviewOpen}
             onOpenChange={setIsPreviewOpen}
           />
+          {isChatChargeOpen && (
+            <StudentChargeModal
+              isOpen={isChatChargeOpen}
+              onClose={() => setIsChatChargeOpen(false)}
+              onSuccess={(createdBilling) => {
+                setIsChatChargeOpen(false);
+                if (activeConversationId) {
+                  const billingAttachment = {
+                    type: "student_billing",
+                    billingId: createdBilling?.id || `billing-${Date.now()}`,
+                    title: createdBilling?.title || "Consultoria AtlasFit",
+                    amountInCents: createdBilling?.grossAmountInCents ? createdBilling.grossAmountInCents.toString() : undefined,
+                    pixCopyPaste: createdBilling?.pixPayloadEncrypted || createdBilling?.pixCopyPaste,
+                    hostedInvoiceUrl: createdBilling?.hostedInvoiceUrl
+                  };
+                  handleSendMessage(
+                    `💳 Fatura Atlas Pay gerada para ${chatChargeStudentName}. O pagamento via Pix ou cartão está disponível.`,
+                    billingAttachment
+                  );
+                }
+              }}
+              studentUserId={chatChargeStudentId}
+              studentName={chatChargeStudentName}
+            />
+          )}
         </>
       )}
     </div>

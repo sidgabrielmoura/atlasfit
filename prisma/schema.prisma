@@ -21,44 +21,45 @@ enum WorkspaceRole {
 }
 
 model User {
-  id               String            @id @default(cuid())
-  name             String?
-  email            String?           @unique
-  password         String?
-  setupToken       String?           @unique
-  emailVerified    DateTime?
-  image            String?
-  role             GlobalRole        @default(USER)
-  onboarded        Boolean           @default(false)
-  twoFactorEnabled Boolean?
-  isTestAccount    Boolean           @default(false)
-  objective        String?
-  gender           String?
-  birthDate        DateTime?
-  experienceLevel  String?
+  id                String            @id @default(cuid())
+  name              String?
+  email             String?           @unique
+  password          String?
+  setupToken        String?           @unique
+  emailVerified     DateTime?
+  image             String?
+  role              GlobalRole        @default(USER)
+  onboarded         Boolean           @default(false)
+  twoFactorEnabled  Boolean?
+  isTestAccount     Boolean           @default(false)
+  objective         String?
+  gender            String?
+  birthDate         DateTime?
+  cpfCnpj           String?
+  experienceLevel   String?
   medicalConditions String?           @db.Text
   weight            Float?
   height            Float?
-  accounts         Account[]
-  sessions         Session[]
-  workspaces       WorkspaceMember[]
-  auditLogs        AuditLog[]
-  createdExercises Exercise[]        @relation("CreatedExercises")
-  workouts         Workout[]         @relation("CreatedWorkouts")
-  createdAt        DateTime          @default(now())
-  updatedAt        DateTime          @updatedAt
+  accounts          Account[]
+  sessions          Session[]
+  workspaces        WorkspaceMember[]
+  auditLogs         AuditLog[]
+  createdExercises  Exercise[]        @relation("CreatedExercises")
+  workouts          Workout[]         @relation("CreatedWorkouts")
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 
   // Personal Trainer profile fields
-  bio        String?
-  specialty  String?
-  whatsapp   String?
-  instagram  String?
-  linkedin   String?
-  city       String?
-  experience String?
-  cref       String?
-  imageKey   String?
-  importCredits Int  @default(0)
+  bio           String?
+  specialty     String?
+  whatsapp      String?
+  instagram     String?
+  linkedin      String?
+  city          String?
+  experience    String?
+  cref          String?
+  imageKey      String?
+  importCredits Int     @default(0)
 
   subscription           Subscription?
   freeTrial              FreeTrial?
@@ -83,56 +84,57 @@ model User {
   notificationPreference NotificationPreference?
 
   // Affiliate / Referral fields
-  referralCode           String?                     @unique
-  referredById           String?
-  referredBy             User?                       @relation("UserReferrals", fields: [referredById], references: [id])
-  referrals              User[]                      @relation("UserReferrals")
-  commissionsReceived    ReferralCommission[]        @relation("ReferrerCommissions")
-  commissionsGenerated   ReferralCommission[]        @relation("ReferredCommissions")
-  payoutRequests         PayoutRequest[]
-  chatParticipations     ConversationParticipant[]
-  chatMessages           Message[]
-  dataDeletionRequest    DataDeletionRequest?
+  referralCode         String?                   @unique
+  referredById         String?
+  referredBy           User?                     @relation("UserReferrals", fields: [referredById], references: [id])
+  referrals            User[]                    @relation("UserReferrals")
+  commissionsReceived  ReferralCommission[]      @relation("ReferrerCommissions")
+  commissionsGenerated ReferralCommission[]      @relation("ReferredCommissions")
+  payoutRequests       PayoutRequest[]
+  chatParticipations   ConversationParticipant[]
+  chatMessages         Message[]
+  dataDeletionRequest  DataDeletionRequest?
 
-  createdImportJobs      ImportJob[]                 @relation("CreatedImportJobs")
-  geminiUsageLogs        GeminiUsageLog[]            @relation("GeminiUsageLogs")
-  creditPurchases        CreditPurchase[]
+  createdImportJobs       ImportJob[]              @relation("CreatedImportJobs")
+  geminiUsageLogs         GeminiUsageLog[]         @relation("GeminiUsageLogs")
+  creditPurchases         CreditPurchase[]
+  paymentProviderAccounts PaymentProviderAccount[] @relation("PaymentProviderAccounts")
 }
 
 model Workspace {
-  id              String             @id @default(cuid())
-  name            String
-  slug            String             @unique
-  ownerId         String
-  isActive        Boolean            @default(true)
-  slogan          String?
-  logoUrl         String?
-  primaryColor    String?            @default("#ea580c")
-  watermarkUrl    String?
-  workoutCoverUrl String?
-  logoKey         String?
-  watermarkKey    String?
-  workoutCoverKey String?
-  importCredits   Int                @default(0)
-  members         WorkspaceMember[]
-  plans           WorkspacePlan[]
-  payments        WorkspacePayment[]
-  pendingStudents PendingStudent[]
-  trainerTasks    TrainerTask[]
-  workouts        Workout[]
-  progressHistory StudentProgress[]
-  progressPhotos  StudentProgressPhoto[]
-  dailyFeedbacks  DailyFeedback[]
-  leads           Lead[]
-  tags            Tag[]
-  customFields    CustomFieldDefinition[]
-  notifications   Notification[]
+  id                String                  @id @default(cuid())
+  name              String
+  slug              String                  @unique
+  ownerId           String
+  isActive          Boolean                 @default(true)
+  slogan            String?
+  logoUrl           String?
+  primaryColor      String?                 @default("#ea580c")
+  watermarkUrl      String?
+  workoutCoverUrl   String?
+  logoKey           String?
+  watermarkKey      String?
+  workoutCoverKey   String?
+  importCredits     Int                     @default(0)
+  members           WorkspaceMember[]
+  plans             WorkspacePlan[]
+  payments          WorkspacePayment[]
+  pendingStudents   PendingStudent[]
+  trainerTasks      TrainerTask[]
+  workouts          Workout[]
+  progressHistory   StudentProgress[]
+  progressPhotos    StudentProgressPhoto[]
+  dailyFeedbacks    DailyFeedback[]
+  leads             Lead[]
+  tags              Tag[]
+  customFields      CustomFieldDefinition[]
+  notifications     Notification[]
   engageExperiences EngageExperience[]
-  createdAt       DateTime           @default(now())
-  updatedAt       DateTime           @updatedAt
-  conversations   Conversation[]
-  importJobs      ImportJob[]
-  creditPurchases CreditPurchase[]
+  createdAt         DateTime                @default(now())
+  updatedAt         DateTime                @updatedAt
+  conversations     Conversation[]
+  importJobs        ImportJob[]
+  creditPurchases   CreditPurchase[]
 }
 
 model WorkspaceMember {
@@ -152,7 +154,6 @@ model WorkspaceMember {
   createdAt   DateTime      @default(now())
   updatedAt   DateTime      @updatedAt
 
-  // Recurrence financial configuration fields
   billingControlType         String    @default("MANUAL") // "MANUAL", "CONFIRMATION", "AUTOMATIC"
   billingPrice               Float     @default(0.0)
   billingPeriodicity         String    @default("MENSAL") // "MENSAL", "QUINZENAL", "SEMANAL", "ANUAL", "PERSONALIZADA"
@@ -167,6 +168,9 @@ model WorkspaceMember {
   billingCategory            String?   @default("Mensalidade")
   billingPaymentMethod       String?   @default("PIX")
   billingIsActive            Boolean   @default(true)
+  billingSource              String?   @default("MANUAL")
+  asaasSubscriptionId        String?
+  billingCreatedAt           DateTime?
   planEndDate                DateTime?
 
   @@unique([userId, workspaceId])
@@ -187,16 +191,16 @@ model Plan {
 }
 
 model Subscription {
-  id                String    @id @default(cuid())
-  userId            String    @unique
-  planId            String
-  status            String
-  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan              Plan      @relation(fields: [planId], references: [id])
-  startDate         DateTime  @default(now())
-  endDate           DateTime?
-  isPreSubscription Boolean   @default(false)
-  importQuotaUsed   Int       @default(0)
+  id                 String    @id @default(cuid())
+  userId             String    @unique
+  planId             String
+  status             String
+  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan               Plan      @relation(fields: [planId], references: [id])
+  startDate          DateTime  @default(now())
+  endDate            DateTime?
+  isPreSubscription  Boolean   @default(false)
+  importQuotaUsed    Int       @default(0)
   importQuotaResetAt DateTime?
 }
 
@@ -222,7 +226,7 @@ model Transaction {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
-  commissions   ReferralCommission[]
+  commissions ReferralCommission[]
 }
 
 model Coupon {
@@ -324,26 +328,26 @@ model Exercise {
 }
 
 model Workout {
-  id         String            @id @default(cuid())
-  name       String
-  goal       String // "Hipertrofia", "Emagrecimento", "Força", "Resistência", etc. (pra que serve)
-  difficulty String // "Iniciante", "Intermediário", "Avançado"
-  duration   String // "60 min", "45 min" (tempo de treino)
-  creatorId   String?
-  creator     User?             @relation("CreatedWorkouts", fields: [creatorId], references: [id], onDelete: SetNull)
-  workspaceId String?
-  workspace   Workspace?        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id             String                 @id @default(cuid())
+  name           String
+  goal           String // "Hipertrofia", "Emagrecimento", "Força", "Resistência", etc. (pra que serve)
+  difficulty     String // "Iniciante", "Intermediário", "Avançado"
+  duration       String // "60 min", "45 min" (tempo de treino)
+  creatorId      String?
+  creator        User?                  @relation("CreatedWorkouts", fields: [creatorId], references: [id], onDelete: SetNull)
+  workspaceId    String?
+  workspace      Workspace?             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   exercises      WorkoutExercise[]
   exerciseGroups WorkoutExerciseGroup[]
 
   // Aluno a quem o treino pertence (se for exclusivo/atribuído individualmente)
-  studentId            String?
-  student              User?             @relation("StudentWorkouts", fields: [studentId], references: [id], onDelete: Cascade)
-  dayOfWeek            Int?              // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
-  muscleGroupLabel     String?      // Ex: "Peito e Tríceps", "Membros Inferiores"
-  restBetweenExercises String?      @default("2 min")
-  isActive             Boolean      @default(true)
-  workoutLogs          WorkoutLog[]
+  studentId             String?
+  student               User?        @relation("StudentWorkouts", fields: [studentId], references: [id], onDelete: Cascade)
+  dayOfWeek             Int? // 0=Dom, 1=Seg, 2=Ter, 3=Qua, 4=Qui, 5=Sex, 6=Sáb
+  muscleGroupLabel      String? // Ex: "Peito e Tríceps", "Membros Inferiores"
+  restBetweenExercises  String?      @default("2 min")
+  isActive              Boolean      @default(true)
+  workoutLogs           WorkoutLog[]
   allowRepsModification Boolean      @default(true)
   allowCompleteView     Boolean      @default(false)
   allowSkipExercises    Boolean      @default(false)
@@ -353,19 +357,19 @@ model Workout {
 }
 
 model WorkoutExercise {
-  id         String @id @default(cuid())
-  workoutId  String
-  exerciseId String
-  sets       Int // séries
-  reps       String // repetições
-  rest       String // descanso
-  load         String? // carga (peso) prescrita
-  description  String? // observação do personal para este exercício
-  order        Int                  @default(0) // ordem
-  methodType   MethodType           @default(NONE)
-  methodConfig Json?
-  groupId      String?
-  group        WorkoutExerciseGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  id                    String                @id @default(cuid())
+  workoutId             String
+  exerciseId            String
+  sets                  Int // séries
+  reps                  String // repetições
+  rest                  String // descanso
+  load                  String? // carga (peso) prescrita
+  description           String? // observação do personal para este exercício
+  order                 Int                   @default(0) // ordem
+  methodType            MethodType            @default(NONE)
+  methodConfig          Json?
+  groupId               String?
+  group                 WorkoutExerciseGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
   allowRepsModification Boolean?
 
   workout  Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
@@ -489,6 +493,7 @@ model PendingStudent {
   email       String    @unique
   password    String?
   whatsapp    String?
+  cpfCnpj     String?
   plan        String    @default("Mensal")
   workspaceId String
   workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
@@ -499,16 +504,16 @@ model PendingStudent {
 }
 
 model TrainerTask {
-  id             String   @id @default(cuid())
-  workspaceId    String
-  title          String
-  time           String // "10:00" etc.
-  type           String // "avaliação", "financeiro", "check-in", "lembrete"
-  completed      Boolean  @default(false)
-  scheduledDate  String?  // "yyyy-MM-dd" armazenado como string local (sem conversão UTC)
-  studentId      String?
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id            String   @id @default(cuid())
+  workspaceId   String
+  title         String
+  time          String // "10:00" etc.
+  type          String // "avaliação", "financeiro", "check-in", "lembrete"
+  completed     Boolean  @default(false)
+  scheduledDate String? // "yyyy-MM-dd" armazenado como string local (sem conversão UTC)
+  studentId     String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   student   User?     @relation("StudentTasks", fields: [studentId], references: [id], onDelete: Cascade)
@@ -519,63 +524,63 @@ model TrainerTask {
 }
 
 model StudentProgress {
-  id              String   @id @default(cuid())
-  studentId       String
-  workspaceId     String
-  date            DateTime @default(now())
-  
+  id          String   @id @default(cuid())
+  studentId   String
+  workspaceId String
+  date        DateTime @default(now())
+
   // Composição Corporal
-  weight          Float?   // Peso em kg
-  height          Float?   // Altura em cm
-  bodyFat         Float?   // Percentual de Gordura %
-  muscleMass      Float?   // Percentual de Massa Magra %
-  
+  weight     Float? // Peso em kg
+  height     Float? // Altura em cm
+  bodyFat    Float? // Percentual de Gordura %
+  muscleMass Float? // Percentual de Massa Magra %
+
   // Medidas de Circunferência (em cm)
-  chest           Float?   // Peito
-  waist           Float?   // Cintura
-  abdomen         Float?   // Abdômen
-  hips            Float?   // Quadril
-  rightArm        Float?   // Braço Direito
-  leftArm         Float?   // Braço Esquerdo
-  rightForearm    Float?   // Antebraço Direito
-  leftForearm     Float?   // Antebraço Esquerdo
-  rightThigh      Float?   // Coxa Direita
-  leftThigh       Float?   // Coxa Esquerda
-  rightCalf       Float?   // Panturrilha Direita
-  leftCalf        Float?   // Panturrilha Esquerda
-  
-  notes           String?  // Observações gerais
-  
+  chest        Float? // Peito
+  waist        Float? // Cintura
+  abdomen      Float? // Abdômen
+  hips         Float? // Quadril
+  rightArm     Float? // Braço Direito
+  leftArm      Float? // Braço Esquerdo
+  rightForearm Float? // Antebraço Direito
+  leftForearm  Float? // Antebraço Esquerdo
+  rightThigh   Float? // Coxa Direita
+  leftThigh    Float? // Coxa Esquerda
+  rightCalf    Float? // Panturrilha Direita
+  leftCalf     Float? // Panturrilha Esquerda
+
+  notes String? // Observações gerais
+
   // Relações
-  student         User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  student   User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([studentId])
   @@index([workspaceId])
 }
 
 model StudentProgressPhoto {
-  id              String   @id @default(cuid())
-  studentId       String
-  workspaceId     String
-  photoUrl        String
-  objectKey       String?
-  mimeType        String?
-  size            Int?
-  uploadedBy      String?
-  date            DateTime @default(now())
-  
-  trainerLiked    Boolean  @default(false)
-  comment         String?  @db.Text
-  
-  student         User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  workspace       Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
+  id          String   @id @default(cuid())
+  studentId   String
+  workspaceId String
+  photoUrl    String
+  objectKey   String?
+  mimeType    String?
+  size        Int?
+  uploadedBy  String?
+  date        DateTime @default(now())
+
+  trainerLiked Boolean @default(false)
+  comment      String? @db.Text
+
+  student   User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([studentId])
   @@index([workspaceId])
@@ -586,70 +591,70 @@ model PhysicalEvaluation {
   studentId   String
   workspaceId String
   date        DateTime @default(now())
-  type        String   // "Dobra Cutânea (Pollock 7 Dobras)", "Bioimpedância", etc.
+  type        String // "Dobra Cutânea (Pollock 7 Dobras)", "Bioimpedância", etc.
   weight      Float
   height      Float
   bodyFat     Float?
   muscleMass  Float?
-  dobras      Json?    // Armazena as dobras (triceps, peitoral, abdominal, coxa, suprailiaca, etc.)
-  
+  dobras      Json? // Armazena as dobras (triceps, peitoral, abdominal, coxa, suprailiaca, etc.)
+
   // Novas seções estruturadas da Avaliação Física
-  anamnese        Json?    // Respostas do questionário de anamnese
-  circunferencias Json?    // Medidas das circunferências corporais
-  postural        Json?    // Avaliação postural (fotos, desvios e laudo)
-  dorMobilidade   Json?    // Mapa de dor e limitações de mobilidade
-  testesFisicos   Json?    // Resultados dos testes de flexibilidade, cardio e força
+  anamnese        Json? // Respostas do questionário de anamnese
+  circunferencias Json? // Medidas das circunferências corporais
+  postural        Json? // Avaliação postural (fotos, desvios e laudo)
+  dorMobilidade   Json? // Mapa de dor e limitações de mobilidade
+  testesFisicos   Json? // Resultados dos testes de flexibilidade, cardio e força
 
-  notes       String?  @db.Text
+  notes String? @db.Text
 
-  student     User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([studentId])
   @@index([workspaceId])
 }
 
 model StudentFile {
-  id          String   @id @default(cuid())
+  id          String  @id @default(cuid())
   studentId   String
   workspaceId String
-  name        String   // Descrição visual / Nome amigável do arquivo
-  category    String   // "exames" | "dieta_treino" | "outros"
-  type        String   // "file" | "link"
-  fileName    String?  // Nome físico do arquivo se for upload
-  fileSize    String?  // Tamanho formatado (ex: "2.4 MB") ou "Link"
-  url         String   // URL do arquivo em nuvem ou URL externa
+  name        String // Descrição visual / Nome amigável do arquivo
+  category    String // "exames" | "dieta_treino" | "outros"
+  type        String // "file" | "link"
+  fileName    String? // Nome físico do arquivo se for upload
+  fileSize    String? // Tamanho formatado (ex: "2.4 MB") ou "Link"
+  url         String // URL do arquivo em nuvem ou URL externa
   objectKey   String?
   mimeType    String?
   size        Int?
   uploadedBy  String?
-  notes       String?  @db.Text
+  notes       String? @db.Text
 
-  student     User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([studentId])
   @@index([workspaceId])
 }
 
 model WorkoutLog {
-  id          String   @id @default(cuid())
-  studentId   String
-  workoutId   String
-  workspaceId String
-  completedAt DateTime @default(now())
-  feedback    String?  // Ex: "Treino top", "Fadiguei no supino"
-  effortScore Int?     // 1 (Muito Fácil) a 5 (Muito Difícil)
-  loads       Json?    // Cargas logadas por exercício/série
-  reps        Json?    // Repetições reais por exercício/série
-  restTimes   Json?    // Tempo de descanso real por série
+  id               String   @id @default(cuid())
+  studentId        String
+  workoutId        String
+  workspaceId      String
+  completedAt      DateTime @default(now())
+  feedback         String? // Ex: "Treino top", "Fadiguei no supino"
+  effortScore      Int? // 1 (Muito Fácil) a 5 (Muito Difícil)
+  loads            Json? // Cargas logadas por exercício/série
+  reps             Json? // Repetições reais por exercício/série
+  restTimes        Json? // Tempo de descanso real por série
   skippedExercises Json? // Exercícios pulados e suas justificativas
 
-  student     User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  workout     Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
-  createdAt   DateTime @default(now())
+  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  workout   Workout  @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 
   @@index([studentId])
   @@index([workoutId])
@@ -657,18 +662,18 @@ model WorkoutLog {
 }
 
 model DailyFeedback {
-  id          String    @id @default(cuid())
+  id          String   @id @default(cuid())
   studentId   String
   workspaceId String
   energy      Int
   fatigue     Int
   humor       Int
-  date        DateTime  @default(now())
+  date        DateTime @default(now())
 
-  student     User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  student   User      @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
   @@index([studentId])
   @@index([workspaceId])
@@ -684,16 +689,16 @@ enum MethodType {
 }
 
 model WorkoutExerciseGroup {
-  id         String            @id @default(cuid())
-  workoutId  String
-  type       MethodType
-  config     Json?
-  
-  workout    Workout           @relation(fields: [workoutId], references: [id], onDelete: Cascade)
-  exercises  WorkoutExercise[]
+  id        String     @id @default(cuid())
+  workoutId String
+  type      MethodType
+  config    Json?
 
-  createdAt  DateTime          @default(now())
-  updatedAt  DateTime          @updatedAt
+  workout   Workout           @relation(fields: [workoutId], references: [id], onDelete: Cascade)
+  exercises WorkoutExercise[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 enum EngageStatus {
@@ -729,39 +734,57 @@ enum EngageEventType {
 }
 
 model EngageExperience {
-  id           String        @id @default(cuid())
+  id           String       @id @default(cuid())
   title        String
-  category     String        // Ex: "Conteúdo", "Desafio", "Pesquisa", "Aviso", "Campanha"
+  category     String // Ex: "Conteúdo", "Desafio", "Pesquisa", "Aviso", "Campanha"
   format       EngageFormat
-  status       EngageStatus  @default(DRAFT)
-  priority     Int           @default(0)
+  status       EngageStatus @default(DRAFT)
+  priority     Int          @default(0)
   startDate    DateTime
   endDate      DateTime
-  showOnlyOnce Boolean       @default(false)
-  
+  showOnlyOnce Boolean      @default(false)
+
   // Árvore de blocos dinâmica (JSON Array)
   // Ex: [ { id: "1", type: "TITLE", content: "Super Desafio" }, { id: "2", type: "CTA", content: { text: "Participar", action: "JOIN_CHALLENGE" } } ]
-  blocks       Json
+  blocks Json
 
   // Critérios de segmentação estruturados (JSON Object)
   // Ex: { roles: ["STUDENT"], plans: ["Mensal"], tags: ["Ativo"], objective: "Hipertrofia" }
   segmentation Json
 
   // Relações e Tenant Isolation
-  workspaceId  String?
-  workspace    Workspace?    @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  creatorId    String
-  creator      User          @relation("CreatedExperiences", fields: [creatorId], references: [id], onDelete: Cascade)
-  
+  workspaceId String?
+  workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  creatorId   String
+  creator     User       @relation("CreatedExperiences", fields: [creatorId], references: [id], onDelete: Cascade)
+
   userStatuses EngageUserStatus[]
   eventLogs    EngageEventLog[]
 
-  createdAt    DateTime      @default(now())
-  updatedAt    DateTime      @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([workspaceId])
   @@index([status])
   @@index([startDate, endDate])
+}
+
+model EngageBanner {
+  id          String   @id @default(cuid())
+  imageUrl    String
+  title       String?
+  subtitle    String?
+  linkUrl     String?
+  buttonText  String?
+  targetRole  String   @default("ALL")
+  badgeText   String?
+  bgGradient  String?
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([targetRole, isActive])
 }
 
 model EngageUserStatus {
@@ -769,15 +792,15 @@ model EngageUserStatus {
   experienceId String
   userId       String
   status       EngageUserStatusType @default(NOT_VIEWED)
-  
-  firstViewedAt     DateTime?
-  lastInteractedAt  DateTime?
-  completedAt       DateTime?
-  
-  experience   EngageExperience     @relation(fields: [experienceId], references: [id], onDelete: Cascade)
-  user         User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  updatedAt    DateTime             @updatedAt
+  firstViewedAt    DateTime?
+  lastInteractedAt DateTime?
+  completedAt      DateTime?
+
+  experience EngageExperience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  updatedAt DateTime @updatedAt
 
   @@unique([experienceId, userId])
   @@index([userId])
@@ -785,46 +808,46 @@ model EngageUserStatus {
 }
 
 model EngageEventLog {
-  id           String           @id @default(cuid())
+  id           String          @id @default(cuid())
   experienceId String
   userId       String
   eventType    EngageEventType
-  metadata     Json?            // Ex: link clicado, ID do treino aberto
-  createdAt    DateTime         @default(now())
+  metadata     Json? // Ex: link clicado, ID do treino aberto
+  createdAt    DateTime        @default(now())
 
-  experience   EngageExperience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
-  user         User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  experience EngageExperience @relation(fields: [experienceId], references: [id], onDelete: Cascade)
+  user       User             @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([experienceId])
   @@index([userId])
 }
 
 model Lead {
-  id             String             @id @default(cuid())
-  workspaceId    String
-  ownerId        String
-  name           String
-  phone          String?
-  whatsapp       String?
-  email          String?
-  instagram      String?
-  goal           String?
-  source         String?
-  notes          String?            @db.Text
-  potentialValue Float?
-  status         String
-  lostReason     String?
-  lostReasonDetails String?         @db.Text
-  createdAt      DateTime           @default(now())
-  updatedAt      DateTime           @updatedAt
+  id                String   @id @default(cuid())
+  workspaceId       String
+  ownerId           String
+  name              String
+  phone             String?
+  whatsapp          String?
+  email             String?
+  instagram         String?
+  goal              String?
+  source            String?
+  notes             String?  @db.Text
+  potentialValue    Float?
+  status            String
+  lostReason        String?
+  lostReasonDetails String?  @db.Text
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
-  workspace      Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  owner          User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
-  activities     LeadActivity[]
-  tasks          LeadTask[]
-  tags           Tag[]
-  customValues   CustomFieldValue[]
-  files          LeadFile[]
+  workspace    Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  owner        User               @relation(fields: [ownerId], references: [id], onDelete: Cascade)
+  activities   LeadActivity[]
+  tasks        LeadTask[]
+  tags         Tag[]
+  customValues CustomFieldValue[]
+  files        LeadFile[]
 
   @@index([workspaceId])
   @@index([ownerId])
@@ -837,23 +860,23 @@ model LeadActivity {
   content   String   @db.Text
   createdAt DateTime @default(now())
 
-  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   @@index([leadId])
 }
 
 model LeadTask {
-  id        String   @id @default(cuid())
+  id        String    @id @default(cuid())
   leadId    String
   title     String
-  status    String   @default("PENDING")
+  status    String    @default("PENDING")
   dueDate   DateTime?
-  time      String?  @default("09:00")
-  priority  String   @default("MEDIA")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  time      String?   @default("09:00")
+  priority  String    @default("MEDIA")
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
 
-  lead      Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   @@index([leadId])
 }
@@ -865,8 +888,8 @@ model Tag {
   color       String
   createdAt   DateTime @default(now())
 
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  leads       Lead[]
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  leads     Lead[]
 
   @@unique([workspaceId, name])
   @@index([workspaceId])
@@ -880,21 +903,21 @@ model CustomFieldDefinition {
   options     String?
   createdAt   DateTime @default(now())
 
-  workspace   Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  values      CustomFieldValue[]
+  workspace Workspace          @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  values    CustomFieldValue[]
 
   @@unique([workspaceId, name])
   @@index([workspaceId])
 }
 
 model CustomFieldValue {
-  id                  String                @id @default(cuid())
-  leadId              String
-  fieldDefinitionId   String
-  value               String
+  id                String @id @default(cuid())
+  leadId            String
+  fieldDefinitionId String
+  value             String
 
-  lead                Lead                  @relation(fields: [leadId], references: [id], onDelete: Cascade)
-  definition          CustomFieldDefinition @relation(fields: [fieldDefinitionId], references: [id], onDelete: Cascade)
+  lead       Lead                  @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  definition CustomFieldDefinition @relation(fields: [fieldDefinitionId], references: [id], onDelete: Cascade)
 
   @@unique([leadId, fieldDefinitionId])
   @@index([leadId])
@@ -902,19 +925,19 @@ model CustomFieldValue {
 }
 
 model LeadFile {
-  id          String   @id @default(cuid())
-  leadId      String
-  fileName    String
-  fileSize    String
-  url         String
-  objectKey   String?
-  mimeType    String?
-  size        Int?
-  uploadedBy  String?
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  leadId     String
+  fileName   String
+  fileSize   String
+  url        String
+  objectKey  String?
+  mimeType   String?
+  size       Int?
+  uploadedBy String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
-  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  lead Lead @relation(fields: [leadId], references: [id], onDelete: Cascade)
 
   @@index([leadId])
 }
@@ -935,7 +958,7 @@ model NotificationDevice {
 }
 
 model Notification {
-  id          String    @id @default(cuid())
+  id          String     @id @default(cuid())
   userId      String
   type        String
   category    String
@@ -943,16 +966,16 @@ model Notification {
   description String
   image       String?
   icon        String?
-  priority    String    @default("NORMAL")
+  priority    String     @default("NORMAL")
   payload     Json?
   deepLink    String?
   source      String?
-  isRead      Boolean   @default(false)
-  delivered   Boolean   @default(false)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  isRead      Boolean    @default(false)
+  delivered   Boolean    @default(false)
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
   readAt      DateTime?
-  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user        User       @relation(fields: [userId], references: [id], onDelete: Cascade)
   workspaceId String?
   workspace   Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
 
@@ -971,19 +994,19 @@ model NotificationPreference {
 }
 
 model ReferralCommission {
-  id             String   @id @default(cuid())
-  referrerId     String
-  referredId     String
-  transactionId  String
-  amount         Float
-  percentage     Float
-  status         String   // "PENDENTE", "APROVADO", "CANCELADO"
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  id            String   @id @default(cuid())
+  referrerId    String
+  referredId    String
+  transactionId String
+  amount        Float
+  percentage    Float
+  status        String // "PENDENTE", "APROVADO", "CANCELADO"
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
 
-  referrer       User        @relation("ReferrerCommissions", fields: [referrerId], references: [id], onDelete: Cascade)
-  referred       User        @relation("ReferredCommissions", fields: [referredId], references: [id], onDelete: Cascade)
-  transaction    Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
+  referrer    User        @relation("ReferrerCommissions", fields: [referrerId], references: [id], onDelete: Cascade)
+  referred    User        @relation("ReferredCommissions", fields: [referredId], references: [id], onDelete: Cascade)
+  transaction Transaction @relation(fields: [transactionId], references: [id], onDelete: Cascade)
 
   @@index([referrerId])
   @@index([referredId])
@@ -996,13 +1019,13 @@ model PayoutRequest {
   amount         Float
   pixKey         String
   pixKeyType     String
-  status         String    // "PENDENTE", "PAGO", "REJEITADO"
+  status         String // "PENDENTE", "PAGO", "REJEITADO"
   rejectedReason String?
   paidAt         DateTime?
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
 }
@@ -1030,16 +1053,16 @@ enum MessageStatus {
 }
 
 model Conversation {
-  id             String                    @id @default(cuid())
-  workspaceId    String
-  type           ChatType                  @default(DIRECT)
-  lastMessage    String?                   @db.Text
-  lastMessageAt  DateTime?
-  createdAt      DateTime                  @default(now())
-  updatedAt      DateTime                  @updatedAt
-  workspace      Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  participants   ConversationParticipant[]
-  messages       Message[]
+  id            String                    @id @default(cuid())
+  workspaceId   String
+  type          ChatType                  @default(DIRECT)
+  lastMessage   String?                   @db.Text
+  lastMessageAt DateTime?
+  createdAt     DateTime                  @default(now())
+  updatedAt     DateTime                  @updatedAt
+  workspace     Workspace                 @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  participants  ConversationParticipant[]
+  messages      Message[]
 
   @@index([workspaceId])
 }
@@ -1072,10 +1095,10 @@ model Message {
   createdAt      DateTime      @default(now())
   updatedAt      DateTime      @updatedAt
 
-  conversation   Conversation  @relation(fields: [conversationId], references: [id], onDelete: Cascade)
-  sender         User          @relation(fields: [senderId], references: [id], onDelete: Cascade)
-  replyTo        Message?      @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
-  replies        Message[]     @relation("MessageReplies")
+  conversation Conversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  sender       User         @relation(fields: [senderId], references: [id], onDelete: Cascade)
+  replyTo      Message?     @relation("MessageReplies", fields: [replyToId], references: [id], onDelete: SetNull)
+  replies      Message[]    @relation("MessageReplies")
 
   @@index([conversationId])
   @@index([senderId])
@@ -1174,44 +1197,44 @@ enum DeduplicationMatchLevel {
 }
 
 model ImportJob {
-  id                  String               @id @default(cuid())
-  workspaceId         String
-  createdByUserId     String?
+  id              String  @id @default(cuid())
+  workspaceId     String
+  createdByUserId String?
 
-  sourceType          ImportSourceType     @default(MIXED)
-  sourcePlatform      String?
+  sourceType     ImportSourceType @default(MIXED)
+  sourcePlatform String?
 
-  status              ImportJobStatus      @default(UPLOADED)
-  processingStep      ImportProcessingStep @default(IDLE)
+  status         ImportJobStatus      @default(UPLOADED)
+  processingStep ImportProcessingStep @default(IDLE)
 
-  totalStudents       Int                  @default(0)
-  totalWorkouts       Int                  @default(0)
-  totalExercises      Int                  @default(0)
-  totalAssessments    Int                  @default(0)
-  totalMeasurements   Int                  @default(0)
+  totalStudents     Int @default(0)
+  totalWorkouts     Int @default(0)
+  totalExercises    Int @default(0)
+  totalAssessments  Int @default(0)
+  totalMeasurements Int @default(0)
 
-  promptVersion       String               @default("migration-extraction-v1")
-  schemaVersion       String               @default("migration-v1")
-  modelPrimary        String               @default("gemini-3.5-flash-lite")
-  modelFallback       String               @default("gemini-3.6-flash")
+  promptVersion String @default("migration-extraction-v1")
+  schemaVersion String @default("migration-v1")
+  modelPrimary  String @default("gemini-3.5-flash-lite")
+  modelFallback String @default("gemini-3.6-flash")
 
-  commitVersion       Int                  @default(1)
-  idempotencyKey      String?              @unique
-  previewValidated    Boolean              @default(false)
+  commitVersion    Int     @default(1)
+  idempotencyKey   String? @unique
+  previewValidated Boolean @default(false)
 
-  errorCode           String?
-  safeErrorMessage    String?
+  errorCode        String?
+  safeErrorMessage String?
 
-  createdAt           DateTime             @default(now())
-  updatedAt           DateTime             @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  workspace           Workspace            @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  createdByUser       User?                @relation("CreatedImportJobs", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  workspace     Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdByUser User?     @relation("CreatedImportJobs", fields: [createdByUserId], references: [id], onDelete: SetNull)
 
-  sources             ImportSource[]
-  records             ImportRecord[]
-  usageLogs           GeminiUsageLog[]
-  entityResults       ImportEntityResult[]
+  sources       ImportSource[]
+  records       ImportRecord[]
+  usageLogs     GeminiUsageLog[]
+  entityResults ImportEntityResult[]
 
   @@index([workspaceId])
   @@index([createdByUserId])
@@ -1219,60 +1242,60 @@ model ImportJob {
 }
 
 model ImportSource {
-  id                   String             @id @default(cuid())
-  importJobId          String
+  id          String @id @default(cuid())
+  importJobId String
 
-  type                 ImportSourceType
-  status               ImportSourceStatus @default(PENDING)
-  sortOrder            Int                @default(0)
+  type      ImportSourceType
+  status    ImportSourceStatus @default(PENDING)
+  sortOrder Int                @default(0)
 
-  originalName         String?
-  mimeType             String?
-  extension            String?
-  sizeBytes            Int?
-  storageKey           String?
+  originalName String?
+  mimeType     String?
+  extension    String?
+  sizeBytes    Int?
+  storageKey   String?
 
-  textContent          String?            @db.Text
+  textContent String? @db.Text
 
-  sha256               String?
-  geminiFileName       String?
-  geminiFileExpiresAt  DateTime?
+  sha256              String?
+  geminiFileName      String?
+  geminiFileExpiresAt DateTime?
 
-  createdAt            DateTime           @default(now())
+  createdAt DateTime @default(now())
 
-  importJob            ImportJob          @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  importJob ImportJob @relation(fields: [importJobId], references: [id], onDelete: Cascade)
 
   @@index([importJobId])
   @@index([sha256])
 }
 
 model ImportRecord {
-  id                  String             @id @default(cuid())
-  importJobId         String
+  id          String @id @default(cuid())
+  importJobId String
 
-  entityType          ImportEntityType
-  temporaryEntityId   String
+  entityType        ImportEntityType
+  temporaryEntityId String
 
-  sourceData          Json?
-  normalizedData      Json?
+  sourceData     Json?
+  normalizedData Json?
 
-  status              ImportRecordStatus @default(EXTRACTED)
-  reviewStatus        ImportReviewStatus @default(NOT_REQUIRED)
-  source              ImportRecordSource @default(AI_EXTRACTED)
+  status       ImportRecordStatus @default(EXTRACTED)
+  reviewStatus ImportReviewStatus @default(NOT_REQUIRED)
+  source       ImportRecordSource @default(AI_EXTRACTED)
 
-  confidence          Float?
-  evidence            Json?
+  confidence Float?
+  evidence   Json?
 
-  deduplicationMatch  DeduplicationMatchLevel @default(NO_MATCH)
-  matchedEntityId     String?
+  deduplicationMatch DeduplicationMatchLevel @default(NO_MATCH)
+  matchedEntityId    String?
 
-  errorCode           String?
-  safeErrorMessage    String?
+  errorCode        String?
+  safeErrorMessage String?
 
-  createdAt           DateTime           @default(now())
-  updatedAt           DateTime           @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  importJob           ImportJob          @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  importJob ImportJob @relation(fields: [importJobId], references: [id], onDelete: Cascade)
 
   @@index([importJobId])
   @@index([entityType])
@@ -1281,17 +1304,17 @@ model ImportRecord {
 }
 
 model ImportEntityResult {
-  id                  String             @id @default(cuid())
-  importJobId         String
+  id          String @id @default(cuid())
+  importJobId String
 
-  action              ImportEntityAction
-  entityType          ImportEntityType
-  temporaryEntityId   String
-  databaseEntityId    String
+  action            ImportEntityAction
+  entityType        ImportEntityType
+  temporaryEntityId String
+  databaseEntityId  String
 
-  createdAt           DateTime           @default(now())
+  createdAt DateTime @default(now())
 
-  importJob           ImportJob          @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  importJob ImportJob @relation(fields: [importJobId], references: [id], onDelete: Cascade)
 
   @@unique([importJobId, entityType, temporaryEntityId])
   @@index([importJobId])
@@ -1299,65 +1322,532 @@ model ImportEntityResult {
 }
 
 model GeminiUsageLog {
-  id                  String             @id @default(cuid())
-  importJobId         String
-  userId              String?
+  id          String  @id @default(cuid())
+  importJobId String
+  userId      String?
 
-  model               String
-  purpose             String
+  model   String
+  purpose String
 
-  inputTokens         Int                @default(0)
-  outputTokens        Int                @default(0)
-  cachedTokens        Int?               @default(0)
-  thinkingTokens      Int?               @default(0)
-  totalTokens         Int                @default(0)
+  inputTokens    Int  @default(0)
+  outputTokens   Int  @default(0)
+  cachedTokens   Int? @default(0)
+  thinkingTokens Int? @default(0)
+  totalTokens    Int  @default(0)
 
-  durationMs          Int
-  success             Boolean            @default(true)
+  durationMs Int
+  success    Boolean @default(true)
 
-  createdAt           DateTime           @default(now())
+  createdAt DateTime @default(now())
 
-  importJob           ImportJob          @relation(fields: [importJobId], references: [id], onDelete: Cascade)
-  user                User?              @relation("GeminiUsageLogs", fields: [userId], references: [id], onDelete: SetNull)
+  importJob ImportJob @relation(fields: [importJobId], references: [id], onDelete: Cascade)
+  user      User?     @relation("GeminiUsageLogs", fields: [userId], references: [id], onDelete: SetNull)
 
   @@index([importJobId])
   @@index([userId])
 }
 
 model CreditPackage {
-  id                   String          @id @default(cuid())
-  name                 String
-  description          String?
-  credits              Int
-  priceInCents         Int
-  abacatePayProductId  String?         @unique
-  isActive             Boolean         @default(true)
-  isHighlighted        Boolean         @default(false)
-  sortOrder            Int             @default(0)
-  createdAt            DateTime        @default(now())
-  updatedAt            DateTime        @updatedAt
-  purchases            CreditPurchase[]
+  id                  String           @id @default(cuid())
+  name                String
+  description         String?
+  credits             Int
+  priceInCents        Int
+  abacatePayProductId String?          @unique
+  isActive            Boolean          @default(true)
+  isHighlighted       Boolean          @default(false)
+  sortOrder           Int              @default(0)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  purchases           CreditPurchase[]
 }
 
 model CreditPurchase {
-  id                   String        @id @default(cuid())
-  workspaceId          String
-  packageId            String
-  userId               String
-  amountInCents        Int
-  credits              Int
-  status               String        @default("PENDING")
-  abacatePayBillingId  String?       @unique
-  abacatePayUrl        String?
-  paidAt               DateTime?
-  createdAt            DateTime      @default(now())
-  updatedAt            DateTime      @updatedAt
-  workspace            Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  package              CreditPackage @relation(fields: [packageId], references: [id])
-  user                 User          @relation(fields: [userId], references: [id])
+  id                  String        @id @default(cuid())
+  workspaceId         String
+  packageId           String
+  userId              String
+  amountInCents       Int
+  credits             Int
+  status              String        @default("PENDING")
+  abacatePayBillingId String?       @unique
+  abacatePayUrl       String?
+  paidAt              DateTime?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  workspace           Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  package             CreditPackage @relation(fields: [packageId], references: [id])
+  user                User          @relation(fields: [userId], references: [id])
 
   @@index([workspaceId])
   @@index([userId])
   @@index([status])
 }
 
+enum PaymentProvider {
+  ASAAS
+  EFI
+}
+
+enum ProviderEnvironment {
+  SANDBOX
+  PRODUCTION
+}
+
+enum FinancialAccountStatus {
+  NOT_STARTED
+  ONBOARDING
+  PENDING_DOCUMENTS
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+  SUSPENDED
+  BLOCKED
+  CLOSED
+}
+
+enum WalletKycStatus {
+  NOT_STARTED
+  PENDING
+  DOCUMENTS_REQUIRED
+  UNDER_REVIEW
+  APPROVED
+  REJECTED
+}
+
+enum WalletPaymentMethod {
+  PIX
+  PIX_AUTOMATIC
+  CREDIT_CARD
+  BOLETO
+}
+
+enum StudentBillingStatus {
+  DRAFT
+  CREATING
+  PENDING
+  CONFIRMED
+  SETTLED
+  AVAILABLE
+  OVERDUE
+  CANCELLED
+  PARTIALLY_REFUNDED
+  REFUNDED
+  CHARGEBACK_REQUESTED
+  CHARGEBACK_DISPUTE
+  CHARGEBACKED
+  FAILED
+}
+
+enum WalletSubscriptionStatus {
+  DRAFT
+  PENDING_AUTHORIZATION
+  ACTIVE
+  PAST_DUE
+  PAUSED
+  CANCELLED
+  EXPIRED
+  FAILED
+}
+
+enum WalletPayoutStatus {
+  REQUESTED
+  RESERVED
+  SUBMITTED
+  PROCESSING
+  COMPLETED
+  FAILED_RETRYABLE
+  FAILED_FINAL
+  CANCELLED
+  REVERSED
+}
+
+enum LedgerEntryType {
+  PAYMENT_CONFIRMED
+  PAYMENT_SETTLED
+  PAYMENT_AVAILABLE
+  GATEWAY_FEE
+  PLATFORM_FEE
+  PAYOUT_RESERVED
+  PAYOUT_COMPLETED
+  PAYOUT_RELEASED
+  REFUND
+  PARTIAL_REFUND
+  CHARGEBACK
+  CHARGEBACK_REVERSAL
+  ADJUSTMENT
+}
+
+enum LedgerDirection {
+  CREDIT
+  DEBIT
+}
+
+enum WebhookProcessingStatus {
+  RECEIVED
+  QUEUED
+  PROCESSING
+  PROCESSED
+  IGNORED
+  FAILED_RETRYABLE
+  FAILED_FINAL
+}
+
+enum ReconciliationStatus {
+  RUNNING
+  MATCHED
+  DIVERGENCES_FOUND
+  FAILED
+}
+
+model PaymentProviderAccount {
+  id             String @id @default(cuid())
+  personalUserId String @unique
+  personalUser   User   @relation("PaymentProviderAccounts", fields: [personalUserId], references: [id], onDelete: Restrict)
+
+  provider                   PaymentProvider
+  environment                ProviderEnvironment
+  providerAccountId          String
+  providerWalletId           String?
+  providerCredentialSecretId String?
+
+  status               FinancialAccountStatus @default(NOT_STARTED)
+  kycStatus            WalletKycStatus        @default(NOT_STARTED)
+  providerStatus       String?
+  providerStatusReason String?
+
+  legalNameMasked         String?
+  documentLast4           String?
+  payoutDestinationMasked String?
+
+  lastProviderSyncAt DateTime?
+  approvedAt         DateTime?
+  suspendedAt        DateTime?
+  closedAt           DateTime?
+  deletedAt          DateTime?
+
+  balanceSnapshots WalletBalanceSnapshot[]
+  billings         StudentBilling[]
+  subscriptions    StudentSubscription[]
+  payouts          WalletPayoutRequest[]
+  ledgerEntries    WalletLedgerEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([provider, environment, providerAccountId])
+  @@index([status, kycStatus])
+}
+
+model WalletBalanceSnapshot {
+  id                String                 @id @default(cuid())
+  providerAccountId String
+  account           PaymentProviderAccount @relation(fields: [providerAccountId], references: [id], onDelete: Restrict)
+
+  availableAmountInCents BigInt
+  pendingAmountInCents   BigInt
+  blockedAmountInCents   BigInt @default(0)
+  negativeAmountInCents  BigInt @default(0)
+  currency               String @default("BRL")
+
+  providerSnapshotId  String?
+  providerPayloadHash String?
+  capturedAt          DateTime
+  createdAt           DateTime @default(now())
+
+  @@index([providerAccountId, capturedAt])
+}
+
+model GatewayCustomer {
+  id                 String              @id @default(cuid())
+  provider           PaymentProvider
+  environment        ProviderEnvironment
+  personalUserId     String
+  studentUserId      String
+  providerCustomerId String
+  nameSnapshot       String
+  documentLast4      String?
+  deletedAt          DateTime?
+  createdAt          DateTime            @default(now())
+  updatedAt          DateTime            @updatedAt
+
+  @@unique([provider, environment, personalUserId, studentUserId])
+  @@unique([provider, environment, providerCustomerId])
+  @@index([personalUserId, studentUserId])
+}
+
+model PersonalBillingPlan {
+  id                     String              @id @default(cuid())
+  personalUserId         String
+  name                   String
+  description            String?
+  amountInCents          BigInt
+  currency               String              @default("BRL")
+  intervalMonths         Int                 @default(1)
+  preferredPaymentMethod WalletPaymentMethod
+  dueDay                 Int?
+  trialDays              Int                 @default(0)
+  isActive               Boolean             @default(true)
+  deletedAt              DateTime?
+  createdAt              DateTime            @default(now())
+  updatedAt              DateTime            @updatedAt
+
+  subscriptions StudentSubscription[]
+
+  @@index([personalUserId, isActive])
+}
+
+model StudentSubscription {
+  id                String                 @id @default(cuid())
+  providerAccountId String
+  account           PaymentProviderAccount @relation(fields: [providerAccountId], references: [id], onDelete: Restrict)
+
+  planId String
+  plan   PersonalBillingPlan @relation(fields: [planId], references: [id], onDelete: Restrict)
+
+  studentUserId           String
+  providerSubscriptionId  String?
+  providerAuthorizationId String?
+
+  status                WalletSubscriptionStatus @default(DRAFT)
+  paymentMethod         WalletPaymentMethod
+  amountInCentsSnapshot BigInt
+  feeRuleVersionId      String
+
+  currentPeriodStart DateTime?
+  currentPeriodEnd   DateTime?
+  nextBillingAt      DateTime?
+  pausedAt           DateTime?
+  cancelledAt        DateTime?
+  cancellationReason String?
+
+  billings StudentBilling[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([studentUserId, status])
+  @@index([providerAccountId, status, nextBillingAt])
+}
+
+model StudentBilling {
+  id                String                 @id @default(cuid())
+  providerAccountId String
+  account           PaymentProviderAccount @relation(fields: [providerAccountId], references: [id], onDelete: Restrict)
+
+  subscriptionId String?
+  subscription   StudentSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
+
+  studentUserId     String
+  gatewayCustomerId String?
+  providerBillingId String?
+  providerStatus    String?
+
+  idempotencyKey   String  @unique
+  billingReference String  @unique
+  title            String
+  description      String?
+
+  grossAmountInCents          BigInt
+  gatewayFeeEstimatedInCents  BigInt  @default(0)
+  gatewayFeeActualInCents     BigInt?
+  platformFeeEstimatedInCents BigInt  @default(0)
+  platformFeeActualInCents    BigInt?
+  personalNetEstimatedInCents BigInt
+  personalNetActualInCents    BigInt?
+  currency                    String  @default("BRL")
+  feeRuleVersionId            String
+
+  paymentMethod WalletPaymentMethod
+  status        StudentBillingStatus @default(DRAFT)
+  dueDate       DateTime
+  confirmedAt   DateTime?
+  settledAt     DateTime?
+  availableAt   DateTime?
+  paidAt        DateTime?
+  overdueAt     DateTime?
+  refundedAt    DateTime?
+  chargebackAt  DateTime?
+
+  hostedInvoiceUrl    String?
+  pixPayloadEncrypted String?
+  pixExpirationAt     DateTime?
+
+  attempts      PaymentAttempt[]
+  splits        PaymentSplit[]
+  ledgerEntries WalletLedgerEntry[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([providerAccountId, providerBillingId])
+  @@index([studentUserId, status, dueDate])
+  @@index([providerAccountId, status, createdAt])
+}
+
+model PaymentAttempt {
+  id        String         @id @default(cuid())
+  billingId String
+  billing   StudentBilling @relation(fields: [billingId], references: [id], onDelete: Restrict)
+
+  providerAttemptId       String?
+  attemptNumber           Int
+  status                  String
+  failureCode             String?
+  failureMessageSanitized String?
+  attemptedAt             DateTime
+  nextRetryAt             DateTime?
+  createdAt               DateTime  @default(now())
+
+  @@unique([billingId, attemptNumber])
+}
+
+model PaymentSplit {
+  id        String         @id @default(cuid())
+  billingId String
+  billing   StudentBilling @relation(fields: [billingId], references: [id], onDelete: Restrict)
+
+  receiverType           String
+  providerWalletId       String?
+  splitType              String
+  configuredValue        Decimal
+  estimatedAmountInCents BigInt
+  actualAmountInCents    BigInt?
+  providerSplitId        String?
+  providerStatus         String?
+  refusalReason          String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  @@index([billingId, receiverType])
+}
+
+model WalletLedgerEntry {
+  id                String                 @id @default(cuid())
+  providerAccountId String
+  account           PaymentProviderAccount @relation(fields: [providerAccountId], references: [id], onDelete: Restrict)
+
+  billingId String?
+  billing   StudentBilling? @relation(fields: [billingId], references: [id], onDelete: Restrict)
+
+  payoutId              String?
+  providerEventId       String?
+  providerTransactionId String?
+  idempotencyKey        String  @unique
+
+  type          LedgerEntryType
+  direction     LedgerDirection
+  amountInCents BigInt
+  currency      String          @default("BRL")
+  occurredAt    DateTime
+  recordedAt    DateTime        @default(now())
+
+  reversalOfEntryId String?
+  description       String
+  metadataSanitized Json?
+
+  @@index([providerAccountId, occurredAt])
+  @@index([billingId])
+  @@index([payoutId])
+  @@index([providerEventId])
+}
+
+model WalletPayoutRequest {
+  id                String                 @id @default(cuid())
+  providerAccountId String
+  account           PaymentProviderAccount @relation(fields: [providerAccountId], references: [id], onDelete: Restrict)
+
+  requestedByUserId      String
+  idempotencyKey         String @unique
+  amountInCents          BigInt
+  currency               String @default("BRL")
+  destinationMasked      String
+  destinationFingerprint String
+
+  providerTransferId     String?
+  providerStatus         String?
+  status                 WalletPayoutStatus @default(REQUESTED)
+  failureCode            String?
+  failureReasonSanitized String?
+
+  requestedAt DateTime  @default(now())
+  submittedAt DateTime?
+  completedAt DateTime?
+  failedAt    DateTime?
+  reversedAt  DateTime?
+
+  @@unique([providerAccountId, providerTransferId])
+  @@index([providerAccountId, status, requestedAt])
+}
+
+model PaymentWebhookEvent {
+  id              String              @id @default(cuid())
+  provider        PaymentProvider
+  environment     ProviderEnvironment
+  providerEventId String
+  eventType       String
+  resourceType    String?
+  resourceId      String?
+
+  authenticityValidated Boolean
+  payloadEncrypted      String?
+  payloadHash           String
+  processingStatus      WebhookProcessingStatus @default(RECEIVED)
+  processingAttempts    Int                     @default(0)
+  lastErrorSanitized    String?
+
+  receivedAt  DateTime  @default(now())
+  queuedAt    DateTime?
+  processedAt DateTime?
+
+  @@unique([provider, environment, providerEventId])
+  @@index([processingStatus, receivedAt])
+  @@index([resourceType, resourceId])
+}
+
+model FeeRuleVersion {
+  id                    String              @id @default(cuid())
+  version               Int                 @unique
+  paymentMethod         WalletPaymentMethod
+  platformPercentage    Decimal
+  platformFixedInCents  BigInt
+  minPlatformFeeInCents BigInt?
+  maxPlatformFeeInCents BigInt?
+  gatewayFeePolicy      String
+  activeFrom            DateTime
+  activeUntil           DateTime?
+  createdByUserId       String
+  createdAt             DateTime            @default(now())
+
+  @@index([paymentMethod, activeFrom, activeUntil])
+}
+
+model FinancialReconciliationRun {
+  id               String               @id @default(cuid())
+  provider         PaymentProvider
+  environment      ProviderEnvironment
+  status           ReconciliationStatus @default(RUNNING)
+  periodStart      DateTime
+  periodEnd        DateTime
+  checkedResources Int                  @default(0)
+  divergencesFound Int                  @default(0)
+  summary          Json?
+  startedAt        DateTime             @default(now())
+  finishedAt       DateTime?
+}
+
+model FinancialAuditLog {
+  id                 String   @id @default(cuid())
+  actorUserId        String?
+  actorType          String
+  action             String
+  resourceType       String
+  resourceId         String
+  ipHash             String?
+  userAgentSanitized String?
+  metadataSanitized  Json?
+  createdAt          DateTime @default(now())
+
+  @@index([resourceType, resourceId, createdAt])
+  @@index([actorUserId, createdAt])
+}

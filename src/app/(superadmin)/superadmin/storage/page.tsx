@@ -291,7 +291,7 @@ export default function SuperAdminStoragePage() {
 
       {/* Tabs */}
       <Tabs defaultValue="personals" className="space-y-6">
-        <TabsList className="bg-secondary/40 p-1 rounded-2xl h-fit! sm:h-12 flex flex-col sm:inline-flex w-full sm:w-auto gap-1">
+        <TabsList className="bg-secondary/40 p-1 rounded-2xl h-fit! sm:h-12 flex max-sm:flex-col sm:inline-flex w-full sm:w-auto gap-1">
           <TabsTrigger value="personals" className="rounded-xl font-bold text-xs h-10 px-5 gap-2 w-full sm:w-auto justify-center">
             <UserCheck className="size-3.5" /> Metrificação por Personal
           </TabsTrigger>

@@ -256,7 +256,7 @@ export default function RewardsPage() {
   };
 
   return (
-    <div className="flex-1 space-y-8 p-4 md:p-8 pt-6 max-w-[1400px] mx-auto animate-in fade-in duration-500">
+    <div className="flex-1 space-y-8 p-4 md:p-8 pt-6 max-w-350 mx-auto animate-in fade-in duration-500">
       {/* 1. Header Section */}
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-border/40 pb-6">
         <div>
@@ -284,13 +284,13 @@ export default function RewardsPage() {
       ) : data?.isLocked ? (
         <div className="space-y-8 animate-in fade-in duration-500">
           {/* Premium Lock Banner / Hero */}
-          <div className="relative overflow-hidden rounded-3xl border border-primary/20 bg-linear-to-br from-neutral-950 via-neutral-900 to-[#121c54] text-white p-8 md:p-12 shadow-2xl">
+          <div className="relative overflow-hidden rounded-3xl border border-primary/20 bg-linear-to-br from-neutral-950 via-neutral-900 to-primary/10 text-white p-8 md:p-12 shadow-2xl">
             <div className="absolute top-0 right-0 -mt-12 -mr-12 size-96 rounded-full bg-primary/25 blur-3xl animate-pulse" />
-            <div className="absolute bottom-0 left-0 -mb-16 -ml-16 size-64 rounded-full bg-indigo-500/10 blur-2xl" />
+            <div className="absolute bottom-0 left-0 -mb-16 -ml-16 size-64 rounded-full bg-primary/10 blur-2xl" />
 
             <div className="relative z-10 max-w-2xl space-y-6">
-              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-primary/30 border border-primary/40 text-blue-300">
-                🔒 Área Exclusiva para Assinantes
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-neutral-800/70 border border-neutral-400/20">
+                Área Exclusiva para Assinantes
               </span>
               <h2 className="text-3xl md:text-5xl font-black tracking-tight leading-tight">
                 Seu link de indicação vale dinheiro real.
@@ -302,11 +302,11 @@ export default function RewardsPage() {
               <div className="pt-4 flex flex-col sm:flex-row gap-3">
                 <Button
                   asChild
-                  className="h-12 px-6 rounded-xl bg-linear-to-br from-blue-600 to-indigo-700 hover:from-blue-500 hover:to-indigo-650 text-white font-bold text-xs uppercase tracking-wider transition-all duration-300 shadow-[0_8px_32px_0_rgba(48,82,235,0.3)] border border-white/20 relative overflow-hidden group cursor-pointer"
+                  className="h-12 px-6 rounded-xl bg-linear-to-br from-primary/40 to-primary/10 hover:from-primary/50 hover:to-primary/15 text-white font-bold text-xs uppercase tracking-wider transition-all duration-300 border border-white/20 relative overflow-hidden group cursor-pointer"
                 >
                   <a href="/personal/subscription">
                     <div className="animate-apple-sweep" />
-                    Ativar Assinatura & Desbloquear
+                    Ativar Assinatura e Desbloquear
                     <ArrowRight className="size-4 ml-2 group-hover:translate-x-0.5 transition-transform" />
                   </a>
                 </Button>
@@ -424,9 +424,9 @@ export default function RewardsPage() {
           {/* 2. Bento Grid Banking Layout */}
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
             {/* Balance Card - inspired by Premium Banking Apps */}
-            <Card className="md:col-span-2 p-0 relative overflow-hidden border border-primary/20 bg-linear-to-br from-neutral-950 via-neutral-900 to-[#101f5e] shadow-xl text-white">
+            <Card className="md:col-span-2 p-0 relative overflow-hidden border border-primary/20 bg-linear-to-br from-neutral-950 via-neutral-900 to-primary/10 shadow-xl text-white">
               <div className="absolute top-0 right-0 -mt-8 -mr-8 size-48 rounded-full bg-primary/20 blur-3xl" />
-              <div className="absolute bottom-0 left-0 -mb-12 -ml-12 size-36 rounded-full bg-blue-500/10 blur-2xl" />
+              <div className="absolute bottom-0 left-0 -mb-12 -ml-12 size-36 rounded-full bg-primary/10 blur-2xl" />
 
               <CardContent className="p-8 h-full flex flex-col justify-between space-y-6">
                 <div className="flex items-center justify-between">
@@ -436,7 +436,7 @@ export default function RewardsPage() {
                     </div>
                     <span className="text-xs font-bold uppercase tracking-wider text-neutral-300">Saldo Disponível</span>
                   </div>
-                  <span className="text-[10px] font-black bg-primary/30 border border-primary/40 px-3 py-1 rounded-full uppercase tracking-wider text-blue-300 shadow-sm">
+                  <span className="text-[10px] font-black bg-primary/30 border border-primary/40 px-3 py-1 rounded-full uppercase tracking-wider shadow-sm">
                     Liberado
                   </span>
                 </div>
@@ -463,7 +463,6 @@ export default function RewardsPage() {
               </CardContent>
             </Card>
 
-            {/* Total Earned Card */}
             <Card className="border-border/40 bg-card/45 backdrop-blur-md relative overflow-hidden">
               <CardContent className="p-6 h-full flex flex-col justify-between space-y-6">
                 <div className="flex items-center justify-between">

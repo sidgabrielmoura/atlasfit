@@ -13,7 +13,14 @@ export async function GET(req: Request) {
   }
 
   const { searchParams } = new URL(req.url);
-  const workspaceId = searchParams.get("workspaceId");
+  let workspaceId = searchParams.get("workspaceId");
+
+  if (!workspaceId) {
+    const userMember = await prisma.workspaceMember.findFirst({
+      where: { userId: session.user.id }
+    });
+    workspaceId = userMember?.workspaceId || null;
+  }
 
   if (!workspaceId) {
     return new NextResponse("O ID do workspace é obrigatório.", { status: 400 });
@@ -91,15 +98,15 @@ export async function POST(req: Request) {
   }
   try {
     const body = await req.json();
-    const { workspaceId, name, email, whatsapp } = body;
+    const { workspaceId, name, email, whatsapp, cpfCnpj } = body;
     const plan = body.plan || "Mensal";
     const modality = body.modality || "PRESENCIAL";
+    const cleanCpfCnpj = cpfCnpj ? cpfCnpj.replace(/\D/g, "") : undefined;
 
     if (!workspaceId || !name || !email) {
       return new NextResponse("Campos obrigatórios ausentes.", { status: 400 });
     }
 
-    // Verify workspace membership of the logged-in user
     const memberCheck = await prisma.workspaceMember.findFirst({
       where: {
         userId: session.user.id,
@@ -111,13 +118,11 @@ export async function POST(req: Request) {
       return new NextResponse("Acesso negado a este workspace.", { status: 403 });
     }
 
-    // Check if the user already exists in the system
     let studentUser = await prisma.user.findUnique({
       where: { email },
     });
 
     if (studentUser) {
-      // User exists. Let's see if they are already linked to this workspace.
       const existingMember = await prisma.workspaceMember.findUnique({
         where: {
           userId_workspaceId: {
@@ -131,7 +136,6 @@ export async function POST(req: Request) {
         return new NextResponse("Este aluno já está cadastrado neste workspace.", { status: 400 });
       }
 
-      // Link existing user to workspace as STUDENT
       await prisma.workspaceMember.create({
         data: {
           userId: studentUser.id,
@@ -143,7 +147,13 @@ export async function POST(req: Request) {
         },
       });
 
-      // If the existing user doesn't have a password and doesn't have a setupToken, we can generate one.
+      if (cleanCpfCnpj && !studentUser.cpfCnpj) {
+        await prisma.user.update({
+          where: { id: studentUser.id },
+          data: { cpfCnpj: cleanCpfCnpj }
+        });
+      }
+
       if (!studentUser.password && !studentUser.setupToken) {
         const setupToken = crypto.randomUUID();
         await prisma.user.update({
@@ -153,7 +163,6 @@ export async function POST(req: Request) {
       }
     } else {
       const setupToken = crypto.randomUUID();
-      // Create new student user and member relation in a transaction
       await prisma.$transaction(async (tx) => {
         const createdUser = await tx.user.create({
           data: {
@@ -163,6 +172,7 @@ export async function POST(req: Request) {
             setupToken,
             role: "STUDENT",
             whatsapp,
+            cpfCnpj: cleanCpfCnpj,
           },
         });
 

@@ -227,14 +227,14 @@ export default function SuperAdminAIPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-6">
-        <TabsList className="h-fit! bg-card flex flex-col w-full  border border-border/80 p-1 gap-1">
-          <TabsTrigger value="telemetry" className="text-xs h-7 gap-1.5 w-full">
+        <TabsList className="h-fit! bg-card flex max-sm:flex-col w-full rounded-md! border border-border/80 p-1 gap-1">
+          <TabsTrigger value="telemetry" className="text-xs h-10 gap-1.5 w-full">
             <BarChart3 className="size-3.5" /> Telemetria & Custos
           </TabsTrigger>
-          <TabsTrigger value="agents" className="text-xs h-7 gap-1.5 w-full">
+          <TabsTrigger value="agents" className="text-xs h-10 gap-1.5 w-full">
             <Bot className="size-3.5" /> Agentes & Raciocínio
           </TabsTrigger>
-          <TabsTrigger value="models" className="text-xs h-7 gap-1.5 w-full">
+          <TabsTrigger value="models" className="text-xs h-10 gap-1.5 w-full">
             <Layers className="size-3.5" /> Modelos Google Studio
           </TabsTrigger>
         </TabsList>

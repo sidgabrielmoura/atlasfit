@@ -52,18 +52,30 @@ import { useSession, signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { layoutStore } from "@/stores/layout";
 
-const mainNavItems = [
+export interface StudentNavItemDef {
+  title: string;
+  href: string;
+  icon: any;
+}
+
+const overviewNavItems: StudentNavItemDef[] = [
   { title: "Início", href: "/student/dashboard", icon: LayoutDashboard },
-  { title: "Chat", href: "/student/chat", icon: MessageSquare },
+  { title: "Chat com Personal", href: "/student/chat", icon: MessageSquare },
+];
+
+const trainingNavItems: StudentNavItemDef[] = [
   { title: "Meus Treinos", href: "/student/workouts", icon: Dumbbell },
-  { title: "Evolução", href: "/student/evolution", icon: LineChart },
+  { title: "Evolução Corporal", href: "/student/evolution", icon: LineChart },
   { title: "Avaliações Físicas", href: "/student/assessments", icon: Activity },
   { title: "Agenda", href: "/student/agenda", icon: CalendarDays },
-  { title: "Financeiro", href: "/student/finance", icon: DollarSign },
+];
+
+const financeNavItems: StudentNavItemDef[] = [
+  { title: "Resumo Financeiro", href: "/student/finance", icon: DollarSign },
   { title: "Arquivos", href: "/student/files", icon: FolderOpen },
 ];
 
-const helpNavItems = [
+const preferencesNavItems: StudentNavItemDef[] = [
   { title: "Histórico", href: "/student/history", icon: History },
   { title: "Feedbacks", href: "/student/feedbacks", icon: MessageSquare },
   { title: "Configurações", href: "/student/settings", icon: Settings },
@@ -94,18 +106,17 @@ export function StudentSidebar() {
       try {
         const res = await getPersonalWorkspaces();
         setWorkspaces(res);
-        
-        // Auto-initialize active workspace in Valtio if not set
+
         if (res && res.length > 0) {
           workspaceActions.setWorkspaces(res);
           const cookieVal = document.cookie
             .split("; ")
             .find((row) => row.startsWith("student_active_workspace_id="))
             ?.split("=")[1];
-            
+
           const active = res.find((w) => w.id === cookieVal) || res[0];
           workspaceActions.setActiveWorkspace(active);
-          
+
           if (!cookieVal) {
             document.cookie = `student_active_workspace_id=${active.id}; path=/; max-age=31536000; SameSite=Lax`;
           }
@@ -126,6 +137,41 @@ export function StudentSidebar() {
       .join("")
       .toUpperCase();
   };
+
+  const renderNavSection = (label: string, items: StudentNavItemDef[]) => (
+    <SidebarGroup className="py-2">
+      <SidebarGroupLabel className="px-4 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/60 mb-1">
+        {label}
+      </SidebarGroupLabel>
+      <SidebarGroupContent>
+        <SidebarMenu>
+          {items.map((item) => {
+            const isActive = pathname === item.href || (item.href !== "/student/dashboard" && pathname?.startsWith(item.href + "/"));
+            return (
+              <SidebarMenuItem key={item.href}>
+                <SidebarMenuButton
+                  asChild
+                  isActive={isActive}
+                  tooltip={item.title}
+                  className={cn(
+                    "h-9 px-4 rounded-xl transition-all duration-200",
+                    isActive
+                      ? "bg-primary/10! text-primary font-bold shadow-xs"
+                      : "text-muted-foreground hover:bg-secondary/60 hover:text-foreground"
+                  )}
+                >
+                  <Link href={item.href}>
+                    <item.icon className={cn("size-4", isActive && "text-primary")} />
+                    <span className="text-xs font-semibold">{item.title}</span>
+                  </Link>
+                </SidebarMenuButton>
+              </SidebarMenuItem>
+            );
+          })}
+        </SidebarMenu>
+      </SidebarGroupContent>
+    </SidebarGroup>
+  );
 
   return (
     <Sidebar variant="sidebar" collapsible="icon">
@@ -193,12 +239,9 @@ export function StudentSidebar() {
                     key={ws.id}
                     onClick={() => {
                       if (ws.id === activeWs?.id) return;
-                      // 1. Set cookie for backend layouts and APIs
                       document.cookie = `student_active_workspace_id=${ws.id}; path=/; max-age=31536000; SameSite=Lax`;
-                      // 2. Set Valtio active workspace
                       workspaceActions.setWorkspaces(workspaces);
                       workspaceActions.setActiveWorkspace(ws);
-                      // 3. Reload page to trigger dynamic Next.js Server Components and API hydration
                       window.location.reload();
                     }}
                     className="gap-2 p-2 rounded-xl cursor-pointer"
@@ -218,9 +261,7 @@ export function StudentSidebar() {
                       )}
                     </div>
                     <span className="flex-1 truncate text-xs font-semibold">{ws.name}</span>
-                    {activeWs?.id === ws.id && (
-                      <Check className="size-4 text-primary shrink-0" />
-                    )}
+                    {ws.id === activeWs?.id && <Check className="size-4 text-primary" />}
                   </DropdownMenuItem>
                 ))}
               </DropdownMenuContent>
@@ -229,71 +270,22 @@ export function StudentSidebar() {
         </SidebarMenu>
       </SidebarHeader>
 
-      <SidebarSeparator className="max-w-[90%] mx-auto" />
+      <SidebarSeparator className="max-w-[90%] mx-auto opacity-50" />
 
-      <SidebarContent>
-        <SidebarGroup>
-          <SidebarGroupLabel>Principal</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {mainNavItems.map((item) => {
-                const isActive = pathname === item.href;
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      tooltip={item.title}
-                      className={cn(
-                        isActive && "bg-primary/10! text-primary hover:bg-primary/10!",
-                        "transition-all"
-                      )}
-                    >
-                      <Link href={item.href}>
-                        <item.icon className={cn("size-4", isActive && "text-primary")} />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+      <SidebarContent className="space-y-1 py-2">
+        {renderNavSection("Painel Inicial", overviewNavItems)}
+        <SidebarSeparator className="max-w-[90%] mx-auto opacity-40" />
 
-        <SidebarSeparator className="max-w-[90%] mx-auto" />
+        {renderNavSection("Treinamento e Saúde", trainingNavItems)}
+        <SidebarSeparator className="max-w-[90%] mx-auto opacity-40" />
 
-        <SidebarGroup>
-          <SidebarGroupLabel>Apoio</SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {helpNavItems.map((item) => {
-                const isActive = pathname === item.href;
-                return (
-                  <SidebarMenuItem key={item.href}>
-                    <SidebarMenuButton
-                      asChild
-                      isActive={isActive}
-                      tooltip={item.title}
-                      className={cn(
-                        isActive && "bg-primary/10! text-primary",
-                        "transition-all"
-                      )}
-                    >
-                      <Link href={item.href}>
-                        <item.icon className={cn("size-4", isActive && "text-primary")} />
-                        <span>{item.title}</span>
-                      </Link>
-                    </SidebarMenuButton>
-                  </SidebarMenuItem>
-                );
-              })}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
+        {renderNavSection("Pagamentos e Anexos", financeNavItems)}
+        <SidebarSeparator className="max-w-[90%] mx-auto opacity-40" />
+
+        {renderNavSection("Histórico e Preferências", preferencesNavItems)}
       </SidebarContent>
 
-      <SidebarSeparator className="max-w-[90%] mx-auto" />
+      <SidebarSeparator className="max-w-[90%] mx-auto opacity-50" />
 
       <SidebarFooter>
         <SidebarMenu>
@@ -301,14 +293,14 @@ export function StudentSidebar() {
             <SidebarMenuButton
               onClick={() => setTheme(theme === "dark" ? "light" : "dark")}
               tooltip="Alternar Tema"
-              className="cursor-pointer mb-1 bg-neutral-400/10 hover:bg-primary/5"
+              className="rounded-xl text-muted-foreground hover:bg-secondary/60 hover:text-foreground transition-all mb-2"
             >
-              <div className="relative flex items-center justify-center h-4 w-4 overflow-hidden">
+              <div className="relative flex items-center justify-center size-4 overflow-hidden">
                 <Sun className="absolute size-4 rotate-0 scale-100 transition-all duration-500 ease-in-out dark:-rotate-90 dark:scale-0 text-amber-500" />
                 <Moon className="absolute size-4 rotate-90 scale-0 transition-all duration-500 ease-in-out dark:rotate-0 dark:scale-100 text-slate-300" />
               </div>
               {!sidebarOpen && (
-                <span>{mounted ? (theme === "dark" ? "Modo Claro" : "Modo Escuro") : "Tema"}</span>
+                <span className="text-xs font-medium">{mounted ? (theme === "dark" ? "Modo Claro" : "Modo Escuro") : "Tema"}</span>
               )}
             </SidebarMenuButton>
           </SidebarMenuItem>
@@ -316,41 +308,46 @@ export function StudentSidebar() {
           <SidebarMenuItem>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <SidebarMenuButton size="lg" className="cursor-pointer bg-neutral-400/10 hover:bg-primary/5">
-                  <Avatar className="size-8">
-                    {user?.image && (
-                      <AvatarImage src={user.image} alt={user.name || "Aluno"} className="object-cover" />
-                    )}
-                    <AvatarFallback className="bg-primary/10 text-primary text-xs font-bold">
+                <SidebarMenuButton size="lg" className="rounded-2xl bg-secondary/40 hover:bg-secondary/60 transition-all px-3">
+                  <Avatar className="size-8 rounded-xl border border-border/50">
+                    <AvatarImage src={user?.image || undefined} alt={user?.name || "Aluno"} />
+                    <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
                       {getInitials(user?.name)}
                     </AvatarFallback>
                   </Avatar>
-                  <div className="flex flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden">
-                    <span className="text-sm font-semibold truncate max-w-[130px]">{user?.name || "Aluno"}</span>
-                    <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Aluno Elite</span>
+                  <div className="flex flex-col gap-0.5 leading-none group-data-[collapsible=icon]:hidden ml-1 min-w-0">
+                    <span className="text-sm font-bold tracking-tight truncate">{user?.name || "Aluno AtlasFit"}</span>
+                    <span className="text-[10px] text-muted-foreground font-semibold truncate">{user?.email || "aluno@atlasfit.app"}</span>
                   </div>
                 </SidebarMenuButton>
               </DropdownMenuTrigger>
-              <DropdownMenuContent side="top" align="start" className="w-56">
-                <DropdownMenuItem asChild>
-                  <Link href="/student/profile" className="cursor-pointer">
-                    <User className="mr-2 size-4" />
+              <DropdownMenuContent side="top" align="start" className="w-56 rounded-2xl shadow-xl border-border/50 p-2">
+                <div className="flex items-center gap-2 p-2">
+                  <Avatar className="size-9 rounded-xl">
+                    <AvatarImage src={user?.image || undefined} />
+                    <AvatarFallback className="bg-primary/10 text-primary font-bold text-xs">
+                      {getInitials(user?.name)}
+                    </AvatarFallback>
+                  </Avatar>
+                  <div className="flex flex-col min-w-0">
+                    <span className="text-xs font-bold truncate">{user?.name || "Aluno AtlasFit"}</span>
+                    <span className="text-[10px] text-muted-foreground truncate">{user?.email || "aluno@atlasfit.app"}</span>
+                  </div>
+                </div>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem asChild className="rounded-xl cursor-pointer">
+                  <Link href="/student/settings" className="flex items-center gap-2">
+                    <User className="size-4" />
                     Meu Perfil
-                  </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild>
-                  <Link href="/student/settings" className="cursor-pointer">
-                    <Settings className="mr-2 size-4" />
-                    Configurações
                   </Link>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
-                  className="text-destructive cursor-pointer"
-                  onClick={() => signOut({ callbackUrl: "/" })}
+                  onClick={() => signOut({ callbackUrl: "/auth/student" })}
+                  className="rounded-xl cursor-pointer text-destructive focus:text-destructive focus:bg-destructive/10 flex items-center gap-2"
                 >
-                  <LogOut className="mr-2 size-4" />
-                  Sair
+                  <LogOut className="size-4" />
+                  Sair da Conta
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>

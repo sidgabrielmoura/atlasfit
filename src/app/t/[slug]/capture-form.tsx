@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { isValidCPF, formatCPF } from "@/lib/cpf-validator";
 
 interface CaptureFormProps {
   workspace: {
@@ -47,6 +48,7 @@ export function CaptureForm({ workspace }: CaptureFormProps) {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [whatsapp, setWhatsapp] = useState("");
+  const [cpfCnpj, setCpfCnpj] = useState("");
   const [selectedPlan, setSelectedPlan] = useState("Mensal");
 
   useEffect(() => {
@@ -83,6 +85,17 @@ export function CaptureForm({ workspace }: CaptureFormProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (!cpfCnpj) {
+      toast.error("O CPF é obrigatório para cadastrar-se.");
+      return;
+    }
+
+    if (!isValidCPF(cpfCnpj)) {
+      toast.error("O CPF informado é inválido. Digite um CPF válido.");
+      return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -94,6 +107,7 @@ export function CaptureForm({ workspace }: CaptureFormProps) {
           name,
           email,
           whatsapp,
+          cpfCnpj: cpfCnpj.replace(/\D/g, ""),
           plan: selectedPlan,
         }),
       });
@@ -102,7 +116,6 @@ export function CaptureForm({ workspace }: CaptureFormProps) {
         throw new Error(await res.text());
       }
 
-      // Save registration state to localStorage
       if (typeof window !== "undefined") {
         localStorage.setItem(`atlasfit_pending_${workspace.slug}`, "true");
       }
@@ -251,6 +264,21 @@ export function CaptureForm({ workspace }: CaptureFormProps) {
                   className="pl-10 h-12 rounded-lg bg-neutral-950 border-neutral-800 text-white focus:border-primary/50 transition-colors focus:ring-0"
                   value={whatsapp}
                   onChange={handleWhatsAppChange}
+                />
+              </div>
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="capture-cpf" className="text-neutral-300 text-xs font-semibold uppercase tracking-wider">CPF do Aluno (Obrigatório)</Label>
+              <div className="relative">
+                <Lock className="absolute left-3 top-3.5 size-4 text-neutral-500" />
+                <Input
+                  id="capture-cpf"
+                  required
+                  placeholder="000.000.000-00"
+                  className="pl-10 h-12 rounded-lg bg-neutral-950 border-neutral-800 text-white focus:border-primary/50 transition-colors focus:ring-0"
+                  value={cpfCnpj}
+                  onChange={(e) => setCpfCnpj(formatCPF(e.target.value))}
                 />
               </div>
             </div>
