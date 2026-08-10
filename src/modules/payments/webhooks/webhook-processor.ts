@@ -11,6 +11,7 @@ import {
 } from "@prisma/client";
 import crypto from "crypto";
 import { publishToChannel } from "@/lib/ably";
+import { paymentService } from "../application/payment-service";
 
 export class WebhookProcessor {
   private adapter = new AsaasAdapter();
@@ -117,7 +118,16 @@ export class WebhookProcessor {
             },
             update: {}
           });
+
         });
+
+        if (isSettled) {
+          await paymentService.processActivationFeeRecovery(
+            billing.providerAccountId,
+            billing.personalNetEstimatedInCents,
+            billing.id
+          );
+        }
 
         const studentMember = await prisma.workspaceMember.findFirst({
           where: { userId: billing.studentUserId, role: "STUDENT" }
@@ -163,7 +173,118 @@ export class WebhookProcessor {
           });
         }
       }
-    } else if (eventType === "TRANSFER_DONE" || eventType === "TRANSFER_CREATED") {
+    } else if (eventType.startsWith("TRANSFER_")) {
+      const rawPayload = normalized.rawPayload as any;
+      const transferObj = rawPayload?.transfer || rawPayload;
+      const extRef = transferObj?.externalReference as string | undefined;
+      const opIdFromExt = extRef && extRef.startsWith("atlas_activation_fee_")
+        ? extRef.replace("atlas_activation_fee_", "")
+        : undefined;
+
+      const recoveryOp = await prisma.activationFeeRecoveryOperation.findFirst({
+        where: {
+          OR: [
+            { providerTransferId: resourceId },
+            ...(extRef ? [{ externalReference: extRef }] : []),
+            ...(opIdFromExt ? [{ id: opIdFromExt }] : [])
+          ]
+        }
+      });
+
+      if (recoveryOp) {
+        if (eventType === "TRANSFER_DONE") {
+          if (recoveryOp.status !== "COMPLETED") {
+            await prisma.$transaction(async (tx) => {
+              const currentOp = await tx.activationFeeRecoveryOperation.findUnique({
+                where: { id: recoveryOp.id }
+              });
+              if (currentOp?.status === "COMPLETED") return;
+
+              await tx.activationFeeRecoveryOperation.update({
+                where: { id: recoveryOp.id },
+                data: {
+                  status: "COMPLETED",
+                  providerTransferId: currentOp?.providerTransferId || resourceId
+                }
+              });
+
+              const account = await tx.paymentProviderAccount.findUnique({
+                where: { id: recoveryOp.providerAccountId }
+              });
+
+              if (account) {
+                const newRecovered = account.activationFeeRecoveredInCents + recoveryOp.amountInCents;
+                const newReserved = account.activationFeeReservedInCents > recoveryOp.amountInCents
+                  ? account.activationFeeReservedInCents - recoveryOp.amountInCents
+                  : BigInt(0);
+                const isFullyRecovered = newRecovered >= account.activationFeeTotalInCents;
+
+                await tx.paymentProviderAccount.update({
+                  where: { id: account.id },
+                  data: {
+                    activationFeeRecoveredInCents: newRecovered,
+                    activationFeeReservedInCents: newReserved,
+                    activationFeeStatus: isFullyRecovered ? "COMPLETED" : "PARTIALLY_RECOVERED"
+                  }
+                });
+
+                await tx.walletLedgerEntry.upsert({
+                  where: { idempotencyKey: `LEDGER_ACTIVATION_RECOVERY_DONE_${recoveryOp.id}` },
+                  create: {
+                    providerAccountId: account.id,
+                    billingId: recoveryOp.billingId,
+                    idempotencyKey: `LEDGER_ACTIVATION_RECOVERY_DONE_${recoveryOp.id}`,
+                    type: LedgerEntryType.ACTIVATION_FEE_RECOVERY,
+                    direction: LedgerDirection.DEBIT,
+                    amountInCents: recoveryOp.amountInCents,
+                    occurredAt: normalized.occurredAt,
+                    description: `Recuperação efetiva da taxa de abertura de conta financeira (R$ ${(Number(recoveryOp.amountInCents) / 100).toFixed(2)})`
+                  },
+                  update: {}
+                });
+              }
+            });
+          }
+        } else if (eventType === "TRANSFER_FAILED" || eventType === "TRANSFER_CANCELLED") {
+          if (recoveryOp.status !== "FAILED" && recoveryOp.status !== "CANCELLED") {
+            await prisma.$transaction(async (tx) => {
+              await tx.activationFeeRecoveryOperation.update({
+                where: { id: recoveryOp.id },
+                data: {
+                  status: eventType === "TRANSFER_CANCELLED" ? "CANCELLED" : "FAILED",
+                  providerTransferId: recoveryOp.providerTransferId || resourceId
+                }
+              });
+
+              const account = await tx.paymentProviderAccount.findUnique({
+                where: { id: recoveryOp.providerAccountId }
+              });
+
+              if (account) {
+                const newReserved = account.activationFeeReservedInCents > recoveryOp.amountInCents
+                  ? account.activationFeeReservedInCents - recoveryOp.amountInCents
+                  : BigInt(0);
+
+                await tx.paymentProviderAccount.update({
+                  where: { id: account.id },
+                  data: {
+                    activationFeeReservedInCents: newReserved
+                  }
+                });
+              }
+            });
+          }
+        } else if (eventType === "TRANSFER_BLOCKED") {
+          await prisma.activationFeeRecoveryOperation.update({
+            where: { id: recoveryOp.id },
+            data: {
+              status: "BLOCKED",
+              providerTransferId: recoveryOp.providerTransferId || resourceId
+            }
+          });
+        }
+      }
+
       const payout = await prisma.walletPayoutRequest.findFirst({
         where: { providerTransferId: resourceId }
       });
@@ -191,6 +312,36 @@ export class WebhookProcessor {
         }
       }
     } else if (eventType === "TRANSFER_FAILED" || eventType === "TRANSFER_CANCELLED") {
+      const recoveryOp = await prisma.activationFeeRecoveryOperation.findFirst({
+        where: { providerTransferId: resourceId }
+      });
+
+      if (recoveryOp && recoveryOp.status !== "FAILED") {
+        await prisma.$transaction(async (tx) => {
+          await tx.activationFeeRecoveryOperation.update({
+            where: { id: recoveryOp.id },
+            data: { status: "FAILED" }
+          });
+
+          const account = await tx.paymentProviderAccount.findUnique({
+            where: { id: recoveryOp.providerAccountId }
+          });
+
+          if (account) {
+            const newReserved = account.activationFeeReservedInCents > recoveryOp.amountInCents
+              ? account.activationFeeReservedInCents - recoveryOp.amountInCents
+              : BigInt(0);
+
+            await tx.paymentProviderAccount.update({
+              where: { id: account.id },
+              data: {
+                activationFeeReservedInCents: newReserved
+              }
+            });
+          }
+        });
+      }
+
       const payout = await prisma.walletPayoutRequest.findFirst({
         where: { providerTransferId: resourceId }
       });

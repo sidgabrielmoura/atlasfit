@@ -131,6 +131,7 @@ export class AsaasAdapter implements PaymentProviderAdapter {
 
     return {
       providerAccountId: data.id,
+      providerApiKey: data.apiKey ?? undefined,
       status: FinancialAccountStatus.ONBOARDING,
       kycStatus: WalletKycStatus.PENDING,
       providerStatus: data.status || "AWAITING_APPROVAL",
@@ -200,13 +201,16 @@ export class AsaasAdapter implements PaymentProviderAdapter {
       const searchData = await searchRes.json();
       if (searchData.data && searchData.data.length > 0) {
         const existing = searchData.data[0];
+        const updatePayload: Record<string, unknown> = { notificationDisabled: true };
         if (cleanCpfCnpj && !existing.cpfCnpj) {
-          await fetch(`${this.baseUrl}/customers/${existing.id}`, {
-            method: "POST",
-            headers: this.getSubAccountHeaders(subAccountId),
-            body: JSON.stringify({ cpfCnpj: cleanCpfCnpj })
-          });
+          updatePayload.cpfCnpj = cleanCpfCnpj;
         }
+        await fetch(`${this.baseUrl}/customers/${existing.id}`, {
+          method: "PUT",
+          headers: this.getSubAccountHeaders(subAccountId),
+          body: JSON.stringify(updatePayload)
+        }).catch(() => {});
+
         return {
           providerCustomerId: existing.id,
           nameSnapshot: existing.name,
@@ -219,7 +223,8 @@ export class AsaasAdapter implements PaymentProviderAdapter {
       name: input.name,
       email: input.email,
       cpfCnpj: cleanCpfCnpj,
-      externalReference: input.studentUserId
+      externalReference: input.studentUserId,
+      notificationDisabled: true
     };
 
     const res = await fetch(`${this.baseUrl}/customers`, {
@@ -460,5 +465,95 @@ export class AsaasAdapter implements PaymentProviderAdapter {
       occurredAt: parsed.dateCreated ? new Date(parsed.dateCreated) : new Date(),
       rawPayload: parsed
     };
+  }
+
+  async transferToMaster(amountInCents: bigint, subAccountApiKey: string, externalReference?: string): Promise<{ providerTransferId: string; status: string }> {
+    const val = Number((Number(amountInCents) / 100).toFixed(2));
+    const masterWalletId = process.env.ASAAS_MASTER_WALLET_ID;
+
+    if (!masterWalletId) {
+      throw new Error("ASAAS_MASTER_WALLET_ID não configurado no ambiente");
+    }
+
+    const payload: Record<string, unknown> = {
+      value: val,
+      walletId: masterWalletId
+    };
+
+    if (externalReference) {
+      payload.externalReference = externalReference;
+    }
+
+    const res = await fetch(`${this.baseUrl}/transfers`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "access_token": subAccountApiKey,
+        "User-Agent": "AtlasFit/1.0"
+      },
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const status = res.status;
+      const errorText = await res.text();
+      if (status === 401 || status === 403) {
+        throw new Error(`${status} ${this.parseAsaasError(errorText)}`);
+      }
+      throw new Error(this.parseAsaasError(errorText));
+    }
+
+    const data = await res.json();
+    return {
+      providerTransferId: data.id,
+      status: data.status || "PENDING"
+    };
+  }
+
+  async getTransferStatus(
+    providerTransferId: string | undefined,
+    externalReference: string | undefined,
+    subAccountApiKey: string
+  ): Promise<{ id: string; status: string; externalReference?: string } | null> {
+    if (providerTransferId) {
+      const res = await fetch(`${this.baseUrl}/transfers/${providerTransferId}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "access_token": subAccountApiKey,
+          "User-Agent": "AtlasFit/1.0"
+        }
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        return { id: data.id, status: data.status, externalReference: data.externalReference };
+      }
+
+      if (res.status === 404) {
+        return null;
+      }
+    }
+
+    if (externalReference) {
+      const res = await fetch(`${this.baseUrl}/transfers?externalReference=${encodeURIComponent(externalReference)}`, {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "access_token": subAccountApiKey,
+          "User-Agent": "AtlasFit/1.0"
+        }
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        if (data.data && data.data.length > 0) {
+          const t = data.data[0];
+          return { id: t.id, status: t.status, externalReference: t.externalReference };
+        }
+      }
+    }
+
+    return null;
   }
 }

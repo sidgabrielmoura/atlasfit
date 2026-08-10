@@ -33,6 +33,7 @@ export interface AccountStatusResult {
   providerStatus?: string;
   legalNameMasked?: string;
   documentLast4?: string;
+  providerApiKey?: string;
 }
 
 export interface CreateCustomerInput {

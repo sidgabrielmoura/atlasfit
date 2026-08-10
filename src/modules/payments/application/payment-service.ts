@@ -15,6 +15,7 @@ import { calculatePlatformFee } from "../domain/fee-calculator";
 import { CreateAccountInput } from "../domain/types";
 import crypto from "crypto";
 import { publishToChannel } from "@/lib/ably";
+import { encryptSubAccountApiKey, decryptSubAccountApiKey } from "../providers/asaas/subaccount-crypto";
 
 export class PaymentService {
   private adapter = new AsaasAdapter();
@@ -47,6 +48,13 @@ export class PaymentService {
     try {
       const result = await this.adapter.createFinancialAccount(input);
 
+      const creationFeeCents = BigInt(process.env.ASAAS_SUBACCOUNT_CREATION_FEE_IN_CENTS || "1290");
+      const initialFeeStatus = creationFeeCents > BigInt(0) ? "PENDING" : "NOT_APPLICABLE";
+
+      const apiKeyFields = result.providerApiKey
+        ? encryptSubAccountApiKey(result.providerApiKey)
+        : null;
+
       if (existing) {
         return await prisma.paymentProviderAccount.update({
           where: { id: existing.id },
@@ -57,6 +65,12 @@ export class PaymentService {
             providerStatus: result.providerStatus,
             legalNameMasked: result.legalNameMasked,
             documentLast4: result.documentLast4,
+            ...(apiKeyFields ? {
+              providerApiKeyEncrypted: apiKeyFields.encrypted,
+              providerApiKeyKeyVersion: apiKeyFields.keyVersion
+            } : {}),
+            activationFeeTotalInCents: existing.activationFeeTotalInCents > BigInt(0) ? existing.activationFeeTotalInCents : creationFeeCents,
+            activationFeeStatus: existing.activationFeeStatus !== "NOT_APPLICABLE" ? existing.activationFeeStatus : initialFeeStatus,
             updatedAt: new Date()
           }
         });
@@ -72,7 +86,14 @@ export class PaymentService {
           kycStatus: result.kycStatus,
           providerStatus: result.providerStatus,
           legalNameMasked: result.legalNameMasked,
-          documentLast4: result.documentLast4
+          documentLast4: result.documentLast4,
+          ...(apiKeyFields ? {
+            providerApiKeyEncrypted: apiKeyFields.encrypted,
+            providerApiKeyKeyVersion: apiKeyFields.keyVersion
+          } : {}),
+          activationFeeTotalInCents: creationFeeCents,
+          activationFeeRecoveredInCents: BigInt(0),
+          activationFeeStatus: initialFeeStatus
         }
       });
     } catch (err) {
@@ -145,7 +166,16 @@ export class PaymentService {
             },
             update: {}
           });
+
         });
+
+        if (isSettled) {
+          await this.processActivationFeeRecovery(
+            account.id,
+            billing.personalNetEstimatedInCents,
+            billing.id
+          );
+        }
 
         const studentMember = await prisma.workspaceMember.findFirst({
           where: { userId: billing.studentUserId, role: "STUDENT" }
@@ -399,15 +429,22 @@ export class PaymentService {
       throw new Error(`O valor mínimo para saque é R$ ${(Number(minPayout) / 100).toFixed(2)}`);
     }
 
+    const feeDebt = (account.activationFeeStatus !== "COMPLETED" && account.activationFeeTotalInCents > account.activationFeeRecoveredInCents)
+      ? (account.activationFeeTotalInCents - account.activationFeeRecoveredInCents)
+      : BigInt(0);
+
     const latestSnapshot = await prisma.walletBalanceSnapshot.findFirst({
       where: { providerAccountId: account.id },
       orderBy: { capturedAt: "desc" }
     });
 
-    if (!latestSnapshot || latestSnapshot.availableAmountInCents < params.amountInCents) {
+    const availableNet = (latestSnapshot?.availableAmountInCents || BigInt(0)) - feeDebt;
+
+    if (!latestSnapshot || availableNet < params.amountInCents) {
       const freshSnapshot = await this.syncAccountBalance(params.personalUserId);
-      if (freshSnapshot.availableAmountInCents < params.amountInCents) {
-        throw new Error("Saldo disponível insuficiente para realizar o saque");
+      const freshAvailableNet = freshSnapshot.availableAmountInCents - feeDebt;
+      if (freshAvailableNet < params.amountInCents) {
+        throw new Error(`Saldo disponível para saque insuficiente. ${feeDebt > BigInt(0) ? `R$ ${(Number(feeDebt) / 100).toFixed(2)} está reservado para a taxa de ativação.` : ""}`);
       }
     }
 
@@ -562,6 +599,149 @@ export class PaymentService {
     });
 
     return true;
+  }
+
+  async processActivationFeeRecovery(
+    providerAccountId: string,
+    availableNetCents: bigint,
+    billingId: string
+  ) {
+    const reservation = await prisma.$transaction(async (tx) => {
+      const account = await tx.paymentProviderAccount.findUnique({
+        where: { id: providerAccountId }
+      });
+
+      if (!account || account.activationFeeStatus === "COMPLETED" || account.activationFeeStatus === "NOT_APPLICABLE") {
+        return null;
+      }
+
+      const existingOp = await tx.activationFeeRecoveryOperation.findFirst({
+        where: {
+          billingId,
+          status: { in: ["RESERVED", "SUBMITTED", "COMPLETED"] }
+        }
+      });
+
+      if (existingOp) {
+        return null;
+      }
+
+      const totalFee = account.activationFeeTotalInCents;
+      const recoveredFee = account.activationFeeRecoveredInCents;
+      const reservedFee = account.activationFeeReservedInCents;
+
+      const currentEffective = recoveredFee + reservedFee;
+      if (totalFee <= currentEffective) {
+        return null;
+      }
+
+      const remainingFee = totalFee - currentEffective;
+      const amountToReserve = availableNetCents < remainingFee ? availableNetCents : remainingFee;
+
+      if (amountToReserve <= BigInt(0)) {
+        return null;
+      }
+
+      const tempId = crypto.randomUUID();
+      const extRef = `atlas_activation_fee_${tempId}`;
+
+      const op = await tx.activationFeeRecoveryOperation.create({
+        data: {
+          id: tempId,
+          providerAccountId,
+          billingId,
+          amountInCents: amountToReserve,
+          externalReference: extRef,
+          status: "RESERVED"
+        }
+      });
+
+      await tx.paymentProviderAccount.update({
+        where: { id: providerAccountId },
+        data: {
+          activationFeeReservedInCents: { increment: amountToReserve }
+        }
+      });
+
+      return {
+        opId: op.id,
+        externalReference: extRef,
+        amountInCents: amountToReserve,
+        subAccountId: account.providerAccountId,
+        providerApiKeyEncrypted: account.providerApiKeyEncrypted ?? null
+      };
+    });
+
+    if (!reservation) {
+      return null;
+    }
+
+    let subAccountApiKey: string | null = null;
+    if (reservation.providerApiKeyEncrypted) {
+      try {
+        subAccountApiKey = decryptSubAccountApiKey(reservation.providerApiKeyEncrypted);
+      } catch {
+        await prisma.activationFeeRecoveryOperation.update({
+          where: { id: reservation.opId },
+          data: { status: "CREDENTIAL_FAILED", failureReason: "Falha na descriptografia da API Key da subconta" }
+        });
+        return null;
+      }
+    } else {
+      await prisma.activationFeeRecoveryOperation.update({
+        where: { id: reservation.opId },
+        data: { status: "CREDENTIAL_FAILED", failureReason: "API Key da subconta não disponível — necessário persistir após onboarding" }
+      });
+      return null;
+    }
+
+    try {
+      const transferResult = await this.adapter.transferToMaster(
+        reservation.amountInCents,
+        subAccountApiKey,
+        reservation.externalReference
+      );
+
+      await prisma.activationFeeRecoveryOperation.update({
+        where: { id: reservation.opId },
+        data: {
+          providerTransferId: transferResult.providerTransferId,
+          status: "SUBMITTED"
+        }
+      });
+
+      return transferResult;
+    } catch (err: unknown) {
+      const errMsg = err instanceof Error ? err.message : String(err);
+      const isCredentialError = errMsg.includes("401") || errMsg.includes("403") || errMsg.includes("Unauthorized") || errMsg.includes("Forbidden");
+      const isDefinitiveError = !isCredentialError && (
+        errMsg.includes("inválid") || errMsg.includes("insuficiente") || errMsg.includes("não permitid")
+      );
+
+      if (isCredentialError) {
+        await prisma.activationFeeRecoveryOperation.update({
+          where: { id: reservation.opId },
+          data: { status: "CREDENTIAL_FAILED", failureReason: "API Key da subconta inválida ou expirada" }
+        });
+      } else if (isDefinitiveError) {
+        await prisma.$transaction(async (tx) => {
+          await tx.activationFeeRecoveryOperation.update({
+            where: { id: reservation.opId },
+            data: { status: "FAILED", failureReason: errMsg }
+          });
+          await tx.paymentProviderAccount.update({
+            where: { id: providerAccountId },
+            data: { activationFeeReservedInCents: { decrement: reservation.amountInCents } }
+          });
+        });
+      } else {
+        await prisma.activationFeeRecoveryOperation.update({
+          where: { id: reservation.opId },
+          data: { status: "RECONCILING", failureReason: errMsg }
+        });
+      }
+      return null;
+    }
   }
 }
 

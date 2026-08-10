@@ -1476,6 +1476,7 @@ enum LedgerEntryType {
   CHARGEBACK
   CHARGEBACK_REVERSAL
   ADJUSTMENT
+  ACTIVATION_FEE_RECOVERY
 }
 
 enum LedgerDirection {
@@ -1510,6 +1511,8 @@ model PaymentProviderAccount {
   providerAccountId          String
   providerWalletId           String?
   providerCredentialSecretId String?
+  providerApiKeyEncrypted    String?
+  providerApiKeyKeyVersion   String?
 
   status               FinancialAccountStatus @default(NOT_STARTED)
   kycStatus            WalletKycStatus        @default(NOT_STARTED)
@@ -1520,17 +1523,23 @@ model PaymentProviderAccount {
   documentLast4           String?
   payoutDestinationMasked String?
 
+  activationFeeTotalInCents     BigInt    @default(0)
+  activationFeeReservedInCents  BigInt    @default(0)
+  activationFeeRecoveredInCents BigInt    @default(0)
+  activationFeeStatus           String    @default("NOT_APPLICABLE")
+
   lastProviderSyncAt DateTime?
   approvedAt         DateTime?
   suspendedAt        DateTime?
   closedAt           DateTime?
   deletedAt          DateTime?
 
-  balanceSnapshots WalletBalanceSnapshot[]
-  billings         StudentBilling[]
-  subscriptions    StudentSubscription[]
-  payouts          WalletPayoutRequest[]
-  ledgerEntries    WalletLedgerEntry[]
+  balanceSnapshots          WalletBalanceSnapshot[]
+  billings                   StudentBilling[]
+  subscriptions              StudentSubscription[]
+  payouts                    WalletPayoutRequest[]
+  ledgerEntries              WalletLedgerEntry[]
+  activationFeeOperations   ActivationFeeRecoveryOperation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1673,9 +1682,10 @@ model StudentBilling {
   pixPayloadEncrypted String?
   pixExpirationAt     DateTime?
 
-  attempts      PaymentAttempt[]
-  splits        PaymentSplit[]
-  ledgerEntries WalletLedgerEntry[]
+  attempts                  PaymentAttempt[]
+  splits                    PaymentSplit[]
+  ledgerEntries             WalletLedgerEntry[]
+  activationFeeOperations   ActivationFeeRecoveryOperation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1683,6 +1693,25 @@ model StudentBilling {
   @@unique([providerAccountId, providerBillingId])
   @@index([studentUserId, status, dueDate])
   @@index([providerAccountId, status, createdAt])
+}
+
+model ActivationFeeRecoveryOperation {
+  id                String                 @id @default(cuid())
+  providerAccountId String
+  account           PaymentProviderAccount @relation(fields: [providerAccountId], references: [id], onDelete: Restrict)
+  billingId         String
+  billing           StudentBilling         @relation(fields: [billingId], references: [id], onDelete: Restrict)
+
+  amountInCents      BigInt
+  providerTransferId String?               @unique
+  externalReference  String?               @unique
+  status             String                @default("RESERVED")
+
+  failureReason String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([providerAccountId, status])
 }
 
 model PaymentAttempt {
