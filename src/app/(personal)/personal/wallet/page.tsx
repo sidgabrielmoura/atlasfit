@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import {
   Wallet,
@@ -19,17 +21,23 @@ import {
   Eye,
   EyeOff,
   Zap,
-  Lock,
   Mail,
-  CheckCircle2,
-  Receipt
+  Receipt,
+  Search,
+  X,
+  ChevronLeft,
+  ChevronRight,
+  Filter,
+  SlidersHorizontal,
+  Clock,
+  XCircle,
+  CheckCircle2
 } from "lucide-react";
 import { WalletOnboardingModal } from "@/components/application/wallet-onboarding-modal";
 import { WalletWithdrawModal } from "@/components/application/wallet-withdraw-modal";
 import { StudentChargeModal } from "@/components/application/student-charge-modal";
 import { centsToCurrencyString } from "@/modules/payments/domain/fee-calculator";
 import { useAbly } from "@/providers/ably-provider";
-import { TopBannerCarousel } from "@/components/application/top-banner-carousel";
 
 interface WalletAccountData {
   id: string;
@@ -59,6 +67,22 @@ interface WalletAccountData {
   }>;
 }
 
+interface TransactionItem {
+  id: string;
+  itemType: "BILLING" | "PAYOUT";
+  title: string;
+  subtitle?: string;
+  studentName?: string;
+  amountInCents: string;
+  netAmountInCents?: string;
+  status: string;
+  paymentMethod?: string;
+  createdAt: string;
+  destinationMasked?: string;
+  hostedInvoiceUrl?: string;
+  billingReference?: string;
+}
+
 export default function PersonalWalletPage() {
   const { data: session } = useSession();
   const ablyClient = useAbly();
@@ -66,7 +90,6 @@ export default function PersonalWalletPage() {
   const [syncing, setSyncing] = useState(false);
   const [sendingEmail, setSendingEmail] = useState(false);
   const [showBalance, setShowBalance] = useState(true);
-  const [activeTab, setActiveTab] = useState<"ALL" | "BILLINGS" | "PAYOUTS">("ALL");
 
   const [accountData, setAccountData] = useState<WalletAccountData | null>(null);
   const [hasWallet, setHasWallet] = useState(false);
@@ -75,6 +98,18 @@ export default function PersonalWalletPage() {
   const [isOnboardingOpen, setIsOnboardingOpen] = useState(false);
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [isChargeOpen, setIsChargeOpen] = useState(false);
+
+  // Estados de Transações e Paginação
+  const [transactions, setTransactions] = useState<TransactionItem[]>([]);
+  const [txLoading, setTxLoading] = useState(false);
+  const [page, setPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalItems, setTotalItems] = useState(0);
+
+  const [searchQuery, setSearchQuery] = useState("");
+  const [typeFilter, setTypeFilter] = useState<"ALL" | "BILLING" | "PAYOUT">("ALL");
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "PAID" | "PENDING" | "CANCELLED">("ALL");
+  const [methodFilter, setMethodFilter] = useState<"ALL" | "PIX" | "CREDIT_CARD">("ALL");
 
   const fetchWalletOverview = async () => {
     try {
@@ -99,9 +134,48 @@ export default function PersonalWalletPage() {
     }
   };
 
+  const fetchTransactions = useCallback(async (
+    currentPage: number,
+    search: string,
+    type: string,
+    status: string,
+    method: string
+  ) => {
+    setTxLoading(true);
+    try {
+      const query = new URLSearchParams({
+        page: String(currentPage),
+        pageSize: "15",
+        search,
+        type,
+        status,
+        method
+      });
+      const res = await fetch(`/api/personal/wallet/transactions?${query.toString()}`);
+      if (res.ok) {
+        const json = await res.json();
+        setTransactions(json.transactions || []);
+        setTotalPages(json.pagination?.totalPages || 1);
+        setTotalItems(json.pagination?.totalItems || 0);
+      } else {
+        toast.error("Falha ao carregar lista de transações.");
+      }
+    } catch {
+      toast.error("Erro na busca de transações.");
+    } finally {
+      setTxLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     fetchWalletOverview();
   }, []);
+
+  useEffect(() => {
+    if (hasWallet) {
+      fetchTransactions(page, searchQuery, typeFilter, statusFilter, methodFilter);
+    }
+  }, [hasWallet, page, searchQuery, typeFilter, statusFilter, methodFilter, fetchTransactions]);
 
   useEffect(() => {
     if (!ablyClient || !session?.user?.id) return;
@@ -113,6 +187,7 @@ export default function PersonalWalletPage() {
         description: "Os dados da sua carteira foram sincronizados via Ably."
       });
       fetchWalletOverview();
+      fetchTransactions(page, searchQuery, typeFilter, statusFilter, methodFilter);
     };
 
     userChannel.subscribe("wallet:updated", handleWalletUpdate);
@@ -120,7 +195,7 @@ export default function PersonalWalletPage() {
     return () => {
       userChannel.unsubscribe("wallet:updated", handleWalletUpdate);
     };
-  }, [ablyClient, session?.user?.id]);
+  }, [ablyClient, session?.user?.id, page, searchQuery, typeFilter, statusFilter, methodFilter, fetchTransactions]);
 
   const handleSyncBalance = async () => {
     setSyncing(true);
@@ -131,6 +206,7 @@ export default function PersonalWalletPage() {
       if (res.ok) {
         toast.success("Saldo e lançamentos sincronizados com o Asaas!");
         await fetchWalletOverview();
+        await fetchTransactions(page, searchQuery, typeFilter, statusFilter, methodFilter);
       } else {
         toast.error("Falha ao sincronizar com o parceiro bancário");
       }
@@ -172,6 +248,16 @@ export default function PersonalWalletPage() {
     (acc, item) => acc + BigInt(item.amountInCents || 0),
     BigInt(0)
   ) || BigInt(0);
+
+  const handleSearchChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchQuery(e.target.value);
+    setPage(1);
+  };
+
+  const handleClearSearch = () => {
+    setSearchQuery("");
+    setPage(1);
+  };
 
   if (loading) {
     return (
@@ -487,117 +573,286 @@ export default function PersonalWalletPage() {
             </Card>
           </div>
 
-          <Card className="bg-card p-0 gap-0! border-border rounded-3xl overflow-hidden text-card-foreground">
-            <div className="p-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border">
-              <div>
-                <h3 className="text-base font-bold text-foreground flex items-center gap-2">
-                  <Receipt className="size-5 text-primary" /> Transações Recentes
-                </h3>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  Lançamentos financeiros sincronizados com a subconta em tempo real.
-                </p>
+          {/* Seção Paginada e Filtrada de Transações */}
+          <Card className="bg-card p-0 border-border rounded-3xl overflow-hidden text-card-foreground shadow-xl">
+            <div className="p-6 space-y-4 border-b border-border">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-base font-bold text-foreground flex items-center gap-2">
+                    <Receipt className="size-5 text-primary" /> Histórico de Transações Paginado
+                  </h3>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    Exibindo 15 movimentações por página com filtros avançados e busca em tempo real.
+                  </p>
+                </div>
+
+                <Badge variant="outline" className="w-fit bg-primary/10 border-primary/20 text-primary text-xs font-bold px-3 py-1 rounded-xl">
+                  {totalItems} {totalItems === 1 ? "transação encontrada" : "transações encontradas"}
+                </Badge>
               </div>
 
-              <div className="flex items-center gap-1 bg-muted p-1.5 rounded-xl border border-border">
-                <button
-                  onClick={() => setActiveTab("ALL")}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${activeTab === "ALL" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                    }`}
-                >
-                  Todas
-                </button>
-                <button
-                  onClick={() => setActiveTab("BILLINGS")}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${activeTab === "BILLINGS" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                    }`}
-                >
-                  Cobranças
-                </button>
-                <button
-                  onClick={() => setActiveTab("PAYOUTS")}
-                  className={`px-3 py-1.5 text-xs font-bold rounded-lg transition-colors cursor-pointer ${activeTab === "PAYOUTS" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
-                    }`}
-                >
-                  Saques
-                </button>
+              {/* Barra de Busca e Filtros */}
+              <div className="grid grid-cols-1 sm:grid-cols-12 gap-3 pt-2">
+                <div className="sm:col-span-5 relative">
+                  <Input
+                    value={searchQuery}
+                    onChange={handleSearchChange}
+                    placeholder="Buscar aluno, título ou chave Pix..."
+                    className="h-10 text-xs pl-9 pr-8 bg-background border-input text-foreground rounded-xl"
+                  />
+                  <Search className="size-4 text-muted-foreground absolute left-3 top-3 pointer-events-none" />
+                  {searchQuery && (
+                    <button
+                      onClick={handleClearSearch}
+                      className="absolute right-2.5 top-2.5 p-0.5 text-muted-foreground hover:text-foreground rounded-full hover:bg-muted transition-colors cursor-pointer"
+                    >
+                      <X className="size-3.5" />
+                    </button>
+                  )}
+                </div>
+
+                <div className="sm:col-span-7 flex flex-wrap sm:flex-nowrap items-center gap-2.5">
+                  <div className="flex-1 min-w-[120px]">
+                    <Select
+                      value={typeFilter}
+                      onValueChange={(val) => {
+                        setTypeFilter(val as "ALL" | "BILLING" | "PAYOUT");
+                        setPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="h-10 text-xs w-full bg-background border-input text-foreground rounded-xl">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <Filter className="size-3.5 text-muted-foreground shrink-0" />
+                          <SelectValue placeholder="Tipo" />
+                        </div>
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover border-border text-popover-foreground">
+                        <SelectItem value="ALL">Todos os Tipos</SelectItem>
+                        <SelectItem value="BILLING">Apenas Cobranças (+)</SelectItem>
+                        <SelectItem value="PAYOUT">Apenas Saques (-)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex-1 min-w-[120px]">
+                    <Select
+                      value={statusFilter}
+                      onValueChange={(val) => {
+                        setStatusFilter(val as "ALL" | "PAID" | "PENDING" | "CANCELLED");
+                        setPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="h-10 text-xs w-full bg-background border-input text-foreground rounded-xl">
+                        <div className="flex items-center gap-1.5 truncate">
+                          <SlidersHorizontal className="size-3.5 text-muted-foreground shrink-0" />
+                          <SelectValue placeholder="Status" />
+                        </div>
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover border-border text-popover-foreground">
+                        <SelectItem value="ALL">Todos os Status</SelectItem>
+                        <SelectItem value="PAID">Pagos / Concluídos</SelectItem>
+                        <SelectItem value="PENDING">Pendentes / Processando</SelectItem>
+                        <SelectItem value="CANCELLED">Cancelados / Falhou</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="flex-1 min-w-[120px]">
+                    <Select
+                      value={methodFilter}
+                      onValueChange={(val) => {
+                        setMethodFilter(val as "ALL" | "PIX" | "CREDIT_CARD");
+                        setPage(1);
+                      }}
+                    >
+                      <SelectTrigger className="h-10 text-xs w-full bg-background border-input text-foreground rounded-xl">
+                        <SelectValue placeholder="Método" />
+                      </SelectTrigger>
+                      <SelectContent className="bg-popover border-border text-popover-foreground">
+                        <SelectItem value="ALL">Todos os Métodos</SelectItem>
+                        <SelectItem value="PIX">Pix</SelectItem>
+                        <SelectItem value="CREDIT_CARD">Cartão de Crédito</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </div>
             </div>
 
-            <div className="divide-y divide-border">
-              {(!accountData?.billings || accountData.billings.length === 0) &&
-                (!accountData?.payouts || accountData.payouts.length === 0) ? (
-                <div className="text-center py-12 px-4 space-y-2">
-                  <p className="text-xs text-muted-foreground">
-                    Nenhuma movimentação registrada. Clique em "Cobrar Aluno" para gerar a primeira cobrança.
+            {/* Lista de Transações com Skeleton Loader */}
+            <div className="divide-y divide-border min-h-[300px]">
+              {txLoading ? (
+                <div className="p-4 space-y-4">
+                  {[1, 2, 3, 4, 5].map((i) => (
+                    <div key={i} className="flex items-center justify-between gap-4">
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="size-10 rounded-xl bg-muted" />
+                        <div className="space-y-1.5">
+                          <Skeleton className="h-4 w-40 sm:w-60 bg-muted rounded-md" />
+                          <Skeleton className="h-3 w-28 bg-muted rounded-md" />
+                        </div>
+                      </div>
+                      <div className="space-y-1.5 text-right">
+                        <Skeleton className="h-4 w-20 bg-muted rounded-md ml-auto" />
+                        <Skeleton className="h-3 w-12 bg-muted rounded-md ml-auto" />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : transactions.length === 0 ? (
+                <div className="text-center py-16 px-4 space-y-3">
+                  <div className="size-12 rounded-2xl bg-muted border border-border mx-auto flex items-center justify-center text-muted-foreground">
+                    <Receipt className="size-6" />
+                  </div>
+                  <h4 className="text-sm font-bold text-foreground">Nenhuma transação encontrada</h4>
+                  <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+                    Não encontramos movimentações para os filtros selecionados. Tente ajustar os parâmetros de busca.
                   </p>
                 </div>
               ) : (
-                <>
-                  {(activeTab === "ALL" || activeTab === "BILLINGS") &&
-                    accountData?.billings.map((b) => (
-                      <div
-                        key={b.id}
-                        className="p-4 sm:px-6 flex items-center justify-between gap-4 hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="size-10 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shrink-0">
-                            <ArrowDownLeft className="size-5" />
-                          </div>
-                          <div>
-                            <span className="text-xs font-bold text-foreground block">{b.title}</span>
-                            <span className="text-[10px] text-muted-foreground block mt-0.5">
-                              {new Date(b.createdAt).toLocaleDateString("pt-BR")} • {b.paymentMethod}
-                            </span>
-                          </div>
-                        </div>
+                transactions.map((tx) => {
+                  const statusUpper = (tx.status || "").toUpperCase();
+                  const isBilling = tx.itemType === "BILLING";
+                  const isPaid = statusUpper === "SETTLED" || statusUpper === "CONFIRMED" || statusUpper === "COMPLETED";
+                  const isPending = statusUpper === "PENDING" || statusUpper === "PROCESSING" || statusUpper === "SUBMITTED" || statusUpper === "AWAITING_RISK_ANALYSIS";
+                  const isCancelled = statusUpper === "CANCELLED" || statusUpper === "FAILED" || statusUpper === "REJECTED" || statusUpper === "REFUNDED";
 
-                        <div className="text-right shrink-0">
-                          <span className="text-xs sm:text-sm font-extrabold text-emerald-600 dark:text-emerald-400 block">
-                            + {centsToCurrencyString(BigInt(b.personalNetEstimatedInCents))}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground block mt-0.5">
-                            {b.status === "SETTLED" || b.status === "CONFIRMED" ? (
-                              <span className="text-emerald-600 dark:text-emerald-400 font-bold">Pago</span>
-                            ) : (
-                              <span className="text-muted-foreground">{b.status}</span>
-                            )}
+                  let icon = <ArrowDownLeft className="size-5" />;
+                  let containerClass = "bg-primary/10 border-primary/20 text-primary";
+                  let amountClass = "text-foreground";
+                  let sign = "+";
+                  let statusLabel = tx.status;
+
+                  if (isBilling) {
+                    if (isPaid) {
+                      icon = <ArrowDownLeft className="size-5" />;
+                      containerClass = "bg-emerald-500/10 border-emerald-500/20 text-emerald-600 dark:text-emerald-400";
+                      amountClass = "text-emerald-600 dark:text-emerald-400";
+                      sign = "+";
+                      statusLabel = "Pago";
+                    } else if (isPending) {
+                      icon = <Clock className="size-5" />;
+                      containerClass = "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400";
+                      amountClass = "text-foreground";
+                      sign = "+";
+                      statusLabel = "Pendente";
+                    } else if (isCancelled) {
+                      icon = <XCircle className="size-5" />;
+                      containerClass = "bg-destructive/10 border-destructive/20 text-destructive";
+                      amountClass = "text-muted-foreground line-through";
+                      sign = "+";
+                      statusLabel = "Cancelado";
+                    }
+                  } else {
+                    if (isPending) {
+                      icon = <Clock className="size-5" />;
+                      containerClass = "bg-amber-500/10 border-amber-500/20 text-amber-600 dark:text-amber-400";
+                      amountClass = "text-foreground";
+                      sign = "-";
+                      statusLabel = "Em Processamento";
+                    } else if (isCancelled) {
+                      icon = <XCircle className="size-5" />;
+                      containerClass = "bg-destructive/10 border-destructive/20 text-destructive";
+                      amountClass = "text-muted-foreground line-through";
+                      sign = "-";
+                      statusLabel = "Cancelado";
+                    } else {
+                      icon = <ArrowUpRight className="size-5" />;
+                      containerClass = "bg-muted border-border text-foreground";
+                      amountClass = "text-foreground";
+                      sign = "-";
+                      statusLabel = "Concluído";
+                    }
+                  }
+
+                  return (
+                    <div
+                      key={tx.id}
+                      className="p-4 sm:px-6 flex items-center justify-between gap-4 hover:bg-muted/50 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div
+                          className={`size-10 rounded-xl border flex items-center justify-center shrink-0 ${containerClass}`}
+                        >
+                          {icon}
+                        </div>
+                        <div className="min-w-0">
+                          <span className="text-xs font-bold text-foreground block truncate">{tx.title}</span>
+                          <span className="text-[10px] text-muted-foreground block mt-0.5 truncate">
+                            {new Date(tx.createdAt).toLocaleDateString("pt-BR")} às{" "}
+                            {new Date(tx.createdAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                            {tx.paymentMethod ? ` • ${tx.paymentMethod}` : ""}
+                            {` • ${statusLabel}`}
+                            {tx.subtitle && !tx.subtitle.includes("Aluno: Aluno") ? ` • ${tx.subtitle}` : ""}
                           </span>
                         </div>
                       </div>
-                    ))}
 
-                  {(activeTab === "ALL" || activeTab === "PAYOUTS") &&
-                    accountData?.payouts.map((p) => (
-                      <div
-                        key={p.id}
-                        className="p-4 sm:px-6 flex items-center justify-between gap-4 hover:bg-muted/50 transition-colors"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="size-10 rounded-xl bg-muted border border-border flex items-center justify-center text-muted-foreground shrink-0">
-                            <ArrowUpRight className="size-5" />
-                          </div>
-                          <div>
-                            <span className="text-xs font-bold text-foreground block">
-                              Saque Pix ({p.destinationMasked || "Chave Pix"})
-                            </span>
-                            <span className="text-[10px] text-muted-foreground block mt-0.5">
-                              {new Date(p.requestedAt).toLocaleDateString("pt-BR")}
-                            </span>
-                          </div>
-                        </div>
-
-                        <div className="text-right shrink-0">
-                          <span className="text-xs sm:text-sm font-extrabold text-foreground block">
-                            - {centsToCurrencyString(BigInt(p.amountInCents))}
-                          </span>
-                          <span className="text-[10px] text-muted-foreground block mt-0.5">
-                            {p.status}
-                          </span>
-                        </div>
+                      <div className="text-right shrink-0">
+                        <span className={`text-xs sm:text-sm font-extrabold block ${amountClass}`}>
+                          {sign} {centsToCurrencyString(BigInt(tx.netAmountInCents || tx.amountInCents))}
+                        </span>
                       </div>
-                    ))}
-                </>
+                    </div>
+                  );
+                })
               )}
+            </div>
+
+            {/* Rodapé de Paginação Completa (15 por página) */}
+            <div className="p-4 sm:px-6 flex flex-col sm:flex-row items-center justify-between gap-4 border-t border-border bg-muted/30">
+              <div className="text-xs text-muted-foreground text-center sm:text-left">
+                Página <span className="font-bold text-foreground">{page}</span> de{" "}
+                <span className="font-bold text-foreground">{totalPages}</span> • Total de{" "}
+                <span className="font-bold text-foreground">{totalItems}</span> movimentações (15 por página)
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  disabled={page <= 1 || txLoading}
+                  className="h-9 px-3 text-xs gap-1.5 border-border bg-background hover:bg-muted text-foreground rounded-xl cursor-pointer"
+                >
+                  <ChevronLeft className="size-4" />
+                  <span>Anterior</span>
+                </Button>
+
+                <div className="flex items-center gap-1">
+                  {Array.from({ length: totalPages }, (_, i) => i + 1)
+                    .filter((p) => p === 1 || p === totalPages || Math.abs(p - page) <= 1)
+                    .map((p, index, array) => {
+                      const showEllipsis = index > 0 && p - array[index - 1] > 1;
+                      return (
+                        <div key={p} className="flex items-center gap-1">
+                          {showEllipsis && <span className="text-xs text-muted-foreground px-1">...</span>}
+                          <button
+                            onClick={() => setPage(p)}
+                            disabled={txLoading}
+                            className={`size-8 text-xs font-bold rounded-lg transition-colors cursor-pointer ${page === p
+                              ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
+                              : "bg-background text-foreground border border-border hover:bg-muted"
+                              }`}
+                          >
+                            {p}
+                          </button>
+                        </div>
+                      );
+                    })}
+                </div>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  disabled={page >= totalPages || txLoading}
+                  className="h-9 px-3 text-xs gap-1.5 border-border bg-background hover:bg-muted text-foreground rounded-xl cursor-pointer"
+                >
+                  <span>Próximo</span>
+                  <ChevronRight className="size-4" />
+                </Button>
+              </div>
             </div>
           </Card>
         </div>

@@ -18,11 +18,14 @@ import {
 } from "@/lib/email-templates";
 import { isValidCPF } from "@/lib/cpf-validator";
 
+const TWO_FACTOR_EXPIRATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 dias em ms
+
 export async function login(formData: {
   email: string;
   password: string;
   redirectTo: string;
   code?: string;
+  forceNewCode?: boolean;
 }) {
   try {
     const ipHeaders = await headers();
@@ -58,13 +61,10 @@ export async function login(formData: {
       });
 
       if (!dbToken) {
-        return { error: "Código de verificação inválido ou expirado." };
+        return { error: "Código de verificação inválido ou expirado. Clique em 'Enviar outro código' para receber um novo." };
       }
 
-      await prisma.verificationToken.delete({
-        where: { token: dbToken.token }
-      });
-
+      // O código emitido fica válido por 7 dias; não deletamos o token ao verificar
       await signIn("credentials", {
         email: formData.email,
         password: formData.password,
@@ -96,8 +96,21 @@ export async function login(formData: {
       return { success: true, role: user.role };
     }
 
-    const code = Math.floor(100000 + Math.random() * 900000).toString();
     const identifier = `2FA:${formData.email}`;
+    const existingToken = await prisma.verificationToken.findFirst({
+      where: {
+        identifier,
+        expires: { gt: new Date() }
+      }
+    });
+
+    // Se o usuário já possui um código ativo (válido por 7 dias) e não pediu explicitamente um novo, não reenvia e-mail
+    if (existingToken && !formData.forceNewCode) {
+      return { requires2FA: true, email: formData.email, isExistingCodeActive: true };
+    }
+
+    // Caso contrário (sem código ou solicitou outro), gera um novo código e envia o e-mail
+    const code = Math.floor(100000 + Math.random() * 900000).toString();
 
     await prisma.verificationToken.deleteMany({
       where: { identifier }
@@ -107,7 +120,7 @@ export async function login(formData: {
       data: {
         identifier,
         token: code,
-        expires: new Date(Date.now() + 5 * 60 * 1000)
+        expires: new Date(Date.now() + TWO_FACTOR_EXPIRATION_MS)
       }
     });
 
@@ -135,7 +148,7 @@ export async function login(formData: {
       };
     }
 
-    return { requires2FA: true, email: formData.email };
+    return { requires2FA: true, email: formData.email, isNewCodeGenerated: true };
   } catch (error) {
     if (error instanceof AuthError) {
       switch (error.type) {

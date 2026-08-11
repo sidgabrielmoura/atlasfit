@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
       : null;
 
     const hasValidWallet = !!sanitizedOverview &&
-      sanitizedOverview.status !== "REJECTED" &&
+      Boolean(sanitizedOverview.providerAccountId) &&
       sanitizedOverview.status !== "NOT_STARTED";
 
     return NextResponse.json({

@@ -27,7 +27,7 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
   const [passwordVal, setPasswordVal] = useState("");
   const [otpValue, setOtpValue] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
-  
+
   const router = useRouter();
   const autoSubmitActive = useRef(false);
 
@@ -142,10 +142,15 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
         setEmailVal(email);
         setPasswordVal(password);
         setRequires2FA(true);
-        setResendCooldown(60);
+        setResendCooldown(30);
         setIsLoading(false);
         autoSubmitActive.current = false;
-        toast.success("Código de segurança enviado ao seu e-mail!");
+
+        if (result?.isNewCodeGenerated) {
+          toast.success("Código de verificação enviado ao seu e-mail!");
+        } else {
+          toast.info("Insira seu código de segurança para continuar.");
+        }
         return;
       }
 
@@ -167,24 +172,25 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
   const handleResendOTP = async () => {
     if (resendCooldown > 0) return;
     setIsLoading(true);
-    const toastId = toast.loading("Enviando novo código...");
+    const toastId = toast.loading("Gerando um novo código...");
     try {
       const result = await login({
         email: emailVal,
         password: passwordVal,
         redirectTo: callbackUrl,
+        forceNewCode: true,
       });
 
       if (result?.error) {
         toast.error(result.error, { id: toastId });
       } else {
-        toast.success("Novo código de verificação enviado!", { id: toastId });
+        toast.success("Novo código enviado!", { id: toastId });
         setOtpValue("");
         autoSubmitActive.current = false;
-        setResendCooldown(60);
+        setResendCooldown(30);
       }
     } catch (err) {
-      toast.error("Erro ao reenviar o código.", { id: toastId });
+      toast.error("Erro ao gerar novo código.", { id: toastId });
     } finally {
       setIsLoading(false);
     }
@@ -193,10 +199,10 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
   if (requires2FA) {
     return (
       <div className="space-y-8 w-full max-w-sm mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300">
-        <div className="space-y-2 text-center md:text-left">
+        <div className="space-y-2 text-center">
           <h2 className="text-3xl font-extrabold tracking-tight">Verifique seu e-mail</h2>
           <p className="text-muted-foreground text-sm leading-relaxed">
-            Enviamos um código de segurança de 6 dígitos para o e-mail: <strong className="text-foreground">{emailVal}</strong>. Insira-o abaixo para continuar.
+            Digite o código de 6 dígitos enviado para <strong className="text-foreground">{emailVal}</strong>. Este código permanece válido por <strong>7 dias</strong> para seus acessos.
           </p>
         </div>
 
@@ -240,18 +246,24 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
           </Button>
         </form>
 
-        <div className="flex flex-col items-center space-y-4 text-center">
-          <button
+        <div className="p-4 bg-secondary/20 border border-border/50 rounded-2xl space-y-3 text-center">
+          <p className="text-xs text-muted-foreground">
+            Esqueceu ou perdeu o código ativo?
+          </p>
+          <Button
             type="button"
+            variant="outline"
             disabled={isLoading || resendCooldown > 0}
             onClick={handleResendOTP}
-            className="text-sm font-bold text-primary hover:underline disabled:opacity-50 disabled:no-underline cursor-pointer"
+            className="w-full h-10 text-xs font-bold rounded-xl border-border text-foreground hover:bg-secondary/60 cursor-pointer"
           >
             {resendCooldown > 0
-              ? `Reenviar código em ${resendCooldown}s`
-              : "Não recebeu o código? Reenviar"}
-          </button>
+              ? `Aguarde ${resendCooldown}s para novo código`
+              : "Enviar outro código"}
+          </Button>
+        </div>
 
+        <div className="text-center">
           <button
             type="button"
             disabled={isLoading}

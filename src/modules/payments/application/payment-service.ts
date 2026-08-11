@@ -97,7 +97,7 @@ export class PaymentService {
         }
       });
     } catch (err) {
-      if (existing && existing.status !== FinancialAccountStatus.APPROVED) {
+      if (existing && existing.status !== FinancialAccountStatus.APPROVED && !existing.providerAccountId) {
         await prisma.paymentProviderAccount.update({
           where: { id: existing.id },
           data: {
@@ -522,7 +522,7 @@ export class PaymentService {
       return null;
     }
 
-    if (account.providerAccountId && account.status !== FinancialAccountStatus.APPROVED && account.status !== FinancialAccountStatus.REJECTED) {
+    if (account.providerAccountId && account.status !== FinancialAccountStatus.APPROVED) {
       try {
         const remoteStatus = await this.adapter.getFinancialAccountStatus(account.providerAccountId);
         if (remoteStatus.status !== account.status) {

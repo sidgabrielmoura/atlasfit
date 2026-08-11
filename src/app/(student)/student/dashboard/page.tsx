@@ -94,7 +94,7 @@ export default function StudentDashboardPage() {
         const json = await res.json();
         setLockStatus(json);
       }
-    } catch {}
+    } catch { }
   };
 
   useEffect(() => {
@@ -195,7 +195,7 @@ export default function StudentDashboardPage() {
 
     const timeDiff = expirationDate.getTime() - today.getTime();
     daysRemaining = Math.ceil(timeDiff / (1000 * 3600 * 24));
-    
+
     if (daysRemaining <= 7) {
       showExpirationAlert = true;
     }
@@ -223,7 +223,7 @@ export default function StudentDashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-2xl md:text-3xl font-black tracking-tight">
-            {getGreeting()}, {studentName}! 👋
+            {getGreeting()}, {studentName.split(" ")[0]}! 👋
           </h1>
           <p className="text-sm text-muted-foreground">
             Que bom ver você de volta. Vamos aos treinos de hoje!

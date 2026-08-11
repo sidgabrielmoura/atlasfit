@@ -136,7 +136,7 @@ export default async function StudentLayout({
           </div>
         </header>
 
-        <main className="flex flex-col max-w-7xl mx-auto w-full">
+        <main className="flex flex-col max-w-7xl mx-auto w-full max-sm:pb-20">
           <TopBannerCarousel role="STUDENT" />
           {children}
         </main>

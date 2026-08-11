@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -41,8 +41,8 @@ import {
 } from "lucide-react";
 import { centsToCurrencyString } from "@/modules/payments/domain/fee-calculator";
 import { useAbly } from "@/providers/ably-provider";
-
-import { TopBannerCarousel } from "@/components/application/top-banner-carousel";
+import { toDataURL } from 'qrcode'
+import Image from "next/image";
 
 interface StudentFinanceData {
   workspaceName: string;
@@ -91,6 +91,7 @@ export default function StudentFinancePage() {
   const [activeTab, setActiveTab] = useState<"ALL" | "PENDING" | "PAID">("PENDING");
   const [selectedPixBilling, setSelectedPixBilling] = useState<any | null>(null);
   const [syncing, setSyncing] = useState(false);
+  const [billingQrcode, setBillingQrcode] = useState<string | null>(null)
 
   const [isCancelAlertOpen, setIsCancelAlertOpen] = useState(false);
   const [cancelingRecurrence, setCancelingRecurrence] = useState(false);
@@ -143,24 +144,53 @@ export default function StudentFinancePage() {
     }
   };
 
+  const handleGenerateQrcode = async () => {
+    if (!selectedPixBilling.pixCopyPaste) return toast.error("Nenhum código Pix encontrado.");
+    const qrcode = await toDataURL(selectedPixBilling.pixCopyPaste);
+
+    setBillingQrcode(qrcode);
+  }
+
+  useEffect(() => {
+    if (!selectedPixBilling?.pixCopyPaste) return;
+    handleGenerateQrcode();
+  }, [selectedPixBilling?.pixCopyPaste])
+
   useEffect(() => {
     fetchStudentFinance();
   }, []);
+
+  const selectedPixBillingRef = useRef(selectedPixBilling);
+  useEffect(() => {
+    selectedPixBillingRef.current = selectedPixBilling;
+  }, [selectedPixBilling]);
 
   useEffect(() => {
     if (!ablyClient || !session?.user?.id) return;
     const userChannel = ablyClient.channels.get(`user:${session.user.id}`);
 
     const handleWalletUpdate = () => {
-      toast.success("Pagamento confirmado em tempo real!", {
-        description: "Seu histórico financeiro foi atualizado."
-      });
+      const activeModal = selectedPixBillingRef.current;
+      if (activeModal) {
+        setSelectedPixBilling(null);
+        setBillingQrcode(null);
+        toast.success("Pagamento via Pix confirmado em tempo real! 🎉", {
+          description: "Sua cobrança foi quitada e seu status financeiro foi atualizado.",
+          duration: 6000,
+        });
+      } else {
+        toast.success("Pagamento confirmado em tempo real!", {
+          description: "Seu histórico financeiro foi atualizado."
+        });
+      }
       fetchStudentFinance();
     };
 
     userChannel.subscribe("wallet:updated", handleWalletUpdate);
+    userChannel.subscribe("financial:updated", handleWalletUpdate);
     return () => {
       userChannel.unsubscribe("wallet:updated", handleWalletUpdate);
+      userChannel.unsubscribe("financial:updated", handleWalletUpdate);
     };
   }, [ablyClient, session?.user?.id]);
 
@@ -516,10 +546,19 @@ export default function StudentFinancePage() {
       </div>
 
       <Dialog open={!!selectedPixBilling} onOpenChange={(open) => !open && setSelectedPixBilling(null)}>
-        <DialogContent className="max-w-md bg-card border-border text-card-foreground rounded-3xl p-6">
+        <DialogContent className="max-w-md bg-card border-border text-card-foreground rounded-3xl! p-6">
           <DialogHeader>
-            <div className="size-11 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 mb-2">
-              <QrCode className="size-6" />
+            <div className="flex items-center justify-between">
+              <div className="size-11 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500 mb-2">
+                <QrCode className="size-6" />
+              </div>
+              <div className="flex items-center gap-1.5 px-3 py-1 bg-amber-500/10 border border-amber-500/20 rounded-full text-[11px] font-medium text-amber-600 dark:text-amber-400 mb-2 select-none">
+                <span className="relative flex size-2">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-amber-400 opacity-75"></span>
+                  <span className="relative inline-flex size-2 rounded-full bg-amber-500"></span>
+                </span>
+                Aguardando Pix em tempo real
+              </div>
             </div>
             <DialogTitle className="text-lg font-black text-foreground">Pagamento via Pix</DialogTitle>
             <DialogDescription className="text-xs text-muted-foreground">
@@ -529,6 +568,18 @@ export default function StudentFinancePage() {
               </strong>
             </DialogDescription>
           </DialogHeader>
+
+          {billingQrcode && (
+            <section className="w-full border border-border rounded-xl h-fit bg-linear-to-tr from-primary/50 via-primary/20 to-primary/70 flex items-center py-2 justify-around select-none">
+              <img src={billingQrcode} alt="qrcode" className="size-30 rounded-md" />
+
+              <div className="flex flex-col items-center">
+                <Image src="/logos_atlasfit/atlasfit (4).png" alt="logo" width={110} height={110} className="" />
+                <strong className="text-sm text-center">Aponte a câmera do celular</strong>
+                <p className="text-xs text-gray-700 dark:text-gray-300">ou entre no app do seu banco</p>
+              </div>
+            </section>
+          )}
 
           <div className="space-y-4 py-2">
             {selectedPixBilling?.pixCopyPaste && (

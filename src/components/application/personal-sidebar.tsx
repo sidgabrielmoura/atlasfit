@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
 import {
   LayoutDashboard,
@@ -68,6 +68,8 @@ import { cn } from "@/lib/utils";
 import { layoutStore } from "@/stores/layout";
 import { useSnapshot } from "valtio";
 import { workspaceStore } from "@/stores/workspace.store";
+import { toDataURL as generateQrCode } from 'qrcode'
+import Image from "next/image";
 
 export interface NavItemDef {
   title: string;
@@ -122,6 +124,8 @@ export function PersonalSidebar() {
   const user = session?.user;
   const [subInfo, setSubInfo] = useState<any>(null);
   const { isMobile, setOpenMobile } = useSidebar();
+  const [qrcodeImage, setQrcodeImage] = useState<string | null>(null)
+  const clickDownloadQrcode = useRef<HTMLAnchorElement>(null);
 
   const primaryHex = workspaceSnap.activeWorkspace?.primaryColor || "#3052EB";
   const hexToRgb = (hex: string) => {
@@ -178,6 +182,15 @@ export function PersonalSidebar() {
 
   const captureLink = `https://${subInfo?.primaryDomain || "atlasfit.app"}/t/${workspaceSnap.activeWorkspace?.slug || (user?.name || personalInfo.name).toLowerCase()}`;
 
+  const generateQrcode = async () => {
+    const qrcode = await generateQrCode(captureLink, { errorCorrectionLevel: 'H', type: 'image/png', color: { light: "#fff", dark: "#000" } })
+    setQrcodeImage(qrcode)
+  }
+
+  useEffect(() => {
+    if (captureLink) generateQrcode()
+  }, [captureLink])
+
   const handleCopy = () => {
     navigator.clipboard.writeText(captureLink);
     setCopied(true);
@@ -217,16 +230,20 @@ export function PersonalSidebar() {
                     </div>
 
                     <div className="flex flex-col items-center px-6 pb-8 space-y-6">
-                      <div className="relative p-[3px] rounded-3xl bg-linear-to-br from-primary via-primary/20 to-transparent">
-                        <div className="bg-white p-5 rounded-[21px] flex flex-col items-center justify-center shadow-inner">
-                          <QrCode className="size-44 text-black" strokeWidth={1.2} />
+                      {qrcodeImage && (
+                        <div className="relative p-0.75 rounded-3xl bg-linear-to-br from-primary via-primary/20 to-transparent">
+                          <div className="bg-white rounded-3xl flex flex-col items-center justify-center shadow-inner">
+                            <img src={qrcodeImage} className="rounded-3xl size-60" />
+                          </div>
                         </div>
-                      </div>
+                      )}
 
-                      <Button variant="ghost" className="h-9 rounded-full text-xs px-4 text-muted-foreground hover:text-foreground hover:bg-secondary/50">
+                      <Button onClick={() => clickDownloadQrcode.current?.click()} variant="ghost" className="h-9 rounded-full text-xs px-4 text-muted-foreground hover:text-foreground hover:bg-secondary/50">
                         <Download className="size-3.5 mr-2" />
                         Baixar QR Code
                       </Button>
+
+                      <a href={qrcodeImage!} download ref={clickDownloadQrcode}></a>
 
                       <div className="w-full space-y-1.5 pt-2">
                         <label className="text-xs font-medium text-muted-foreground ml-1 uppercase tracking-wider">Seu link exclusivo</label>

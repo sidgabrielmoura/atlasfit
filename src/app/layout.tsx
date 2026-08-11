@@ -43,7 +43,7 @@ export async function generateMetadata(): Promise<Metadata> {
   } catch (error) {
   }
 
-  const title = `${platformName} — Gestão Inteligente para Personal Trainers`;
+  const title = `${platformName} - Gestão Inteligente para Personal Trainers`;
   const description = "Plataforma completa para personal trainers gerenciarem alunos, treinos, finanças e performance com inteligência de dados.";
   const siteUrl = "https://app.atlasfit.site";
 
@@ -67,7 +67,7 @@ export async function generateMetadata(): Promise<Metadata> {
           url: "/logos_atlasfit/atlasfit (4).png",
           width: 1024,
           height: 1024,
-          alt: `${platformName} — Gestão Inteligente para Personal Trainers`,
+          alt: `${platformName} - Gestão Inteligente para Personal Trainers`,
         },
       ],
     },

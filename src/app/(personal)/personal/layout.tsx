@@ -101,7 +101,7 @@ export default async function PersonalLayout({
           </div>
         )}
 
-        <div className="flex-1 min-w-0 overflow-x-hidden">
+        <div className="flex-1 min-w-0 overflow-x-hidden max-sm:pb-20">
           <TopBannerCarousel role="PERSONAL" />
           {children}
         </div>

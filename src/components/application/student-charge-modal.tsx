@@ -42,7 +42,7 @@ export function StudentChargeModal({
   const [description, setDescription] = useState("");
   const [amountStr, setAmountStr] = useState("150,00");
   const [paymentMethod, setPaymentMethod] = useState("PIX");
-  
+
   const todayObj = new Date();
   const todayISO = todayObj.toISOString().split("T")[0];
   const maxDateObj = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
@@ -50,7 +50,7 @@ export function StudentChargeModal({
 
   const defaultDueDate = new Date(Date.now() + 5 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
   const [dueDateStr, setDueDateStr] = useState(defaultDueDate);
-  
+
   const [loading, setLoading] = useState(false);
   const [students, setStudents] = useState<Array<{ id: string; name: string; email: string }>>([]);
   const [selectedStudentId, setSelectedStudentId] = useState(studentUserId);
@@ -203,7 +203,7 @@ export function StudentChargeModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && !loading && handleResetModal()}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-3xl! w-full">
         <DialogHeader>
           <div className="size-10 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center mb-1">
             <QrCode className="size-5 text-primary" />

@@ -229,7 +229,7 @@ export default function DashboardPage() {
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-2xl md:text-3xl font-black tracking-tight">
-            {getGreeting()}, {user?.name || personalInfo.name} <span className="inline-block">🔥</span>
+            {getGreeting()}, {user?.name?.split(" ")[0] || personalInfo.name.split(" ")[0]} <span className="inline-block">🔥</span>
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
             Visualizando <strong className="text-foreground">{workspaceSnap.activeWorkspace?.name}</strong>. Resumo de hoje, {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}.
