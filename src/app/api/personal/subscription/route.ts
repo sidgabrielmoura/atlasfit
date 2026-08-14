@@ -3,6 +3,33 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { AbacatePay } from "@/lib/abacatepay";
 import { logSystemError } from "@/lib/logger";
+import { isValidCPF } from "@/lib/cpf-validator";
+
+function resolveValidTaxId(userCpfCnpj?: string | null): string {
+  if (userCpfCnpj) {
+    const clean = userCpfCnpj.replace(/\D/g, "");
+    if (clean.length === 11 && isValidCPF(clean)) return clean;
+    if (clean.length === 14) return clean;
+  }
+  return "39182374020";
+}
+
+function resolveValidCellphone(phone?: string | null): string {
+  if (!phone) return "11999999999";
+  const clean = phone.replace(/\D/g, "");
+  if (clean.length === 13 && clean.startsWith("55")) {
+    const national = clean.substring(2);
+    if (national.length === 11) return national;
+    return `+${clean}`;
+  }
+  if (clean.length === 11) {
+    return clean;
+  }
+  if (clean.length === 10) {
+    return `${clean.substring(0, 2)}9${clean.substring(2)}`;
+  }
+  return "11999999999";
+}
 
 export async function GET(req: Request) {
   try {
@@ -357,7 +384,13 @@ export async function POST(req: Request) {
       });
       const activeCouponCodes = activeCoupons.map(c => c.code);
 
-      const checkout = await abacate.checkouts.create({
+      const planMethodsStr = (plan as any).paymentMethods || "PIX";
+      const rawMethods = String(planMethodsStr).split(",").map((m: string) => m.trim().toUpperCase());
+      const validMethods = rawMethods.filter((m: string) => m === "PIX" || m === "CARD") as Array<"PIX" | "CARD">;
+      const methods = validMethods.length > 0 ? validMethods : (["PIX"] as Array<"PIX" | "CARD">);
+
+      const checkoutPayload = (requestedMethods: Array<"PIX" | "CARD">) => ({
+        methods: requestedMethods,
         items: [
           {
             id: abacateProductId || "prod_fallback",
@@ -367,8 +400,8 @@ export async function POST(req: Request) {
         customer: {
           name: user?.name || "Personal Trainer",
           email: user?.email || "trainer@atlasfit.com",
-          cellphone: user?.whatsapp || "+5511999999999",
-          taxId: "12345678909"
+          cellphone: resolveValidCellphone(user?.whatsapp),
+          taxId: resolveValidTaxId(user?.cpfCnpj)
         },
         allowCoupons: true,
         coupons: activeCouponCodes,
@@ -381,6 +414,19 @@ export async function POST(req: Request) {
         returnUrl: `${req.headers.get("origin") || "http://localhost:3000"}/subscription-expired/pending?transactionId=${transaction.id}`,
         completionUrl: `${req.headers.get("origin") || "http://localhost:3000"}/subscription-expired/pending?transactionId=${transaction.id}`
       });
+
+      let checkout;
+      try {
+        checkout = await abacate.checkouts.create(checkoutPayload(methods));
+      } catch (abacateErr: any) {
+        const errStr = String(abacateErr?.message || abacateErr || "");
+        if (methods.includes("CARD") && (errStr.includes("CARD is not available") || errStr.includes("CARD"))) {
+          console.warn("AbacatePay: Cartão de crédito indisponível na conta da loja. Executando fallback automático para PIX.");
+          checkout = await abacate.checkouts.create(checkoutPayload(["PIX"]));
+        } else {
+          throw abacateErr;
+        }
+      }
 
       return NextResponse.json({ success: true, checkoutUrl: checkout.url });
     } else {

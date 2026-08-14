@@ -54,7 +54,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { name, price, interval, features, maxWorkspaces, maxStudents, importQuota, storageLimitMb } = body;
+    const { name, price, interval, features, maxWorkspaces, maxStudents, importQuota, storageLimitMb, paymentMethods } = body;
 
     if (!name || price === undefined) {
       return new NextResponse("Missing required fields", { status: 400 });
@@ -69,7 +69,8 @@ export async function POST(req: Request) {
         maxWorkspaces: maxWorkspaces !== undefined ? parseInt(maxWorkspaces) : 1,
         maxStudents: maxStudents !== undefined && maxStudents !== "" && maxStudents !== null ? parseInt(maxStudents) : null,
         importQuota: importQuota !== undefined && importQuota !== "" && importQuota !== null ? parseInt(importQuota) : 25,
-        storageLimitMb: storageLimitMb !== undefined && storageLimitMb !== "" && storageLimitMb !== null ? parseInt(storageLimitMb) : 1024
+        storageLimitMb: storageLimitMb !== undefined && storageLimitMb !== "" && storageLimitMb !== null ? parseInt(storageLimitMb) : 1024,
+        paymentMethods: paymentMethods || "PIX"
       }
     });
 

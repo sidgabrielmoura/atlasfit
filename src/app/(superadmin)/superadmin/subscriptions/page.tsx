@@ -183,6 +183,12 @@ function PlanCarousel({ plans, isLoading, onEdit }: { plans: any[]; isLoading: b
                                  <span>Armazenamento</span>
                                  <span>{plan.storageLimitMb !== null && plan.storageLimitMb !== undefined && plan.storageLimitMb > 0 ? (plan.storageLimitMb >= 1024 ? `${(plan.storageLimitMb / 1024).toFixed(0)} GB` : `${plan.storageLimitMb} MB`) : "Ilimitado"}</span>
                               </div>
+                              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground pt-0.5">
+                                 <span>Pagamento</span>
+                                 <Badge variant="outline" className="text-[9px] font-extrabold uppercase px-1.5 py-0 border-primary/30 text-primary bg-primary/10">
+                                    {plan.paymentMethods === "CARD" ? "Cartão" : plan.paymentMethods === "PIX,CARD" ? "Pix + Cartão" : "PIX"}
+                                 </Badge>
+                              </div>
                            </div>
                            <p className="text-[10px] text-muted-foreground font-medium leading-relaxed italic">
                               {plan.features || "Sem descrição"}
@@ -282,9 +288,9 @@ function buildAutoFeatures(maxStudents: string, importQuota: string, maxWorkspac
 function updateFeaturesWithFields(currentFeatures: string, maxStudents: string, importQuota: string, maxWorkspaces: string, storageLimitMb: string = "1024"): string {
    const autoFeatures = buildAutoFeatures(maxStudents, importQuota, maxWorkspaces, storageLimitMb);
    const existingList = currentFeatures ? currentFeatures.split(",").map(f => f.trim()).filter(Boolean) : [];
-   
+
    const customFeatures = existingList.filter(f => !isAutoFeature(f));
-   
+
    return [...autoFeatures, ...customFeatures].join(", ");
 }
 
@@ -515,7 +521,8 @@ export default function SubscriptionsManagementPage() {
       maxWorkspaces: defaultWs,
       maxStudents: defaultStudents,
       importQuota: defaultQuota,
-      storageLimitMb: defaultStorage
+      storageLimitMb: defaultStorage,
+      paymentMethods: "PIX"
    });
    const [editFormData, setEditFormData] = useState({
       name: "",
@@ -525,7 +532,8 @@ export default function SubscriptionsManagementPage() {
       maxWorkspaces: "1",
       maxStudents: "",
       importQuota: defaultQuota,
-      storageLimitMb: defaultStorage
+      storageLimitMb: defaultStorage,
+      paymentMethods: "PIX"
    });
    const [mounted, setMounted] = useState(false);
 
@@ -578,6 +586,7 @@ export default function SubscriptionsManagementPage() {
             maxStudents: formData.maxStudents ? parseInt(formData.maxStudents) : null,
             importQuota: formData.importQuota ? parseInt(formData.importQuota) : 25,
             storageLimitMb: formData.storageLimitMb ? parseInt(formData.storageLimitMb) : 1024,
+            paymentMethods: formData.paymentMethods,
          });
          toast.success("Plano criado com sucesso!");
          setIsModalOpen(false);
@@ -589,7 +598,8 @@ export default function SubscriptionsManagementPage() {
             maxWorkspaces: defaultWs,
             maxStudents: defaultStudents,
             importQuota: defaultQuota,
-            storageLimitMb: defaultStorage
+            storageLimitMb: defaultStorage,
+            paymentMethods: "PIX"
          });
       } catch (error: any) {
          toast.error(error.message || "Erro ao criar plano.");
@@ -612,6 +622,7 @@ export default function SubscriptionsManagementPage() {
             maxStudents: editFormData.maxStudents ? parseInt(editFormData.maxStudents) : null,
             importQuota: editFormData.importQuota ? parseInt(editFormData.importQuota) : 25,
             storageLimitMb: editFormData.storageLimitMb ? parseInt(editFormData.storageLimitMb) : 1024,
+            paymentMethods: editFormData.paymentMethods,
          });
          toast.success("Plano atualizado com sucesso!");
          setIsEditModalOpen(false);
@@ -673,22 +684,20 @@ export default function SubscriptionsManagementPage() {
          maxStudents: initialStudents,
          importQuota: initialQuota,
          storageLimitMb: initialStorage,
+         paymentMethods: plan.paymentMethods || "PIX",
       });
       setIsEditModalOpen(true);
    };
 
    const dynamicPlans = snap.plans || [];
 
-   // Calcular total de assinaturas ativas dinamicamente
    const activeSubsCount = dynamicPlans.reduce((acc: number, plan: any) => acc + (plan._count?.subscriptions || 0), 0);
-   // Calcular faturamento mensal estimado (MRR) dinamicamente
    const estimatedMrr = dynamicPlans.reduce((acc: number, plan: any) => acc + (plan.price * (plan._count?.subscriptions || 0)), 0);
 
    const chartData = snap.subscriptionMetrics?.activeSubsHistory || [];
 
    return (
       <div className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-12 max-w-[1600px] mx-auto animate-in fade-in duration-700">
-         {/* 1. Cabeçalho alinhado com o Dashboard Global */}
          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 border-b border-border/40 pb-6 md:pb-8">
             <div className="space-y-1">
                <div className="flex items-center gap-2 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-2">
@@ -706,9 +715,7 @@ export default function SubscriptionsManagementPage() {
             </Button>
          </div>
 
-         {/* 2. Bento-Grid: Gráfico de Crescimento + Métricas Financeiras */}
          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-            {/* Gráfico de Crescimento de Assinantes */}
             <Card className="lg:col-span-7 border-border/40 bg-card/50 shadow-sm overflow-hidden flex flex-col justify-between">
                <div className="p-5 md:p-6 pb-2">
                   <h3 className="text-sm font-bold uppercase tracking-widest text-muted-foreground">Evolução de Assinaturas (SaaS)</h3>
@@ -1239,9 +1246,8 @@ export default function SubscriptionsManagementPage() {
             </div>
          </section>
 
-         {/* Modais */}
          <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
-            <DialogContent className="max-w-3xl rounded-2xl">
+            <DialogContent className="max-w-3xl overflow-auto! rounded-2xl!">
                <DialogHeader>
                   <DialogTitle className="text-xl font-black tracking-tight">Novo Plano de Assinatura</DialogTitle>
                </DialogHeader>
@@ -1258,6 +1264,26 @@ export default function SubscriptionsManagementPage() {
                               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                               className="rounded-xl h-11"
                            />
+                        </div>
+                        <div className="space-y-2">
+                           <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Métodos de Pagamento (AbacatePay)</Label>
+                           <Tabs
+                              value={formData.paymentMethods}
+                              onValueChange={(val) => setFormData({ ...formData, paymentMethods: val })}
+                              className="w-full"
+                           >
+                              <TabsList className="grid w-full grid-cols-3 rounded-xl h-11 p-1 bg-secondary/50">
+                                 <TabsTrigger value="PIX" className="rounded-lg font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                                    PIX
+                                 </TabsTrigger>
+                                 <TabsTrigger value="CARD" className="rounded-lg font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                                    Cartão
+                                 </TabsTrigger>
+                                 <TabsTrigger value="PIX,CARD" className="rounded-lg font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                                    Ambos
+                                 </TabsTrigger>
+                              </TabsList>
+                           </Tabs>
                         </div>
                         <div className="space-y-2">
                            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Modelo de Cobrança</Label>
@@ -1365,7 +1391,7 @@ export default function SubscriptionsManagementPage() {
          </Dialog>
 
          <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-            <DialogContent className="max-w-3xl rounded-2xl border-primary/20 shadow-2xl shadow-primary/10">
+            <DialogContent className="max-w-3xl rounded-2xl! overflow-auto! border-primary/20 shadow-2xl shadow-primary/10">
                <DialogHeader className="flex flex-row items-center justify-between space-y-0">
                   <DialogTitle className="text-xl font-black tracking-tight">Editar Oferta</DialogTitle>
                </DialogHeader>
@@ -1381,6 +1407,26 @@ export default function SubscriptionsManagementPage() {
                               onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
                               className="rounded-xl h-11"
                            />
+                        </div>
+                        <div className="space-y-2">
+                           <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Métodos de Pagamento (AbacatePay)</Label>
+                           <Tabs
+                              value={editFormData.paymentMethods}
+                              onValueChange={(val) => setEditFormData({ ...editFormData, paymentMethods: val })}
+                              className="w-full"
+                           >
+                              <TabsList className="grid w-full grid-cols-3 rounded-xl h-11 p-1 bg-secondary/50">
+                                 <TabsTrigger value="PIX" className="rounded-lg font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                                    PIX
+                                 </TabsTrigger>
+                                 <TabsTrigger value="CARD" className="rounded-lg font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                                    Cartão
+                                 </TabsTrigger>
+                                 <TabsTrigger value="PIX,CARD" className="rounded-lg font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
+                                    Ambos
+                                 </TabsTrigger>
+                              </TabsList>
+                           </Tabs>
                         </div>
                         <div className="space-y-2">
                            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Modelo de Cobrança</Label>

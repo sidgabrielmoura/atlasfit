@@ -2,6 +2,7 @@ declare module "@abacatepay/sdk" {
   export interface AbacatePayClient {
     checkouts: {
       create(data: {
+        methods?: Array<"PIX" | "CARD">;
         items: Array<{ id: string; quantity: number }>;
         customer: {
           name: string;

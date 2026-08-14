@@ -99,6 +99,16 @@ model User {
   geminiUsageLogs         GeminiUsageLog[]         @relation("GeminiUsageLogs")
   creditPurchases         CreditPurchase[]
   paymentProviderAccounts PaymentProviderAccount[] @relation("PaymentProviderAccounts")
+
+  roadmapFeatures     RoadmapFeature[]         @relation("RoadmapFeatureAuthor")
+  roadmapOfficialResp RoadmapFeature[]         @relation("RoadmapOfficialResponseAuthor")
+  roadmapVotes        RoadmapVote[]
+  roadmapComments     RoadmapComment[]
+  roadmapPollsCreated RoadmapPoll[]            @relation("RoadmapPollCreator")
+  roadmapPollVotes    RoadmapPollVote[]
+  roadmapAuditLogs    RoadmapAuditLog[]        @relation("RoadmapAuditActor")
+  roadmapFeaturesEdited RoadmapFeature[]       @relation("RoadmapFeatureEditedBy")
+  roadmapCommentsEdited RoadmapComment[]       @relation("RoadmapCommentEditedBy")
 }
 
 model Workspace {
@@ -186,6 +196,7 @@ model Plan {
   maxStudents            Int?
   importQuota            Int                    @default(25)
   storageLimitMb         Int                    @default(1024)
+  paymentMethods         String?                @default("PIX")
   subscriptions          Subscription[]
   subscriptionActivities SubscriptionActivity[]
 }
@@ -1879,4 +1890,166 @@ model FinancialAuditLog {
 
   @@index([resourceType, resourceId, createdAt])
   @@index([actorUserId, createdAt])
+}
+
+model RoadmapStatus {
+  id        String           @id @default(cuid())
+  name      String
+  slug      String           @unique
+  color     String           @default("amber")
+  position  Int              @default(0)
+  isPublic  Boolean          @default(true)
+  isActive  Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  features  RoadmapFeature[]
+}
+
+model RoadmapCategory {
+  id        String           @id @default(cuid())
+  name      String
+  slug      String           @unique
+  icon      String?
+  position  Int              @default(0)
+  isActive  Boolean          @default(true)
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  features  RoadmapFeature[]
+}
+
+model RoadmapFeature {
+  id                  String           @id @default(cuid())
+  title               String
+  slug                String           @unique
+  description         String           @db.Text
+  authorId            String?
+  author              User?            @relation("RoadmapFeatureAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  statusId            String
+  status              RoadmapStatus    @relation(fields: [statusId], references: [id])
+  categoryId          String?
+  category            RoadmapCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  source              String           @default("COMMUNITY")
+  visibility          String           @default("PUBLIC")
+  priority            String?          @default("MEDIUM")
+  featured            Boolean          @default(false)
+  isCommunityChoice   Boolean          @default(false)
+  voteCount           Int              @default(0)
+  commentCount        Int              @default(0)
+  officialResponse    String?          @db.Text
+  officialResponseAt  DateTime?
+  officialResponseById String?
+  officialResponseBy  User?            @relation("RoadmapOfficialResponseAuthor", fields: [officialResponseById], references: [id], onDelete: SetNull)
+  estimatedRelease    String?
+  releasedAt          DateTime?
+  rank                Float            @default(0)
+  mergedIntoId        String?
+  editedAt            DateTime?
+  editedById          String?
+  editedBy            User?            @relation("RoadmapFeatureEditedBy", fields: [editedById], references: [id], onDelete: SetNull)
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+  deletedAt           DateTime?
+
+  votes               RoadmapVote[]
+  comments            RoadmapComment[]
+
+  @@index([statusId, rank])
+  @@index([categoryId])
+  @@index([authorId])
+  @@index([slug])
+  @@index([visibility])
+}
+
+model RoadmapVote {
+  id        String         @id @default(cuid())
+  featureId String
+  feature   RoadmapFeature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime       @default(now())
+
+  @@unique([featureId, userId])
+  @@index([userId])
+}
+
+model RoadmapComment {
+  id          String         @id @default(cuid())
+  featureId   String
+  feature     RoadmapFeature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+  authorId    String
+  author      User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  parentId    String?
+  parent      RoadmapComment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  replies     RoadmapComment[] @relation("CommentReplies")
+  content     String         @db.Text
+  isOfficial  Boolean        @default(false)
+  isModerated Boolean        @default(false)
+  editedAt    DateTime?
+  editedById  String?
+  editedBy    User?          @relation("RoadmapCommentEditedBy", fields: [editedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
+  deletedAt   DateTime?
+
+  @@index([featureId, createdAt])
+  @@index([authorId])
+  @@index([parentId])
+}
+
+model RoadmapPoll {
+  id               String              @id @default(cuid())
+  title            String
+  description      String?             @db.Text
+  status           String              @default("ACTIVE")
+  startsAt         DateTime            @default(now())
+  endsAt           DateTime?
+  resultVisibility String              @default("PUBLIC")
+  allowVoteChange  Boolean             @default(true)
+  createdById      String
+  createdBy        User                @relation("RoadmapPollCreator", fields: [createdById], references: [id])
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
+
+  options          RoadmapPollOption[]
+  votes            RoadmapPollVote[]
+}
+
+model RoadmapPollOption {
+  id        String            @id @default(cuid())
+  pollId    String
+  poll      RoadmapPoll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  title     String
+  position  Int               @default(0)
+  voteCount Int               @default(0)
+
+  votes     RoadmapPollVote[]
+}
+
+model RoadmapPollVote {
+  id        String            @id @default(cuid())
+  pollId    String
+  poll      RoadmapPoll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  optionId  String
+  option    RoadmapPollOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime          @default(now())
+
+  @@unique([pollId, userId])
+  @@index([optionId])
+  @@index([userId])
+}
+
+model RoadmapAuditLog {
+  id        String   @id @default(cuid())
+  actorId   String
+  actor     User     @relation("RoadmapAuditActor", fields: [actorId], references: [id])
+  action    String
+  entity    String
+  entityId  String
+  metadata  String?  @db.Text
+  createdAt DateTime @default(now())
+
+  @@index([actorId])
+  @@index([entity, entityId])
 }

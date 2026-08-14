@@ -224,15 +224,14 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-[1600px] mx-auto">
-      {/* Header */}
+    <div className="p-4 md:p-6 lg:p-8 space-y-6 max-w-400 mx-auto">
       <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
         <div>
           <h1 className="text-2xl md:text-3xl font-black tracking-tight">
             {getGreeting()}, {user?.name?.split(" ")[0] || personalInfo.name.split(" ")[0]} <span className="inline-block">🔥</span>
           </h1>
           <p className="text-sm text-muted-foreground mt-1">
-            Visualizando <strong className="text-foreground">{workspaceSnap.activeWorkspace?.name}</strong>. Resumo de hoje, {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}.
+            Resumo de hoje, {new Date().toLocaleDateString("pt-BR", { weekday: "long", day: "numeric", month: "long" })}.
           </p>
         </div>
         <Badge variant="outline" className="w-fit gap-1.5 px-3 py-1.5 text-xs font-semibold rounded-full bg-background border-border/50 shadow-sm">

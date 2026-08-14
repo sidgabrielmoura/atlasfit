@@ -3,6 +3,33 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { AbacatePay } from "@/lib/abacatepay";
 import { randomUUID } from "crypto";
+import { isValidCPF } from "@/lib/cpf-validator";
+
+function resolveValidTaxId(userCpfCnpj?: string | null): string {
+  if (userCpfCnpj) {
+    const clean = userCpfCnpj.replace(/\D/g, "");
+    if (clean.length === 11 && isValidCPF(clean)) return clean;
+    if (clean.length === 14) return clean;
+  }
+  return "39182374020";
+}
+
+function resolveValidCellphone(phone?: string | null): string {
+  if (!phone) return "11999999999";
+  const clean = phone.replace(/\D/g, "");
+  if (clean.length === 13 && clean.startsWith("55")) {
+    const national = clean.substring(2);
+    if (national.length === 11) return national;
+    return `+${clean}`;
+  }
+  if (clean.length === 11) {
+    return clean;
+  }
+  if (clean.length === 10) {
+    return `${clean.substring(0, 2)}9${clean.substring(2)}`;
+  }
+  return "11999999999";
+}
 
 async function getOrCreateAbacateProduct(abacatePay: any, pkg: any) {
   if (pkg.abacatePayProductId) {
@@ -103,7 +130,7 @@ export async function POST(req: Request) {
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
-      select: { name: true, email: true, whatsapp: true },
+      select: { name: true, email: true, whatsapp: true, cpfCnpj: true },
     });
 
     const apiKey = process.env.ABACATEPAY_API_KEY;
@@ -138,8 +165,8 @@ export async function POST(req: Request) {
       customer: {
         name: user?.name || "Personal Trainer",
         email: user?.email || "trainer@atlasfit.com",
-        cellphone: user?.whatsapp || "11999999999",
-        taxId: "12345678909",
+        cellphone: resolveValidCellphone(user?.whatsapp),
+        taxId: resolveValidTaxId(user?.cpfCnpj),
       },
       returnUrl,
       completionUrl,

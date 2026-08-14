@@ -28,6 +28,7 @@ import {
   Megaphone,
   Gift,
   Wallet,
+  Compass,
 } from "lucide-react";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 import {
@@ -102,6 +103,7 @@ const financeNavItems: NavItemDef[] = [
 ];
 
 const growthNavItems: NavItemDef[] = [
+  { title: "Roadmap do Produto", href: "/personal/roadmap", icon: Compass },
   { title: "Atlas Engage", href: "/personal/engage", icon: Megaphone },
   { title: "Indique e Ganhe", href: "/personal/rewards", icon: Gift, isHighlight: true },
 ];

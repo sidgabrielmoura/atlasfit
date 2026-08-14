@@ -17,6 +17,7 @@ import {
   Search,
   ArrowRight,
   Tag,
+  Compass,
 } from "lucide-react";
 
 import {
@@ -32,6 +33,7 @@ import {
 
 const NAV_PAGES = [
   { label: "Dashboard Global", href: "/superadmin/dashboard", icon: LayoutDashboard, description: "Métricas e visão geral" },
+  { label: "Roadmap do Produto", href: "/superadmin/roadmap", icon: Compass, description: "Central interativa de sugestões e roadmap" },
   { label: "Usuários", href: "/superadmin/users", icon: Users, description: "Gestão de acessos globais" },
   { label: "Workspaces", href: "/superadmin/workspaces", icon: Building2, description: "Estabelecimentos cadastrados" },
   { label: "Financeiro", href: "/superadmin/finance", icon: DollarSign, description: "Receitas e assinaturas" },

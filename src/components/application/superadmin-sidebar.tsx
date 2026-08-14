@@ -26,6 +26,7 @@ import {
   PackagePlus,
   HardDrive,
   Wallet,
+  Compass,
 } from "lucide-react";
 import {
   Sidebar,
@@ -70,6 +71,7 @@ const financeNavItems = [
 ];
 
 const platformNavItems = [
+  { title: "Roadmap do Produto", href: "/superadmin/roadmap", icon: Compass },
   { title: "Inteligência IA", href: "/superadmin/ai", icon: Sparkles },
   { title: "Créditos de Importação", href: "/superadmin/credits", icon: PackagePlus },
   { title: "Armazenamento Cloud", href: "/superadmin/storage", icon: HardDrive },
