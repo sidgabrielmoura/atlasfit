@@ -69,7 +69,7 @@ export function CreateCustomExerciseDialog({
             }
           }
         })
-        .catch(() => {});
+        .catch(() => { });
     }
   }, [muscleGroups, open, muscleGroupId]);
 
@@ -121,7 +121,7 @@ export function CreateCustomExerciseDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[92vw] sm:max-w-md rounded-2xl p-5 sm:p-6 bg-card border border-border/80">
+      <DialogContent className="w-[92vw] sm:max-w-md rounded-2xl! p-5 sm:p-6 bg-card border border-border/80">
         <form onSubmit={handleSubmit} className="space-y-4">
           <DialogHeader className="space-y-1.5 text-left">
             <div className="flex items-center gap-2">
@@ -144,7 +144,7 @@ export function CreateCustomExerciseDialog({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Ex: Supino Inclinado na Halter com Giro"
-                className="h-10 text-xs rounded-xl"
+                className="h-10 text-xs! rounded-xl"
                 disabled={isSubmitting}
                 autoFocus
               />
@@ -182,7 +182,7 @@ export function CreateCustomExerciseDialog({
                 value={videoUrl}
                 onChange={(e) => setVideoUrl(e.target.value)}
                 placeholder="Ex: https://youtube.com/watch?v=... ou deixe em branco"
-                className="h-10 text-xs rounded-xl"
+                className="h-10 text-xs! rounded-xl"
                 disabled={isSubmitting}
               />
               <p className="text-[11px] text-muted-foreground/80 pt-0.5">

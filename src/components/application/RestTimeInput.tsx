@@ -14,9 +14,10 @@ interface RestTimeInputProps {
   value?: string;
   onChange: (newValue: string) => void;
   className?: string;
+  disabled?: boolean;
 }
 
-export function RestTimeInput({ value = "01:00", onChange, className }: RestTimeInputProps) {
+export function RestTimeInput({ value = "01:00", onChange, className, disabled }: RestTimeInputProps) {
   // Parse value like "01:30" or "90s" or "2 min" into minutes and seconds
   let initialMinutes = 1;
   let initialSeconds = 0;
@@ -70,9 +71,9 @@ export function RestTimeInput({ value = "01:00", onChange, className }: RestTime
   };
 
   return (
-    <div className={cn("flex items-center gap-1 min-w-0 w-full", className)}>
-      <Select value={String(initialMinutes)} onValueChange={handleMinutesChange}>
-        <SelectTrigger className="h-8 text-[11px] bg-card border-border px-1 flex-1 min-w-0 rounded-md focus:ring-0">
+    <div className={cn("flex items-center gap-1 min-w-0 w-full bg-transparent!", className)}>
+      <Select value={String(initialMinutes)} onValueChange={handleMinutesChange} disabled={disabled}>
+        <SelectTrigger disabled={disabled} className="h-8 text-[11px] bg-card border-border px-1 flex-1 min-w-0 rounded-md focus:ring-0">
           <SelectValue placeholder="Min" />
         </SelectTrigger>
         <SelectContent className="max-h-60 overflow-y-auto">
@@ -84,8 +85,8 @@ export function RestTimeInput({ value = "01:00", onChange, className }: RestTime
         </SelectContent>
       </Select>
       <span className="text-muted-foreground text-[10px] font-bold shrink-0">:</span>
-      <Select value={String(initialSeconds)} onValueChange={handleSecondsChange}>
-        <SelectTrigger className="h-8 text-[11px] bg-card border-border px-1 flex-1 min-w-0 rounded-md focus:ring-0">
+      <Select value={String(initialSeconds)} onValueChange={handleSecondsChange} disabled={disabled}>
+        <SelectTrigger disabled={disabled} className="h-8 text-[11px] bg-card border-border px-1 flex-1 min-w-0 rounded-md focus:ring-0">
           <SelectValue placeholder="Seg" />
         </SelectTrigger>
         <SelectContent className="max-h-60 overflow-y-auto">

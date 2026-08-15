@@ -45,7 +45,9 @@ import {
   Link2,
   FileText,
   Play,
-  X
+  X,
+  Copy,
+  BookmarkPlus
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -74,6 +76,7 @@ import { RestTimeInput } from "@/components/application/RestTimeInput";
 import { PhysicalEvaluationFormModal } from "@/components/application/physical-evaluation-form-modal";
 import { ExercisePreviewModal } from "@/components/application/exercise-preview-modal";
 import { PhysicalEvaluationDetailModal } from "@/components/application/physical-evaluation-detail-modal";
+import { DuplicateWorkoutModal } from "@/components/application/duplicate-workout-modal";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -341,6 +344,11 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   const [editExercises, setEditExercises] = useState<any[]>([]);
   const [previewExercise, setPreviewExercise] = useState<any>(null);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
+
+  // Duplicate Workout Modal state
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+  const [workoutToDuplicate, setWorkoutToDuplicate] = useState<any>(null);
+  const [duplicateInitialMode, setDuplicateInitialMode] = useState<"DUPLICATE_TO_STUDENT" | "SAVE_AS_TEMPLATE">("DUPLICATE_TO_STUDENT");
 
   const [progressHistory, setProgressHistory] = useState<any[]>([]);
   const [loadingProgress, setLoadingProgress] = useState(false);
@@ -2294,9 +2302,29 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                         <MoreVertical className="size-4" />
                                       </Button>
                                     </DropdownMenuTrigger>
-                                    <DropdownMenuContent align="end" className="w-48 bg-muted dark:bg-zinc-900 border border-border dark:border-zinc-800">
+                                    <DropdownMenuContent align="end" className="w-52 bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800">
                                       <DropdownMenuItem className="cursor-pointer font-medium" onClick={() => handleTriggerEdit(workout)}>
                                         <Edit2 className="mr-2 size-4 text-muted-foreground" /> Editar treino
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        className="cursor-pointer font-medium text-blue-600 dark:text-blue-400"
+                                        onClick={() => {
+                                          setWorkoutToDuplicate(workout);
+                                          setDuplicateInitialMode("DUPLICATE_TO_STUDENT");
+                                          setIsDuplicateModalOpen(true);
+                                        }}
+                                      >
+                                        <Copy className="mr-2 size-4 text-blue-500" /> Duplicar para Aluno
+                                      </DropdownMenuItem>
+                                      <DropdownMenuItem
+                                        className="cursor-pointer font-medium text-amber-600 dark:text-amber-400"
+                                        onClick={() => {
+                                          setWorkoutToDuplicate(workout);
+                                          setDuplicateInitialMode("SAVE_AS_TEMPLATE");
+                                          setIsDuplicateModalOpen(true);
+                                        }}
+                                      >
+                                        <BookmarkPlus className="mr-2 size-4 text-amber-500" /> Salvar como Modelo
                                       </DropdownMenuItem>
                                       <DropdownMenuSeparator className="bg-border dark:bg-neutral-850" />
                                       <DropdownMenuItem
@@ -2514,9 +2542,29 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                             <MoreVertical className="size-4" />
                                           </Button>
                                         </DropdownMenuTrigger>
-                                        <DropdownMenuContent align="end" className="w-48 bg-muted dark:bg-zinc-900 border border-border dark:border-zinc-800">
+                                        <DropdownMenuContent align="end" className="w-52 bg-card dark:bg-zinc-900 border border-border dark:border-zinc-800">
                                           <DropdownMenuItem className="cursor-pointer font-medium" onClick={() => handleTriggerEdit(workout)}>
                                             <Edit2 className="mr-2 size-4 text-muted-foreground" /> Editar treino
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem
+                                            className="cursor-pointer font-medium text-blue-600 dark:text-blue-400"
+                                            onClick={() => {
+                                              setWorkoutToDuplicate(workout);
+                                              setDuplicateInitialMode("DUPLICATE_TO_STUDENT");
+                                              setIsDuplicateModalOpen(true);
+                                            }}
+                                          >
+                                            <Copy className="mr-2 size-4 text-blue-500" /> Duplicar para Aluno
+                                          </DropdownMenuItem>
+                                          <DropdownMenuItem
+                                            className="cursor-pointer font-medium text-amber-600 dark:text-amber-400"
+                                            onClick={() => {
+                                              setWorkoutToDuplicate(workout);
+                                              setDuplicateInitialMode("SAVE_AS_TEMPLATE");
+                                              setIsDuplicateModalOpen(true);
+                                            }}
+                                          >
+                                            <BookmarkPlus className="mr-2 size-4 text-amber-500" /> Salvar como Modelo
                                           </DropdownMenuItem>
                                           <DropdownMenuSeparator className="bg-border dark:bg-neutral-850" />
                                           <DropdownMenuItem
@@ -8025,6 +8073,25 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Duplicate Workout Modal */}
+      {workoutToDuplicate && (
+        <DuplicateWorkoutModal
+          isOpen={isDuplicateModalOpen}
+          onClose={() => {
+            setIsDuplicateModalOpen(false);
+            setWorkoutToDuplicate(null);
+          }}
+          workout={workoutToDuplicate}
+          workspaceId={activeWorkspaceId || ""}
+          initialMode={duplicateInitialMode}
+          currentStudentId={studentId}
+          currentStudentName={student?.name}
+          onSuccess={() => {
+            fetchStudentWorkouts();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -54,6 +54,7 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { ExerciseThumbnail, ExercisePreviewModal } from "@/components/application/exercise-preview-modal";
+import { DuplicateWorkoutModal } from "@/components/application/duplicate-workout-modal";
 
 interface WorkoutDetailsPageProps {
   params: Promise<{ id: string }>;
@@ -72,6 +73,7 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
   const [isDuplicating, setIsDuplicating] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
   const [previewExercise, setPreviewExercise] = useState<any>(null);
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [expandedExercises, setExpandedExercises] = useState<Record<string, boolean>>({});
@@ -664,21 +666,12 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
           <Button
             variant="outline"
             size="sm"
-            className="gap-2 h-10 rounded-xl bg-muted/40 hover:bg-muted/65 border-border/40 text-muted-foreground hover:text-foreground transition-all font-semibold px-2 sm:px-4 justify-center text-xs sm:text-sm"
-            onClick={handleDuplicate}
-            disabled={isDuplicating || isDeleting}
+            className="gap-2 h-10 rounded-xl bg-blue-500/10 hover:bg-blue-500/20 border-blue-500/20 text-blue-600 dark:text-blue-400 transition-all font-bold px-2 sm:px-4 justify-center text-xs sm:text-sm"
+            onClick={() => setIsDuplicateModalOpen(true)}
+            disabled={isDeleting}
           >
-            {isDuplicating ? (
-              <>
-                <Loader2 className="size-4 animate-spin text-primary shrink-0" />
-                <span className="truncate">Duplicando...</span>
-              </>
-            ) : (
-              <>
-                <Copy className="size-4 text-muted-foreground shrink-0" />
-                <span className="truncate">Duplicar<span className="hidden sm:inline"> Modelo</span></span>
-              </>
-            )}
+            <Copy className="size-4 text-blue-500 shrink-0" />
+            <span className="truncate">Duplicar<span className="hidden sm:inline"> Treino</span></span>
           </Button>
 
           <Button
@@ -1163,6 +1156,20 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {workout && (
+        <DuplicateWorkoutModal
+          isOpen={isDuplicateModalOpen}
+          onClose={() => setIsDuplicateModalOpen(false)}
+          workout={workout}
+          workspaceId={activeWs?.id || workout.workspaceId || ""}
+          initialMode={workout.studentId ? "DUPLICATE_TO_STUDENT" : "SAVE_AS_TEMPLATE"}
+          currentStudentId={workout.studentId || undefined}
+          onSuccess={() => {
+            fetchWorkoutDetails();
+          }}
+        />
+      )}
     </div>
   );
 }

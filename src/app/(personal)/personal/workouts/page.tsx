@@ -23,8 +23,10 @@ import {
   Send,
   Check,
   CheckCircle2,
-  Timer
+  Timer,
+  User
 } from "lucide-react";
+import { DuplicateWorkoutModal } from "@/components/application/duplicate-workout-modal";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -99,6 +101,11 @@ export default function WorkoutsPage() {
   // Excluir workout alert dialog state
   const [isDeleteAlertOpen, setIsDeleteAlertOpen] = useState(false);
   const [workoutToDelete, setWorkoutToDelete] = useState<string | null>(null);
+
+  // Duplicate Workout Modal state
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
+  const [workoutToDuplicate, setWorkoutToDuplicate] = useState<any>(null);
+  const [duplicateInitialMode, setDuplicateInitialMode] = useState<"DUPLICATE_TO_STUDENT" | "SAVE_AS_TEMPLATE">("DUPLICATE_TO_STUDENT");
 
   const [workoutSearch, setWorkoutSearch] = useState("");
   const [workoutFilter, setWorkoutFilter] = useState<string>("all");
@@ -688,14 +695,31 @@ export default function WorkoutsPage() {
                                 <MoreVertical className="size-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-40">
+                            <DropdownMenuContent align="end" className="w-52 border-border dark:border-zinc-800 bg-card">
                               <DropdownMenuItem asChild>
                                 <Link href={`/personal/workouts/${workout.id}/edit`}>
-                                  <Edit2 className="mr-2 size-4" /> Editar
+                                  <Edit2 className="mr-2 size-4 text-muted-foreground" /> Editar modelo
                                 </Link>
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleDuplicate(workout.id)}>
-                                <Copy className="mr-2 size-4" /> Duplicar
+                              <DropdownMenuItem
+                                className="cursor-pointer text-blue-600 dark:text-blue-400 font-medium"
+                                onClick={() => {
+                                  setWorkoutToDuplicate(workout);
+                                  setDuplicateInitialMode("DUPLICATE_TO_STUDENT");
+                                  setIsDuplicateModalOpen(true);
+                                }}
+                              >
+                                <User className="mr-2 size-4 text-blue-500" /> Duplicar para Aluno
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                className="cursor-pointer text-amber-600 dark:text-amber-400 font-medium"
+                                onClick={() => {
+                                  setWorkoutToDuplicate(workout);
+                                  setDuplicateInitialMode("SAVE_AS_TEMPLATE");
+                                  setIsDuplicateModalOpen(true);
+                                }}
+                              >
+                                <Copy className="mr-2 size-4 text-amber-500" /> Duplicar Modelo
                               </DropdownMenuItem>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
@@ -1511,6 +1535,22 @@ export default function WorkoutsPage() {
         open={isPreviewModalOpen}
         onOpenChange={setIsPreviewModalOpen}
       />
+
+      {workoutToDuplicate && (
+        <DuplicateWorkoutModal
+          isOpen={isDuplicateModalOpen}
+          onClose={() => {
+            setIsDuplicateModalOpen(false);
+            setWorkoutToDuplicate(null);
+          }}
+          workout={workoutToDuplicate}
+          workspaceId={activeWorkspaceId || ""}
+          initialMode={duplicateInitialMode}
+          onSuccess={() => {
+            fetchWorkouts();
+          }}
+        />
+      )}
     </div>
   );
 }
