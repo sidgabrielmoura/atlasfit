@@ -19,9 +19,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2, Plus, Video, Sparkles } from "lucide-react";
+import { Loader2, Plus, Video, Sparkles, Film } from "lucide-react";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
+import { SelectVideoModal } from "@/components/videos/select-video-modal";
 
 interface MuscleGroup {
   id: string;
@@ -48,6 +49,7 @@ export function CreateCustomExerciseDialog({
   const [videoUrl, setVideoUrl] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [internalMuscleGroups, setInternalMuscleGroups] = useState<MuscleGroup[]>(muscleGroups);
+  const [isSelectVideoOpen, setIsSelectVideoOpen] = useState(false);
 
   useEffect(() => {
     if (defaultMuscleGroupId) {
@@ -120,104 +122,125 @@ export function CreateCustomExerciseDialog({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="w-[92vw] sm:max-w-md rounded-2xl! p-5 sm:p-6 bg-card border border-border/80">
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <DialogHeader className="space-y-1.5 text-left">
+    <>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-md w-[95%] rounded-2xl">
+          <DialogHeader>
             <div className="flex items-center gap-2">
-              <DialogTitle className="text-base font-bold text-foreground">
-                Criar Exercício Personalizado
-              </DialogTitle>
-              <Badge variant="outline" className="text-[10px] font-semibold border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5 rounded-md shrink-0">
-                Solicitação ao Superadmin
-              </Badge>
+              <div className="p-2 rounded-lg bg-primary/10 text-primary">
+                <Sparkles className="h-5 w-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg font-bold">Novo Exercício Personalizado</DialogTitle>
+                <DialogDescription className="text-xs">
+                  Crie e use imediatamente em qualquer treino
+                </DialogDescription>
+              </div>
             </div>
-            <DialogDescription className="text-xs text-muted-foreground">
-              Cadastre um exercício personalizado. Ele será vinculado ao treino e enviado para inclusão no catálogo oficial.
-            </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-3 py-1">
-            <div className="space-y-1">
-              <Label className="text-xs font-semibold">Nome do Exercício *</Label>
-              <Input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder="Ex: Supino Inclinado na Halter com Giro"
-                className="h-10 text-xs! rounded-xl"
-                disabled={isSubmitting}
-                autoFocus
-              />
+          <form onSubmit={handleSubmit} className="space-y-4 pt-2">
+            <div className="space-y-4">
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Nome do Exercício *</Label>
+                <Input
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  placeholder="Ex: Tríceps Testa na Polia"
+                  className="h-10 text-xs rounded-xl"
+                  disabled={isSubmitting}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <Label className="text-xs font-semibold">Grupamento Muscular *</Label>
+                <Select
+                  value={muscleGroupId}
+                  onValueChange={setMuscleGroupId}
+                  disabled={isSubmitting}
+                >
+                  <SelectTrigger className="h-10 text-xs rounded-xl">
+                    <SelectValue placeholder="Selecione o grupamento..." />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {internalMuscleGroups.map((mg) => (
+                      <SelectItem key={mg.id} value={mg.id} className="text-xs">
+                        {mg.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <Label className="text-xs font-semibold flex items-center gap-1">
+                    <Video className="h-3.5 w-3.5 text-muted-foreground" />
+                    Link do Vídeo / Demonstração
+                  </Label>
+                  <Button
+                    type="button"
+                    variant="link"
+                    size="sm"
+                    onClick={() => setIsSelectVideoOpen(true)}
+                    className="h-auto p-0 text-xs text-primary font-semibold gap-1"
+                  >
+                    <Film className="size-3" />
+                    Minha Biblioteca
+                  </Button>
+                </div>
+                <Input
+                  value={videoUrl}
+                  onChange={(e) => setVideoUrl(e.target.value)}
+                  placeholder="Ex: https://youtube.com/watch?v=... ou use sua biblioteca"
+                  className="h-10 text-xs rounded-xl"
+                  disabled={isSubmitting}
+                />
+                <p className="text-[11px] text-muted-foreground/80 pt-0.5">
+                  Você pode colar um link externo ou escolher um vídeo gravado por você.
+                </p>
+              </div>
             </div>
 
-            <div className="space-y-1">
-              <Label className="text-xs font-semibold">Grupamento Muscular *</Label>
-              <Select
-                value={muscleGroupId}
-                onValueChange={setMuscleGroupId}
+            <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                className="h-10 text-xs rounded-xl w-full sm:w-auto"
+                onClick={() => onOpenChange(false)}
                 disabled={isSubmitting}
               >
-                <SelectTrigger className="h-10 text-xs rounded-xl">
-                  <SelectValue placeholder="Selecione o grupamento..." />
-                </SelectTrigger>
-                <SelectContent>
-                  {internalMuscleGroups.map((mg) => (
-                    <SelectItem key={mg.id} value={mg.id} className="text-xs">
-                      {mg.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <Label className="text-xs font-semibold flex items-center gap-1">
-                  <Video className="h-3.5 w-3.5 text-muted-foreground" />
-                  Link do Vídeo / Demonstração
-                </Label>
-                <span className="text-[10px] text-muted-foreground">Opcional</span>
-              </div>
-              <Input
-                value={videoUrl}
-                onChange={(e) => setVideoUrl(e.target.value)}
-                placeholder="Ex: https://youtube.com/watch?v=... ou deixe em branco"
-                className="h-10 text-xs! rounded-xl"
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                size="sm"
+                className="h-10 text-xs font-bold rounded-xl w-full sm:w-auto gap-2"
                 disabled={isSubmitting}
-              />
-              <p className="text-[11px] text-muted-foreground/80 pt-0.5">
-                Se deixar em branco, o aluno poderá pesquisar a execução no treino com 1 clique no botão de busca.
-              </p>
-            </div>
-          </div>
+              >
+                {isSubmitting ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Plus className="h-4 w-4" />
+                )}
+                Criar e Vincular
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-          <DialogFooter className="flex-col sm:flex-row gap-2 pt-2">
-            <Button
-              type="button"
-              variant="outline"
-              size="sm"
-              className="h-10 text-xs rounded-xl w-full sm:w-auto"
-              onClick={() => onOpenChange(false)}
-              disabled={isSubmitting}
-            >
-              Cancelar
-            </Button>
-            <Button
-              type="submit"
-              size="sm"
-              className="h-10 text-xs font-bold rounded-xl w-full sm:w-auto gap-2"
-              disabled={isSubmitting}
-            >
-              {isSubmitting ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Plus className="h-4 w-4" />
-              )}
-              Criar e Vincular
-            </Button>
-          </DialogFooter>
-        </form>
-      </DialogContent>
-    </Dialog>
+      <SelectVideoModal
+        open={isSelectVideoOpen}
+        onOpenChange={setIsSelectVideoOpen}
+        onSelectVideo={(v) => {
+          setVideoUrl(v.videoUrl);
+          if (!name.trim()) {
+            setName(v.title);
+          }
+        }}
+      />
+    </>
   );
 }

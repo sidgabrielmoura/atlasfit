@@ -43,6 +43,7 @@ import { cn } from "@/lib/utils";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { ExerciseThumbnail, ExercisePreviewModal } from "@/components/application/exercise-preview-modal";
+import { PersonalVideoLibrary } from "@/components/videos/personal-video-library";
 import {
   Select,
   SelectContent,
@@ -590,29 +591,26 @@ export default function WorkoutsPage() {
       </div>
 
       <Tabs defaultValue="templates" className="w-full">
-        <TabsList className="grid w-full grid-cols-2 md:w-[400px] mb-6">
-          <TabsTrigger value="templates">Treinos Prontos</TabsTrigger>
-          <TabsTrigger value="exercises">Biblioteca de Exercícios</TabsTrigger>
+        <TabsList className="bg-muted p-1 border border-border rounded-xl flex overflow-x-auto no-scrollbar whitespace-nowrap md:w-fit gap-1 w-full justify-start scrollbar-none scroll-smooth">
+          <TabsTrigger value="templates" className="px-5">Treinos Prontos</TabsTrigger>
+          <TabsTrigger value="exercises" className="px-5">Biblioteca de Exercícios</TabsTrigger>
+          <TabsTrigger value="videos" className="px-5">Meus Vídeos</TabsTrigger>
         </TabsList>
 
-        {/* =========================================================================
-            TAB 1: TREINOS PRONTOS 
-            ========================================================================= */}
         <TabsContent value="templates" className="space-y-6">
           <div className="flex flex-col lg:flex-row items-center gap-3 w-full">
-            <div className="flex items-center gap-2 bg-secondary/30 p-1 rounded-lg w-full lg:flex-1 lg:min-w-0 overflow-x-auto no-scrollbar">
-              {["all", "Hipertrofia", "Emagrecimento", "Força", "Resistência"].map((focus) => (
-                <Button
-                  key={focus}
-                  variant={workoutFilter === focus ? "secondary" : "ghost"}
-                  size="sm"
-                  className={cn("h-8 rounded-md px-3 whitespace-nowrap", workoutFilter === focus && "bg-background shadow-sm")}
-                  onClick={() => setWorkoutFilter(focus)}
-                >
-                  {focus === "all" ? "Todos" : focus}
-                </Button>
-              ))}
-            </div>
+            <Select value={workoutFilter} onValueChange={setWorkoutFilter}>
+              <SelectTrigger className="w-full sm:w-[220px] h-10 bg-card border-border">
+                <SelectValue placeholder="Filtrar por objetivo..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os Objetivos</SelectItem>
+                <SelectItem value="Hipertrofia">Hipertrofia</SelectItem>
+                <SelectItem value="Emagrecimento">Emagrecimento</SelectItem>
+                <SelectItem value="Força">Força</SelectItem>
+                <SelectItem value="Resistência">Resistência</SelectItem>
+              </SelectContent>
+            </Select>
             <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto shrink-0 lg:ml-auto">
               <div className="relative w-full sm:w-64">
                 <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
@@ -768,20 +766,27 @@ export default function WorkoutsPage() {
         </TabsContent>
 
         <TabsContent value="exercises" className="space-y-6">
-          <div className="flex flex-col lg:flex-row items-center gap-3 w-full max-w-250 min-w-0">
-            <div className="flex items-center gap-2 bg-secondary/30 p-1 rounded-lg max-w-250! w-full min-w-0 overflow-x-auto no-scrollbar">
-              {["all", "Trapézio", "Ombro", "Costas", "Peito", "Tríceps", "Bíceps", "Abdomen", "Antebraço", "Glúteo", "Posterior de perna", "Quadríceps", "Panturrilha"].map((muscle) => (
-                <Button
-                  key={muscle}
-                  variant={exerciseFilter === muscle ? "secondary" : "ghost"}
-                  size="sm"
-                  className={cn("h-8 rounded-md px-3 whitespace-nowrap", exerciseFilter === muscle && "bg-background shadow-sm")}
-                  onClick={() => setExerciseFilter(muscle)}
-                >
-                  {muscle === "all" ? "Todos" : muscle}
-                </Button>
-              ))}
-            </div>
+          <div className="flex flex-col lg:flex-row items-center gap-3 w-full">
+            <Select value={exerciseFilter} onValueChange={setExerciseFilter}>
+              <SelectTrigger className="w-full sm:w-[220px] h-10 bg-card border-border">
+                <SelectValue placeholder="Filtrar por grupamento..." />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todos os Grupamentos</SelectItem>
+                <SelectItem value="Trapézio">Trapézio</SelectItem>
+                <SelectItem value="Ombro">Ombro</SelectItem>
+                <SelectItem value="Costas">Costas</SelectItem>
+                <SelectItem value="Peito">Peito</SelectItem>
+                <SelectItem value="Tríceps">Tríceps</SelectItem>
+                <SelectItem value="Bíceps">Bíceps</SelectItem>
+                <SelectItem value="Abdomen">Abdomen</SelectItem>
+                <SelectItem value="Antebraço">Antebraço</SelectItem>
+                <SelectItem value="Glúteo">Glúteo</SelectItem>
+                <SelectItem value="Posterior de perna">Posterior de perna</SelectItem>
+                <SelectItem value="Quadríceps">Quadríceps</SelectItem>
+                <SelectItem value="Panturrilha">Panturrilha</SelectItem>
+              </SelectContent>
+            </Select>
             <div className="flex flex-col sm:flex-row items-center gap-3 w-full lg:w-auto shrink-0 lg:ml-auto">
               <div className="relative w-full sm:w-64">
                 <Search className="absolute left-2.5 top-2.5 size-4 text-muted-foreground" />
@@ -1104,6 +1109,10 @@ export default function WorkoutsPage() {
               )}
             </>
           )}
+        </TabsContent>
+
+        <TabsContent value="videos" className="space-y-6">
+          <PersonalVideoLibrary workspaceId={activeWorkspaceId} />
         </TabsContent>
       </Tabs>
 

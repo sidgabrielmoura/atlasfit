@@ -109,6 +109,7 @@ model User {
   roadmapAuditLogs    RoadmapAuditLog[]        @relation("RoadmapAuditActor")
   roadmapFeaturesEdited RoadmapFeature[]       @relation("RoadmapFeatureEditedBy")
   roadmapCommentsEdited RoadmapComment[]       @relation("RoadmapCommentEditedBy")
+  trainerVideos         TrainerVideo[]         @relation("TrainerVideos")
 }
 
 model Workspace {
@@ -140,6 +141,7 @@ model Workspace {
   customFields      CustomFieldDefinition[]
   notifications     Notification[]
   engageExperiences EngageExperience[]
+  trainerVideos     TrainerVideo[]
   createdAt         DateTime                @default(now())
   updatedAt         DateTime                @updatedAt
   conversations     Conversation[]
@@ -333,9 +335,48 @@ model Exercise {
   creator            User?                       @relation("CreatedExercises", fields: [creatorId], references: [id], onDelete: SetNull)
   workoutExercises   WorkoutExercise[]
   adjustmentRequests ExerciseAdjustmentRequest[]
+  trainerVideoLinks  TrainerVideoExercise[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model TrainerVideo {
+  id            String                 @id @default(cuid())
+  title         String
+  description   String?
+  videoUrl      String
+  thumbnailUrl  String?
+  storageKey    String?
+  fileSize      Int?
+  duration      Int?
+  sourceType    String                 @default("UPLOAD")
+  trainerId     String
+  trainer       User                   @relation("TrainerVideos", fields: [trainerId], references: [id], onDelete: Cascade)
+  workspaceId   String?
+  workspace     Workspace?             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  exerciseLinks TrainerVideoExercise[]
+
+  createdAt     DateTime               @default(now())
+  updatedAt     DateTime               @updatedAt
+
+  @@index([trainerId])
+  @@index([workspaceId])
+}
+
+model TrainerVideoExercise {
+  id         String       @id @default(cuid())
+  videoId    String
+  video      TrainerVideo @relation(fields: [videoId], references: [id], onDelete: Cascade)
+  exerciseId String
+  exercise   Exercise     @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
+  isDefault  Boolean      @default(true)
+
+  createdAt  DateTime     @default(now())
+
+  @@unique([videoId, exerciseId])
+  @@index([exerciseId])
+  @@index([videoId])
 }
 
 model Workout {

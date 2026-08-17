@@ -125,12 +125,38 @@ export async function GET(req: Request) {
       const limit = parseInt(searchParams.get("limit") || "12");
       const skip = (page - 1) * limit;
 
+      const trainerVideoInclude = {
+        trainerVideoLinks: {
+          where: {
+            video: {
+              trainerId: session.user.id,
+            },
+          },
+          include: {
+            video: {
+              select: {
+                videoUrl: true,
+              },
+            },
+          },
+        },
+      };
+
+      const mapExercise = (ex: any) => {
+        const customVideoUrl = ex.trainerVideoLinks?.[0]?.video?.videoUrl;
+        return {
+          ...ex,
+          videoUrl: customVideoUrl || ex.videoUrl,
+        };
+      };
+
       const [exercises, total] = await Promise.all([
         prisma.exercise.findMany({
           where: whereClause,
           include: {
             muscleGroup: true,
             muscleGroups: true,
+            ...trainerVideoInclude,
           },
           orderBy: {
             name: "asc",
@@ -144,7 +170,7 @@ export async function GET(req: Request) {
       ]);
 
       return NextResponse.json({
-        data: exercises,
+        data: exercises.map(mapExercise),
         pagination: {
           total,
           page,
@@ -159,12 +185,35 @@ export async function GET(req: Request) {
         include: {
           muscleGroup: true,
           muscleGroups: true,
+          trainerVideoLinks: {
+            where: {
+              video: {
+                trainerId: session.user.id,
+              },
+            },
+            include: {
+              video: {
+                select: {
+                  videoUrl: true,
+                },
+              },
+            },
+          },
         },
         orderBy: {
           name: "asc",
         },
       });
-      return NextResponse.json(exercises);
+
+      const mapExercise = (ex: any) => {
+        const customVideoUrl = ex.trainerVideoLinks?.[0]?.video?.videoUrl;
+        return {
+          ...ex,
+          videoUrl: customVideoUrl || ex.videoUrl,
+        };
+      };
+
+      return NextResponse.json(exercises.map(mapExercise));
     }
   } catch (error) {
     console.error("Error fetching exercises:", error);

@@ -5291,7 +5291,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                   )}
                                 </button>
                                 <div className="min-w-0">
-                                  <h4 className="font-semibold text-sm text-foreground truncate">{ex.name}</h4>
+                                  <h4 className="font-semibold text-sm text-foreground">{ex.name}</h4>
                                   <div className="flex flex-wrap items-center gap-1 mt-0.5">
                                     <Badge variant="secondary" className="text-[9px] bg-secondary/80 text-muted-foreground px-1.5 py-0">
                                       {ex.muscleGroup}
@@ -5849,7 +5849,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                               )}
                             </button>
                             <div className="min-w-0">
-                              <h4 className="font-semibold text-sm text-foreground truncate">{ex.name}</h4>
+                              <h4 className="font-semibold text-sm text-foreground">{ex.name}</h4>
                               <div className="flex flex-wrap items-center gap-1 mt-0.5">
                                 <Badge variant="secondary" className="text-[9px] bg-secondary/80 text-muted-foreground px-1.5 py-0">
                                   {ex.muscleGroup}

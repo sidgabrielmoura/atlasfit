@@ -1,3 +1,5 @@
+import { simplifyCommaSeparatedString } from "@/lib/utils";
+
 /**
  * Utility functions to deeply compare workouts for duplication detection.
  * Considers both workout names and exercise composition (exercise IDs, names, sets, reps).
@@ -63,9 +65,9 @@ export function areExercisesIdentical(
     return false;
   }
 
-  // 3. Check reps
-  const repsA = normalizeWorkoutString(String(exA.reps ?? ""));
-  const repsB = normalizeWorkoutString(String(exB.reps ?? ""));
+  // 3. Check reps (simplified for individual series equal values e.g. "10, 10, 10, 10" -> "10")
+  const repsA = normalizeWorkoutString(simplifyCommaSeparatedString(String(exA.reps ?? "")));
+  const repsB = normalizeWorkoutString(simplifyCommaSeparatedString(String(exB.reps ?? "")));
   if (repsA && repsB && repsA !== repsB) {
     return false;
   }

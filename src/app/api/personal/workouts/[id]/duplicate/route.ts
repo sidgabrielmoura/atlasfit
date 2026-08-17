@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { areWorkoutsIdentical } from "@/lib/workout-duplicate-checker";
 import { NotificationService } from "@/lib/notifications/service";
+import { simplifyCommaSeparatedString } from "@/lib/utils";
 
 // POST /api/personal/workouts/[id]/duplicate
 export async function POST(
@@ -86,14 +87,16 @@ export async function POST(
       .filter((ex) => !excludedSet.has(ex.id))
       .map((ex) => {
         const cfg = exerciseConfigs[ex.id];
-        if (!cfg) return ex;
+        const defaultReps = simplifyCommaSeparatedString(ex.reps);
+        const defaultLoad = simplifyCommaSeparatedString(ex.load || "");
+        const defaultRest = simplifyCommaSeparatedString(ex.rest);
 
-        const rawSets = cfg.sets !== undefined && cfg.sets !== "" ? Number(cfg.sets) : ex.sets;
+        const rawSets = cfg?.sets !== undefined && cfg.sets !== "" ? Number(cfg.sets) : ex.sets;
         const boundedSets = isNaN(rawSets) ? ex.sets : Math.max(1, Math.min(100, rawSets));
-        const cleanReps = cfg.reps !== undefined && cfg.reps !== "" ? String(cfg.reps).slice(0, 50) : ex.reps;
-        const cleanLoad = cfg.load !== undefined ? String(cfg.load).slice(0, 100) : (ex.load || "");
-        const cleanRest = cfg.rest !== undefined && cfg.rest !== "" ? String(cfg.rest).slice(0, 50) : ex.rest;
-        const cleanDescription = cfg.description !== undefined ? String(cfg.description).slice(0, 500) : ex.description;
+        const cleanReps = cfg?.reps !== undefined && cfg.reps !== "" ? String(cfg.reps).slice(0, 50) : defaultReps;
+        const cleanLoad = cfg?.load !== undefined ? String(cfg.load).slice(0, 100) : defaultLoad;
+        const cleanRest = cfg?.rest !== undefined && cfg.rest !== "" ? String(cfg.rest).slice(0, 50) : defaultRest;
+        const cleanDescription = cfg?.description !== undefined ? String(cfg.description).slice(0, 500) : ex.description;
 
         return {
           ...ex,
@@ -222,9 +225,9 @@ export async function POST(
 
           const rawSets = cfg?.sets !== undefined && cfg.sets !== "" ? Number(cfg.sets) : ex.sets;
           const finalSets = isNaN(rawSets) ? ex.sets : Math.max(1, Math.min(100, rawSets));
-          const finalReps = cfg?.reps !== undefined && cfg.reps !== "" ? String(cfg.reps).slice(0, 50) : ex.reps;
-          const finalRest = cfg?.rest !== undefined && cfg.rest !== "" ? String(cfg.rest).slice(0, 50) : ex.rest;
-          const finalLoad = cfg?.load !== undefined ? String(cfg.load).slice(0, 100) : (ex.load || "");
+          const finalReps = cfg?.reps !== undefined && cfg.reps !== "" ? String(cfg.reps).slice(0, 50) : simplifyCommaSeparatedString(ex.reps);
+          const finalRest = cfg?.rest !== undefined && cfg.rest !== "" ? String(cfg.rest).slice(0, 50) : simplifyCommaSeparatedString(ex.rest);
+          const finalLoad = cfg?.load !== undefined ? String(cfg.load).slice(0, 100) : simplifyCommaSeparatedString(ex.load || "");
           const finalDescription = cfg?.description !== undefined
             ? String(cfg.description).slice(0, 500)
             : (includeObservations ? ex.description : null);

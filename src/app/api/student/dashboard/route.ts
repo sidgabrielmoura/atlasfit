@@ -56,19 +56,35 @@ export async function GET(req: Request) {
     const now = new Date();
     const currentDayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
 
-    // 2. Fetch workouts for the week assigned to the student in this workspace
     const workouts = await prisma.workout.findMany({
       where: {
         workspaceId,
         OR: [
           { studentId: session.user.id },
-          { studentId: null } // general templates in this workspace
+          { studentId: null }
         ]
       },
       include: {
         exercises: {
           include: {
-            exercise: true,
+            exercise: {
+              include: {
+                muscleGroup: true,
+                trainerVideoLinks: {
+                  where: {
+                    video: {
+                      OR: [
+                        { workspaceId },
+                        { trainer: { workspaces: { some: { workspaceId } } } },
+                      ],
+                    },
+                  },
+                  include: {
+                    video: true,
+                  },
+                },
+              },
+            },
           }
         }
       },

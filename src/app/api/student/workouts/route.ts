@@ -19,6 +19,13 @@ export async function GET(req: Request) {
         role: "STUDENT",
         isActive: true,
       },
+      include: {
+        workspace: {
+          select: {
+            ownerId: true,
+          },
+        },
+      },
     });
 
     if (!member) {
@@ -26,8 +33,8 @@ export async function GET(req: Request) {
     }
 
     const workspaceId = member.workspaceId;
+    const trainerOwnerId = member.workspace?.ownerId;
 
-    // 2. Fetch all workouts assigned to the student (or general workspace templates)
     const workouts = await prisma.workout.findMany({
       where: {
         workspaceId,
@@ -39,7 +46,28 @@ export async function GET(req: Request) {
       include: {
         exercises: {
           include: {
-            exercise: true,
+            exercise: {
+              include: {
+                muscleGroup: true,
+                trainerVideoLinks: {
+                  where: {
+                    video: {
+                      OR: [
+                        { workspaceId },
+                        ...(trainerOwnerId ? [{ trainerId: trainerOwnerId }] : []),
+                        { trainer: { workspaces: { some: { workspaceId } } } },
+                      ],
+                    },
+                  },
+                  include: {
+                    video: true,
+                  },
+                  orderBy: {
+                    createdAt: "desc",
+                  },
+                },
+              },
+            },
             group: true,
           },
           orderBy: {
@@ -53,7 +81,25 @@ export async function GET(req: Request) {
       }
     });
 
-    // 3. Fetch completed workouts history (WorkoutLog)
+    const formattedWorkouts = workouts.map((w) => ({
+      ...w,
+      exercises: w.exercises.map((we) => {
+        const trainerLink = we.exercise?.trainerVideoLinks?.[0];
+        const customVideoUrl = trainerLink?.video?.videoUrl;
+        return {
+          ...we,
+          exercise: we.exercise
+            ? {
+                ...we.exercise,
+                videoUrl: customVideoUrl || we.exercise.videoUrl,
+                isCustomTrainerVideo: Boolean(customVideoUrl),
+                trainerVideoTitle: trainerLink?.video?.title,
+              }
+            : null,
+        };
+      }),
+    }));
+
     const logs = await (prisma as any).workoutLog.findMany({
       where: {
         studentId: session.user.id,
@@ -72,11 +118,10 @@ export async function GET(req: Request) {
       },
     });
 
-    // Verify and decay streak in case of inactivity
     await verifyAndDecayWorkspaceMemberStreak(member, logs.map((l: any) => l.completedAt));
 
     return NextResponse.json({
-      workouts,
+      workouts: formattedWorkouts,
       logs,
     });
   } catch (error) {

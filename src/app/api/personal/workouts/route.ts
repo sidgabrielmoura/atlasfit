@@ -31,6 +31,20 @@ export async function GET(req: Request) {
               include: {
                 muscleGroup: true,
                 muscleGroups: true,
+                trainerVideoLinks: {
+                  where: {
+                    video: {
+                      trainerId: session.user.id,
+                    },
+                  },
+                  include: {
+                    video: {
+                      select: {
+                        videoUrl: true,
+                      },
+                    },
+                  },
+                },
               },
             },
             group: true,
@@ -46,7 +60,23 @@ export async function GET(req: Request) {
       },
     });
 
-    return NextResponse.json(workouts);
+    const formattedWorkouts = workouts.map((w: any) => ({
+      ...w,
+      exercises: w.exercises.map((we: any) => {
+        const customVideoUrl = we.exercise?.trainerVideoLinks?.[0]?.video?.videoUrl;
+        return {
+          ...we,
+          exercise: we.exercise
+            ? {
+                ...we.exercise,
+                videoUrl: customVideoUrl || we.exercise.videoUrl,
+              }
+            : null,
+        };
+      }),
+    }));
+
+    return NextResponse.json(formattedWorkouts);
   } catch (error) {
     console.error("Error fetching workouts:", error);
     return new NextResponse("Erro Interno do Servidor", { status: 500 });

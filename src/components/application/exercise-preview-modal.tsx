@@ -88,7 +88,7 @@ export function ExerciseThumbnail({ videoUrl, className }: ExerciseThumbnailProp
   const youtubeId = getYouTubeId(videoUrl);
   const driveDirectUrl = getGoogleDriveDirectUrl(videoUrl);
   const isGif = videoUrl?.toLowerCase().endsWith(".gif") || videoUrl?.toLowerCase().includes(".gif") || videoUrl?.toLowerCase().includes("giphy");
-  const isMp4 = videoUrl?.toLowerCase().endsWith(".mp4") || videoUrl?.toLowerCase().includes(".mp4");
+  const isVideo = videoUrl?.toLowerCase().endsWith(".mp4") || videoUrl?.toLowerCase().includes(".mp4") || videoUrl?.includes("/api/storage/file") || videoUrl?.toLowerCase().endsWith(".webm") || videoUrl?.toLowerCase().endsWith(".mov");
   const isDrive = videoUrl?.includes("drive.google.com") || videoUrl?.includes("docs.google.com");
 
   return (
@@ -111,7 +111,7 @@ export function ExerciseThumbnail({ videoUrl, className }: ExerciseThumbnailProp
           alt="gif thumbnail"
           className="size-full object-cover group-hover/thumb:scale-110 transition-transform duration-300"
         />
-      ) : isMp4 && videoUrl ? (
+      ) : isVideo && videoUrl ? (
         <video
           src={videoUrl}
           className="size-full object-cover"
@@ -143,6 +143,7 @@ interface ExercisePreviewModalProps {
     usage?: number;
     muscleGroup?: { name: string } | null;
     muscleGroups?: { name: string }[];
+    isCustomTrainerVideo?: boolean;
   } | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -156,7 +157,7 @@ export function ExercisePreviewModal({ exercise, open, onOpenChange }: ExerciseP
   const youtubeId = getYouTubeId(exercise.videoUrl);
   const driveDirectUrl = getGoogleDriveDirectUrl(exercise.videoUrl);
   const isGif = exercise.videoUrl?.toLowerCase().endsWith(".gif") || exercise.videoUrl?.toLowerCase().includes(".gif") || exercise.videoUrl?.toLowerCase().includes("giphy");
-  const isMp4 = exercise.videoUrl?.toLowerCase().endsWith(".mp4") || exercise.videoUrl?.toLowerCase().includes(".mp4");
+  const isVideo = exercise.videoUrl?.toLowerCase().endsWith(".mp4") || exercise.videoUrl?.toLowerCase().includes(".mp4") || exercise.videoUrl?.includes("/api/storage/file") || exercise.videoUrl?.toLowerCase().endsWith(".webm") || exercise.videoUrl?.toLowerCase().endsWith(".mov");
   const driveEmbedUrl = getGoogleDriveEmbedUrl(exercise.videoUrl);
 
   const embedUrl = youtubeId ? `https://www.youtube.com/embed/${youtubeId}?autoplay=1&mute=1&loop=1&playlist=${youtubeId}` : null;
@@ -164,7 +165,6 @@ export function ExercisePreviewModal({ exercise, open, onOpenChange }: ExerciseP
 
   const renderContent = () => (
     <div className="space-y-5 p-4 md:p-6 bg-card text-foreground">
-      {/* Aspect-Ratio video preview block */}
       <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-secondary border border-border shadow-2xl flex items-center justify-center">
         {embedUrl ? (
           <iframe
@@ -194,7 +194,7 @@ export function ExercisePreviewModal({ exercise, open, onOpenChange }: ExerciseP
             alt={`Demonstração de ${exercise.name}`}
             className="w-full h-full object-contain"
           />
-        ) : isMp4 && exercise.videoUrl ? (
+        ) : isVideo && exercise.videoUrl ? (
           <video
             src={exercise.videoUrl}
             className="w-full h-full object-cover"
@@ -268,6 +268,11 @@ export function ExercisePreviewModal({ exercise, open, onOpenChange }: ExerciseP
               <Badge className="bg-primary/10 text-primary border border-primary/20 rounded-md px-1.5 py-0.5 text-[10px] font-bold">
                 Biblioteca de Exercícios
               </Badge>
+              {exercise.isCustomTrainerVideo && (
+                <Badge className="bg-amber-500/10 text-amber-500 border border-amber-500/20 rounded-md px-1.5 py-0.5 text-[10px] font-bold">
+                  Vídeo do seu Personal
+                </Badge>
+              )}
               {exercise.muscleGroups && exercise.muscleGroups.length > 0 ? (
                 exercise.muscleGroups.map((g: any) => (
                   <Badge key={g.name} variant="outline" className="border-border text-muted-foreground text-[10px] px-1.5 py-0.5 rounded-md">

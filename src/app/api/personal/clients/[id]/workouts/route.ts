@@ -48,6 +48,14 @@ export async function GET(
             exercise: {
               include: {
                 muscleGroup: true,
+                trainerVideoLinks: {
+                  include: {
+                    video: true,
+                  },
+                  orderBy: {
+                    createdAt: "desc",
+                  },
+                },
               },
             },
             group: true,
@@ -63,7 +71,23 @@ export async function GET(
       },
     });
 
-    return NextResponse.json(workouts);
+    const formattedWorkouts = workouts.map((w: any) => ({
+      ...w,
+      exercises: w.exercises.map((we: any) => {
+        const customVideoUrl = we.exercise?.trainerVideoLinks?.[0]?.video?.videoUrl;
+        return {
+          ...we,
+          exercise: we.exercise
+            ? {
+                ...we.exercise,
+                videoUrl: customVideoUrl || we.exercise.videoUrl,
+              }
+            : null,
+        };
+      }),
+    }));
+
+    return NextResponse.json(formattedWorkouts);
   } catch (error) {
     console.error("GET student workouts error:", error);
     return new NextResponse("Erro interno do servidor.", { status: 500 });

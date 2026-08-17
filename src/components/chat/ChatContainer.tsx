@@ -139,23 +139,21 @@ const compressImage = (file: File, quality = 0.7): Promise<Blob> => {
   });
 };
 
-// Helper to extract YouTube video ID from a URL
 function getYouTubeId(url: string | null | undefined) {
   if (!url) return null;
   const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
   const match = url.match(regExp);
-  
+
   if (match && match[2].length === 11) {
     return match[2];
   }
-  
-  // Try matching shorts
+
   const shortsReg = /\/shorts\/([a-zA-Z0-9_-]{11})/;
   const shortsMatch = url.match(shortsReg);
   if (shortsMatch) {
     return shortsMatch[1];
   }
-  
+
   return null;
 }
 
@@ -276,7 +274,6 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
 
   const primaryHex = workspaceSnap.activeWorkspace?.primaryColor;
 
-  // Calculate dynamic contrast styles for self-sent messages to guarantee text readability
   const contrast = React.useMemo(() => {
     const hex = primaryHex || "#3052EB";
     const clean = hex.replace("#", "");
@@ -285,9 +282,8 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
       const r = parseInt(clean.slice(0, 2), 16);
       const g = parseInt(clean.slice(2, 4), 16);
       const b = parseInt(clean.slice(4, 6), 16);
-      // YIQ contrast formula
       const yiq = ((r * 299) + (g * 587) + (b * 114)) / 1000;
-      isLight = yiq >= 150; // threshold for light color
+      isLight = yiq >= 150;
     }
     return {
       textPrimary: isLight ? "text-zinc-950 font-bold" : "text-white",
@@ -298,7 +294,6 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
     };
   }, [primaryHex]);
 
-  // 1. Fetch Conversations on workspace change
   useEffect(() => {
     if (!activeWorkspaceId) return;
 
@@ -311,7 +306,6 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
       .then(async (data) => {
         chatActions.setConversations(data);
 
-        // Check if studentId query param is present
         const queryStudentId = searchParams.get("studentId");
         if (queryStudentId) {
           const existing = data.find((c: any) =>
@@ -320,7 +314,6 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
           if (existing) {
             chatActions.setActiveConversationId(existing.id);
           } else {
-            // Auto create conversation
             try {
               const res = await fetch("/api/chat/conversations", {
                 method: "POST",
@@ -351,7 +344,6 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
       });
   }, [activeWorkspaceId, searchParams]);
 
-  // 2. Fetch Messages on active conversation change
   useEffect(() => {
     if (!activeConversationId) return;
 
@@ -363,7 +355,6 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
       })
       .then((data) => {
         chatActions.setMessages(activeConversationId, data.messages, data.nextCursor);
-        // Scroll to bottom
         setTimeout(() => {
           if (messagesEndRef.current) {
             messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
@@ -378,7 +369,6 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
       });
   }, [activeConversationId]);
 
-  // Scroll to bottom on new incoming message if already near bottom
   useEffect(() => {
     if (!activeConversationId) return;
     const viewport = viewportRef.current;
@@ -390,7 +380,6 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
     }
   }, [messages.length, activeConversationId]);
 
-  // 3. Load Workspace Contacts
   const handleOpenContactDialog = () => {
     if (!activeWorkspaceId) return;
     setIsContactDialogOpen(true);
@@ -1300,7 +1289,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                 </div>
 
                 <div className="flex flex-col min-w-0">
-                  <span className="text-sm font-bold text-foreground truncate">
+                  <span className="text-sm font-bold text-foreground line-clamp-1">
                     {otherParticipant.user.name}
                   </span>
                   {typingList.length > 0 ? (
@@ -1535,72 +1524,72 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                                     )}
 
                                     {m.attachment && (m.attachment as any).type === "student_billing" && (
-                                       <div className={cn(
-                                         "p-3.5 rounded-2xl border text-left space-y-3 my-1.5 w-full max-w-[280px] select-none shadow-lg backdrop-blur-md transition-all",
-                                         isSelf 
-                                           ? "bg-white/10 border-white/20 text-white" 
-                                           : "bg-neutral-900/90 border-primary/30 text-white"
-                                       )}>
-                                         <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-2">
-                                           <div className="flex items-center gap-1.5">
-                                             <div className="size-6 rounded-md bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
-                                               <QrCode className="size-3.5" />
-                                             </div>
-                                             <span className="text-xs font-black text-emerald-400 tracking-tight">Atlas Pay</span>
-                                           </div>
-                                           <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[9px] font-extrabold px-2 py-0.5 rounded-full">
-                                             Pendente
-                                           </Badge>
-                                         </div>
+                                      <div className={cn(
+                                        "p-3.5 rounded-2xl border text-left space-y-3 my-1.5 w-full max-w-[280px] select-none shadow-lg backdrop-blur-md transition-all",
+                                        isSelf
+                                          ? "bg-white/10 border-white/20 text-white"
+                                          : "bg-neutral-900/90 border-primary/30 text-white"
+                                      )}>
+                                        <div className="flex items-center justify-between gap-2 border-b border-white/10 pb-2">
+                                          <div className="flex items-center gap-1.5">
+                                            <div className="size-6 rounded-md bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400">
+                                              <QrCode className="size-3.5" />
+                                            </div>
+                                            <span className="text-xs font-black text-emerald-400 tracking-tight">Atlas Pay</span>
+                                          </div>
+                                          <Badge className="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-[9px] font-extrabold px-2 py-0.5 rounded-full">
+                                            Pendente
+                                          </Badge>
+                                        </div>
 
-                                         <div className="space-y-0.5">
-                                           <h4 className="text-xs font-extrabold text-white line-clamp-1">{(m.attachment as any).title || "Mensalidade Consultoria"}</h4>
-                                           {(m.attachment as any).amountInCents && (
-                                             <span className="text-base font-black text-emerald-400 font-mono block">
-                                               R$ {(Number((m.attachment as any).amountInCents) / 100).toFixed(2).replace(".", ",")}
-                                             </span>
-                                           )}
-                                         </div>
+                                        <div className="space-y-0.5">
+                                          <h4 className="text-xs font-extrabold text-white line-clamp-1">{(m.attachment as any).title || "Mensalidade Consultoria"}</h4>
+                                          {(m.attachment as any).amountInCents && (
+                                            <span className="text-base font-black text-emerald-400 font-mono block">
+                                              R$ {(Number((m.attachment as any).amountInCents) / 100).toFixed(2).replace(".", ",")}
+                                            </span>
+                                          )}
+                                        </div>
 
-                                         <div className="space-y-1.5 pt-1">
-                                           <Button
-                                             size="sm"
-                                             onClick={() => {
-                                               if ((m.attachment as any).pixCopyPaste) {
-                                                 navigator.clipboard.writeText((m.attachment as any).pixCopyPaste);
-                                                 toast.success("Código Pix Copia e Cola copiado!");
-                                               } else if ((m.attachment as any).hostedInvoiceUrl) {
-                                                 window.open((m.attachment as any).hostedInvoiceUrl, "_blank");
-                                               } else {
-                                                 window.location.href = "/student/finance";
-                                               }
-                                             }}
-                                             className="w-full h-9 text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-black rounded-xl gap-1.5 shadow-md shadow-emerald-500/20 cursor-pointer"
-                                           >
-                                             <CreditCard className="size-3.5" />
-                                             <span>Abrir Pagamento</span>
-                                             <ArrowUpRight className="size-3.5" />
-                                           </Button>
+                                        <div className="space-y-1.5 pt-1">
+                                          <Button
+                                            size="sm"
+                                            onClick={() => {
+                                              if ((m.attachment as any).pixCopyPaste) {
+                                                navigator.clipboard.writeText((m.attachment as any).pixCopyPaste);
+                                                toast.success("Código Pix Copia e Cola copiado!");
+                                              } else if ((m.attachment as any).hostedInvoiceUrl) {
+                                                window.open((m.attachment as any).hostedInvoiceUrl, "_blank");
+                                              } else {
+                                                window.location.href = "/student/finance";
+                                              }
+                                            }}
+                                            className="w-full h-9 text-xs font-bold bg-emerald-500 hover:bg-emerald-600 text-black rounded-xl gap-1.5 shadow-md shadow-emerald-500/20 cursor-pointer"
+                                          >
+                                            <CreditCard className="size-3.5" />
+                                            <span>Abrir Pagamento</span>
+                                            <ArrowUpRight className="size-3.5" />
+                                          </Button>
 
-                                           {!isSelf && (
-                                             <Button
-                                               asChild
-                                               variant="ghost"
-                                               className="w-full h-7 text-[10px] font-bold text-neutral-300 hover:text-white rounded-lg cursor-pointer"
-                                             >
-                                               <Link href="/student/finance">
-                                                 Ver no Portal Financeiro
-                                               </Link>
-                                             </Button>
-                                           )}
-                                         </div>
-                                       </div>
-                                     )}
+                                          {!isSelf && (
+                                            <Button
+                                              asChild
+                                              variant="ghost"
+                                              className="w-full h-7 text-[10px] font-bold text-neutral-300 hover:text-white rounded-lg cursor-pointer"
+                                            >
+                                              <Link href="/student/finance">
+                                                Ver no Portal Financeiro
+                                              </Link>
+                                            </Button>
+                                          )}
+                                        </div>
+                                      </div>
+                                    )}
 
                                     {m.attachment && (m.attachment as any).type === "workout_exercise_mention" && (
                                       <div className={cn(
                                         "flex flex-col gap-0.5 text-[10px] mb-2 p-1.5 px-3 rounded-r-lg border-l-2 text-left border-y-0 border-r-0 select-none",
-                                        isSelf 
+                                        isSelf
                                           ? cn(contrast.bgMuted, contrast.borderL, contrast.textSecondary)
                                           : "bg-secondary/20 border-l-primary/60 text-foreground/80"
                                       )}>
@@ -1622,7 +1611,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                                     )}
 
                                     {m.attachment && (m.attachment as any).type === "WORKOUT_SHARE" && (
-                                      <div 
+                                      <div
                                         className="flex items-center gap-3 text-left min-w-[200px] max-w-[260px] py-1 cursor-pointer select-none group"
                                         onClick={() => {
                                           if (userRole === "STUDENT") {
@@ -1657,7 +1646,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                                     )}
 
                                     {m.attachment && (m.attachment as any).type === "EXERCISE_SHARE" && (
-                                      <div 
+                                      <div
                                         className="flex flex-col gap-2 text-left min-w-[200px] max-w-[260px] py-0.5 cursor-pointer select-none group"
                                         onClick={() => {
                                           setPreviewExercise({
@@ -1731,7 +1720,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                                                     <Dumbbell className="size-8 opacity-40" />
                                                   </div>
                                                 )}
-                                                
+
                                                 <div className="absolute inset-0 bg-black/35 flex items-center justify-center group-hover/video:bg-black/45 transition-colors">
                                                   <div className="size-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground shadow-lg transition-all group-hover/video:scale-110 duration-200">
                                                     <Play className="size-4.5 fill-current ml-0.5" />
@@ -1745,7 +1734,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                                     )}
 
                                     {m.attachment && (m.attachment as any).type === "ASSESSMENT_SHARE" && (
-                                      <div 
+                                      <div
                                         className="flex items-center gap-3 text-left min-w-[200px] max-w-[260px] py-1 cursor-pointer select-none group"
                                         onClick={() => {
                                           if (userRole === "STUDENT") {
@@ -1780,7 +1769,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                                     )}
 
                                     {m.attachment && (m.attachment as any).type === "PROGRESS_REQUEST" && (
-                                      <div 
+                                      <div
                                         className={cn(
                                           "flex items-center gap-3 text-left min-w-[200px] max-w-[260px] py-1 select-none group",
                                           userRole === "STUDENT" && "cursor-pointer"

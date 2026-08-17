@@ -59,7 +59,7 @@ import {
   TooltipProvider,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
+import { cn, simplifyCommaSeparatedString } from "@/lib/utils";
 import { toast } from "sonner";
 import { RestTimeInput } from "@/components/application/RestTimeInput";
 import { areWorkoutsIdentical } from "@/lib/workout-duplicate-checker";
@@ -183,11 +183,15 @@ export function DuplicateWorkoutModal({
       // Initialize individual exercise custom configs
       const initialConfigs: Record<string, ExerciseCustomConfig> = {};
       (workout.exercises || []).forEach((we: any) => {
+        const repsVal = simplifyCommaSeparatedString(we.reps ? String(we.reps) : "10");
+        const loadVal = simplifyCommaSeparatedString(we.load ? String(we.load) : "");
+        const restVal = simplifyCommaSeparatedString(we.rest ? String(we.rest) : "01:00");
+
         initialConfigs[we.id] = {
           sets: we.sets ?? 4,
-          reps: we.reps ? String(we.reps) : "10",
-          load: we.load ? String(we.load) : "",
-          rest: we.rest ? String(we.rest) : "01:00",
+          reps: repsVal || "10",
+          load: loadVal,
+          rest: restVal || "01:00",
           description: we.description ? String(we.description) : "",
         };
       });
@@ -273,17 +277,20 @@ export function DuplicateWorkoutModal({
     }
   }, [isOpen, activeTab, selectedStudentId, workspaceId, workout?.workspaceId]);
 
-  // Prepared workout payload with custom exercise values for duplication comparison
   const effectiveWorkoutToDuplicate = useMemo(() => {
     const name = customName.trim() || workout?.name || "Treino";
     const exercises = (workout?.exercises || []).map((we: any) => {
       const cfg = exerciseConfigs[we.id];
+      const defaultReps = simplifyCommaSeparatedString(we.reps ? String(we.reps) : "10");
+      const defaultLoad = simplifyCommaSeparatedString(we.load ? String(we.load) : "");
+      const defaultRest = simplifyCommaSeparatedString(we.rest ? String(we.rest) : "01:00");
+
       return {
         ...we,
         sets: cfg?.sets !== undefined && cfg.sets !== "" ? cfg.sets : we.sets,
-        reps: cfg?.reps !== undefined && cfg.reps !== "" ? cfg.reps : we.reps,
-        load: cfg?.load !== undefined ? cfg.load : we.load,
-        rest: cfg?.rest !== undefined && cfg.rest !== "" ? cfg.rest : we.rest,
+        reps: cfg?.reps !== undefined && cfg.reps !== "" ? cfg.reps : defaultReps,
+        load: cfg?.load !== undefined ? cfg.load : defaultLoad,
+        rest: cfg?.rest !== undefined && cfg.rest !== "" ? cfg.rest : defaultRest,
         description: cfg?.description !== undefined ? cfg.description : we.description,
       };
     });
@@ -402,19 +409,29 @@ export function DuplicateWorkoutModal({
     field: keyof ExerciseCustomConfig,
     value: any
   ) => {
-    setExerciseConfigs((prev) => ({
-      ...prev,
-      [exerciseId]: {
-        ...(prev[exerciseId] || {
-          sets: 4,
-          reps: "10",
-          load: "",
-          rest: "01:00",
-          description: "",
-        }),
-        [field]: value,
-      },
-    }));
+    setExerciseConfigs((prev) => {
+      const existing = prev[exerciseId];
+      const we = (workout?.exercises || []).find((e: any) => e.id === exerciseId);
+      const defaultSets = we?.sets ?? 4;
+      const defaultReps = simplifyCommaSeparatedString(we?.reps ? String(we.reps) : "10") || "10";
+      const defaultLoad = simplifyCommaSeparatedString(we?.load ? String(we?.load) : "");
+      const defaultRest = simplifyCommaSeparatedString(we?.rest ? String(we?.rest) : "01:00") || "01:00";
+      const defaultDesc = we?.description ? String(we.description) : "";
+
+      return {
+        ...prev,
+        [exerciseId]: {
+          ...(existing || {
+            sets: defaultSets,
+            reps: defaultReps,
+            load: defaultLoad,
+            rest: defaultRest,
+            description: defaultDesc,
+          }),
+          [field]: value,
+        },
+      };
+    });
   };
 
   const handleDuplicateSubmit = async () => {
@@ -1024,11 +1041,14 @@ export function DuplicateWorkoutModal({
                   workout.exercises.map((we: any, idx: number) => {
                     const isIncluded = !excludedExerciseIds.includes(we.id);
                     const isExpanded = expandedExerciseIds.includes(we.id);
+                    const defaultReps = simplifyCommaSeparatedString(we.reps ? String(we.reps) : "10") || "10";
+                    const defaultLoad = simplifyCommaSeparatedString(we.load ? String(we.load) : "");
+                    const defaultRest = simplifyCommaSeparatedString(we.rest ? String(we.rest) : "01:00") || "01:00";
                     const cfg = exerciseConfigs[we.id] || {
                       sets: we.sets ?? 4,
-                      reps: we.reps ? String(we.reps) : "10",
-                      load: we.load ? String(we.load) : "",
-                      rest: we.rest ? String(we.rest) : "01:00",
+                      reps: defaultReps,
+                      load: defaultLoad,
+                      rest: defaultRest,
                       description: we.description ? String(we.description) : "",
                     };
 

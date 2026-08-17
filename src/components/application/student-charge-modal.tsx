@@ -272,10 +272,10 @@ export function StudentChargeModal({
             <div className="space-y-1">
               <Label className="text-xs font-semibold">Aluno Destinatário</Label>
               <Select value={selectedStudentId} onValueChange={setSelectedStudentId} disabled={loading}>
-                <SelectTrigger className="h-9 text-xs w-full">
+                <SelectTrigger className="h-9 text-xs w-full max-w-[340px]">
                   <SelectValue placeholder="Selecione um aluno" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent className="border border-border">
                   {students.length > 0 ? (
                     students.map((st) => (
                       <SelectItem key={st.id} value={st.id}>
