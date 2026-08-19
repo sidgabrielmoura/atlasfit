@@ -16,6 +16,7 @@ import { CreateAccountInput } from "../domain/types";
 import crypto from "crypto";
 import { publishToChannel } from "@/lib/ably";
 import { encryptSubAccountApiKey, decryptSubAccountApiKey } from "../providers/asaas/subaccount-crypto";
+import { EmailService } from "@/lib/emails/service";
 
 export class PaymentService {
   private adapter = new AsaasAdapter();
@@ -462,7 +463,7 @@ export class PaymentService {
 
     const pixFingerprint = crypto.createHash("sha256").update(params.pixKey).digest("hex");
 
-    return prisma.$transaction(async (tx) => {
+    const payoutResultRecord = await prisma.$transaction(async (tx) => {
       const payout = await tx.walletPayoutRequest.create({
         data: {
           providerAccountId: account.id,
@@ -493,6 +494,26 @@ export class PaymentService {
 
       return payout;
     });
+
+    // Send confirmation email to trainer asynchronously
+    prisma.user.findUnique({
+      where: { id: params.personalUserId },
+      select: { name: true, email: true },
+    }).then((u) => {
+      if (u?.email) {
+        const amountFormatted = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+          Number(params.amountInCents) / 100
+        );
+        EmailService.sendPayoutRequestedTrainer({
+          to: u.email,
+          trainerName: u.name || "Personal",
+          amountFormatted,
+          pixKeyMasked: payoutResult.destinationMasked || "Chave PIX",
+        }).catch((err) => console.warn("[PayoutRequestedEmail] Dispatch failed:", err));
+      }
+    }).catch((err) => console.warn("[PaymentService] Error querying user for payout email:", err));
+
+    return payoutResultRecord;
   }
 
   async getWalletOverview(personalUserId: string) {

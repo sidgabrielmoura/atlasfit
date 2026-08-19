@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { NotificationService } from "@/lib/notifications/service";
+import { EmailService } from "@/lib/emails/service";
 
 
 interface RouteParams {
@@ -263,6 +264,20 @@ export async function POST(req: Request, { params }: RouteParams) {
         source: "ASSESSMENT",
         workspaceId
       });
+
+      if (studentCheck.user.email) {
+        const evalDateStr = new Intl.DateTimeFormat("pt-BR").format(new Date(evaluation.date));
+        EmailService.sendPhysicalEvaluationReport({
+          to: studentCheck.user.email,
+          studentName: studentCheck.user.name || "Aluno(a)",
+          trainerName: session.user.name || "Seu Personal",
+          evaluationDateFormatted: evalDateStr,
+          evaluationType: evaluation.type || "Avaliação Física",
+          bodyFat: evaluation.bodyFat,
+          muscleMass: evaluation.muscleMass,
+          weight: evaluation.weight,
+        }).catch((err) => console.warn("[EvaluationEmail] Dispatch failed:", err));
+      }
     }
 
     return NextResponse.json(evaluation);

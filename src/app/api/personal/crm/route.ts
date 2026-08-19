@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { NotificationService } from "@/lib/notifications/service";
+import { EmailService } from "@/lib/emails/service";
 
 export async function GET(req: Request) {
   const session = await auth();
@@ -200,6 +201,20 @@ export async function POST(req: Request) {
       source: "CRM",
       workspaceId
     });
+
+    // Send instant email notification to trainer
+    if (session.user.email) {
+      EmailService.sendNewLeadCapturedTrainer({
+        to: session.user.email,
+        trainerName: session.user.name || "Personal",
+        leadName: name,
+        leadEmail: email || null,
+        leadPhone: phone || null,
+        leadInstagram: instagram || null,
+        leadGoal: goal || null,
+        source: source || null,
+      }).catch((err) => console.warn("[CRMLeadEmail] Dispatch failed:", err));
+    }
 
     return NextResponse.json(lead, { status: 201 });
   } catch (error) {

@@ -1,5 +1,6 @@
 import prisma from "./prisma";
 import { NotificationService } from "@/lib/notifications/service";
+import { EmailService } from "@/lib/emails/service";
 
 function alignToDueDay(date: Date, dueDay: number): Date {
   const targetDate = new Date(date);
@@ -215,7 +216,7 @@ export async function processRecurringPaymentsForMember(memberId: string) {
     });
   });
 
-  // Send notifications outside the transaction boundary to avoid connection blocking
+  // Send notifications and transactional emails outside the transaction boundary
   for (const notif of generatedNotifications) {
     try {
       await NotificationService.sendNotification({
@@ -230,6 +231,56 @@ export async function processRecurringPaymentsForMember(memberId: string) {
     } catch (err) {
       console.error("Failed to send recurrence notification:", err);
     }
+  }
+
+  // Transactional Email dispatches
+  try {
+    const amountStr = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(member.billingPrice);
+    const dueDateStr = new Intl.DateTimeFormat("pt-BR").format(new Date(member.billingNextDueDate || now));
+    const trainerUser = member.workspace?.ownerId
+      ? await prisma.user.findUnique({ where: { id: member.workspace.ownerId }, select: { name: true, email: true } })
+      : null;
+
+    if (member.billingControlType === "AUTOMATIC") {
+      // Payment receipt to student
+      if (member.user.email) {
+        EmailService.sendPaymentReceiptStudent({
+          to: member.user.email,
+          studentName: member.user.name || "Aluno(a)",
+          trainerName: trainerUser?.name || "Seu Personal",
+          planName: member.billingDescription || `Plano ${member.plan}`,
+          amountFormatted: amountStr,
+          paymentMethod: member.billingPaymentMethod || "PIX",
+          paidAtFormatted: new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(now),
+        }).catch((err) => console.warn("[RecurrenceEmail] Student receipt dispatch failed:", err));
+      }
+
+      // Payment alert to trainer
+      if (trainerUser?.email) {
+        EmailService.sendPaymentConfirmedTrainer({
+          to: trainerUser.email,
+          trainerName: trainerUser.name || "Personal",
+          studentName: member.user.name || "Aluno(a)",
+          amountFormatted: amountStr,
+          paymentMethod: member.billingPaymentMethod || "PIX",
+        }).catch((err) => console.warn("[RecurrenceEmail] Trainer confirmation dispatch failed:", err));
+      }
+    } else {
+      // Pending invoice email to student
+      if (member.user.email) {
+        EmailService.sendNewInvoiceBilling({
+          to: member.user.email,
+          studentName: member.user.name || "Aluno(a)",
+          trainerName: trainerUser?.name || "Seu Personal",
+          workspaceName: member.workspace?.name || "AtlasFit",
+          description: member.billingDescription || `Mensalidade ${member.plan}`,
+          amountFormatted: amountStr,
+          dueDateFormatted: dueDateStr,
+        }).catch((err) => console.warn("[RecurrenceEmail] Student invoice dispatch failed:", err));
+      }
+    }
+  } catch (emailErr) {
+    console.warn("[Recurrence] Error in transactional email processing:", emailErr);
   }
 }
 

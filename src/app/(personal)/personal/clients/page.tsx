@@ -24,6 +24,7 @@ import {
   Smartphone,
   Sparkles,
   UserPlus,
+  Phone,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -804,26 +805,46 @@ export default function ClientsPage() {
                       <Progress value={student.progress} className="h-1 bg-muted/60" />
                     </div>
 
-                    {/* Setup Password Link Banner */}
                     {!student.hasPassword && student.setupToken && (
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          className="w-full text-xs font-medium gap-2 border-border/60 bg-muted/30 hover:bg-muted text-foreground h-8 transition-colors cursor-pointer"
-                          onClick={() => {
-                            const link = `${window.location.origin}/auth/setup-password?token=${student.setupToken}`;
-                            navigator.clipboard.writeText(link);
-                            toast.success("Link de acesso copiado com sucesso!");
-                          }}
-                        >
-                          <KeyRound className="size-3.5 text-muted-foreground" />
-                          <span>Copiar Link de Acesso</span>
-                        </Button>
-                      </div>
+                      <section className="flex flex-wrap gap-2 items-center w-full">
+                        <div onClick={(e) => e.stopPropagation()} className="w-full flex-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full flex-1 text-xs font-medium gap-2 border-border/60 bg-muted/30 hover:bg-muted text-foreground h-8 transition-colors cursor-pointer"
+                            onClick={() => {
+                              const link = `${window.location.origin}/auth/setup-password?token=${student.setupToken}`;
+                              navigator.clipboard.writeText(link);
+                              toast.success("Link de acesso copiado com sucesso!");
+                            }}
+                          >
+                            <KeyRound className="size-3.5 text-muted-foreground" />
+                            <span>Copiar Link de Acesso</span>
+                          </Button>
+                        </div>
+
+                        <div onClick={(e) => e.stopPropagation()} className="w-full flex-1">
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="w-full flex-1 text-xs font-medium gap-2 border-border/60 bg-muted/30 hover:bg-muted text-foreground h-8 transition-colors cursor-pointer"
+                            onClick={() => {
+                              const link = `${window.location.origin}/auth/setup-password?token=${student.setupToken}`;
+                              if (student.whatsapp) {
+                                const cleanPhone = student.whatsapp.replace(/\D/g, "");
+                                window.open(`https://wa.me/55${cleanPhone}?text=Olá! Seja bem-vindo(a) ao AtlasFit! Clique no link abaixo para criar sua senha e acessar a plataforma:\n\n${link}`, "_blank");
+                              } else {
+                                toast.error("Este aluno não possui WhatsApp cadastrado.");
+                              }
+                            }}
+                          >
+                            <MessageCircle className="size-3.5 text-muted-foreground" />
+                            <span>Enviar no whatsapp</span>
+                          </Button>
+                        </div>
+                      </section>
                     )}
 
-                    {/* Action Footer */}
                     <div className="pt-2 border-t border-border/40 flex items-center gap-2 mt-auto" onClick={(e) => e.stopPropagation()}>
                       <Button
                         variant="secondary"
@@ -1014,7 +1035,7 @@ export default function ClientsPage() {
 
       {/* DIALOG 4: Inativar / Ativar Acesso (PUT) */}
       <Dialog open={isToggleActiveOpen} onOpenChange={setIsToggleActiveOpen}>
-        <DialogContent className="max-w-sm bg-popover border border-border">
+        <DialogContent className="max-w-md bg-popover border border-border">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold flex items-center gap-2">
               <Ban className="size-5 text-amber-500" /> Confirmar Alteração
@@ -1042,7 +1063,7 @@ export default function ClientsPage() {
 
       {/* DIALOG 5: Excluir Aluno (DELETE) */}
       <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <DialogContent className="max-w-sm bg-popover border border-border">
+        <DialogContent className="max-w-md! w-full! bg-popover border border-border">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold flex items-center gap-2 text-destructive">
               <Trash2 className="size-5 text-destructive" /> Excluir Aluno Permanentemente

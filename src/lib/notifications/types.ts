@@ -59,14 +59,14 @@ export interface UserPreferencesSettings {
 }
 
 export const DEFAULT_PREFERENCES: UserPreferencesSettings = {
-  TRAINING: { push: true, inApp: true },
-  ASSESSMENT: { push: true, inApp: true },
-  NUTRITION: { push: true, inApp: true },
-  CRM: { push: true, inApp: true },
-  FINANCE: { push: true, inApp: true },
-  SYSTEM: { push: true, inApp: true },
-  CAMPAIGN: { push: true, inApp: true },
-  MESSAGE: { push: true, inApp: true },
-  GAMIFICATION: { push: true, inApp: true },
-  MARKETING: { push: false, inApp: true }
+  TRAINING: { push: true, inApp: true, email: true },
+  ASSESSMENT: { push: true, inApp: true, email: true },
+  NUTRITION: { push: true, inApp: true, email: false },
+  CRM: { push: true, inApp: true, email: true },
+  FINANCE: { push: true, inApp: true, email: true },
+  SYSTEM: { push: true, inApp: true, email: true },
+  CAMPAIGN: { push: true, inApp: true, email: false },
+  MESSAGE: { push: true, inApp: true, email: false },
+  GAMIFICATION: { push: true, inApp: true, email: false },
+  MARKETING: { push: false, inApp: true, email: false }
 };

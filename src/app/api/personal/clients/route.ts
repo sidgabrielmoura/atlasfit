@@ -4,6 +4,7 @@ import prisma from "@/lib/prisma";
 import bcryptjs from "bcryptjs";
 import crypto from "crypto";
 import { batchVerifyAndDecayStreaks } from "@/lib/streak-helper";
+import { EmailService } from "@/lib/emails/service";
 
 // GET: Fetch all students of a given workspace
 export async function GET(req: Request) {
@@ -154,12 +155,34 @@ export async function POST(req: Request) {
         });
       }
 
-      if (!studentUser.password && !studentUser.setupToken) {
-        const setupToken = crypto.randomUUID();
-        await prisma.user.update({
-          where: { id: studentUser.id },
-          data: { setupToken },
-        });
+      let tokenToEmail: string | null = null;
+
+      if (!studentUser.password) {
+        if (!studentUser.setupToken) {
+          tokenToEmail = crypto.randomUUID();
+          await prisma.user.update({
+            where: { id: studentUser.id },
+            data: { setupToken: tokenToEmail },
+          });
+        } else {
+          tokenToEmail = studentUser.setupToken;
+        }
+      }
+
+      if (tokenToEmail) {
+        const [ws, trainer] = await Promise.all([
+          prisma.workspace.findUnique({ where: { id: workspaceId }, select: { name: true } }),
+          prisma.user.findUnique({ where: { id: session.user.id }, select: { name: true } }),
+        ]);
+
+        EmailService.sendStudentInvitation({
+          to: email,
+          studentName: studentUser.name || name,
+          trainerName: trainer?.name || "Seu Personal",
+          workspaceName: ws?.name || "AtlasFit",
+          setupToken: tokenToEmail,
+          planName: plan,
+        }).catch((err) => console.warn("[ClientInvitation] Email dispatch failed:", err));
       }
     } else {
       const setupToken = crypto.randomUUID();
@@ -187,6 +210,20 @@ export async function POST(req: Request) {
           },
         });
       });
+
+      const [ws, trainer] = await Promise.all([
+        prisma.workspace.findUnique({ where: { id: workspaceId }, select: { name: true } }),
+        prisma.user.findUnique({ where: { id: session.user.id }, select: { name: true } }),
+      ]);
+
+      EmailService.sendStudentInvitation({
+        to: email,
+        studentName: name,
+        trainerName: trainer?.name || "Seu Personal",
+        workspaceName: ws?.name || "AtlasFit",
+        setupToken,
+        planName: plan,
+      }).catch((err) => console.warn("[ClientInvitation] Email dispatch failed:", err));
     }
 
     return new NextResponse("Aluno cadastrado com sucesso.", { status: 201 });

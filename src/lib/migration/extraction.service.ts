@@ -13,6 +13,7 @@ import {
 import { checkStudentDuplicate } from "./matching/duplicate.service";
 import { matchExerciseName } from "./matching/exercise-matcher.service";
 import { NotificationService } from "@/lib/notifications/service";
+import { EmailService } from "@/lib/emails/service";
 import {
   NotificationType,
   NotificationCategory,
@@ -439,6 +440,22 @@ export async function processImportJob(jobId: string, workspaceId: string) {
         deepLink: `/personal/clients/migrate/${jobId}`,
         workspaceId,
       }).catch((err) => console.error("[Migration Notification Error]:", err));
+
+      prisma.user.findUnique({
+        where: { id: job.createdByUserId },
+        select: { name: true, email: true },
+      }).then((u) => {
+        if (u?.email) {
+          EmailService.sendImportJobCompletedTrainer({
+            to: u.email,
+            trainerName: u.name || "Personal",
+            totalStudents: totalStudentsCount,
+            totalWorkouts: totalWorkoutsCount,
+            totalExercises: totalExercisesCount,
+            jobId,
+          }).catch((err) => console.warn("[MigrationEmail] Dispatch failed:", err));
+        }
+      }).catch((err) => console.warn("[ExtractionService] Error querying trainer for email:", err));
     }
 
     return await prisma.importJob.findUnique({ where: { id: jobId } });

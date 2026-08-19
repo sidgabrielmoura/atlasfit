@@ -12,6 +12,7 @@ import {
 import crypto from "crypto";
 import { publishToChannel } from "@/lib/ably";
 import { paymentService } from "../application/payment-service";
+import { EmailService } from "@/lib/emails/service";
 
 export class WebhookProcessor {
   private adapter = new AsaasAdapter();
@@ -172,6 +173,49 @@ export class WebhookProcessor {
             timestamp: new Date().toISOString()
           });
         }
+
+        // Dispatch transactional emails asynchronously
+        try {
+          const [studentUser, trainerUser] = await Promise.all([
+            billing.studentUserId ? prisma.user.findUnique({ where: { id: billing.studentUserId }, select: { name: true, email: true } }) : null,
+            account?.personalUserId ? prisma.user.findUnique({ where: { id: account.personalUserId }, select: { name: true, email: true } }) : null,
+          ]);
+
+          const amountFormatted = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+            Number(billing.grossAmountInCents) / 100
+          );
+          const netAmountFormatted = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+            Number(billing.personalNetEstimatedInCents) / 100
+          );
+          const paidAtFormatted = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
+            new Date(billing.paidAt || Date.now())
+          );
+
+          if (studentUser?.email) {
+            EmailService.sendPaymentReceiptStudent({
+              to: studentUser.email,
+              studentName: studentUser.name || "Aluno(a)",
+              trainerName: trainerUser?.name || "Seu Personal",
+              planName: billing.title || "Consultoria",
+              amountFormatted,
+              paymentMethod: billing.paymentMethod || "PIX",
+              paidAtFormatted,
+            }).catch((err) => console.warn("[WebhookReceipt] Student email error:", err));
+          }
+
+          if (trainerUser?.email) {
+            EmailService.sendPaymentConfirmedTrainer({
+              to: trainerUser.email,
+              trainerName: trainerUser.name || "Personal",
+              studentName: studentUser?.name || "Aluno(a)",
+              amountFormatted,
+              netAmountFormatted,
+              paymentMethod: billing.paymentMethod || "PIX",
+            }).catch((err) => console.warn("[WebhookReceipt] Trainer email error:", err));
+          }
+        } catch (emailErr) {
+          console.warn("[WebhookProcessor] Email trigger error:", emailErr);
+        }
       }
     } else if (eventType.startsWith("TRANSFER_")) {
       const rawPayload = normalized.rawPayload as any;
@@ -309,6 +353,29 @@ export class WebhookProcessor {
             payoutId: payout.id,
             timestamp: new Date().toISOString()
           });
+
+          if (isCompleted) {
+            prisma.user.findUnique({
+              where: { id: account.personalUserId },
+              select: { name: true, email: true },
+            }).then((u) => {
+              if (u?.email) {
+                const amountFormatted = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+                  Number(payout.amountInCents) / 100
+                );
+                const completedAtFormatted = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
+                  new Date()
+                );
+                EmailService.sendPayoutCompletedTrainer({
+                  to: u.email,
+                  trainerName: u.name || "Personal",
+                  amountFormatted,
+                  pixKeyMasked: payout.destinationMasked || "Chave PIX",
+                  completedAtFormatted,
+                }).catch((err) => console.warn("[PayoutCompletedEmail] Dispatch failed:", err));
+              }
+            }).catch((err) => console.warn("[WebhookProcessor] Error finding trainer user:", err));
+          }
         }
       }
     } else if (eventType === "TRANSFER_FAILED" || eventType === "TRANSFER_CANCELLED") {

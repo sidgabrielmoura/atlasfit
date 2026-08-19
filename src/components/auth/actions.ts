@@ -9,13 +9,7 @@ import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import { rateLimit } from "@/lib/rate-limit";
 import crypto from "crypto";
-import { resend } from "@/lib/resend";
-import { 
-  getResetPasswordEmailHtml, 
-  getResetPasswordEmailText,
-  getTwoFactorEmailHtml,
-  getTwoFactorEmailText
-} from "@/lib/email-templates";
+import { EmailService } from "@/lib/emails/service";
 import { isValidCPF } from "@/lib/cpf-validator";
 
 const TWO_FACTOR_EXPIRATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 dias em ms
@@ -124,27 +118,12 @@ export async function login(formData: {
       }
     });
 
-    const fromEmail = process.env.EMAIL_FROM || "AtlasFit <noreply@app.atlasfit.site>";
-    
-    try {
-      const emailResult = await resend.emails.send({
-        from: fromEmail,
-        to: formData.email,
-        subject: `${code} é seu código de segurança do AtlasFit`,
-        html: getTwoFactorEmailHtml(code),
-        text: getTwoFactorEmailText(code),
-      });
+    const emailResult = await EmailService.sendTwoFactorCode(formData.email, code);
 
-      if (emailResult.error) {
-        console.error("2FA_EMAIL_DISPATCH_FAILED:", emailResult.error);
-        return { 
-          error: `Erro ao enviar o e-mail de verificação: ${emailResult.error.message || "Domínio de e-mail não verificado ou chave API inválida"}` 
-        };
-      }
-    } catch (sendErr: any) {
-      console.error("2FA_EMAIL_DISPATCH_EXCEPTION:", sendErr);
+    if (!emailResult.success) {
+      console.error("2FA_EMAIL_DISPATCH_FAILED:", emailResult.error);
       return { 
-        error: `Falha no serviço de e-mail: ${sendErr?.message || "Não foi possível enviar o código"}` 
+        error: `Erro ao enviar o e-mail de verificação: ${emailResult.error || "Domínio de e-mail não verificado ou chave API inválida"}` 
       };
     }
 
@@ -267,19 +246,11 @@ export async function requestPasswordReset(email: string) {
     const protocol = host.startsWith("localhost") || host.startsWith("127.0.0.1") ? "http" : "https";
     const resetLink = `${protocol}://${host}/auth/reset-password?token=${token}`;
 
-    const fromEmail = process.env.EMAIL_FROM || "AtlasFit <noreply@app.atlasfit.site>";
+    const emailResult = await EmailService.sendPasswordReset(normalizedEmail, resetLink);
 
-    const { data, error } = await resend.emails.send({
-      from: fromEmail,
-      to: normalizedEmail,
-      subject: "Redefinição de Senha - AtlasFit",
-      html: getResetPasswordEmailHtml(resetLink),
-      text: getResetPasswordEmailText(resetLink),
-    });
-
-    if (error) {
-      console.error("RESET_PASSWORD_EMAIL_FAILED:", error);
-      throw new Error(`Falha ao enviar e-mail de redefinição: ${error.message}`);
+    if (!emailResult.success) {
+      console.error("RESET_PASSWORD_EMAIL_FAILED:", emailResult.error);
+      throw new Error(`Falha ao enviar e-mail de redefinição: ${emailResult.error || "Erro no serviço de e-mail"}`);
     }
 
     return { success: true, message: "Se o e-mail estiver cadastrado, você receberá um link de recuperação." };

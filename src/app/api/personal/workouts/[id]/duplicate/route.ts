@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { areWorkoutsIdentical } from "@/lib/workout-duplicate-checker";
 import { NotificationService } from "@/lib/notifications/service";
+import { EmailService } from "@/lib/emails/service";
 import { simplifyCommaSeparatedString } from "@/lib/utils";
 
 // POST /api/personal/workouts/[id]/duplicate
@@ -287,7 +288,7 @@ export async function POST(
       return finalWorkout;
     });
 
-    // Send notification to student when duplicating workout
+    // Send notification and email to student when duplicating workout
     if (finalStudentId && duplicatedWorkout) {
       try {
         await NotificationService.sendNotification({
@@ -300,6 +301,24 @@ export async function POST(
           source: "TRAINING",
           workspaceId: originalWorkout.workspaceId || undefined,
         });
+
+        // Trigger rich transactional email
+        const [studentUser, trainerUser] = await Promise.all([
+          prisma.user.findUnique({ where: { id: finalStudentId }, select: { name: true, email: true } }),
+          prisma.user.findUnique({ where: { id: session.user.id }, select: { name: true } }),
+        ]);
+
+        if (studentUser?.email) {
+          EmailService.sendNewWorkoutPrescribed({
+            to: studentUser.email,
+            studentName: studentUser.name || "Aluno(a)",
+            trainerName: trainerUser?.name || "Seu Personal",
+            workoutName: duplicatedWorkout.name,
+            goal: duplicatedWorkout.goal || undefined,
+            duration: duplicatedWorkout.duration || undefined,
+            exerciseCount: duplicatedWorkout.exercises?.length,
+          }).catch((err) => console.warn("[WorkoutEmail] Dispatch failed:", err));
+        }
       } catch (notifErr) {
         console.error("Error sending notification for duplicated workout:", notifErr);
       }

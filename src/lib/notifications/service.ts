@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { getAdminMessaging } from "@/lib/firebase-admin";
 import { publishToChannel } from "@/lib/ably";
+import { EmailService } from "@/lib/emails/service";
 import {
   NotificationType,
   NotificationCategory,
@@ -106,7 +107,7 @@ export class NotificationService {
     } = params;
 
     const prefs = await this.getUserPreferences(userId);
-    const catPref = prefs[category as keyof UserPreferencesSettings] || { push: true, inApp: true };
+    const catPref = prefs[category as keyof UserPreferencesSettings] || { push: true, inApp: true, email: true };
 
     let notificationId: string | undefined;
 
@@ -162,50 +163,76 @@ export class NotificationService {
           const adminMessaging = getAdminMessaging();
           if (!adminMessaging) {
             console.warn("Skipping FCM push notification dispatch: Firebase Admin Messaging is not initialized.");
-            return;
-          }
-
-          const response = await adminMessaging.sendEachForMulticast({
-            tokens,
-            notification: {
-              title,
-              body: description,
-              imageUrl: image || undefined
-            },
-            data: payloadData
-          });
-
-          if (response.failureCount > 0) {
-            const badTokens: string[] = [];
-            response.responses.forEach((resp: any, idx: number) => {
-              if (!resp.success) {
-                const err = resp.error;
-                if (
-                  err &&
-                  (err.code === "messaging/invalid-registration-token" ||
-                    err.code === "messaging/registration-token-not-registered")
-                ) {
-                  badTokens.push(tokens[idx]);
-                }
-              }
+          } else {
+            const response = await adminMessaging.sendEachForMulticast({
+              tokens,
+              notification: {
+                title,
+                body: description,
+                imageUrl: image || undefined
+              },
+              data: payloadData
             });
 
-            if (badTokens.length > 0) {
-              await prisma.notificationDevice.deleteMany({
-                where: { firebaseToken: { in: badTokens } }
+            if (response.failureCount > 0) {
+              const badTokens: string[] = [];
+              response.responses.forEach((resp: any, idx: number) => {
+                if (!resp.success) {
+                  const err = resp.error;
+                  if (
+                    err &&
+                    (err.code === "messaging/invalid-registration-token" ||
+                      err.code === "messaging/registration-token-not-registered")
+                  ) {
+                    badTokens.push(tokens[idx]);
+                  }
+                }
+              });
+
+              if (badTokens.length > 0) {
+                await prisma.notificationDevice.deleteMany({
+                  where: { firebaseToken: { in: badTokens } }
+                });
+              }
+            }
+
+            if (response.successCount > 0 && notificationId) {
+              await prisma.notification.update({
+                where: { id: notificationId },
+                data: { delivered: true }
               });
             }
-          }
-
-          if (response.successCount > 0 && notificationId) {
-            await prisma.notification.update({
-              where: { id: notificationId },
-              data: { delivered: true }
-            });
           }
         } catch (err) {
           console.error("FCM dispatch error:", err);
         }
+      }
+    }
+
+    // Email dispatch integration
+    if (catPref.email) {
+      try {
+        const targetUser = await prisma.user.findUnique({
+          where: { id: userId },
+          select: { email: true, name: true }
+        });
+
+        if (targetUser?.email) {
+          const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://app.atlasfit.site";
+          const fullLink = deepLink 
+            ? (deepLink.startsWith("http") ? deepLink : `${appUrl.replace(/\/$/, "")}${deepLink.startsWith("/") ? deepLink : `/${deepLink}`}`)
+            : undefined;
+
+          EmailService.sendGenericNotification({
+            to: targetUser.email,
+            title,
+            description,
+            badgeText: category,
+            ctaButton: fullLink ? { text: "Acessar no Aplicativo", url: fullLink } : undefined
+          }).catch((e) => console.warn("[NotificationService] Email notification error:", e));
+        }
+      } catch (emailErr) {
+        console.warn("[NotificationService] Error querying user for email dispatch:", emailErr);
       }
     }
   }
