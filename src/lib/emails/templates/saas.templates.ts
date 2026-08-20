@@ -56,7 +56,7 @@ export function getTrialEndingTrainerEmailTemplate(params: {
   const html = renderBaseEmailLayout({
     title: "Seu Período de Testes Está Acabando",
     badgeText: "Aviso de Trial",
-    badgeColor: "#ea580c",
+    badgeColor: "#3b82f6",
     previewText: `Restam apenas ${daysRemaining} dias de teste gratuito no AtlasFit`,
     recipientEmail,
     contentHtml: `
@@ -74,7 +74,7 @@ export function getTrialEndingTrainerEmailTemplate(params: {
     ctaButton: {
       text: "Escolher Meu Plano PRO",
       url: upgradeUrl,
-      color: "#ea580c",
+      color: "#3b82f6",
     },
   });
 

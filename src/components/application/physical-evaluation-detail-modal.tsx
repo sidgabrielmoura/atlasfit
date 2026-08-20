@@ -46,7 +46,7 @@ export function PhysicalEvaluationDetailModal({
   if (!evaluation) return null;
 
   const handlePrintEvaluation = () => {
-    const primaryColor = activeWs?.primaryColor || "#ea580c";
+    const primaryColor = activeWs?.primaryColor || "#3b82f6";
     const logoUrl = activeWs?.logoUrl || "";
     const workspaceName = activeWs?.name || "";
     const watermarkUrl = activeWs?.watermarkUrl || "";

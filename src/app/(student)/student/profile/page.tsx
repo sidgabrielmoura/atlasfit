@@ -30,6 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
 import { signOut } from "next-auth/react";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PrivacyCenterTab } from "@/components/privacy/privacy-center-tab";
 
 const container = {
   hidden: { opacity: 0 },
@@ -368,6 +369,14 @@ export default function StudentProfilePage() {
                 </div>
               </CardContent>
             </Card>
+          </div>
+
+          {/* Painel de Privacidade e Governança LGPD */}
+          <div className="mt-8 space-y-6">
+            <h3 className="text-xs font-black uppercase tracking-widest text-neutral-400 px-2 flex items-center gap-2">
+              <ShieldCheck className="size-4 text-primary" /> Privacidade e Seus Direitos (LGPD)
+            </h3>
+            <PrivacyCenterTab />
           </div>
 
           <Button

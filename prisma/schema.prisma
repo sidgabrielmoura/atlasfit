@@ -110,6 +110,11 @@ model User {
   roadmapFeaturesEdited RoadmapFeature[]       @relation("RoadmapFeatureEditedBy")
   roadmapCommentsEdited RoadmapComment[]       @relation("RoadmapCommentEditedBy")
   trainerVideos         TrainerVideo[]         @relation("TrainerVideos")
+
+  // LGPD & Data Governance Relations
+  legalAcceptances    LegalAcceptance[]
+  privacyConsents     PrivacyConsent[]
+  dataSubjectRequests DataSubjectRequest[]
 }
 
 model Workspace {
@@ -2094,3 +2099,170 @@ model RoadmapAuditLog {
   @@index([actorId])
   @@index([entity, entityId])
 }
+
+// ==========================================
+// LGPD & PRIVACY GOVERNANCE INFRASTRUCTURE
+// ==========================================
+
+enum LegalDocumentType {
+  TERMS
+  PRIVACY
+  COOKIES
+  DPA
+}
+
+enum LegalDocumentStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+}
+
+enum LegalAcceptanceType {
+  TERMS_ACCEPTED
+  PRIVACY_ACKNOWLEDGED
+  COOKIE_CONSENT
+  REACCEPTANCE
+}
+
+enum DataSubjectRequestType {
+  ACCESS
+  CORRECTION
+  DELETION
+  PORTABILITY
+  CONSENT_REVOCATION
+  INFORMATION
+  OBJECTION
+  OTHER
+}
+
+enum DataSubjectRequestStatus {
+  PENDING
+  IN_REVIEW
+  IDENTITY_VERIFICATION
+  PROCESSING
+  COMPLETED
+  REJECTED
+  PARTIALLY_COMPLETED
+}
+
+enum SecurityIncidentSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum SecurityIncidentStatus {
+  DETECTED
+  INVESTIGATING
+  CONTAINED
+  MITIGATED
+  RESOLVED
+  CLOSED
+}
+
+model LegalDocument {
+  id          String              @id @default(cuid())
+  type        LegalDocumentType
+  version     String              // Ex: "1.0", "1.1", "2.0"
+  title       String
+  content     String              @db.Text
+  contentHash String              // SHA-256 hash of the exact published content
+  status      LegalDocumentStatus @default(DRAFT)
+  publishedAt DateTime?
+  effectiveAt DateTime?
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
+
+  acceptances LegalAcceptance[]
+
+  @@unique([type, version])
+  @@index([type, status])
+}
+
+model LegalAcceptance {
+  id              String              @id @default(cuid())
+  userId          String
+  documentId      String
+  documentType    LegalDocumentType
+  documentVersion String
+  documentHash    String
+  acceptanceType  LegalAcceptanceType @default(TERMS_ACCEPTED)
+  acceptedAt      DateTime            @default(now())
+  ipAddress       String?
+  userAgent       String?             @db.Text
+  locale          String?             @default("pt-BR")
+  source          String?             @default("WEB") // "WEB", "MOBILE", "ONBOARDING", "SETUP_PASSWORD"
+  workspaceId     String?
+  createdAt       DateTime            @default(now())
+
+  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  document LegalDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+
+  @@index([userId, documentType])
+  @@index([documentId])
+  @@index([acceptedAt])
+}
+
+model PrivacyConsent {
+  id              String    @id @default(cuid())
+  userId          String
+  purpose         String    // "MARKETING_EMAIL", "MARKETING_WHATSAPP", "OPTIONAL_AI_PROCESSING"
+  grantedAt       DateTime  @default(now())
+  revokedAt       DateTime?
+  documentVersion String?
+  source          String?   @default("WEB_SETTINGS")
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, purpose])
+  @@index([userId])
+}
+
+model DataSubjectRequest {
+  id              String                   @id @default(cuid())
+  requesterUserId String
+  workspaceId     String?
+  type            DataSubjectRequestType
+  status          DataSubjectRequestStatus @default(PENDING)
+  requestedAt     DateTime                 @default(now())
+  completedAt     DateTime?
+  rejectedAt      DateTime?
+  rejectionReason String?                  @db.Text
+  handledBy       String?
+  notes           String?                  @db.Text
+  metadata        Json?
+  createdAt       DateTime                 @default(now())
+  updatedAt       DateTime                 @updatedAt
+
+  requester User @relation(fields: [requesterUserId], references: [id], onDelete: Cascade)
+
+  @@index([requesterUserId])
+  @@index([status, type])
+}
+
+model SecurityIncident {
+  id                  String                   @id @default(cuid())
+  title               String
+  detectedAt          DateTime                 @default(now())
+  confirmedAt         DateTime?
+  severity            SecurityIncidentSeverity @default(MEDIUM)
+  status              SecurityIncidentStatus   @default(DETECTED)
+  affectedSystems     String?                  @db.Text
+  dataCategories      String?                  @db.Text
+  affectedUsersCount  Int                      @default(0)
+  description         String                   @db.Text
+  containmentActions  String?                  @db.Text
+  mitigationActions   String?                  @db.Text
+  notificationRequired Boolean                 @default(false)
+  notificationAt      DateTime?
+  resolvedAt          DateTime?
+  closedAt            DateTime?
+  createdAt           DateTime                 @default(now())
+  updatedAt           DateTime                 @updatedAt
+
+  @@index([status, severity])
+}
+

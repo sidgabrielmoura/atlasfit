@@ -311,137 +311,135 @@ export default function CalendarPage() {
         </CardTitle>
       </CardHeader>
       <CardContent className="flex-1 p-0 flex flex-col">
-        <ScrollArea className="flex-1 h-[450px] lg:h-auto">
-          {isLoading ? (
-            <div className="divide-y divide-border/50">
-              {[1, 2, 3].map((n) => (
-                <div key={n} className="p-6 flex items-start gap-6 animate-pulse">
-                  <div className="flex flex-col items-center mt-1 space-y-2">
-                    <Skeleton className="h-6 w-12 rounded bg-muted" />
-                    <Skeleton className="h-3 w-8 rounded bg-muted" />
+        {isLoading ? (
+          <div className="divide-y divide-border/50">
+            {[1, 2, 3].map((n) => (
+              <div key={n} className="p-6 flex items-start gap-6 animate-pulse">
+                <div className="flex flex-col items-center mt-1 space-y-2">
+                  <Skeleton className="h-6 w-12 rounded bg-muted" />
+                  <Skeleton className="h-3 w-8 rounded bg-muted" />
+                </div>
+                <div className="w-px h-12 bg-border mx-2 hidden sm:block"></div>
+                <div className="flex-1 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <Skeleton className="h-5 w-2/3 rounded bg-muted" />
+                    <Skeleton className="h-4 w-16 rounded-full bg-muted" />
                   </div>
-                  <div className="w-px h-12 bg-border mx-2 hidden sm:block"></div>
-                  <div className="flex-1 space-y-3">
-                    <div className="flex items-center justify-between">
-                      <Skeleton className="h-5 w-2/3 rounded bg-muted" />
-                      <Skeleton className="h-4 w-16 rounded-full bg-muted" />
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <Skeleton className="h-3 w-24 rounded bg-muted" />
-                    </div>
+                  <div className="flex items-center gap-4">
+                    <Skeleton className="h-3 w-24 rounded bg-muted" />
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : error ? (
-            <div className="flex flex-col items-center justify-center p-12 text-center space-y-4">
-              <div className="p-4 rounded-full bg-red-500/10 text-red-500 border border-red-500/20">
-                <AlertCircle className="size-8" />
               </div>
-              <div>
-                <p className="text-base font-semibold text-foreground">Falha ao carregar as tarefas</p>
-                <p className="text-sm text-muted-foreground mt-1 max-w-70 mx-auto">{error}</p>
-                <Button variant="outline" size="sm" onClick={fetchTasks} className="mt-4 border-border text-muted-foreground hover:text-foreground rounded-lg cursor-pointer">
-                  Tentar Novamente
-                </Button>
-              </div>
+            ))}
+          </div>
+        ) : error ? (
+          <div className="flex flex-col items-center justify-center p-12 text-center space-y-4">
+            <div className="p-4 rounded-full bg-red-500/10 text-red-500 border border-red-500/20">
+              <AlertCircle className="size-8" />
             </div>
-          ) : tasks.length > 0 ? (
-            <div className="divide-y divide-border/30">
-              {tasks.map((task) => (
-                <div key={task.id} className="p-4 sm:p-5 flex items-center gap-4 sm:gap-6 hover:bg-secondary/20 transition-all rounded-xl border border-transparent hover:border-border/45 group/task relative">
-                  {/* Left Side: Time Marker */}
-                  <div className="flex flex-col items-end shrink-0 w-14 sm:w-16">
-                    <span className="text-base sm:text-lg font-black text-foreground tracking-tight tabular-nums">{task.time}</span>
-                    <span className="text-[9px] text-muted-foreground font-extrabold uppercase tracking-wider">
-                      {typeConfig[task.type]?.label || task.type}
-                    </span>
-                  </div>
+            <div>
+              <p className="text-base font-semibold text-foreground">Falha ao carregar as tarefas</p>
+              <p className="text-sm text-muted-foreground mt-1 max-w-70 mx-auto">{error}</p>
+              <Button variant="outline" size="sm" onClick={fetchTasks} className="mt-4 border-border text-muted-foreground hover:text-foreground rounded-lg cursor-pointer">
+                Tentar Novamente
+              </Button>
+            </div>
+          </div>
+        ) : tasks.length > 0 ? (
+          <div className="divide-y divide-border/30">
+            {tasks.map((task) => (
+              <div key={task.id} className="p-4 sm:p-5 flex items-center gap-4 sm:gap-6 hover:bg-secondary/20 transition-all rounded-xl border border-transparent hover:border-border/45 group/task relative">
+                {/* Left Side: Time Marker */}
+                <div className="flex flex-col items-end shrink-0 w-14 sm:w-16">
+                  <span className="text-base sm:text-lg font-black text-foreground tracking-tight tabular-nums">{task.time}</span>
+                  <span className="text-[9px] text-muted-foreground font-extrabold uppercase tracking-wider">
+                    {typeConfig[task.type]?.label || task.type}
+                  </span>
+                </div>
 
-                  {/* Vertical Indicator Bar */}
-                  <div className={cn(
-                    "w-1 self-stretch rounded-full shrink-0",
-                    task.type === "aula" ? "bg-blue-500" :
-                      task.type === "avaliação" ? "bg-purple-500" :
-                        task.type === "financeiro" ? "bg-emerald-500" :
-                          task.type === "check-in" ? "bg-amber-500" :
-                            "bg-zinc-500"
-                  )} />
+                {/* Vertical Indicator Bar */}
+                <div className={cn(
+                  "w-1 self-stretch rounded-full shrink-0",
+                  task.type === "aula" ? "bg-blue-500" :
+                    task.type === "avaliação" ? "bg-purple-500" :
+                      task.type === "financeiro" ? "bg-emerald-500" :
+                        task.type === "check-in" ? "bg-amber-500" :
+                          "bg-zinc-500"
+                )} />
 
-                  {/* Task Card Box */}
-                  <div className="flex-1 min-w-0 flex items-center justify-between gap-4">
-                    <div className="flex items-center gap-3 min-w-0 flex-1">
-                      {/* Checkbox wrapper with larger hit zone */}
-                      <Checkbox
-                        checked={task.completed}
-                        onCheckedChange={() => handleToggleTask(task.id, task.completed)}
-                        className="size-5 cursor-pointer rounded-md shrink-0 border-border hover:border-primary/80 transition-colors"
-                      />
+                {/* Task Card Box */}
+                <div className="flex-1 min-w-0 flex items-center justify-between gap-4">
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    {/* Checkbox wrapper with larger hit zone */}
+                    <Checkbox
+                      checked={task.completed}
+                      onCheckedChange={() => handleToggleTask(task.id, task.completed)}
+                      className="size-5 cursor-pointer rounded-md shrink-0 border-border hover:border-primary/80 transition-colors"
+                    />
 
-                      <div className="min-w-0 flex-1 space-y-1">
-                        <h4 className={cn(
-                          "text-sm sm:text-base font-semibold leading-tight text-foreground transition-all truncate",
-                          task.completed && "line-through text-muted-foreground font-normal opacity-75"
-                        )}>
-                          {task.title}
-                        </h4>
+                    <div className="min-w-0 flex-1 space-y-1">
+                      <h4 className={cn(
+                        "text-sm sm:text-base font-semibold leading-tight text-foreground transition-all truncate",
+                        task.completed && "line-through text-muted-foreground font-normal opacity-75"
+                      )}>
+                        {task.title}
+                      </h4>
 
-                        <div className="flex flex-wrap items-center gap-2 text-xs">
-                          {task.student?.name && (
-                            <span className="text-[10px] font-bold text-muted-foreground bg-secondary/50 border border-border/40 px-1.5 py-0.5 rounded-md">
-                              Aluno: {task.student.name}
-                            </span>
-                          )}
-                          <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-semibold">
-                            <Clock className="size-3" /> 1h est.
+                      <div className="flex flex-wrap items-center gap-2 text-xs">
+                        {task.student?.name && (
+                          <span className="text-[10px] font-bold text-muted-foreground bg-secondary/50 border border-border/40 px-1.5 py-0.5 rounded-md">
+                            Aluno: {task.student.name}
                           </span>
-                        </div>
+                        )}
+                        <span className="text-[10px] text-muted-foreground flex items-center gap-1 font-semibold">
+                          <Clock className="size-3" /> 1h est.
+                        </span>
                       </div>
                     </div>
+                  </div>
 
-                    {/* Actions Panel */}
-                    <div className="flex items-center gap-1 opacity-0 group-hover/task:opacity-100 focus-within:opacity-100 transition-opacity duration-200 shrink-0">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEditClick(task)}
-                        className="size-7 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
-                      >
-                        <Pencil className="size-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteClick(task)}
-                        className="size-7 hover:bg-destructive/10 rounded-lg text-muted-foreground hover:text-destructive cursor-pointer transition-colors"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </Button>
-                    </div>
+                  {/* Actions Panel */}
+                  <div className="flex items-center gap-1 opacity-0 group-hover/task:opacity-100 focus-within:opacity-100 transition-opacity duration-200 shrink-0">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleEditClick(task)}
+                      className="size-7 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
+                    >
+                      <Pencil className="size-3.5" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteClick(task)}
+                      className="size-7 hover:bg-destructive/10 rounded-lg text-muted-foreground hover:text-destructive cursor-pointer transition-colors"
+                    >
+                      <Trash2 className="size-3.5" />
+                    </Button>
                   </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full text-center p-12 space-y-4">
-              <div className="p-4 rounded-full bg-muted text-muted-foreground border border-border">
-                <CalendarDays className="size-8 opacity-60" />
               </div>
-              <div>
-                <p className="text-base font-semibold text-foreground">Nenhum compromisso agendado</p>
-                <p className="text-sm text-muted-foreground mt-1 max-w-[280px] mx-auto">
-                  Você tem o dia livre. Clique em "Nova Tarefa" para adicionar um compromisso ou lembrete.
-                </p>
-              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="flex flex-col items-center justify-center h-full text-center p-12 space-y-4">
+            <div className="p-4 rounded-full bg-muted text-muted-foreground border border-border">
+              <CalendarDays className="size-8 opacity-60" />
             </div>
-          )}
-        </ScrollArea>
+            <div>
+              <p className="text-base font-semibold text-foreground">Nenhum compromisso agendado</p>
+              <p className="text-sm text-muted-foreground mt-1 max-w-[280px] mx-auto">
+                Você tem o dia livre. Clique em "Nova Tarefa" para adicionar um compromisso ou lembrete.
+              </p>
+            </div>
+          </div>
+        )}
       </CardContent>
     </Card>
   );
 
   return (
-    <div className="flex-1 flex flex-col space-y-8 p-4 md:p-8 pt-6 overflow-hidden w-full h-full min-h-[calc(100vh-2rem)] bg-background">
+    <div className="flex-1 flex flex-col space-y-8 p-4 md:p-8 pt-6 overflow-hidden w-full bg-background">
       <div className="flex flex-col max-sm:gap-4 sm:flex-row items-start sm:items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-foreground">Tarefas Diárias</h2>

@@ -39,7 +39,7 @@ export function getStudentInvitationEmailTemplate(params: {
     },
     secondaryInfoHtml: `
       <p style="margin: 0 0 6px 0;">Após definir sua senha, você poderá acessar pelo celular ou computador em qualquer lugar.</p>
-      <p style="margin: 0;">Link direto: <a href="${setupUrl}" target="_blank" style="color: #ea580c; word-break: break-all;">${setupUrl}</a></p>
+      <p style="margin: 0;">Link direto: <a href="${setupUrl}" target="_blank" style="color: #3b82f6; word-break: break-all;">${setupUrl}</a></p>
     `,
   });
 
@@ -62,7 +62,7 @@ export function getNewStudentNotificationTrainerTemplate(params: {
   const html = renderBaseEmailLayout({
     title: "Novo Aluno na sua Consultoria!",
     badgeText: "Novo Aluno",
-    badgeColor: "#ea580c",
+    badgeColor: "#3b82f6",
     previewText: `${studentName} ingressou no seu workspace`,
     recipientEmail,
     contentHtml: `
@@ -83,6 +83,7 @@ export function getNewStudentNotificationTrainerTemplate(params: {
     ctaButton: {
       text: "Abrir Ficha do Aluno",
       url: clientsUrl,
+      color: "#3b82f6",
     },
   });
 

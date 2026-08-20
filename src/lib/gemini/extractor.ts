@@ -7,6 +7,7 @@ import {
   MigrationExtractionResponse,
 } from "./schemas/migration-schema";
 import { trackGeminiUsage } from "./usage";
+import { sanitizeTextForGemini } from "@/lib/privacy/gemini-sanitizer";
 
 import prisma from "@/lib/prisma";
 
@@ -83,7 +84,8 @@ export class GeminiMigrationExtractor implements MigrationExtractor {
     const userParts: any[] = [];
 
     if (input.textContent && input.textContent.trim()) {
-      userParts.push({ text: `DOCUMENTO TEXTUAL:\n${input.textContent}` });
+      const sanitizedText = sanitizeTextForGemini(input.textContent);
+      userParts.push({ text: `DOCUMENTO TEXTUAL:\n${sanitizedText}` });
     }
 
     if (input.inlineFiles && input.inlineFiles.length > 0) {

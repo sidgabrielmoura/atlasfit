@@ -2,6 +2,7 @@ import prisma from "@/lib/prisma";
 import { parseDayOfWeekToInt } from "./utils/day-of-week";
 import bcryptjs from "bcryptjs";
 import crypto from "crypto";
+import { validateAgeEligibility } from "@/lib/privacy/age-validator";
 
 export interface CommitPreviewResult {
   jobId: string;
@@ -531,6 +532,15 @@ export async function commitImportJob(
 }
 
 async function createStudentUser(tx: any, workspaceId: string, norm: any) {
+  let validatedBirthDate: Date | null = null;
+  if (norm.birthDate) {
+    const ageResult = validateAgeEligibility(norm.birthDate, 18);
+    if (!ageResult.isValid) {
+      throw new Error(`Aluno "${norm.name || "Importado"}" é menor de 18 anos e não pode ser importado conforme a política da plataforma (18+).`);
+    }
+    validatedBirthDate = ageResult.birthDate || null;
+  }
+
   const generatedEmail = norm.email || `aluno.${crypto.randomBytes(4).toString("hex")}@atlasfit.internal`;
   const defaultPassword = await bcryptjs.hash("AtlasFit123!", 10);
 
@@ -539,7 +549,7 @@ async function createStudentUser(tx: any, workspaceId: string, norm: any) {
       name: norm.name || "Aluno Importado",
       email: generatedEmail,
       whatsapp: norm.phone ?? null,
-      birthDate: norm.birthDate ? new Date(norm.birthDate) : null,
+      birthDate: validatedBirthDate,
       objective: norm.objective ?? null,
       weight: norm.weight ?? null,
       height: norm.height ?? null,

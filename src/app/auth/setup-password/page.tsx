@@ -7,10 +7,12 @@ import { AuthLayout } from "@/components/auth/auth-layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Checkbox } from "@/components/ui/checkbox";
 import { toast } from "sonner";
-import { Eye, EyeOff, Lock, ArrowRight, CheckCircle2 } from "lucide-react";
+import { Eye, EyeOff, Lock, ArrowRight, CheckCircle2, Calendar } from "lucide-react";
 import { motion } from "framer-motion";
 import { isValidCPF, formatCPF } from "@/lib/cpf-validator";
+import Link from "next/link";
 
 function SetupPasswordForm() {
   const searchParams = useSearchParams();
@@ -20,7 +22,11 @@ function SetupPasswordForm() {
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [cpfCnpj, setCpfCnpj] = useState("");
+  const [birthDate, setBirthDate] = useState("");
   const [needsCpf, setNeedsCpf] = useState(false);
+  const [needsBirthDate, setNeedsBirthDate] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -29,8 +35,9 @@ function SetupPasswordForm() {
   useEffect(() => {
     if (token) {
       getSetupInfo(token).then((res) => {
-        if (res.success && res.needsCpf) {
-          setNeedsCpf(true);
+        if (res.success) {
+          if (res.needsCpf) setNeedsCpf(true);
+          if (res.needsBirthDate) setNeedsBirthDate(true);
         }
       });
     }
@@ -55,6 +62,16 @@ function SetupPasswordForm() {
       }
     }
 
+    if (needsBirthDate && !birthDate) {
+      toast.error("A data de nascimento é obrigatória para verificação de elegibilidade (18+).");
+      return;
+    }
+
+    if (!acceptedTerms || !acceptedPrivacy) {
+      toast.error("Você deve ler e aceitar os Termos de Uso e estar ciente da Política de Privacidade.");
+      return;
+    }
+
     if (password.length < 6) {
       toast.error("A senha deve conter pelo menos 6 caracteres.");
       return;
@@ -68,7 +85,14 @@ function SetupPasswordForm() {
     setIsLoading(true);
 
     try {
-      const result = await setupPassword(token, password, needsCpf ? cpfCnpj : undefined);
+      const result = await setupPassword(
+        token,
+        password,
+        needsCpf ? cpfCnpj : undefined,
+        needsBirthDate ? birthDate : undefined,
+        acceptedTerms,
+        acceptedPrivacy
+      );
 
       if (result.error) {
         toast.error(result.error);
@@ -105,18 +129,18 @@ function SetupPasswordForm() {
   }
 
   return (
-    <div className="space-y-8 w-full max-w-sm mx-auto">
+    <div className="space-y-6 w-full max-w-sm mx-auto">
       <div className="space-y-2 text-center md:text-left">
         <h2 className="text-3xl font-extrabold tracking-tight">Crie sua Senha</h2>
-        <p className="text-muted-foreground">
-          Defina sua senha de acesso para ativar sua conta de aluno no AtlasFit.
+        <p className="text-muted-foreground text-xs">
+          Defina sua senha de acesso para ativar sua conta de aluno no AtlasFit (exclusivo para maiores de 18 anos).
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-6">
-        <div className="space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-5">
+        <div className="space-y-3.5">
           {needsCpf && (
-            <div className="space-y-2">
+            <div className="space-y-1.5">
               <Label htmlFor="cpf" className="font-semibold text-xs uppercase tracking-wider">
                 CPF do Aluno (Obrigatório)
               </Label>
@@ -126,7 +150,7 @@ function SetupPasswordForm() {
                   id="cpf"
                   required
                   placeholder="000.000.000-00"
-                  className="pl-10 h-12 rounded-xl bg-secondary/30 border-border/50 focus:bg-secondary/50 transition-all text-xs"
+                  className="pl-10 h-11 rounded-xl bg-secondary/30 border-border/50 focus:bg-secondary/50 transition-all text-xs"
                   value={cpfCnpj}
                   onChange={(e) => setCpfCnpj(formatCPF(e.target.value))}
                   disabled={isLoading}
@@ -135,7 +159,28 @@ function SetupPasswordForm() {
             </div>
           )}
 
-          <div className="space-y-2">
+          {needsBirthDate && (
+            <div className="space-y-1.5">
+              <Label htmlFor="birthDate" className="font-semibold text-xs uppercase tracking-wider">
+                Data de Nascimento (18+)
+              </Label>
+              <div className="relative">
+                <Calendar className="absolute left-3 top-3 size-4 text-muted-foreground" />
+                <Input
+                  id="birthDate"
+                  type="date"
+                  required
+                  max={new Date().toISOString().split("T")[0]}
+                  className="pl-10 h-11 rounded-xl bg-secondary/30 border-border/50 focus:bg-secondary/50 transition-all text-xs"
+                  value={birthDate}
+                  onChange={(e) => setBirthDate(e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-1.5">
             <Label htmlFor="password">Nova Senha</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-3 size-4 text-muted-foreground" />
@@ -143,7 +188,7 @@ function SetupPasswordForm() {
                 id="password"
                 type={showPassword ? "text" : "password"}
                 placeholder="No mínimo 6 caracteres"
-                className="pl-10 pr-10 h-12 rounded-xl bg-secondary/30 border-border/50 focus:bg-secondary/50 transition-all text-xs"
+                className="pl-10 pr-10 h-11 rounded-xl bg-secondary/30 border-border/50 focus:bg-secondary/50 transition-all text-xs"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
@@ -153,7 +198,7 @@ function SetupPasswordForm() {
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="absolute right-0 top-0 h-12 w-12 text-muted-foreground hover:bg-transparent"
+                className="absolute right-0 top-0 h-11 w-11 text-muted-foreground hover:bg-transparent"
                 onClick={() => setShowPassword(!showPassword)}
                 disabled={isLoading}
               >
@@ -162,7 +207,7 @@ function SetupPasswordForm() {
             </div>
           </div>
 
-          <div className="space-y-2">
+          <div className="space-y-1.5">
             <Label htmlFor="confirm-password">Confirmar Nova Senha</Label>
             <div className="relative">
               <Lock className="absolute left-3 top-3 size-4 text-muted-foreground" />
@@ -170,7 +215,7 @@ function SetupPasswordForm() {
                 id="confirm-password"
                 type={showConfirmPassword ? "text" : "password"}
                 placeholder="Repita a nova senha"
-                className="pl-10 pr-10 h-12 rounded-xl bg-secondary/30 border-border/50 focus:bg-secondary/50 transition-all text-xs"
+                className="pl-10 pr-10 h-11 rounded-xl bg-secondary/30 border-border/50 focus:bg-secondary/50 transition-all text-xs"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
@@ -180,7 +225,7 @@ function SetupPasswordForm() {
                 type="button"
                 variant="ghost"
                 size="icon"
-                className="absolute right-0 top-0 h-12 w-12 text-muted-foreground hover:bg-transparent"
+                className="absolute right-0 top-0 h-11 w-11 text-muted-foreground hover:bg-transparent"
                 onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 disabled={isLoading}
               >
@@ -190,10 +235,45 @@ function SetupPasswordForm() {
           </div>
         </div>
 
+        {/* Legal & Privacy Checkboxes */}
+        <div className="space-y-2.5 pt-1 text-xs text-muted-foreground">
+          <div className="flex items-start space-x-2">
+            <Checkbox
+              id="acceptedTerms"
+              checked={acceptedTerms}
+              onCheckedChange={(checked) => setAcceptedTerms(checked === true)}
+              className="mt-0.5"
+            />
+            <label htmlFor="acceptedTerms" className="leading-snug cursor-pointer select-none">
+              Li e concordo com os{" "}
+              <Link href="/termos-de-uso" target="_blank" className="font-semibold text-primary hover:underline">
+                Termos de Uso
+              </Link>{" "}
+              do AtlasFit.
+            </label>
+          </div>
+
+          <div className="flex items-start space-x-2">
+            <Checkbox
+              id="acceptedPrivacy"
+              checked={acceptedPrivacy}
+              onCheckedChange={(checked) => setAcceptedPrivacy(checked === true)}
+              className="mt-0.5"
+            />
+            <label htmlFor="acceptedPrivacy" className="leading-snug cursor-pointer select-none">
+              Estou ciente do tratamento dos meus dados conforme a{" "}
+              <Link href="/politica-de-privacidade" target="_blank" className="font-semibold text-primary hover:underline">
+                Política de Privacidade
+              </Link>
+              .
+            </label>
+          </div>
+        </div>
+
         <Button
           type="submit"
-          disabled={isLoading || !token}
-          className="w-full h-14 rounded-2xl text-lg font-bold shadow-lg shadow-primary/20 gap-2 group overflow-hidden relative"
+          disabled={isLoading || !token || !acceptedTerms || !acceptedPrivacy}
+          className="w-full h-12 rounded-xl text-base font-bold shadow-lg shadow-primary/20 gap-2 group overflow-hidden relative"
         >
           {isLoading ? (
             <motion.div
@@ -203,8 +283,8 @@ function SetupPasswordForm() {
             />
           ) : (
             <>
-              Confirmar Senha
-              <ArrowRight className="size-5 group-hover:translate-x-1 transition-transform" />
+              Confirmar Senha e Ativar Conta
+              <ArrowRight className="size-4 group-hover:translate-x-1 transition-transform" />
             </>
           )}
         </Button>

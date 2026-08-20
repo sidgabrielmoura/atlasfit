@@ -79,7 +79,7 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
   const [expandedExercises, setExpandedExercises] = useState<Record<string, boolean>>({});
 
   const handlePrintWorkout = (workout: any) => {
-    const primaryColor = activeWs?.primaryColor || "#ea580c";
+    const primaryColor = activeWs?.primaryColor || "#3b82f6";
     const logoUrl = activeWs?.logoUrl || "";
     const workspaceName = activeWs?.name || "";
     const watermarkUrl = activeWs?.watermarkUrl || "";
@@ -113,7 +113,7 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
       if (we.groupId && we.group) {
         const typeLabel = we.group.type === "BISET" ? "Biset" : we.group.type === "TRISET" ? "Triset" : "Circuito";
         methodTags += `
-          <span style="display: inline-block; padding: 2px 6px; font-size: 10px; font-weight: bold; border-radius: 4px; background: rgba(234, 88, 12, 0.1); color: ${primaryColor}; margin-top: 4px; margin-right: 4px; border: 1px solid rgba(234, 88, 12, 0.2);">
+          <span style="display: inline-block; padding: 2px 6px; font-size: 10px; font-weight: bold; border-radius: 4px; background: rgba(59, 130, 246, 0.1); color: ${primaryColor}; margin-top: 4px; margin-right: 4px; border: 1px solid rgba(59, 130, 246, 0.2);">
             🔗 ${typeLabel} ${groupLetters[we.groupId]}
           </span>
         `;

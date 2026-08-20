@@ -4,6 +4,7 @@ import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Providers } from "@/components/providers";
 import { ImpersonationBanner } from "@/components/application/impersonation-banner";
+import { LegalReacceptanceModal } from "@/components/privacy/legal-reacceptance-modal";
 
 const figtree = Figtree({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -97,6 +98,7 @@ export default function RootLayout({
           <PwaFcmInit />
           <PWAInstallPrompt />
           <ImpersonationBanner />
+          <LegalReacceptanceModal />
           {children}
         </Providers>
       </body>

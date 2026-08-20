@@ -30,7 +30,7 @@ export function getInactivityAlertStudentEmailTemplate(params: {
     ctaButton: {
       text: "Abrir Meu Treino de Hoje",
       url: workoutsUrl,
-      color: "#ea580c",
+      color: "#3b82f6",
     },
   });
 
@@ -81,7 +81,7 @@ export function getChurnRiskAlertTrainerEmailTemplate(params: {
     ctaButton: {
       text: "Ver Perfil do Aluno",
       url: clientsUrl,
-      color: "#ea580c",
+      color: "#3b82f6",
     },
   });
 

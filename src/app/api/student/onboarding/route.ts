@@ -2,12 +2,14 @@ import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { NotificationService } from "@/lib/notifications/service";
-
+import { validateAgeEligibility } from "@/lib/privacy/age-validator";
+import { LegalAcceptanceService } from "@/lib/privacy/legal-acceptance.service";
+import { LegalDocumentType, LegalAcceptanceType } from "@prisma/client";
 
 export async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) {
-    return new NextResponse("Não autorizado. Por favor, faça login.", { status: 401 });
+    return NextResponse.json({ error: "Não autorizado. Por favor, faça login." }, { status: 401 });
   }
 
   try {
@@ -21,7 +23,7 @@ export async function POST(req: Request) {
     });
 
     if (!member) {
-      return new NextResponse("Membro ativo do workspace não encontrado.", { status: 404 });
+      return NextResponse.json({ error: "Membro ativo do workspace não encontrado." }, { status: 404 });
     }
 
     const body = await req.json();
@@ -34,7 +36,19 @@ export async function POST(req: Request) {
       city,
       weight,
       height,
+      acceptedTerms,
+      acceptedPrivacy,
     } = body;
+
+    // Server-side Age Gate (18+)
+    let validatedBirthDate: Date | null = null;
+    if (birthDate) {
+      const ageResult = validateAgeEligibility(birthDate, 18);
+      if (!ageResult.isValid) {
+        return NextResponse.json({ error: ageResult.error }, { status: 400 });
+      }
+      validatedBirthDate = ageResult.birthDate || null;
+    }
 
     // 2. Update user profile parameters and set onboarded as true
     await prisma.user.update({
@@ -43,7 +57,7 @@ export async function POST(req: Request) {
         onboarded: true,
         objective: objective || null,
         gender: gender || null,
-        birthDate: birthDate ? new Date(birthDate) : null,
+        birthDate: validatedBirthDate,
         experienceLevel: experienceLevel || null,
         medicalConditions: medicalConditions || null,
         city: city || null,
@@ -52,7 +66,35 @@ export async function POST(req: Request) {
       },
     });
 
-    // 3. Register initial weight and height progress history if provided
+    // 3. Record legal acceptances if provided
+    const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "127.0.0.1";
+    const userAgent = req.headers.get("user-agent") || "Web Client";
+
+    if (acceptedTerms) {
+      await LegalAcceptanceService.recordAcceptance({
+        userId: session.user.id,
+        documentType: LegalDocumentType.TERMS,
+        acceptanceType: LegalAcceptanceType.TERMS_ACCEPTED,
+        ipAddress: ip,
+        userAgent,
+        source: "STUDENT_ONBOARDING",
+        workspaceId: member.workspaceId,
+      }).catch((e) => console.warn("Failed recording student terms acceptance:", e.message));
+    }
+
+    if (acceptedPrivacy) {
+      await LegalAcceptanceService.recordAcceptance({
+        userId: session.user.id,
+        documentType: LegalDocumentType.PRIVACY,
+        acceptanceType: LegalAcceptanceType.PRIVACY_ACKNOWLEDGED,
+        ipAddress: ip,
+        userAgent,
+        source: "STUDENT_ONBOARDING",
+        workspaceId: member.workspaceId,
+      }).catch((e) => console.warn("Failed recording student privacy acknowledgment:", e.message));
+    }
+
+    // 4. Register initial weight and height progress history if provided
     if (weight || height) {
       await prisma.studentProgress.create({
         data: {
@@ -68,7 +110,7 @@ export async function POST(req: Request) {
     // Notify trainer about onboarding completion
     const workspace = await prisma.workspace.findUnique({
       where: { id: member.workspaceId },
-      select: { ownerId: true }
+      select: { ownerId: true },
     });
     if (workspace?.ownerId) {
       await NotificationService.sendNotification({
@@ -79,13 +121,13 @@ export async function POST(req: Request) {
         description: `O aluno "${session.user.name || "Aluno"}" concluiu o onboarding e está pronto para receber treinos.`,
         deepLink: `/personal/clients/${session.user.id}`,
         source: "SYSTEM",
-        workspaceId: member.workspaceId
+        workspaceId: member.workspaceId,
       });
     }
 
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Student Onboarding API Error:", error);
-    return new NextResponse("Erro Interno do Servidor", { status: 500 });
+    return NextResponse.json({ error: "Erro Interno do Servidor" }, { status: 500 });
   }
 }

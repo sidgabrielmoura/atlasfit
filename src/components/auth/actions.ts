@@ -11,6 +11,9 @@ import { rateLimit } from "@/lib/rate-limit";
 import crypto from "crypto";
 import { EmailService } from "@/lib/emails/service";
 import { isValidCPF } from "@/lib/cpf-validator";
+import { validateAgeEligibility } from "@/lib/privacy/age-validator";
+import { LegalAcceptanceService } from "@/lib/privacy/legal-acceptance.service";
+import { LegalDocumentType, LegalAcceptanceType } from "@prisma/client";
 
 const TWO_FACTOR_EXPIRATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 dias em ms
 
@@ -146,16 +149,28 @@ export async function getSetupInfo(token: string) {
   try {
     const user = await prisma.user.findUnique({
       where: { setupToken: token },
-      select: { id: true, name: true, email: true, cpfCnpj: true }
+      select: { id: true, name: true, email: true, cpfCnpj: true, birthDate: true }
     });
     if (!user) return { error: "Link de ativação inválido ou já utilizado." };
-    return { success: true, needsCpf: !user.cpfCnpj, user };
+    return {
+      success: true,
+      needsCpf: !user.cpfCnpj,
+      needsBirthDate: !user.birthDate,
+      user,
+    };
   } catch (err) {
     return { error: "Erro ao verificar token de acesso." };
   }
 }
 
-export async function setupPassword(token: string, passwordStr: string, cpfCnpjStr?: string) {
+export async function setupPassword(
+  token: string,
+  passwordStr: string,
+  cpfCnpjStr?: string,
+  birthDateStr?: string,
+  acceptedTerms?: boolean,
+  acceptedPrivacy?: boolean
+) {
   if (!token) {
     return { error: "Token de acesso inválido ou expirado." };
   }
@@ -183,15 +198,81 @@ export async function setupPassword(token: string, passwordStr: string, cpfCnpjS
       cleanCpf = cpfCnpjStr.replace(/\D/g, "");
     }
 
+    let validatedBirthDate: Date | undefined = undefined;
+    if (!user.birthDate) {
+      if (!birthDateStr) {
+        return { error: "A data de nascimento é obrigatória para verificação de elegibilidade (18+)." };
+      }
+      const ageCheck = validateAgeEligibility(birthDateStr, 18);
+      if (!ageCheck.isValid || !ageCheck.birthDate) {
+        return { error: ageCheck.error || "Data de nascimento inválida ou menor de 18 anos." };
+      }
+      validatedBirthDate = ageCheck.birthDate;
+    }
+
+    const ipHeaders = await headers();
+    const ip = ipHeaders.get("x-forwarded-for") || ipHeaders.get("x-real-ip") || "127.0.0.1";
+    const userAgent = ipHeaders.get("user-agent") || "Web Client";
+
     const hashedPassword = await bcryptjs.hash(passwordStr, 10);
 
-    await prisma.user.update({
-      where: { id: user.id },
-      data: {
-        password: hashedPassword,
-        setupToken: null,
-        ...(cleanCpf ? { cpfCnpj: cleanCpf } : {})
+    await prisma.$transaction(async (tx) => {
+      await tx.user.update({
+        where: { id: user.id },
+        data: {
+          password: hashedPassword,
+          setupToken: null,
+          ...(cleanCpf ? { cpfCnpj: cleanCpf } : {}),
+          ...(validatedBirthDate ? { birthDate: validatedBirthDate } : {}),
+        }
+      });
+
+      // Record Terms and Privacy Acceptances
+      const activeTerms = await LegalAcceptanceService.getActiveDocument(LegalDocumentType.TERMS);
+      const activePrivacy = await LegalAcceptanceService.getActiveDocument(LegalDocumentType.PRIVACY);
+
+      if (activeTerms) {
+        await tx.legalAcceptance.create({
+          data: {
+            userId: user.id,
+            documentId: activeTerms.id,
+            documentType: LegalDocumentType.TERMS,
+            documentVersion: activeTerms.version,
+            documentHash: activeTerms.contentHash,
+            acceptanceType: LegalAcceptanceType.TERMS_ACCEPTED,
+            ipAddress: ip,
+            userAgent,
+            source: "SETUP_PASSWORD",
+          }
+        });
       }
+
+      if (activePrivacy) {
+        await tx.legalAcceptance.create({
+          data: {
+            userId: user.id,
+            documentId: activePrivacy.id,
+            documentType: LegalDocumentType.PRIVACY,
+            documentVersion: activePrivacy.version,
+            documentHash: activePrivacy.contentHash,
+            acceptanceType: LegalAcceptanceType.PRIVACY_ACKNOWLEDGED,
+            ipAddress: ip,
+            userAgent,
+            source: "SETUP_PASSWORD",
+          }
+        });
+      }
+
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "PASSWORD_SETUP_WITH_LEGAL_ACCEPTANCE",
+          entity: "USER",
+          entityId: user.id,
+          severity: "success",
+          ip,
+        }
+      });
     });
 
     return { success: true };

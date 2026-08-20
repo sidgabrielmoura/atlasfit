@@ -147,7 +147,10 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
       const res = await fetch("/api/superadmin/impersonate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetUserId: memberToImpersonate.userId })
+        body: JSON.stringify({
+          targetUserId: memberToImpersonate.userId,
+          reason: "Atendimento de suporte ao workspace / Diagnóstico autorizado pelo Superadmin",
+        })
       });
       if (!res.ok) throw new Error("Falha ao gerar token");
       const { token } = await res.json();

@@ -61,7 +61,7 @@ export function getNewLeadCapturedTrainerEmailTemplate(params: {
     ctaButton: {
       text: "Abrir Pipeline no CRM",
       url: crmUrl,
-      color: "#ea580c",
+      color: "#3b82f6",
     },
   });
 
@@ -83,7 +83,7 @@ export function getCommercialProposalLeadEmailTemplate(params: {
   const html = renderBaseEmailLayout({
     title: "Proposta de Consultoria Fitness",
     badgeText: "Proposta Comercial",
-    badgeColor: "#ea580c",
+    badgeColor: "#3b82f6",
     previewText: `${trainerName} enviou sua proposta de treinamento`,
     recipientEmail,
     contentHtml: `

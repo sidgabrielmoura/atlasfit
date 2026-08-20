@@ -137,14 +137,14 @@ export function TopBannerCarousel({ role = "ALL", customBanners, isPreview = fal
   };
 
   return (
-    <div className={cn("w-full mx-auto select-none", isPreview ? "p-0" : "pt-4 pb-0 max-w-4xl")}>
+    <div className={cn("w-full mx-auto select-none", isPreview ? "p-0" : "pt-4 pb-0 max-w-3xl")}>
       <div
         className="relative overflow-hidden rounded-3xl border border-border/60 mx-auto shadow-xl group transition-all w-full bg-card"
         onMouseEnter={() => setIsHovered(true)}
         onMouseLeave={() => setIsHovered(false)}
       >
         <div
-          className="flex transition-transform duration-700 ease-in-out w-full max-w-4xl mx-auto"
+          className="flex transition-transform duration-700 ease-in-out w-full max-w-3xl mx-auto"
           style={{ transform: `translateX(-${currentIndex * 100}%)` }}
         >
           {banners.map((banner) => {
@@ -154,14 +154,14 @@ export function TopBannerCarousel({ role = "ALL", customBanners, isPreview = fal
                 key={banner.id}
                 onClick={() => handleBannerClick(banner)}
                 className={cn(
-                  "w-full shrink-0 relative overflow-hidden flex items-center justify-center min-h-35 bg-secondary/10",
+                  "w-full shrink-0 relative overflow-hidden flex items-center justify-center min-h-25 bg-secondary/10",
                   hasLink && !isPreview && "cursor-pointer"
                 )}
               >
                 <img
                   src={banner.imageUrl}
                   alt={banner.title || "Banner"}
-                  className="w-full h-full object-cover rounded-3xl select-none"
+                  className="w-full h-full object-contain rounded-3xl select-none"
                 />
 
                 {hasLink && (
@@ -195,7 +195,7 @@ export function TopBannerCarousel({ role = "ALL", customBanners, isPreview = fal
               <ChevronRight className="size-4" />
             </button>
 
-            <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-20">
+            <div className="absolute bottom-1! left-1/2 -translate-x-1/2 flex items-center gap-1.5 z-20 min-h-5 sm:min-h-10">
               {banners.map((_, idx) => (
                 <button
                   key={idx}

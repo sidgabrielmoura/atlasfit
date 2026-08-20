@@ -20,6 +20,7 @@ import { cn, formatPhone } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { compressImage } from "@/lib/image-compress";
+import { PrivacyCenterTab } from "@/components/privacy/privacy-center-tab";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -38,7 +39,7 @@ function ImageInputWithToggle({
   id,
   label,
   description,
-  value,
+  value = "",
   onChange,
   onFileChange,
   onKeyChange,
@@ -48,7 +49,7 @@ function ImageInputWithToggle({
   id: string;
   label: string;
   description: string;
-  value: string;
+  value?: string;
   onChange: (val: string) => void;
   onFileChange?: (file: File | null) => void;
   onKeyChange?: (key: string) => void;
@@ -56,21 +57,22 @@ function ImageInputWithToggle({
   isAvatar?: boolean;
 }) {
   const [inputType, setInputType] = useState<"file" | "url">("url");
-  const [urlVal, setUrlVal] = useState("");
+  const [urlVal, setUrlVal] = useState(value || "");
   const [filePreview, setFilePreview] = useState("");
 
   // Sync state with parent value (e.g., when loaded from database)
   useEffect(() => {
-    if (value) {
-      if (value.startsWith("/api/storage/file") || value.startsWith("blob:") || value.startsWith("data:")) {
-        if (value !== filePreview) {
+    const safeVal = value || "";
+    if (safeVal) {
+      if (safeVal.startsWith("/api/storage/file") || safeVal.startsWith("blob:") || safeVal.startsWith("data:")) {
+        if (safeVal !== filePreview) {
           setInputType("file");
-          setFilePreview(value);
+          setFilePreview(safeVal);
         }
       } else {
-        if (value !== urlVal) {
+        if (safeVal !== urlVal) {
           setInputType("url");
-          setUrlVal(value);
+          setUrlVal(safeVal);
         }
       }
     } else {
@@ -81,8 +83,9 @@ function ImageInputWithToggle({
 
   // Update parent when URL changes
   const handleUrlChange = (val: string) => {
-    setUrlVal(val);
-    onChange(val);
+    const safe = val || "";
+    setUrlVal(safe);
+    onChange(safe);
     if (onFileChange) onFileChange(null);
     if (onKeyChange) onKeyChange("");
   };
@@ -102,11 +105,11 @@ function ImageInputWithToggle({
   const toggleInputType = (type: "file" | "url") => {
     setInputType(type);
     if (type === "url") {
-      onChange(urlVal);
+      onChange(urlVal || "");
       if (onFileChange) onFileChange(null);
       if (onKeyChange) onKeyChange("");
     } else {
-      onChange(filePreview);
+      onChange(filePreview || "");
     }
   };
 
@@ -167,6 +170,7 @@ function ImageInputWithToggle({
         <div className="flex-1">
           {inputType === "file" ? (
             <Input
+              key={`${id}-file-input`}
               id={id}
               type="file"
               accept="image/*"
@@ -175,9 +179,10 @@ function ImageInputWithToggle({
             />
           ) : (
             <Input
+              key={`${id}-url-input`}
               id={id}
               type="text"
-              value={urlVal}
+              value={urlVal || ""}
               onChange={(e) => handleUrlChange(e.target.value)}
               placeholder={placeholder || "https://exemplo.com/imagem.png"}
               className="rounded-xl bg-secondary/30 border-border/50 focus:bg-secondary/50 transition-all text-sm font-medium h-10"
@@ -638,7 +643,7 @@ export default function SettingsPage() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-4 max-w-[660px] mb-8">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 mb-8">
           <TabsTrigger value="marca" className="gap-2 cursor-pointer">
             <Paintbrush className="size-4" />
             Marca
@@ -651,9 +656,12 @@ export default function SettingsPage() {
             <CreditCard className="size-4" />
             Assinatura
           </TabsTrigger>
+          <TabsTrigger value="privacidade" className="gap-2 cursor-pointer">
+            Privacidade e LGPD
+          </TabsTrigger>
           <TabsTrigger value="seguranca" className="gap-2 cursor-pointer text-red-500 hover:text-red-600 data-[state=active]:bg-red-500/10 data-[state=active]:text-red-500">
-            <ShieldAlert className="size-4" />
-            Conta & Dados
+            <Trash2 className="size-4" />
+            Exclusão do workspace
           </TabsTrigger>
         </TabsList>
 
@@ -663,9 +671,6 @@ export default function SettingsPage() {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.2 }}
         >
-          {/* ============================== */}
-          {/* ABA: MARCA (WHITE-LABEL)       */}
-          {/* ============================== */}
           <TabsContent value="marca" className="space-y-8 mt-0 outline-none">
 
             {/* 1. Identidade Visual */}
@@ -680,7 +685,7 @@ export default function SettingsPage() {
                     <Label htmlFor="brandName">Nome da Assessoria</Label>
                     <Input
                       id="brandName"
-                      value={brandName}
+                      value={brandName || ""}
                       onChange={(e) => setBrandName(e.target.value)}
                       placeholder="ex: Silva Assessoria Esportiva"
                       className="rounded-xl bg-secondary/30 border-border/50 focus:bg-secondary/50 transition-all font-semibold"
@@ -690,7 +695,7 @@ export default function SettingsPage() {
                     <Label htmlFor="brandSlogan">Slogan / Frase de Impacto</Label>
                     <Input
                       id="brandSlogan"
-                      value={brandSlogan}
+                      value={brandSlogan || ""}
                       onChange={(e) => setBrandSlogan(e.target.value)}
                       placeholder="ex: Elevando seus limites diários"
                       className="rounded-xl bg-secondary/30 border-border/50 focus:bg-secondary/50 transition-all"
@@ -703,7 +708,7 @@ export default function SettingsPage() {
                     id="brandLogo"
                     label="Logotipo da Assessoria"
                     description="(PNG, JPG ou SVG)."
-                    value={logoUrl}
+                    value={logoUrl || ""}
                     onChange={setLogoUrl}
                     onFileChange={setLogoFile}
                     onKeyChange={setLogoKey}
@@ -713,7 +718,7 @@ export default function SettingsPage() {
                     id="pdfWatermark"
                     label="Marca d'água em PDF"
                     description="A imagem nos PDFs exportados."
-                    value={watermarkUrl}
+                    value={watermarkUrl || ""}
                     onChange={setWatermarkUrl}
                     onFileChange={setWatermarkFile}
                     onKeyChange={setWatermarkKey}
@@ -741,13 +746,13 @@ export default function SettingsPage() {
                         <Input
                           type="color"
                           id="colorPrimary"
-                          value={brandColor}
+                          value={brandColor || "#0ea5e9"}
                           onChange={(e) => setBrandColor(e.target.value)}
                           className="absolute inset-0 size-full p-0 border-0 cursor-pointer scale-150"
                         />
                       </div>
                       <Input
-                        value={brandColor}
+                        value={brandColor || "#0ea5e9"}
                         onChange={(e) => setBrandColor(e.target.value)}
                         className="flex-1 uppercase font-mono text-sm tracking-wider rounded-xl bg-secondary/30 border-border/50"
                       />
@@ -767,7 +772,7 @@ export default function SettingsPage() {
                   id="workoutCover"
                   label="Capa Padrão dos Treinos"
                   description="Capa personalizada de treino."
-                  value={workoutCoverUrl}
+                  value={workoutCoverUrl || ""}
                   onChange={setWorkoutCoverUrl}
                   onFileChange={setWorkoutCoverFile}
                   onKeyChange={setWorkoutCoverKey}
@@ -789,7 +794,7 @@ export default function SettingsPage() {
                     id="profImage"
                     label="Foto de Perfil"
                     description="Sua foto de perfil (PNG, JPG ou SVG)."
-                    value={image}
+                    value={image || ""}
                     onChange={setImage}
                     onFileChange={setAvatarFile}
                     onKeyChange={setImageKey}
@@ -802,7 +807,7 @@ export default function SettingsPage() {
                     <Label htmlFor="profName">Nome Completo</Label>
                     <Input
                       id="profName"
-                      value={name}
+                      value={name || ""}
                       onChange={(e) => setName(e.target.value)}
                       className="rounded-xl bg-secondary/30 border-border/50"
                     />
@@ -811,7 +816,7 @@ export default function SettingsPage() {
                     <Label htmlFor="profSpecialty">Especialidade Principal</Label>
                     <Input
                       id="profSpecialty"
-                      value={specialty}
+                      value={specialty || ""}
                       onChange={(e) => setSpecialty(e.target.value)}
                       className="rounded-xl bg-secondary/30 border-border/50"
                     />
@@ -822,7 +827,7 @@ export default function SettingsPage() {
                   <Label htmlFor="profBio">Biografia</Label>
                   <Textarea
                     id="profBio"
-                    value={bio}
+                    value={bio || ""}
                     onChange={(e) => setBio(e.target.value)}
                     className="min-h-[120px] resize-none rounded-xl bg-secondary/30 border-border/50"
                     placeholder="Conte um pouco sobre sua trajetória profissional..."
@@ -835,7 +840,7 @@ export default function SettingsPage() {
                     <Input
                       id="profWhatsApp"
                       placeholder="Ex: (11) 99999-9999"
-                      value={whatsapp}
+                      value={whatsapp || ""}
                       onChange={(e) => setWhatsapp(formatPhone(e.target.value))}
                       className="rounded-xl bg-secondary/30 border-border/50"
                     />
@@ -844,7 +849,7 @@ export default function SettingsPage() {
                     <Label htmlFor="profInstagram">Instagram</Label>
                     <Input
                       id="profInstagram"
-                      value={instagram}
+                      value={instagram || ""}
                       onChange={(e) => setInstagram(e.target.value)}
                       className="rounded-xl bg-secondary/30 border-border/50"
                     />
@@ -853,7 +858,7 @@ export default function SettingsPage() {
                     <Label htmlFor="profLinkedin">LinkedIn</Label>
                     <Input
                       id="profLinkedin"
-                      value={linkedin}
+                      value={linkedin || ""}
                       onChange={(e) => setLinkedin(e.target.value)}
                       className="rounded-xl bg-secondary/30 border-border/50"
                     />
@@ -865,7 +870,7 @@ export default function SettingsPage() {
                     <Label htmlFor="profCity">Cidade / Estado</Label>
                     <Input
                       id="profCity"
-                      value={city}
+                      value={city || ""}
                       onChange={(e) => setCity(e.target.value)}
                       className="rounded-xl bg-secondary/30 border-border/50"
                     />
@@ -874,7 +879,7 @@ export default function SettingsPage() {
                     <Label htmlFor="profExperience">Tempo de Experiência</Label>
                     <Input
                       id="profExperience"
-                      value={experience}
+                      value={experience || ""}
                       onChange={(e) => setExperience(e.target.value)}
                       className="rounded-xl bg-secondary/30 border-border/50"
                     />
@@ -883,7 +888,7 @@ export default function SettingsPage() {
                     <Label htmlFor="profCref">CREF</Label>
                     <Input
                       id="profCref"
-                      value={cref}
+                      value={cref || ""}
                       onChange={(e) => setCref(e.target.value)}
                       className="rounded-xl bg-secondary/30 border-border/50"
                     />
@@ -1039,12 +1044,19 @@ export default function SettingsPage() {
             )}
           </TabsContent>
 
+          {/* ============================== */}
+          {/* ABA: PRIVACIDADE & LGPD        */}
+          {/* ============================== */}
+          <TabsContent value="privacidade" className="space-y-8 mt-0 outline-none">
+            <PrivacyCenterTab />
+          </TabsContent>
+
           {/* ================================== */}
           {/* ABA: CONTA & DADOS (DANGER ZONE)   */}
           {/* ================================== */}
           <TabsContent value="seguranca" className="space-y-8 mt-0 outline-none">
             {/* Card 1: Exclusão de Dados Pessoais */}
-            <Card className="border-red-500/20 shadow-xs bg-card overflow-hidden relative">
+            {/* <Card className="border-red-500/20 shadow-xs bg-card overflow-hidden relative">
               <div className="absolute top-0 left-0 w-1 h-full bg-red-500" />
               <CardHeader className="pb-3 border-b border-border/40">
                 <div className="flex items-center gap-2">
@@ -1100,7 +1112,7 @@ export default function SettingsPage() {
                   </div>
                 )}
               </CardContent>
-            </Card>
+            </Card> */}
 
             {/* Card 2: Exclusão do Workspace Atual */}
             <Card className="border-red-500/20 shadow-xs bg-card overflow-hidden relative">

@@ -68,7 +68,7 @@ export async function DELETE(req: Request) {
     const mapped = remainingWorkspaces.map((w) => ({
       ...w,
       logo: w.name ? w.name.charAt(0).toUpperCase() : "A",
-      primaryColor: w.primaryColor || "#ea580c",
+      primaryColor: w.primaryColor || "#3b82f6",
       plan: "Assessoria",
     }));
 

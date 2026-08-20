@@ -15,7 +15,7 @@ export function getNewWorkoutPrescribedEmailTemplate(params: {
   const html = renderBaseEmailLayout({
     title: "Novo Treino Prescrito!",
     badgeText: "Treino Liberado",
-    badgeColor: "#ea580c",
+    badgeColor: "#3b82f6",
     previewText: `Seu personal ${trainerName} liberou o treino: ${workoutName}`,
     recipientEmail,
     contentHtml: `
@@ -30,7 +30,7 @@ export function getNewWorkoutPrescribedEmailTemplate(params: {
         <div style="border-top: 1px solid #1f1f23; padding-top: 12px; font-size: 13px;">
           ${goal ? `<div style="margin-bottom: 6px;"><strong style="color: #ffffff;">Objetivo:</strong> <span style="color: #a1a1aa;">${goal}</span></div>` : ""}
           ${duration ? `<div style="margin-bottom: 6px;"><strong style="color: #ffffff;">Duração Estimada:</strong> <span style="color: #a1a1aa;">${duration}</span></div>` : ""}
-          ${exerciseCount ? `<div><strong style="color: #ffffff;">Total de Exercícios:</strong> <span style="color: #ea580c; font-weight: bold;">${exerciseCount} exercícios</span></div>` : ""}
+          ${exerciseCount ? `<div><strong style="color: #ffffff;">Total de Exercícios:</strong> <span style="color: #3b82f6; font-weight: bold;">${exerciseCount} exercícios</span></div>` : ""}
         </div>
       </div>
 
@@ -41,6 +41,7 @@ export function getNewWorkoutPrescribedEmailTemplate(params: {
     ctaButton: {
       text: "Acessar Meu Novo Treino",
       url: workoutsUrl,
+      color: "#3b82f6",
     },
   });
 

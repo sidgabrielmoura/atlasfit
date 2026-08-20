@@ -5,6 +5,8 @@ import bcryptjs from "bcryptjs";
 import crypto from "crypto";
 import { batchVerifyAndDecayStreaks } from "@/lib/streak-helper";
 import { EmailService } from "@/lib/emails/service";
+import { validateAgeEligibility } from "@/lib/privacy/age-validator";
+import { ErasureService } from "@/lib/privacy/erasure.service";
 
 // GET: Fetch all students of a given workspace
 export async function GET(req: Request) {
@@ -99,13 +101,22 @@ export async function POST(req: Request) {
   }
   try {
     const body = await req.json();
-    const { workspaceId, name, email, whatsapp, cpfCnpj } = body;
+    const { workspaceId, name, email, whatsapp, cpfCnpj, birthDate } = body;
     const plan = body.plan || "Mensal";
     const modality = body.modality || "PRESENCIAL";
     const cleanCpfCnpj = cpfCnpj ? cpfCnpj.replace(/\D/g, "") : undefined;
 
     if (!workspaceId || !name || !email) {
-      return new NextResponse("Campos obrigatórios ausentes.", { status: 400 });
+      return NextResponse.json({ error: "Campos obrigatórios ausentes." }, { status: 400 });
+    }
+
+    let validatedBirthDate: Date | null = null;
+    if (birthDate) {
+      const ageResult = validateAgeEligibility(birthDate, 18);
+      if (!ageResult.isValid) {
+        return NextResponse.json({ error: ageResult.error }, { status: 400 });
+      }
+      validatedBirthDate = ageResult.birthDate || null;
     }
 
     const memberCheck = await prisma.workspaceMember.findFirst({
@@ -116,7 +127,7 @@ export async function POST(req: Request) {
     });
 
     if (!memberCheck) {
-      return new NextResponse("Acesso negado a este workspace.", { status: 403 });
+      return NextResponse.json({ error: "Acesso negado a este workspace." }, { status: 403 });
     }
 
     let studentUser = await prisma.user.findUnique({
@@ -134,7 +145,7 @@ export async function POST(req: Request) {
       });
 
       if (existingMember) {
-        return new NextResponse("Este aluno já está cadastrado neste workspace.", { status: 400 });
+        return NextResponse.json({ error: "Este aluno já está cadastrado neste workspace." }, { status: 400 });
       }
 
       await prisma.workspaceMember.create({
@@ -152,6 +163,13 @@ export async function POST(req: Request) {
         await prisma.user.update({
           where: { id: studentUser.id },
           data: { cpfCnpj: cleanCpfCnpj }
+        });
+      }
+
+      if (validatedBirthDate && !studentUser.birthDate) {
+        await prisma.user.update({
+          where: { id: studentUser.id },
+          data: { birthDate: validatedBirthDate }
         });
       }
 
@@ -196,6 +214,7 @@ export async function POST(req: Request) {
             role: "STUDENT",
             whatsapp,
             cpfCnpj: cleanCpfCnpj,
+            birthDate: validatedBirthDate,
           },
         });
 
@@ -373,7 +392,7 @@ export async function DELETE(req: Request) {
         where: { userId },
       });
 
-      // 3. If they belong to no other workspace, purge their User record
+      // 3. If they belong to no other workspace, purge their User record and R2 files
       if (otherMemberships === 0) {
         await tx.user.delete({
           where: { id: userId },
@@ -381,9 +400,17 @@ export async function DELETE(req: Request) {
       }
     });
 
-    return new NextResponse("Aluno excluído com sucesso.", { status: 200 });
+    // Cleanup physical R2 files asynchronously outside transaction
+    const remainingMemberships = await prisma.workspaceMember.count({ where: { userId } });
+    if (remainingMemberships === 0) {
+      await ErasureService.executeCompleteErasure(userId, session.user.id).catch((e) => {
+        console.warn("[StudentDelete] ErasureService cleanup handled:", e.message);
+      });
+    }
+
+    return NextResponse.json({ success: true, message: "Aluno excluído com sucesso." });
   } catch (error) {
     console.error("DELETE student error:", error);
-    return new NextResponse("Erro interno do servidor.", { status: 500 });
+    return NextResponse.json({ error: "Erro interno do servidor." }, { status: 500 });
   }
 }

@@ -28,12 +28,29 @@ export function getLogoUrl(): string {
   return `${cleanDomain}/logos_atlasfit/atlasfit%20(4).png`;
 }
 
+function hexToRgba(hex: string, alpha: number): string {
+  const cleanHex = hex.replace("#", "").trim();
+  if (cleanHex.length === 6) {
+    const r = parseInt(cleanHex.substring(0, 2), 16);
+    const g = parseInt(cleanHex.substring(2, 4), 16);
+    const b = parseInt(cleanHex.substring(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  if (cleanHex.length === 3) {
+    const r = parseInt(cleanHex[0] + cleanHex[0], 16);
+    const g = parseInt(cleanHex[1] + cleanHex[1], 16);
+    const b = parseInt(cleanHex[2] + cleanHex[2], 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+  }
+  return `rgba(59, 130, 246, ${alpha})`;
+}
+
 export function renderBaseEmailLayout(options: EmailBaseLayoutOptions): string {
   const {
     title,
     previewText,
     badgeText,
-    badgeColor = "#ea580c",
+    badgeColor = "#3b82f6",
     contentHtml,
     ctaButton,
     secondaryInfoHtml,
@@ -42,6 +59,10 @@ export function renderBaseEmailLayout(options: EmailBaseLayoutOptions): string {
 
   const logoUrl = getLogoUrl();
   const currentYear = new Date().getFullYear();
+  const buttonColor = ctaButton?.color || "#3b82f6";
+  const badgeBg = hexToRgba(badgeColor, 0.12);
+  const badgeBorder = hexToRgba(badgeColor, 0.25);
+  const buttonShadow = hexToRgba(buttonColor, 0.35);
 
   return `
 <!DOCTYPE html>
@@ -101,7 +122,7 @@ export function renderBaseEmailLayout(options: EmailBaseLayoutOptions): string {
                   ${badgeText ? `
                     <tr>
                       <td align="left" style="padding-bottom: 16px;">
-                        <span style="display: inline-block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: ${badgeColor}; background-color: rgba(234, 88, 12, 0.12); border: 1px solid rgba(234, 88, 12, 0.25); padding: 5px 12px; border-radius: 12px;">
+                        <span style="display: inline-block; font-size: 11px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.08em; color: ${badgeColor}; background-color: ${badgeBg}; border: 1px solid ${badgeBorder}; padding: 5px 12px; border-radius: 12px;">
                           ${badgeText}
                         </span>
                       </td>
@@ -129,7 +150,7 @@ export function renderBaseEmailLayout(options: EmailBaseLayoutOptions): string {
                   ${ctaButton ? `
                     <tr>
                       <td align="center" style="padding-top: 28px; padding-bottom: 12px;">
-                        <a href="${ctaButton.url}" target="_blank" class="cta-btn" style="display: inline-block; background-color: ${ctaButton.color || "#ea580c"}; color: #ffffff !important; font-size: 14px; font-weight: 800; text-decoration: none; padding: 14px 32px; border-radius: 14px; box-shadow: 0 4px 14px rgba(234, 88, 12, 0.35); text-align: center;">
+                        <a href="${ctaButton.url}" target="_blank" class="cta-btn" style="display: inline-block; background-color: ${buttonColor}; color: #ffffff !important; font-size: 14px; font-weight: 800; text-decoration: none; padding: 14px 32px; border-radius: 14px; box-shadow: 0 4px 14px ${buttonShadow}; text-align: center;">
                           ${ctaButton.text}
                         </a>
                       </td>

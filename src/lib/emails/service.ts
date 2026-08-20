@@ -600,7 +600,7 @@ export class EmailService {
     const html = renderBaseEmailLayout({
       title,
       badgeText: badgeText || "Notificação",
-      badgeColor: badgeColor || "#ea580c",
+      badgeColor: badgeColor || "#3b82f6",
       previewText: description.slice(0, 100),
       recipientEmail: to,
       contentHtml: `<p style="margin: 0 0 16px 0; color: #d4d4d8; line-height: 1.6;">${description}</p>`,

@@ -62,7 +62,7 @@ export default function PersonalOnboardingPage() {
   // Step 2: Identidade Visual
   const [brandName, setBrandName] = useState("");
   const [brandSlogan, setBrandSlogan] = useState("");
-  const [brandColor, setBrandColor] = useState("#ea580c");
+  const [brandColor, setBrandColor] = useState("#3b82f6");
   
   const [logoType, setLogoType] = useState<"file" | "url">("file");
   const [logoUrl, setLogoUrl] = useState("");

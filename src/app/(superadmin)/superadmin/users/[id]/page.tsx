@@ -90,7 +90,10 @@ export default function UserDeepViewPage({ params }: { params: Promise<{ id: str
       const res = await fetch("/api/superadmin/impersonate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ targetUserId: user.id })
+        body: JSON.stringify({
+          targetUserId: user.id,
+          reason: "Atendimento de suporte / Diagnóstico autorizado pelo Superadmin",
+        })
       });
       if (!res.ok) throw new Error("Falha ao gerar token");
       const { token } = await res.json();
