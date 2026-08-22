@@ -103,6 +103,7 @@ function VideoPlayer({ videoUrl, title }: { videoUrl?: string | null; title?: st
       controls
       autoPlay
       playsInline
+      preload="auto"
       className="size-full object-contain"
     >
       Seu navegador não suporta a reprodução deste vídeo.

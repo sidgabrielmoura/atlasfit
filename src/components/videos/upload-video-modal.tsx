@@ -427,7 +427,7 @@ export function UploadVideoModal({
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 disabled={isSubmitting}
-                className="h-10 text-xs rounded-xl"
+                className="h-10 text-xs! rounded-xl"
                 maxLength={150}
               />
             </div>
@@ -440,7 +440,7 @@ export function UploadVideoModal({
                 onChange={(e) => setDescription(e.target.value)}
                 disabled={isSubmitting}
                 rows={2}
-                className="text-xs rounded-xl resize-none"
+                className="text-xs! rounded-xl resize-none"
                 maxLength={500}
               />
             </div>
@@ -458,7 +458,7 @@ export function UploadVideoModal({
                 value={exerciseSearch}
                 onChange={(e) => setExerciseSearch(e.target.value)}
                 disabled={isSubmitting}
-                className="h-8 text-xs rounded-lg"
+                className="h-8 text-xs! rounded-lg"
               />
 
               <section className="rounded-xl border border-border/70 p-2 bg-secondary/10 overflow-hidden">

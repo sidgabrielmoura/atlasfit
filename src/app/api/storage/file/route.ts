@@ -7,6 +7,7 @@ export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const key = searchParams.get("key");
   const download = searchParams.get("download"); // Set to "true" to force attachment download
+  const rangeHeader = req.headers.get("range") || req.headers.get("Range");
 
   if (!key) {
     return new NextResponse("O parâmetro key é obrigatório.", { status: 400 });
@@ -18,7 +19,9 @@ export async function GET(req: Request) {
     key.includes("/logos/") ||
     key.includes("/watermarks/") ||
     key.includes("/covers/") ||
-    key.startsWith("campaigns/");
+    key.startsWith("campaigns/") ||
+    key.startsWith("videos/") ||
+    key.startsWith("exercises/");
 
   let session = null;
   if (!isPublic) {
@@ -33,9 +36,6 @@ export async function GET(req: Request) {
 
     // 2. Multi-tenant Authorization checks for private files
     if (!isPublic && userId) {
-      // Analyze key path. e.g. "workspace/{workspaceId}/students/{studentId}/progress/..."
-      // Or "workspace/{workspaceId}/evaluations/..."
-      // Or "workspace/{workspaceId}/files/..."
       const parts = key.split("/");
       const workspaceIndex = parts.indexOf("workspace");
       
@@ -68,7 +68,6 @@ export async function GET(req: Request) {
             }
           } else {
             // If not trainer, is the user the student associated with the specific file?
-            // Find studentId from path: "students/{studentId}"
             const studentsIndex = parts.indexOf("students");
             let isSelfStudent = false;
 
@@ -76,7 +75,6 @@ export async function GET(req: Request) {
               const studentId = parts[studentsIndex + 1];
               isSelfStudent = userId === studentId;
             } else {
-              // Check if key exists in StudentFile database and matches user
               const dbFile = await prisma.studentFile.findFirst({
                 where: {
                   objectKey: key,
@@ -94,15 +92,12 @@ export async function GET(req: Request) {
           }
         }
       } else {
-        // Fallback checks for keys outside standard workspace directory format
-        // Check if file is assigned to student in the database
         const dbFile = await prisma.studentFile.findFirst({
           where: { objectKey: key },
           select: { studentId: true },
         });
         
         if (dbFile && dbFile.studentId !== userId) {
-          // Check if trainer of student's workspace
           const studentWorkspaceMember = await prisma.workspaceMember.findFirst({
             where: { userId: dbFile.studentId },
             select: { workspaceId: true },
@@ -127,8 +122,8 @@ export async function GET(req: Request) {
       }
     }
 
-    // 3. Stream object from R2
-    const fileObject = await storageService.getObjectStream(key);
+    // 3. Stream object from R2 with optional HTTP Range Support
+    const fileObject = await storageService.getObjectStream(key, rangeHeader);
     
     if (!fileObject.body) {
       return new NextResponse("Arquivo vazio.", { status: 404 });
@@ -141,16 +136,29 @@ export async function GET(req: Request) {
 
     const headers = new Headers();
     headers.set("Content-Type", fileObject.contentType || "application/octet-stream");
+    headers.set("Accept-Ranges", "bytes");
+
+    if (fileObject.contentRange) {
+      headers.set("Content-Range", fileObject.contentRange);
+    }
     
-    if (fileObject.contentLength) {
+    if (fileObject.contentLength !== undefined && fileObject.contentLength !== null) {
       headers.set("Content-Length", fileObject.contentLength.toString());
+    }
+
+    if (fileObject.eTag) {
+      headers.set("ETag", fileObject.eTag);
+    }
+
+    if (fileObject.lastModified) {
+      headers.set("Last-Modified", fileObject.lastModified.toUTCString());
     }
 
     // Cache-Control
     if (isPublic) {
-      headers.set("Cache-Control", "public, max-age=86400, stale-while-revalidate=43200");
+      headers.set("Cache-Control", "public, max-age=31536000, stale-while-revalidate=86400");
     } else {
-      headers.set("Cache-Control", "private, max-age=3600");
+      headers.set("Cache-Control", "private, max-age=86400");
     }
 
     // Content-Disposition for download requests
@@ -160,13 +168,19 @@ export async function GET(req: Request) {
     }
 
     return new Response(webStream, {
-      status: 200,
+      status: fileObject.statusCode || 200,
       headers,
     });
   } catch (error: any) {
-    console.error(" reverse-proxy route error:", error);
-    if (error.name === "NoSuchKey") {
+    console.error("Storage reverse-proxy route error:", error);
+    if (error.name === "NoSuchKey" || error.$metadata?.httpStatusCode === 404) {
       return new NextResponse("Arquivo não encontrado no servidor de armazenamento.", { status: 404 });
+    }
+    if (error.name === "InvalidRange" || error.$metadata?.httpStatusCode === 416) {
+      return new NextResponse(null, {
+        status: 416,
+        headers: { "Content-Range": "bytes */*" },
+      });
     }
     return new NextResponse("Erro ao recuperar o arquivo.", { status: 500 });
   }

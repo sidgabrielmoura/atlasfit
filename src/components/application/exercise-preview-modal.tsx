@@ -113,9 +113,10 @@ export function ExerciseThumbnail({ videoUrl, className }: ExerciseThumbnailProp
         />
       ) : isVideo && videoUrl ? (
         <video
-          src={videoUrl}
+          src={videoUrl ? `${videoUrl}#t=0.1` : undefined}
           className="size-full object-cover"
           muted
+          playsInline
           preload="metadata"
         />
       ) : isDrive ? (
@@ -160,17 +161,16 @@ export function ExercisePreviewModal({ exercise, open, onOpenChange }: ExerciseP
   const isVideo = exercise.videoUrl?.toLowerCase().endsWith(".mp4") || exercise.videoUrl?.toLowerCase().includes(".mp4") || exercise.videoUrl?.includes("/api/storage/file") || exercise.videoUrl?.toLowerCase().endsWith(".webm") || exercise.videoUrl?.toLowerCase().endsWith(".mov");
   const driveEmbedUrl = getGoogleDriveEmbedUrl(exercise.videoUrl);
 
-  const embedUrl = youtubeId ? `https://www.youtube.com/embed/${youtubeId}?autoplay=1&mute=1&loop=1&playlist=${youtubeId}` : null;
-  const youtubeSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(exercise.name + " execução correta")}`;
+  const youtubeSearchUrl = `https://www.youtube.com/results?search_query=${encodeURIComponent(`exercicio ${exercise.name} execucao correta`)}`;
 
   const renderContent = () => (
     <div className="space-y-5 p-4 md:p-6 bg-card text-foreground">
       <div className="relative aspect-video w-full rounded-2xl overflow-hidden bg-secondary border border-border shadow-2xl flex items-center justify-center">
-        {embedUrl ? (
+        {youtubeId ? (
           <iframe
-            src={embedUrl}
-            title={`Execução de ${exercise.name}`}
-            className="w-full h-full border-none"
+            src={`https://www.youtube.com/embed/${youtubeId}?autoplay=1&rel=0`}
+            title={exercise.name}
+            className="w-full h-full border-0"
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
           />
@@ -196,13 +196,14 @@ export function ExercisePreviewModal({ exercise, open, onOpenChange }: ExerciseP
           />
         ) : isVideo && exercise.videoUrl ? (
           <video
-            src={exercise.videoUrl}
+            src={exercise.videoUrl ? `${exercise.videoUrl}#t=0.1` : undefined}
             className="w-full h-full object-cover"
             controls
             loop
             muted
             autoPlay
             playsInline
+            preload="auto"
           />
         ) : (
           <div className="w-full h-full flex flex-col items-center justify-center gap-4 text-center p-6 bg-muted/30">

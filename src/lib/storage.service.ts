@@ -64,12 +64,13 @@ export const storageService = {
   },
 
   /**
-   * Retrieves an object from Cloudflare R2 as a stream for secure proxy serving
+   * Retrieves an object from Cloudflare R2 as a stream for secure proxy serving with optional byte range support
    */
-  async getObjectStream(key: string) {
+  async getObjectStream(key: string, range?: string | null) {
     const command = new GetObjectCommand({
       Bucket: bucketName,
       Key: key,
+      ...(range ? { Range: range } : {}),
     });
 
     const response = await s3Client.send(command);
@@ -77,6 +78,11 @@ export const storageService = {
       body: response.Body,
       contentType: response.ContentType,
       contentLength: response.ContentLength,
+      contentRange: response.ContentRange,
+      eTag: response.ETag,
+      lastModified: response.LastModified,
+      acceptRanges: response.AcceptRanges || "bytes",
+      statusCode: response.ContentRange ? 206 : 200,
     };
   },
 
