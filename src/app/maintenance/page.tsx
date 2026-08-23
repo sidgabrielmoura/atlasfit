@@ -7,8 +7,7 @@ import { Badge } from "@/components/ui/badge";
 export default function MaintenancePage() {
   return (
     <div className="min-h-screen bg-background text-foreground flex flex-col justify-between p-6 md:p-12 font-sans select-none">
-      {/* 1. Header (Brand & Global Status Badge) */}
-      <header className="w-full max-w-[1200px] mx-auto flex items-center justify-between border-b border-border pb-6">
+      <header className="w-full max-w-300 mx-auto flex items-center justify-between border-b border-border pb-6">
         <div className="flex items-center gap-2">
           <span className="text-sm font-black tracking-[0.25em] text-foreground">ATLASFIT</span>
         </div>
@@ -18,10 +17,7 @@ export default function MaintenancePage() {
         </div>
       </header>
 
-      {/* 2. Main Structured Layout - 2 Columns */}
-      <main className="w-full max-w-[1200px] mx-auto my-auto py-12 md:py-16 grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-16 items-start">
-        
-        {/* Left Column: Core Status Info */}
+      <main className="w-full max-w-300 mx-auto my-auto py-12 md:py-16 grid grid-cols-1 md:grid-cols-12 gap-8 md:gap-16 items-start">
         <div className="md:col-span-7 space-y-8">
           <div className="space-y-4">
             <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded text-[10px] font-black tracking-[0.15em] text-amber-500 bg-amber-500/10 border border-amber-500/20 uppercase">

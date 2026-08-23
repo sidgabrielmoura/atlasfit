@@ -409,14 +409,13 @@ export default function PersonalFilesPage() {
     }
   };
 
-  // Metrics details
   const totalFiles = files.length;
   const examFilesCount = files.filter(f => f.category === "exames").length;
   const dietTrainFilesCount = files.filter(f => f.category === "dieta_treino").length;
   const othersFilesCount = files.filter(f => f.category === "outros").length;
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-5 w-full max-w-7xl mx-auto">
+    <div className="p-4 md:p-6 lg:p-8 space-y-5 w-full! max-w-7xl! mx-auto">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-border/55 pb-6 gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">
@@ -439,9 +438,7 @@ export default function PersonalFilesPage() {
         </Button>
       </div>
 
-      {/* KPI Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        {/* Stat 1: Total */}
         <Card className="bg-card border-border p-4 rounded-2xl relative overflow-hidden select-none">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Total Geral</span>
@@ -451,7 +448,6 @@ export default function PersonalFilesPage() {
           <p className="text-[10px] text-muted-foreground/80 font-medium mt-1">Arquivos compartilhados</p>
         </Card>
 
-        {/* Stat 2: Dietas e Treinos */}
         <Card className="bg-card border-border p-4 rounded-2xl relative overflow-hidden select-none">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Dieta & Treino</span>
@@ -461,7 +457,6 @@ export default function PersonalFilesPage() {
           <p className="text-[10px] text-muted-foreground/80 font-medium mt-1">Planos de treino e nutrição</p>
         </Card>
 
-        {/* Stat 3: Laudos e Exames */}
         <Card className="bg-card border-border p-4 rounded-2xl relative overflow-hidden select-none">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Laudos & Exames</span>
@@ -471,7 +466,6 @@ export default function PersonalFilesPage() {
           <p className="text-[10px] text-muted-foreground/80 font-medium mt-1">Check-ups médicos e exames</p>
         </Card>
 
-        {/* Stat 4: Outros */}
         <Card className="bg-card border-border p-4 rounded-2xl relative overflow-hidden select-none">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Outros</span>
@@ -482,9 +476,7 @@ export default function PersonalFilesPage() {
         </Card>
       </div>
 
-      {/* Filter and Search Box */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 bg-secondary/30 p-4 rounded-2xl border border-border">
-        {/* Search */}
         <div className="relative md:col-span-1">
           <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
           <Input
@@ -495,7 +487,6 @@ export default function PersonalFilesPage() {
           />
         </div>
 
-        {/* Student filter */}
         <div className="md:col-span-1">
           <Select value={selectedStudentFilter} onValueChange={setSelectedStudentFilter}>
             <SelectTrigger className="h-11 max-sm:w-full bg-background border-border rounded-xl text-xs text-foreground focus:ring-0 focus:ring-offset-0">
@@ -510,7 +501,6 @@ export default function PersonalFilesPage() {
           </Select>
         </div>
 
-        {/* Category Pills */}
         <div className="md:col-span-2 flex items-center gap-2 overflow-x-auto pb-1 md:pb-0 scrollbar-none">
           <button
             onClick={() => setSelectedCategory("all")}
@@ -625,7 +615,6 @@ export default function PersonalFilesPage() {
                       </div>
                     </div>
 
-                    {/* Footer Actions */}
                     <div className="flex items-center justify-between border-t border-border pt-3.5 text-[10px] text-muted-foreground font-bold">
                       <button
                         onClick={() => setDeleteTargetFile(file)}
@@ -636,26 +625,24 @@ export default function PersonalFilesPage() {
                       </button>
 
                       <div className="flex items-center gap-3">
-                        {/* Trainer Notes Popover */}
                         {hasNotes && (
-                           <Popover>
-                             <PopoverTrigger asChild>
-                               <button className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 cursor-pointer active:scale-95 duration-100">
-                                 <ClipboardList className="size-4 text-primary shrink-0" />
-                                 <span>Notas</span>
-                               </button>
-                             </PopoverTrigger>
-                             <PopoverContent className="w-72 bg-popover border border-border text-xs text-popover-foreground p-3.5 rounded-xl shadow-2xl">
-                               <div className="flex items-center gap-1.5 font-black text-foreground mb-2 uppercase tracking-widest text-[9px]">
-                                 <ClipboardList className="size-3.5 text-primary shrink-0" />
-                                 <span>Notas de Upload</span>
-                               </div>
-                               <p className="leading-relaxed font-semibold wrap-break-word text-left">{file.notes}</p>
-                             </PopoverContent>
-                           </Popover>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <button className="text-muted-foreground hover:text-foreground transition-colors flex items-center gap-1 cursor-pointer active:scale-95 duration-100">
+                                <ClipboardList className="size-4 text-primary shrink-0" />
+                                <span>Notas</span>
+                              </button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-72 bg-popover border border-border text-xs text-popover-foreground p-3.5 rounded-xl shadow-2xl">
+                              <div className="flex items-center gap-1.5 font-black text-foreground mb-2 uppercase tracking-widest text-[9px]">
+                                <ClipboardList className="size-3.5 text-primary shrink-0" />
+                                <span>Notas de Upload</span>
+                              </div>
+                              <p className="leading-relaxed font-semibold wrap-break-word text-left">{file.notes}</p>
+                            </PopoverContent>
+                          </Popover>
                         )}
 
-                        {/* File Preview */}
                         {previewAllowed && (
                           <button
                             onClick={() => setPreviewFile(file)}
@@ -666,7 +653,6 @@ export default function PersonalFilesPage() {
                           </button>
                         )}
 
-                        {/* Download link */}
                         <a
                           href={file.url}
                           target="_blank"
@@ -691,7 +677,6 @@ export default function PersonalFilesPage() {
         )}
       </AnimatePresence>
 
-      {/* ==================== DIALOG: COMPARTILHAR ARQUIVO ==================== */}
       <Dialog open={isUploadModalOpen} onOpenChange={setIsUploadModalOpen}>
         <DialogContent className="w-full max-w-lg bg-card border border-border text-foreground rounded-2xl! shadow-2xl overflow-y-auto! max-h-[90vh] p-6">
           <div className="absolute top-0 inset-x-0 h-px bg-linear-to-r from-transparent via-primary/20 to-transparent" />
@@ -881,9 +866,8 @@ export default function PersonalFilesPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ==================== DIALOG: PREVIEW FILE ==================== */}
       <Dialog open={!!previewFile} onOpenChange={(open) => !open && setPreviewFile(null)}>
-        <DialogContent className="max-w-4xl h-[90vh] bg-card border border-border rounded-2xl flex flex-col p-0 overflow-hidden shadow-2xl">
+        <DialogContent className="max-w-4xl! h-[90vh] bg-card border border-border rounded-2xl! flex flex-col p-0 overflow-hidden shadow-2xl">
           {previewFile && (
             <>
               <DialogHeader className="p-4 border-b border-border/40 bg-secondary/20 flex flex-row items-center justify-between space-y-0 gap-4 shrink-0">

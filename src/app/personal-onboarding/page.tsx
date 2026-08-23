@@ -47,8 +47,6 @@ export default function PersonalOnboardingPage() {
   const [loading, setLoading] = useState(false);
   const [direction, setDirection] = useState(1);
 
-  // --- FORM STATES ---
-  // Step 1: Perfil Profissional
   const [name, setName] = useState("");
   const [specialty, setSpecialty] = useState("");
   const [experience, setExperience] = useState("");
@@ -59,11 +57,10 @@ export default function PersonalOnboardingPage() {
   const [imageFile, setImageFile] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState("");
 
-  // Step 2: Identidade Visual
   const [brandName, setBrandName] = useState("");
   const [brandSlogan, setBrandSlogan] = useState("");
   const [brandColor, setBrandColor] = useState("#3b82f6");
-  
+
   const [logoType, setLogoType] = useState<"file" | "url">("file");
   const [logoUrl, setLogoUrl] = useState("");
   const [logoFile, setLogoFile] = useState<File | null>(null);
@@ -192,7 +189,7 @@ export default function PersonalOnboardingPage() {
       throw new Error(txt || "Erro ao obter URL assinada.");
     }
     const { uploadUrl, fileUrl, objectKey } = await res.json();
-    
+
     const putRes = await fetch(uploadUrl, {
       method: "PUT",
       headers: { "Content-Type": fileToUpload.type },
@@ -274,7 +271,7 @@ export default function PersonalOnboardingPage() {
       const resData = await res.json();
 
       toast.success("Perfil e Assessoria configurados com sucesso! Bem-vindo(a) ao AtlasFit! 🚀");
-      
+
       // Update nextauth session
       await update();
 
@@ -338,7 +335,7 @@ export default function PersonalOnboardingPage() {
       <main className="flex-1 flex items-center justify-center px-4 md:px-8 py-6 z-10">
         <div className="w-full max-w-xl md:max-w-2xl min-h-[420px] flex flex-col justify-center">
           <AnimatePresence mode="wait" initial={false} custom={direction}>
-            
+
             {/* STEP 1: Perfil Profissional */}
             {currentStep === 1 && (
               <motion.div
@@ -373,7 +370,7 @@ export default function PersonalOnboardingPage() {
                       ) : (
                         <User className="size-9 text-neutral-500" />
                       )}
-                      
+
                       {imageType === "file" && (
                         <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all">
                           <Camera className="size-4.5 text-white" />
@@ -395,18 +392,16 @@ export default function PersonalOnboardingPage() {
                           <button
                             type="button"
                             onClick={() => setImageType("file")}
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${
-                              imageType === "file" ? "bg-primary text-white" : "text-neutral-400"
-                            }`}
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${imageType === "file" ? "bg-primary text-white" : "text-neutral-400"
+                              }`}
                           >
                             Arquivo
                           </button>
                           <button
                             type="button"
                             onClick={() => setImageType("url")}
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${
-                              imageType === "url" ? "bg-primary text-white" : "text-neutral-400"
-                            }`}
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${imageType === "url" ? "bg-primary text-white" : "text-neutral-400"
+                              }`}
                           >
                             Link URL
                           </button>
@@ -583,7 +578,7 @@ export default function PersonalOnboardingPage() {
 
                   {/* LOGO, WATERMARK, COVER Inputs */}
                   <div className="space-y-4 pt-2 border-t border-white/[0.04]">
-                    
+
                     {/* Logotipo */}
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
@@ -595,24 +590,22 @@ export default function PersonalOnboardingPage() {
                           <button
                             type="button"
                             onClick={() => setLogoType("file")}
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${
-                              logoType === "file" ? "bg-primary text-white" : "text-neutral-400"
-                            }`}
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${logoType === "file" ? "bg-primary text-white" : "text-neutral-400"
+                              }`}
                           >
                             Arquivo
                           </button>
                           <button
                             type="button"
                             onClick={() => setLogoType("url")}
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${
-                              logoType === "url" ? "bg-primary text-white" : "text-neutral-400"
-                            }`}
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${logoType === "url" ? "bg-primary text-white" : "text-neutral-400"
+                              }`}
                           >
                             Link URL
                           </button>
                         </div>
                       </div>
-                      
+
                       {logoType === "file" ? (
                         <div className="flex items-center gap-3">
                           <Input
@@ -647,24 +640,22 @@ export default function PersonalOnboardingPage() {
                           <button
                             type="button"
                             onClick={() => setWatermarkType("file")}
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${
-                              watermarkType === "file" ? "bg-primary text-white" : "text-neutral-400"
-                            }`}
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${watermarkType === "file" ? "bg-primary text-white" : "text-neutral-400"
+                              }`}
                           >
                             Arquivo
                           </button>
                           <button
                             type="button"
                             onClick={() => setWatermarkType("url")}
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${
-                              watermarkType === "url" ? "bg-primary text-white" : "text-neutral-400"
-                            }`}
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${watermarkType === "url" ? "bg-primary text-white" : "text-neutral-400"
+                              }`}
                           >
                             Link URL
                           </button>
                         </div>
                       </div>
-                      
+
                       {watermarkType === "file" ? (
                         <div className="flex items-center gap-3">
                           <Input
@@ -697,24 +688,22 @@ export default function PersonalOnboardingPage() {
                           <button
                             type="button"
                             onClick={() => setCoverType("file")}
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${
-                              coverType === "file" ? "bg-primary text-white" : "text-neutral-400"
-                            }`}
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${coverType === "file" ? "bg-primary text-white" : "text-neutral-400"
+                              }`}
                           >
                             Arquivo
                           </button>
                           <button
                             type="button"
                             onClick={() => setCoverType("url")}
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${
-                              coverType === "url" ? "bg-primary text-white" : "text-neutral-400"
-                            }`}
+                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${coverType === "url" ? "bg-primary text-white" : "text-neutral-400"
+                              }`}
                           >
                             Link URL
                           </button>
                         </div>
                       </div>
-                      
+
                       {coverType === "file" ? (
                         <div className="flex items-center gap-3">
                           <Input
@@ -848,11 +837,11 @@ export default function PersonalOnboardingPage() {
 
       {/* Footer / Progress indicator */}
       <footer className="p-6 md:p-8 space-y-6 bg-neutral-950/80 backdrop-blur-md border-t border-white/[0.02] z-10">
-        
+
         {/* Progress Tracker */}
         <div className="max-w-xl mx-auto space-y-2">
           <div className="h-1.5 w-full bg-neutral-900 rounded-full overflow-hidden">
-            <div 
+            <div
               className="h-full bg-primary rounded-full transition-all duration-300"
               style={{ width: `${progressPercent}%` }}
             />
