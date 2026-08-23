@@ -67,9 +67,9 @@ export async function GET(req: Request) {
     });
 
     // Calculate balances
-    // Only approved commissions from referred users whose current subscription is "active" are eligible/approved for withdraw
+    // All approved commissions are eligible for withdrawal by User A
     const totalApproved = commissions
-      .filter((c) => c.status === "APROVADO" && c.referred?.subscription?.status?.toLowerCase() === "active")
+      .filter((c) => c.status === "APROVADO")
       .reduce((sum, c) => sum + c.amount, 0);
 
     const totalPaid = payouts
@@ -157,7 +157,7 @@ export async function POST(req: Request) {
     const isLocked = !isSubscriptionActive && !user.isTestAccount;
 
     if (isLocked) {
-      return new NextResponse("Funcionalidade indisponível no período de testes. Faça uma assinatura para desbloquear.", { status: 403 });
+      return new NextResponse("Você precisa possuir uma assinatura ativa para solicitar saques de comissão.", { status: 403 });
     }
 
     const body = await req.json();
@@ -183,20 +183,9 @@ export async function POST(req: Request) {
       return new NextResponse("Você já possui uma solicitação de saque em análise.", { status: 400 });
     }
 
-     // Calculate current available balance
+    // Calculate current available balance from all approved commissions
     const commissions = await prisma.referralCommission.findMany({
-      where: { referrerId: userId },
-      include: {
-        referred: {
-          select: {
-            subscription: {
-              select: {
-                status: true
-              }
-            }
-          }
-        }
-      }
+      where: { referrerId: userId }
     });
 
     const payouts = await prisma.payoutRequest.findMany({
@@ -204,7 +193,7 @@ export async function POST(req: Request) {
     });
 
     const totalApproved = commissions
-      .filter((c) => c.status === "APROVADO" && c.referred?.subscription?.status?.toLowerCase() === "active")
+      .filter((c) => c.status === "APROVADO")
       .reduce((sum, c) => sum + c.amount, 0);
 
     const totalPaid = payouts
