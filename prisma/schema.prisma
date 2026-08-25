@@ -115,6 +115,10 @@ model User {
   legalAcceptances    LegalAcceptance[]
   privacyConsents     PrivacyConsent[]
   dataSubjectRequests DataSubjectRequest[]
+
+  // Atlas Engage Push Notification Relations
+  createdPushNotifications EngagePushNotification[] @relation("CreatedPushNotifications")
+  pushLogs                 EngagePushLog[]          @relation("UserPushLogs")
 }
 
 model Workspace {
@@ -877,6 +881,80 @@ model EngageEventLog {
 
   @@index([experienceId])
   @@index([userId])
+}
+
+enum PushTriggerType {
+  SCHEDULED
+  INACTIVITY
+  STREAK_SAVER
+  WORKOUT_COMPLETED
+  ASSESSMENT_DUE
+  BROADCAST
+}
+
+model EngagePushNotification {
+  id              String          @id @default(cuid())
+  title           String
+  body            String          @db.Text
+  imageUrl        String?
+  targetRole      String          @default("ALL") // "ALL", "STUDENT", "TRAINER"
+  targetPlan      String          @default("ALL") // "ALL", "FREE_TRIAL", "ACTIVE_SUBSCRIPTION"
+  triggerType     PushTriggerType @default(SCHEDULED)
+  deepLink        String          @default("/student/workouts")
+  category        String          @default("TRAINING") // "TRAINING", "SYSTEM", "MARKETING", "GAMIFICATION"
+
+  // Variação B para Teste A/B (Opcional)
+  titleB          String?
+  bodyB           String?         @db.Text
+  sentCountB      Int             @default(0)
+  clickCountB     Int             @default(0)
+  conversionCountB Int            @default(0)
+
+  // Regras de disparo
+  scheduleTime    String?         // Ex: "18:00" ou "08:00"
+  daysOfWeek      String?         // Ex: "1,2,3,4,5" (0=Dom, 1=Seg...)
+  inactivityDays  Int?            // Ex: 3 (após 3 dias sem treino)
+  
+  // Status e prioridade
+  isActive        Boolean         @default(true)
+  priority        String          @default("HIGH") // "HIGH", "NORMAL"
+  
+  // Métricas consolidadas em tempo real (Variação A)
+  sentCount       Int             @default(0)
+  deliveredCount  Int             @default(0)
+  clickCount      Int             @default(0)
+  conversionCount Int             @default(0)
+
+  creatorId       String?
+  creator         User?           @relation("CreatedPushNotifications", fields: [creatorId], references: [id], onDelete: SetNull)
+
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+
+  logs            EngagePushLog[]
+
+  @@index([triggerType, isActive])
+  @@index([targetRole])
+}
+
+model EngagePushLog {
+  id             String                 @id @default(cuid())
+  notificationId String
+  userId         String
+  variant        String                 @default("A") // "A" ou "B"
+  status         String                 // "SENT", "DELIVERED", "FAILED", "CLICKED", "CONVERTED"
+  errorReason    String?
+  clickedAt      DateTime?
+  convertedAt    DateTime?
+  sentAt         DateTime               @default(now())
+
+  notification   EngagePushNotification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user           User                   @relation("UserPushLogs", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([notificationId])
+  @@index([sentAt])
+  @@index([status])
 }
 
 model Lead {

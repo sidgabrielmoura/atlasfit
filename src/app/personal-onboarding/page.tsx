@@ -33,7 +33,6 @@ import { workspaceActions } from "@/stores/workspace.store";
 import { formatPhone } from "@/lib/utils";
 import { compressImage } from "@/lib/image-compress";
 
-// Onboarding Steps
 const STEPS = [
   { id: 1, title: "Perfil Profissional" },
   { id: 2, title: "Identidade Visual" },
@@ -76,20 +75,17 @@ export default function PersonalOnboardingPage() {
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [coverPreview, setCoverPreview] = useState("");
 
-  // Step 3: Contato e Localização
   const [whatsapp, setWhatsapp] = useState("");
   const [instagram, setInstagram] = useState("");
   const [linkedin, setLinkedin] = useState("");
   const [city, setCity] = useState("");
 
-  // Prepopulate name from session when available
   useEffect(() => {
     if (session?.user?.name && !name) {
       setName(session.user.name);
     }
   }, [session, name]);
 
-  // Handle file select previews
   const handleFileSelect = (
     e: React.ChangeEvent<HTMLInputElement>,
     fileSetter: (file: File | null) => void,
@@ -102,7 +98,6 @@ export default function PersonalOnboardingPage() {
     }
   };
 
-  // Step Validations
   const validateStep = () => {
     if (currentStep === 1) {
       if (!name.trim()) {
@@ -144,7 +139,6 @@ export default function PersonalOnboardingPage() {
     return true;
   };
 
-  // Stepper handlers
   const handleNext = () => {
     if (!validateStep()) return;
 
@@ -165,7 +159,6 @@ export default function PersonalOnboardingPage() {
 
   const uploadToR2 = async (file: File, targetType: string) => {
     let fileToUpload = file;
-    // Compress image client-side to save bandwidth
     if (file.type.startsWith("image/")) {
       try {
         fileToUpload = await compressImage(file);

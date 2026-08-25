@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { calculateStreaks, verifyAndDecayWorkspaceMemberStreak } from "@/lib/streak-helper";
 import { NotificationService } from "@/lib/notifications/service";
+import { EngagePushService } from "@/lib/engage/push-service";
 
 
 export async function GET(req: Request) {
@@ -197,6 +198,10 @@ export async function POST(req: Request) {
       });
     }
 
+    // 2.1. Track Push Notification Conversion (if student received an Engage push within the last 6 hours)
+    EngagePushService.trackPushConversion(session.user.id).catch((err) => {
+      console.warn("[EngagePush] Error tracking workout conversion:", err);
+    });
 
     // 3. Calculate and update streak and progress dynamically from all history
     const allLogs = await (prisma as any).workoutLog.findMany({

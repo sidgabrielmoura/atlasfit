@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import { ExperienceBuilder } from "@/components/engage/experience-builder";
+import { PushNotificationsStudio } from "@/components/engage/push-notifications-studio";
 import {
   Megaphone,
   Search,
@@ -31,7 +32,8 @@ import {
   Image as ImageIcon,
   Upload,
   UserCheck,
-  GraduationCap
+  GraduationCap,
+  BellRing
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -60,7 +62,7 @@ function formatDateTimeLocal(dateStr?: string | Date): string {
 
 function EngageContent() {
   const snap = useEngageSnapshot();
-  const [activeStudioTab, setActiveStudioTab] = useState<"EXPERIENCES" | "BANNERS">("EXPERIENCES");
+  const [activeStudioTab, setActiveStudioTab] = useState<"EXPERIENCES" | "BANNERS" | "PUSH">("EXPERIENCES");
 
   const [searchTerm, setSearchTerm] = useState("");
   const [categoryFilter, setCategoryFilter] = useState("all");
@@ -497,12 +499,12 @@ function EngageContent() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="bg-secondary/40 p-1 rounded-xl flex items-center border border-border/40">
+        <div className="flex flex-wrap items-center gap-3">
+          <div className="bg-secondary/40 p-1 rounded-xl flex items-center border border-border/40 overflow-x-auto max-w-full">
             <button
               onClick={() => setActiveStudioTab("EXPERIENCES")}
               className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5",
+                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap",
                 activeStudioTab === "EXPERIENCES" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -512,12 +514,22 @@ function EngageContent() {
             <button
               onClick={() => setActiveStudioTab("BANNERS")}
               className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5",
+                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap",
                 activeStudioTab === "BANNERS" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               )}
             >
               <ImageIcon className="size-3.5" />
               Banners Topo ({banners.length})
+            </button>
+            <button
+              onClick={() => setActiveStudioTab("PUSH")}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 whitespace-nowrap",
+                activeStudioTab === "PUSH" ? "bg-background text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <BellRing className="size-3.5 text-primary" />
+              Notificações Push
             </button>
           </div>
 
@@ -528,18 +540,20 @@ function EngageContent() {
             >
               <Plus className="size-4" /> CRIAR EXPERIÊNCIA
             </Button>
-          ) : (
+          ) : activeStudioTab === "BANNERS" ? (
             <Button
               onClick={handleOpenCreateBanner}
               className="h-10! rounded-xl gap-2 font-bold bg-primary text-primary-foreground shadow-lg shadow-primary/20 cursor-pointer"
             >
               <Upload className="size-4" /> Subir banner
             </Button>
-          )}
+          ) : null}
         </div>
       </div>
 
-      {activeStudioTab === "BANNERS" ? (
+      {activeStudioTab === "PUSH" ? (
+        <PushNotificationsStudio />
+      ) : activeStudioTab === "BANNERS" ? (
         <div className="space-y-8">
           <div className="space-y-4">
             <div className="flex items-center justify-between border-b border-border/40 pb-3">
