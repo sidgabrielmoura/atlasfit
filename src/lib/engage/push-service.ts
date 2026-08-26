@@ -596,39 +596,6 @@ export class EngagePushService {
   }
 
   /**
-   * Send instant test push to a specific user (SuperAdmin testing)
-   */
-  static async sendTestPush(notificationId: string, targetUserId: string): Promise<{ success: boolean; logId?: string; error?: string }> {
-    const notification = await prisma.engagePushNotification.findUnique({
-      where: { id: notificationId }
-    });
-
-    if (!notification) {
-      return { success: false, error: "Notificação não encontrada." };
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: targetUserId },
-      select: { id: true, name: true, role: true, email: true }
-    });
-
-    if (!user) {
-      return { success: false, error: "Usuário de teste não encontrado." };
-    }
-
-    return this.dispatchPushToUser({
-      notificationId: notification.id,
-      user,
-      titleTemplate: `[TESTE] ${notification.title}`,
-      bodyTemplate: notification.body,
-      imageUrl: notification.imageUrl,
-      deepLink: notification.deepLink,
-      category: notification.category,
-      priority: "CRITICAL"
-    });
-  }
-
-  /**
    * Track user click from push notification
    */
   static async trackPushClick(logId: string): Promise<boolean> {
@@ -824,6 +791,144 @@ export class EngagePushService {
       activeAutomations,
       chartTimeline,
       triggerDistribution
+    };
+  }
+
+  /**
+   * Send a test push notification to a specific target user.
+   * STRICTLY BYPASSES:
+   * - Quiet Hours (22:00 - 07:00)
+   * - Daily Anti-Duplication capping
+   * - Fatigue limit (max 2 in 24h)
+   */
+  static async sendTestPush(params: {
+    notificationId?: string;
+    targetUserId: string;
+    adminUserId?: string;
+    variant?: "A" | "B";
+    customPayload?: {
+      title?: string;
+      body?: string;
+      imageUrl?: string | null;
+      deepLink?: string;
+      category?: string;
+      priority?: string;
+    };
+  }): Promise<{
+    success: boolean;
+    logId?: string;
+    user?: { id: string; name: string | null; email: string | null; role: string };
+    devicesCount?: number;
+    pushSent?: boolean;
+    inAppDelivered?: boolean;
+    error?: string;
+  }> {
+    const { notificationId, targetUserId, variant = "A", customPayload } = params;
+
+    // 1. Fetch target user
+    const targetUser = await prisma.user.findUnique({
+      where: { id: targetUserId },
+      select: { id: true, name: true, email: true, role: true }
+    });
+
+    if (!targetUser) {
+      return { success: false, error: "Usuário de teste não encontrado no sistema." };
+    }
+
+    // 2. Fetch notification template if notificationId is provided
+    let titleTemplate = customPayload?.title || "Notificação de Teste";
+    let bodyTemplate = customPayload?.body || "Esta é uma notificação de teste enviada pelo AtlasFit Engage.";
+    let imageUrl = customPayload?.imageUrl || null;
+    let deepLink = customPayload?.deepLink || "/student/workouts";
+    let category = customPayload?.category || "TRAINING";
+    let priority = customPayload?.priority || "HIGH";
+
+    if (notificationId) {
+      const notif = await prisma.engagePushNotification.findUnique({
+        where: { id: notificationId }
+      });
+      if (notif) {
+        if (variant === "B" && notif.titleB && notif.bodyB) {
+          titleTemplate = notif.titleB;
+          bodyTemplate = notif.bodyB;
+        } else {
+          titleTemplate = notif.title;
+          bodyTemplate = notif.body;
+        }
+        imageUrl = notif.imageUrl || null;
+        deepLink = notif.deepLink || "/student/workouts";
+        category = notif.category || "TRAINING";
+        priority = notif.priority || "HIGH";
+      }
+    }
+
+    // 3. Dynamic variable interpolation
+    const streak = await this.calculateUserStreak(targetUser.id);
+    const title = this.interpolateTemplate(titleTemplate, {
+      name: targetUser.name,
+      firstName: targetUser.name?.split(" ")[0],
+      streakDays: streak,
+      inactivityDays: 0,
+      trainerName: "AtlasFit Admin"
+    });
+    const description = this.interpolateTemplate(bodyTemplate, {
+      name: targetUser.name,
+      firstName: targetUser.name?.split(" ")[0],
+      streakDays: streak,
+      inactivityDays: 0,
+      trainerName: "AtlasFit Admin"
+    });
+
+    // 4. Create EngagePushLog entry if linked to a notification campaign
+    let logId: string | undefined;
+    if (notificationId) {
+      const log = await prisma.engagePushLog.create({
+        data: {
+          notificationId,
+          userId: targetUser.id,
+          variant,
+          status: "SENT",
+        }
+      });
+      logId = log.id;
+    }
+
+    const separator = deepLink.includes("?") ? "&" : "?";
+    const trackedLink = logId ? `${deepLink}${separator}engage_push_log=${logId}&is_test=true` : deepLink;
+
+    // 5. Direct dispatch via NotificationService (Quiet hours & fatigue caps bypassed)
+    const result = await NotificationService.sendNotification({
+      userId: targetUser.id,
+      type: NotificationType.CAMPAIGN,
+      category: (category as NotificationCategory) || NotificationCategory.TRAINING,
+      title: `[TESTE] ${title}`,
+      description,
+      image: imageUrl || undefined,
+      priority: (priority as NotificationPriority) || NotificationPriority.HIGH,
+      deepLink: trackedLink,
+      source: "Atlas Engage Test Push",
+      payload: {
+        isTest: "true",
+        variant,
+        notificationId: notificationId || "test-dispatch",
+        engagePushLogId: logId || "test-log"
+      }
+    });
+
+    if (logId) {
+      await prisma.engagePushLog.update({
+        where: { id: logId },
+        data: { status: "DELIVERED" }
+      });
+    }
+
+    return {
+      success: true,
+      logId,
+      user: targetUser,
+      devicesCount: result.devicesCount,
+      pushSent: result.pushSent,
+      inAppDelivered: !!result.notificationId
     };
   }
 }

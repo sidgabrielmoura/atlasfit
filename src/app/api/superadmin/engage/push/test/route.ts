@@ -3,26 +3,41 @@ import { auth } from "@/auth";
 import { EngagePushService } from "@/lib/engage/push-service";
 import { logAuditEvent, logSystemError } from "@/lib/logger";
 
-export async function POST(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export async function POST(req: Request) {
   try {
     const session = await auth();
     if (!session?.user?.id || session.user.role !== "SUPERADMIN") {
       return new NextResponse("Acesso não autorizado.", { status: 403 });
     }
 
-    const { id } = await params;
-    const body = await req.json().catch(() => ({}));
-    const targetUserId = body.targetUserId || session.user.id;
-    const variant = body.variant === "B" ? "B" : "A";
+    const body = await req.json();
+    const {
+      targetUserId,
+      title,
+      body: contentBody,
+      imageUrl,
+      deepLink,
+      category,
+      priority,
+      notificationId,
+      variant
+    } = body;
+
+    const resolvedTargetUserId = targetUserId || session.user.id;
 
     const res = await EngagePushService.sendTestPush({
-      notificationId: id,
-      targetUserId,
-      variant,
-      adminUserId: session.user.id
+      notificationId,
+      targetUserId: resolvedTargetUserId,
+      variant: variant === "B" ? "B" : "A",
+      adminUserId: session.user.id,
+      customPayload: {
+        title: title || "Notificação de Teste",
+        body: contentBody || "Esta é uma notificação de teste enviada pelo AtlasFit Engage.",
+        imageUrl: imageUrl || null,
+        deepLink: deepLink || "/student/workouts",
+        category: category || "TRAINING",
+        priority: priority || "HIGH"
+      }
     });
 
     if (!res.success) {
@@ -31,9 +46,9 @@ export async function POST(
 
     await logAuditEvent({
       userId: session.user.id,
-      action: "SEND_TEST_ENGAGE_PUSH",
+      action: "SEND_CUSTOM_TEST_ENGAGE_PUSH",
       entity: "ENGAGE_PUSH_NOTIFICATION",
-      entityId: id,
+      entityId: notificationId || "DIRECT_TEST",
       severity: "info"
     });
 
@@ -47,8 +62,8 @@ export async function POST(
       logId: res.logId
     });
   } catch (error: any) {
-    console.error("Error in test push route:", error);
-    await logSystemError({ action: "POST_ENGAGE_PUSH_TEST", error, entity: "ENGAGE_PUSH_NOTIFICATION" });
+    console.error("Error in custom test push route:", error);
+    await logSystemError({ action: "POST_CUSTOM_ENGAGE_PUSH_TEST", error, entity: "ENGAGE_PUSH_NOTIFICATION" });
     return new NextResponse(error.message || "Erro ao processar teste.", { status: 500 });
   }
 }

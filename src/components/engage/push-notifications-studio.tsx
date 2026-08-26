@@ -55,6 +55,9 @@ import {
   Split,
   ShieldCheck,
   Zap,
+  User,
+  AlertTriangle,
+  Check,
 } from "lucide-react";
 import {
   AreaChart,
@@ -287,6 +290,41 @@ export function PushNotificationsStudio() {
   const [isBroadcastDialogOpen, setIsBroadcastDialogOpen] = useState(false);
   const [isBroadcasting, setIsBroadcasting] = useState(false);
 
+  // Test Push Modal State
+  const [isTestModalOpen, setIsTestModalOpen] = useState(false);
+  const [itemToTest, setItemToTest] = useState<PushNotificationItem | null>(null);
+  const [testVariant, setTestVariant] = useState<"A" | "B">("A");
+  const [testUsersList, setTestUsersList] = useState<Array<{
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    image?: string | null;
+    activeDevicesCount: number;
+  }>>([]);
+  const [testSearchQuery, setTestSearchQuery] = useState("");
+  const [selectedTestUser, setSelectedTestUser] = useState<{
+    id: string;
+    name: string;
+    email: string;
+    role: string;
+    image?: string | null;
+    activeDevicesCount: number;
+  } | null>(null);
+  const [isSearchingUsers, setIsSearchingUsers] = useState(false);
+  const [isSendingTest, setIsSendingTest] = useState(false);
+  const [testResult, setTestResult] = useState<{
+    pushSent: boolean;
+    devicesCount: number;
+    inAppDelivered: boolean;
+    message: string;
+  } | null>(null);
+
+  // Custom standalone test fields (when itemToTest is null)
+  const [customTestTitle, setCustomTestTitle] = useState("Lembrete de Treino");
+  const [customTestBody, setCustomTestBody] = useState("Fala {primeiro_nome}! Seu treino de hoje já está pronto no app.");
+  const [customTestDeepLink, setCustomTestDeepLink] = useState("/student/workouts");
+
   const [testingId, setTestingId] = useState<string | null>(null);
 
   const fetchData = async () => {
@@ -428,9 +466,9 @@ export function PushNotificationsStudio() {
   const handleToggleDayOfWeek = (dayId: number) => {
     const currentDays = formData.daysOfWeek
       ? formData.daysOfWeek
-          .split(",")
-          .map((d) => parseInt(d.trim()))
-          .filter((d) => !isNaN(d))
+        .split(",")
+        .map((d) => parseInt(d.trim()))
+        .filter((d) => !isNaN(d))
       : [1, 2, 3, 4, 5];
 
     let updated: number[];
@@ -603,23 +641,104 @@ export function PushNotificationsStudio() {
     }
   };
 
-  const handleSendTestPush = async (item: PushNotificationItem) => {
+  const handleSearchUsers = async (query = "") => {
     try {
-      setTestingId(item.id);
-      const res = await fetch(`/api/superadmin/engage/push/${item.id}/test`, {
+      setIsSearchingUsers(true);
+      const res = await fetch(`/api/superadmin/users/search?q=${encodeURIComponent(query)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setTestUsersList(data);
+        if (data.length > 0 && !selectedTestUser) {
+          setSelectedTestUser(data[0]);
+        }
+      }
+    } catch (err) {
+      console.error("Erro ao buscar usuários para teste:", err);
+    } finally {
+      setIsSearchingUsers(false);
+    }
+  };
+
+  const handleOpenTestModal = (item?: PushNotificationItem | null) => {
+    setItemToTest(item || null);
+    setTestVariant("A");
+    setTestResult(null);
+    setTestSearchQuery("");
+    setIsTestModalOpen(true);
+    handleSearchUsers("");
+  };
+
+  const handleExecuteTestPush = async () => {
+    if (!selectedTestUser) {
+      toast.error("Selecione um usuário para receber a notificação de teste.");
+      return;
+    }
+
+    try {
+      setIsSendingTest(true);
+      setTestResult(null);
+
+      let url = "/api/superadmin/engage/push/test";
+      let payload: any = {
+        targetUserId: selectedTestUser.id,
+        variant: testVariant,
+      };
+
+      if (itemToTest && itemToTest.id !== "form-preview") {
+        url = `/api/superadmin/engage/push/${itemToTest.id}/test`;
+        payload = {
+          targetUserId: selectedTestUser.id,
+          variant: testVariant,
+        };
+      } else if (itemToTest && itemToTest.id === "form-preview") {
+        url = "/api/superadmin/engage/push/test";
+        payload = {
+          targetUserId: selectedTestUser.id,
+          title: testVariant === "B" && itemToTest.titleB ? itemToTest.titleB : itemToTest.title,
+          body: testVariant === "B" && itemToTest.bodyB ? itemToTest.bodyB : itemToTest.body,
+          imageUrl: itemToTest.imageUrl || null,
+          deepLink: itemToTest.deepLink || "/student/workouts",
+          category: itemToTest.category || "TRAINING",
+          priority: itemToTest.priority || "HIGH",
+          variant: testVariant,
+        };
+      } else {
+        url = "/api/superadmin/engage/push/test";
+        payload = {
+          targetUserId: selectedTestUser.id,
+          title: customTestTitle,
+          body: customTestBody,
+          deepLink: customTestDeepLink,
+          category: "TRAINING",
+          priority: "HIGH",
+          variant: "A",
+        };
+      }
+
+      const res = await fetch(url, {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
       });
 
-      if (res.ok) {
-        toast.success("Push de teste enviado ao seu dispositivo!");
-      } else {
+      if (!res.ok) {
         const errText = await res.text();
-        toast.error(errText || "Erro ao enviar push de teste.");
+        throw new Error(errText || "Falha ao emitir notificação de teste.");
       }
-    } catch {
-      toast.error("Erro ao enviar push de teste.");
+
+      const data = await res.json();
+      setTestResult({
+        pushSent: data.pushSent,
+        devicesCount: data.devicesCount,
+        inAppDelivered: data.inAppDelivered,
+        message: data.message,
+      });
+
+      toast.success(data.message || `Notificação de teste enviada para ${selectedTestUser.name}!`);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao emitir teste.");
     } finally {
-      setTestingId(null);
+      setIsSendingTest(false);
     }
   };
 
@@ -734,6 +853,16 @@ export function PushNotificationsStudio() {
           >
             <RefreshCw className={cn("size-3.5", cronRunning && "animate-spin text-primary")} />
             {cronRunning ? "Executando..." : "Rodar Cronjob"}
+          </Button>
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => handleOpenTestModal(null)}
+            className="h-9 rounded-xl text-xs font-semibold gap-1.5 border-primary/30 text-primary hover:bg-primary/10 cursor-pointer"
+          >
+            <Send className="size-3.5" />
+            Emitir Teste
           </Button>
 
           <Button
@@ -1082,11 +1211,10 @@ export function PushNotificationsStudio() {
                         </DropdownMenuTrigger>
                         <DropdownMenuContent align="end" className="w-44 rounded-xl">
                           <DropdownMenuItem
-                            onClick={() => handleSendTestPush(item)}
-                            disabled={testingId === item.id}
+                            onClick={() => handleOpenTestModal(item)}
                             className="text-xs cursor-pointer gap-2"
                           >
-                            <Sparkles className="size-3.5 text-primary" /> Testar no meu celular
+                            <Send className="size-3.5 text-primary" /> Emitir Teste a Usuário...
                           </DropdownMenuItem>
                           <DropdownMenuItem
                             onClick={() => {
@@ -1477,9 +1605,9 @@ export function PushNotificationsStudio() {
                       {DAYS_MAP.map((day) => {
                         const selectedDays = formData.daysOfWeek
                           ? formData.daysOfWeek
-                              .split(",")
-                              .map((d) => parseInt(d.trim()))
-                              .filter((d) => !isNaN(d))
+                            .split(",")
+                            .map((d) => parseInt(d.trim()))
+                            .filter((d) => !isNaN(d))
                           : [];
                         const isSelected = selectedDays.includes(day.id);
 
@@ -1704,33 +1832,66 @@ export function PushNotificationsStudio() {
             </div>
           </div>
 
-          <DialogFooter className="p-4 sm:p-5 border-t border-border/50 bg-secondary/10 shrink-0 flex flex-row items-center justify-end gap-2">
+          <DialogFooter className="p-4 sm:p-5 border-t border-border/50 bg-secondary/10 shrink-0 flex flex-row items-center justify-between gap-2">
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setIsModalOpen(false)}
-              disabled={isSubmitting}
-              className="rounded-xl text-xs h-9 cursor-pointer"
+              onClick={() => {
+                handleOpenTestModal({
+                  id: editingItem?.id || "form-preview",
+                  title: formData.title || "Notificação de Teste",
+                  body: formData.body || "Mensagem de teste",
+                  titleB: formData.enableAbTest ? formData.titleB : null,
+                  bodyB: formData.enableAbTest ? formData.bodyB : null,
+                  imageUrl: imagePreviewUrl || formData.imageUrl || null,
+                  deepLink: formData.destinationType === "CUSTOM" ? formData.customDeepLink || "/student/workouts" : formData.destinationType,
+                  category: formData.category,
+                  priority: formData.priority,
+                  targetRole: formData.targetRole,
+                  triggerType: formData.triggerType,
+                  isActive: true,
+                  sentCount: 0,
+                  deliveredCount: 0,
+                  clickCount: 0,
+                  conversionCount: 0,
+                  createdAt: new Date().toISOString(),
+                });
+              }}
+              disabled={isSubmitting || !formData.title || !formData.body}
+              className="rounded-xl text-xs h-9 font-semibold border-amber-500/30 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 cursor-pointer gap-1.5"
             >
-              Cancelar
+              <Sparkles className="size-3.5" /> Testar Envio
             </Button>
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleSubmitForm}
-              disabled={isSubmitting}
-              className="rounded-xl text-xs h-9 font-bold bg-primary text-primary-foreground shadow-xs cursor-pointer gap-1.5"
-            >
-              {isSubmitting ? (
-                <>
-                  <RefreshCw className="size-3.5 animate-spin" />
-                  {uploadingImage ? "Enviando Imagem..." : "Salvando..."}
-                </>
-              ) : (
-                editingItem ? "Salvar Alterações" : "Criar Notificação"
-              )}
-            </Button>
+
+            <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                onClick={() => setIsModalOpen(false)}
+                disabled={isSubmitting}
+                className="rounded-xl text-xs h-9 cursor-pointer"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="button"
+                size="sm"
+                onClick={handleSubmitForm}
+                disabled={isSubmitting}
+                className="rounded-xl text-xs h-9 font-bold bg-primary text-primary-foreground shadow-xs cursor-pointer gap-1.5"
+              >
+                {isSubmitting ? (
+                  <>
+                    <RefreshCw className="size-3.5 animate-spin" />
+                    {uploadingImage ? "Enviando Imagem..." : "Salvando..."}
+                  </>
+                ) : (
+                  editingItem ? "Salvar Alterações" : "Criar Notificação"
+                )}
+              </Button>
+            </div>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -1789,6 +1950,235 @@ export function PushNotificationsStudio() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* 9. Dialog de Emissão de Notificação de Teste a Usuário Específico */}
+      <Dialog open={isTestModalOpen} onOpenChange={setIsTestModalOpen}>
+        <DialogContent className="max-w-lg rounded-2xl! overflow-y-auto! bg-card border-border shadow-2xl p-0 overflow-hidden">
+          <DialogHeader className="p-4 sm:p-5 border-b border-border/50 bg-secondary/10 shrink-0">
+            <DialogTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+              <Send className="size-4 text-primary" /> Emitir Notificação de Teste
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground mt-0.5">
+              Dispare uma notificação push a um usuário específico para validar a entrega instantânea.
+            </p>
+          </DialogHeader>
+
+          <div className="p-4 sm:p-5 space-y-4">
+            {/* Aviso de bypass de bloqueio de horário */}
+            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-600 dark:text-amber-400 flex items-start gap-2.5">
+              <Zap className="size-4 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold">Envio Imediato Sem Bloqueios:</span>
+                <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
+                  Este disparo de teste ignora propositalmente a janela de silêncio noturno (22h às 07h), o limite de fadiga diária e as regras de anti-duplicação.
+                </p>
+              </div>
+            </div>
+
+            {/* Notification Preview */}
+            {itemToTest ? (
+              <div className="rounded-xl border border-border bg-secondary/20 p-3.5 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">
+                    Conteúdo a Emitir
+                  </span>
+                  {itemToTest.titleB && (
+                    <div className="flex items-center gap-1 bg-background p-0.5 rounded-lg border border-border">
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={testVariant === "A" ? "default" : "ghost"}
+                        onClick={() => setTestVariant("A")}
+                        className="h-6 text-[10px] px-2 rounded-md font-bold"
+                      >
+                        Variante A
+                      </Button>
+                      <Button
+                        type="button"
+                        size="sm"
+                        variant={testVariant === "B" ? "default" : "ghost"}
+                        onClick={() => setTestVariant("B")}
+                        className="h-6 text-[10px] px-2 rounded-md font-bold"
+                      >
+                        Variante B
+                      </Button>
+                    </div>
+                  )}
+                </div>
+
+                <div className="space-y-1">
+                  <p className="text-xs font-bold text-foreground">
+                    {testVariant === "B" && itemToTest.titleB ? itemToTest.titleB : itemToTest.title}
+                  </p>
+                  <p className="text-xs text-muted-foreground line-clamp-3">
+                    {testVariant === "B" && itemToTest.bodyB ? itemToTest.bodyB : itemToTest.body}
+                  </p>
+                </div>
+                <div className="text-[10px] text-muted-foreground font-mono pt-1">
+                  Destino: {itemToTest.deepLink}
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Título do Teste</Label>
+                  <Input
+                    value={customTestTitle}
+                    onChange={(e) => setCustomTestTitle(e.target.value)}
+                    placeholder="Ex: Hora do treino!"
+                    className="h-9 text-xs rounded-xl"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Mensagem do Teste</Label>
+                  <Textarea
+                    value={customTestBody}
+                    onChange={(e) => setCustomTestBody(e.target.value)}
+                    placeholder="Ex: Seu treino de hoje já está disponível..."
+                    rows={2}
+                    className="text-xs rounded-xl resize-none"
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label className="text-xs font-semibold">Link de Destino</Label>
+                  <Input
+                    value={customTestDeepLink}
+                    onChange={(e) => setCustomTestDeepLink(e.target.value)}
+                    placeholder="/student/workouts"
+                    className="h-9 text-xs rounded-xl font-mono"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Target User Selector */}
+            <div className="space-y-2 pt-1">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs font-semibold">Destinatário do Teste</Label>
+                <span className="text-[11px] text-muted-foreground">
+                  {testUsersList.length} usuários disponíveis
+                </span>
+              </div>
+
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+                <Input
+                  placeholder="Pesquisar por nome ou e-mail..."
+                  value={testSearchQuery}
+                  onChange={(e) => {
+                    setTestSearchQuery(e.target.value);
+                    handleSearchUsers(e.target.value);
+                  }}
+                  className="pl-8 h-9 text-xs rounded-xl"
+                />
+              </div>
+
+              {/* Users list */}
+              <div className="max-h-48 overflow-y-auto space-y-1.5 border border-border rounded-xl p-2 bg-secondary/10">
+                {isSearchingUsers ? (
+                  <div className="space-y-2 p-1">
+                    <Skeleton className="h-10 w-full rounded-lg" />
+                    <Skeleton className="h-10 w-full rounded-lg" />
+                  </div>
+                ) : testUsersList.length === 0 ? (
+                  <div className="p-4 text-center text-xs text-muted-foreground">
+                    Nenhum usuário encontrado para a busca.
+                  </div>
+                ) : (
+                  testUsersList.map((u) => {
+                    const isSelected = selectedTestUser?.id === u.id;
+                    const roleLabel = u.role === "STUDENT" ? "Aluno" : u.role === "TRAINER" ? "Personal" : "Superadmin";
+                    return (
+                      <div
+                        key={u.id}
+                        onClick={() => setSelectedTestUser(u)}
+                        className={cn(
+                          "p-2.5 rounded-lg border text-xs flex items-center justify-between gap-3 cursor-pointer transition-all",
+                          isSelected
+                            ? "border-primary bg-primary/10 text-foreground font-medium"
+                            : "border-border/60 hover:bg-muted/50 text-foreground"
+                        )}
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className="size-7 rounded-full bg-secondary flex items-center justify-center text-[11px] font-bold shrink-0">
+                            {u.name ? u.name.charAt(0).toUpperCase() : "U"}
+                          </div>
+                          <div className="truncate">
+                            <p className="truncate font-semibold">{u.name}</p>
+                            <p className="text-[10px] text-muted-foreground truncate">{u.email}</p>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <Badge variant="outline" className="text-[9px] px-1.5 py-0 h-4">
+                            {roleLabel}
+                          </Badge>
+                          {u.activeDevicesCount > 0 ? (
+                            <Badge className="bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border-emerald-500/20 text-[9px] px-1.5 py-0 h-4 gap-1">
+                              <Smartphone className="size-2.5" /> {u.activeDevicesCount} disp.
+                            </Badge>
+                          ) : (
+                            <Badge variant="outline" className="text-muted-foreground text-[9px] px-1.5 py-0 h-4">
+                              In-App
+                            </Badge>
+                          )}
+                          {isSelected && <Check className="size-3.5 text-primary shrink-0 ml-1" />}
+                        </div>
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+
+            {/* Test Result Confirmation Card */}
+            {testResult && (
+              <div className="p-3.5 rounded-xl border border-emerald-500/30 bg-emerald-500/10 space-y-1.5 animate-in fade-in">
+                <div className="flex items-center gap-2 text-emerald-600 dark:text-emerald-400 font-bold text-xs">
+                  <CheckCircle2 className="size-4 shrink-0" />
+                  <span>{testResult.message}</span>
+                </div>
+                <div className="text-[11px] text-muted-foreground pl-6 space-y-0.5">
+                  <p>• Pushes enviados ao FCM: <strong>{testResult.devicesCount} dispositivo(s)</strong></p>
+                  <p>• Notificação no aplicativo: <strong>{testResult.inAppDelivered ? "Gravada e transmitida" : "Pendente"}</strong></p>
+                </div>
+              </div>
+            )}
+          </div>
+
+          <DialogFooter className="p-4 sm:p-5 border-t border-border/50 bg-secondary/10 shrink-0 flex flex-row items-center justify-between gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              onClick={() => setIsTestModalOpen(false)}
+              disabled={isSendingTest}
+              className="rounded-xl text-xs h-9 cursor-pointer"
+            >
+              Fechar
+            </Button>
+            <Button
+              type="button"
+              size="sm"
+              onClick={handleExecuteTestPush}
+              disabled={!selectedTestUser || isSendingTest}
+              className="rounded-xl text-xs h-9 font-bold bg-primary text-primary-foreground shadow-xs cursor-pointer gap-1.5"
+            >
+              {isSendingTest ? (
+                <>
+                  <RefreshCw className="size-3.5 animate-spin" />
+                  Disparando Teste...
+                </>
+              ) : (
+                <>
+                  <Send className="size-3.5" />
+                  Disparar Teste Agora
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
