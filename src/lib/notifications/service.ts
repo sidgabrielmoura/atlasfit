@@ -90,7 +90,7 @@ export class NotificationService {
     deepLink?: string;
     source?: string;
     workspaceId?: string;
-  }) {
+  }): Promise<{ notificationId?: string; pushSent: boolean; devicesCount: number; successCount: number }> {
     const {
       userId,
       type,
@@ -110,49 +110,67 @@ export class NotificationService {
     const catPref = prefs[category as keyof UserPreferencesSettings] || { push: true, inApp: true, email: true };
 
     let notificationId: string | undefined;
+    let pushSent = false;
+    let devicesCount = 0;
+    let successCount = 0;
 
+    // 1. In-App Notification Record & Realtime Ably Broadcast
     if (catPref.inApp) {
-      const created = await prisma.notification.create({
-        data: {
-          userId,
-          type,
-          category,
-          title,
-          description,
-          image: image || null,
-          icon: icon || null,
-          priority,
-          payload: (payload as any) || null,
-          deepLink: deepLink || null,
-          source: source || null,
-          isRead: false,
-          delivered: false,
-          workspaceId: workspaceId || null
-        }
-      });
-      notificationId = created.id;
-
       try {
-        await publishToChannel(`user:${userId}:notifications`, "notification:new", created);
-      } catch (ablyErr) {
-        console.warn("Failed to publish notification via Ably:", ablyErr);
+        const created = await prisma.notification.create({
+          data: {
+            userId,
+            type,
+            category,
+            title,
+            description,
+            image: image || null,
+            icon: icon || null,
+            priority,
+            payload: (payload as any) || null,
+            deepLink: deepLink || null,
+            source: source || null,
+            isRead: false,
+            delivered: false,
+            workspaceId: workspaceId || null
+          }
+        });
+        notificationId = created.id;
+
+        try {
+          await publishToChannel(`user:${userId}:notifications`, "notification:new", created);
+        } catch (ablyErr) {
+          console.warn("[NotificationService] Ably publish warning:", ablyErr);
+        }
+      } catch (inAppErr) {
+        console.error("[NotificationService] In-app notification creation error:", inAppErr);
       }
     }
 
+    // 2. Firebase Cloud Messaging (FCM) Push Delivery
     if (catPref.push) {
-      const devices = await prisma.notificationDevice.findMany({
-        where: { userId, status: "ACTIVE" }
-      });
+      try {
+        const devices = await prisma.notificationDevice.findMany({
+          where: { userId, status: "ACTIVE" }
+        });
 
-      const tokens = devices.map((d) => d.firebaseToken);
+        devicesCount = devices.length;
+        const tokens = devices.map((d) => d.firebaseToken).filter(Boolean);
 
-      if (tokens.length > 0) {
-        try {
+        if (tokens.length > 0) {
           const payloadData: Record<string, string> = {
-            type,
-            category,
-            url: deepLink || "/"
+            type: String(type),
+            category: String(category),
+            title: String(title),
+            body: String(description),
+            url: deepLink || "/",
+            deepLink: deepLink || "/"
           };
+
+          if (image) {
+            payloadData.image = image;
+            payloadData.imageUrl = image;
+          }
 
           if (payload) {
             Object.entries(payload).forEach(([k, v]) => {
@@ -162,8 +180,11 @@ export class NotificationService {
 
           const adminMessaging = getAdminMessaging();
           if (!adminMessaging) {
-            console.warn("Skipping FCM push notification dispatch: Firebase Admin Messaging is not initialized.");
+            console.warn("[NotificationService] Firebase Admin Messaging is not initialized. Skipping push dispatch.");
           } else {
+            const isHighPriority =
+              priority === NotificationPriority.CRITICAL || priority === NotificationPriority.HIGH;
+
             const response = await adminMessaging.sendEachForMulticast({
               tokens,
               notification: {
@@ -171,9 +192,64 @@ export class NotificationService {
                 body: description,
                 imageUrl: image || undefined
               },
-              data: payloadData
+              data: payloadData,
+              webpush: {
+                fcmOptions: {
+                  link: deepLink || "/"
+                },
+                notification: {
+                  title,
+                  body: description,
+                  icon: "/logos_atlasfit/atlasfit_black.png",
+                  badge: "/logos_atlasfit/atlasfit (4).png",
+                  image: image || undefined,
+                  requireInteraction: isHighPriority,
+                  tag: (payloadData.engagePushLogId as string) || (payloadData.notificationId as string) || "atlasfit-notification"
+                },
+                headers: {
+                  Urgency: isHighPriority ? "high" : "normal"
+                }
+              },
+              android: {
+                priority: "high",
+                notification: {
+                  title,
+                  body: description,
+                  imageUrl: image || undefined,
+                  sound: "default",
+                  channelId: "atlasfit_reminders"
+                }
+              },
+              apns: {
+                payload: {
+                  aps: {
+                    alert: {
+                      title,
+                      body: description
+                    },
+                    sound: "default",
+                    badge: 1,
+                    contentAvailable: true
+                  }
+                },
+                fcmOptions: {
+                  imageUrl: image || undefined
+                }
+              }
             });
 
+            successCount = response.successCount;
+            if (response.successCount > 0) {
+              pushSent = true;
+              if (notificationId) {
+                await prisma.notification.update({
+                  where: { id: notificationId },
+                  data: { delivered: true }
+                });
+              }
+            }
+
+            // Prune dead / invalid tokens automatically
             if (response.failureCount > 0) {
               const badTokens: string[] = [];
               response.responses.forEach((resp: any, idx: number) => {
@@ -182,7 +258,8 @@ export class NotificationService {
                   if (
                     err &&
                     (err.code === "messaging/invalid-registration-token" ||
-                      err.code === "messaging/registration-token-not-registered")
+                      err.code === "messaging/registration-token-not-registered" ||
+                      err.code === "messaging/mismatched-credential")
                   ) {
                     badTokens.push(tokens[idx]);
                   }
@@ -195,21 +272,14 @@ export class NotificationService {
                 });
               }
             }
-
-            if (response.successCount > 0 && notificationId) {
-              await prisma.notification.update({
-                where: { id: notificationId },
-                data: { delivered: true }
-              });
-            }
           }
-        } catch (err) {
-          console.error("FCM dispatch error:", err);
         }
+      } catch (pushErr) {
+        console.error("[NotificationService] FCM push dispatch error:", pushErr);
       }
     }
 
-    // Email dispatch integration
+    // 3. Email dispatch integration
     if (catPref.email) {
       try {
         const targetUser = await prisma.user.findUnique({
@@ -219,8 +289,10 @@ export class NotificationService {
 
         if (targetUser?.email) {
           const appUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://app.atlasfit.site";
-          const fullLink = deepLink 
-            ? (deepLink.startsWith("http") ? deepLink : `${appUrl.replace(/\/$/, "")}${deepLink.startsWith("/") ? deepLink : `/${deepLink}`}`)
+          const fullLink = deepLink
+            ? deepLink.startsWith("http")
+              ? deepLink
+              : `${appUrl.replace(/\/$/, "")}${deepLink.startsWith("/") ? deepLink : `/${deepLink}`}`
             : undefined;
 
           EmailService.sendGenericNotification({
@@ -235,6 +307,13 @@ export class NotificationService {
         console.warn("[NotificationService] Error querying user for email dispatch:", emailErr);
       }
     }
+
+    return {
+      notificationId,
+      pushSent,
+      devicesCount,
+      successCount
+    };
   }
 
   static async registerDevice(params: {

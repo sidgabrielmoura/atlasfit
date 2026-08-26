@@ -14,41 +14,51 @@ firebase.initializeApp(firebaseConfig);
 const messaging = firebase.messaging();
 
 messaging.onBackgroundMessage((payload) => {
-  const notificationTitle = payload.notification?.title || "AtlasFit";
+  const notificationTitle = payload.notification?.title || payload.data?.title || "AtlasFit";
+  const notificationBody = payload.notification?.body || payload.data?.description || payload.data?.body || "";
+  const imageUrl = payload.notification?.image || payload.notification?.imageUrl || payload.data?.image || payload.data?.imageUrl;
+
   const notificationOptions = {
-    body: payload.notification?.body || "",
+    body: notificationBody,
     icon: "/logos_atlasfit/atlasfit_black.png",
     badge: "/logos_atlasfit/atlasfit (4).png",
-    data: payload.data || {}
+    image: imageUrl || undefined,
+    tag: payload.data?.engagePushLogId || payload.data?.notificationId || "atlasfit-push",
+    renotify: true,
+    vibrate: [200, 100, 200],
+    data: {
+      url: payload.data?.url || payload.data?.deepLink || "/",
+      ...payload.data
+    }
   };
 
-  self.registration.showNotification(notificationTitle, notificationOptions);
+  return self.registration.showNotification(notificationTitle, notificationOptions);
 });
 
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
-  
+
   let origin = self.location.origin;
   if (origin.includes("vercel.app") || origin.includes("atlasfit-steel")) {
     origin = "https://app.atlasfit.site";
   }
 
-  let urlToOpen = event.notification.data?.url || "/";
+  let urlToOpen = event.notification.data?.url || event.notification.data?.deepLink || "/";
   if (urlToOpen.startsWith("/")) {
     urlToOpen = origin + urlToOpen;
-  } else {
-    urlToOpen = urlToOpen.replace(/https:\/\/atlasfit[a-zA-Z0-9-]*\.vercel\.app/g, "https://app.atlasfit.site");
+  } else if (!urlToOpen.startsWith("http")) {
+    urlToOpen = `${origin}/${urlToOpen}`;
   }
 
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
       for (let i = 0; i < windowClients.length; i++) {
         const client = windowClients[i];
-        const clientUrlNormalized = client.url.replace(/https:\/\/atlasfit[a-zA-Z0-9-]*\.vercel\.app/g, "https://app.atlasfit.site");
-        const targetUrlNormalized = urlToOpen.replace(/https:\/\/atlasfit[a-zA-Z0-9-]*\.vercel\.app/g, "https://app.atlasfit.site");
-        
-        if (clientUrlNormalized === targetUrlNormalized && "focus" in client) {
-          return client.focus();
+        if ("focus" in client) {
+          if (client.url === urlToOpen || client.url.startsWith(origin)) {
+            client.navigate(urlToOpen);
+            return client.focus();
+          }
         }
       }
       if (clients.openWindow) {

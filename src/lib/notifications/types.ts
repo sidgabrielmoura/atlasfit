@@ -68,5 +68,5 @@ export const DEFAULT_PREFERENCES: UserPreferencesSettings = {
   CAMPAIGN: { push: true, inApp: true, email: false },
   MESSAGE: { push: true, inApp: true, email: false },
   GAMIFICATION: { push: true, inApp: true, email: false },
-  MARKETING: { push: false, inApp: true, email: false }
+  MARKETING: { push: true, inApp: true, email: false }
 };
