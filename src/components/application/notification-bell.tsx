@@ -194,8 +194,9 @@ export function NotificationBell() {
       // Toca efeito sonoro de notificação
       playRestChimeSound();
 
-      // Exibe toast contextual
+      // Exibe toast contextual com id único para evitar duplicações
       toast(notification.title || "Nova Notificação", {
+        id: notification.id,
         description: notification.description,
       });
     };

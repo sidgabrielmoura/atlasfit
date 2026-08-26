@@ -153,8 +153,11 @@ export function useFcm() {
           const body = payload.notification?.body || payload.data?.description || payload.data?.body;
           const targetUrl = payload.data?.url || payload.data?.deepLink || payload.fcmOptions?.link;
 
+          const toastId = payload.data?.notificationId || payload.data?.engagePushLogId || `push-${title}`;
+
           if (title || body) {
             toast(title, {
+              id: toastId,
               description: body,
               action: targetUrl
                 ? {

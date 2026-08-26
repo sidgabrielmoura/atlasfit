@@ -150,21 +150,43 @@ export class NotificationService {
     // 2. Firebase Cloud Messaging (FCM) Push Delivery
     if (catPref.push) {
       try {
+        // Find active devices ordered by most recent activity
         const devices = await prisma.notificationDevice.findMany({
-          where: { userId, status: "ACTIVE" }
+          where: { userId, status: "ACTIVE" },
+          orderBy: { lastSeen: "desc" }
         });
 
-        devicesCount = devices.length;
-        const tokens = devices.map((d) => d.firebaseToken).filter(Boolean);
+        // Smart token deduplication per platform/browser to prevent multiple pushes to the same device
+        const uniqueTokens: string[] = [];
+        const seenPlatforms = new Set<string>();
+
+        for (const dev of devices) {
+          const platformKey = `${dev.platform || "WEB"}_${dev.browser || "BROWSER"}`;
+          if (!seenPlatforms.has(platformKey) && dev.firebaseToken) {
+            seenPlatforms.add(platformKey);
+            uniqueTokens.push(dev.firebaseToken);
+          }
+        }
+
+        const tokens = Array.from(new Set(uniqueTokens));
+        devicesCount = tokens.length;
 
         if (tokens.length > 0) {
+          const deduplicationTag =
+            (payload?.engagePushLogId as string) ||
+            (payload?.notificationId as string) ||
+            notificationId ||
+            `atlasfit-${Date.now()}`;
+
           const payloadData: Record<string, string> = {
             type: String(type),
             category: String(category),
             title: String(title),
             body: String(description),
             url: deepLink || "/",
-            deepLink: deepLink || "/"
+            deepLink: deepLink || "/",
+            notificationId: notificationId || "",
+            tag: deduplicationTag
           };
 
           if (image) {
@@ -204,7 +226,7 @@ export class NotificationService {
                   badge: "/logos_atlasfit/atlasfit (4).png",
                   image: image || undefined,
                   requireInteraction: isHighPriority,
-                  tag: (payloadData.engagePushLogId as string) || (payloadData.notificationId as string) || "atlasfit-notification"
+                  tag: deduplicationTag
                 },
                 headers: {
                   Urgency: isHighPriority ? "high" : "normal"
@@ -217,7 +239,8 @@ export class NotificationService {
                   body: description,
                   imageUrl: image || undefined,
                   sound: "default",
-                  channelId: "atlasfit_reminders"
+                  channelId: "atlasfit_reminders",
+                  tag: deduplicationTag
                 }
               },
               apns: {
@@ -324,7 +347,7 @@ export class NotificationService {
   }) {
     const { userId, firebaseToken, platform, browser } = params;
 
-    return prisma.notificationDevice.upsert({
+    const device = await prisma.notificationDevice.upsert({
       where: { firebaseToken },
       create: {
         userId,
@@ -342,6 +365,22 @@ export class NotificationService {
         lastSeen: new Date()
       }
     });
+
+    // Inactivate any older duplicate tokens for the same user on the same platform and browser
+    if (platform && browser) {
+      await prisma.notificationDevice.updateMany({
+        where: {
+          userId,
+          platform,
+          browser,
+          firebaseToken: { not: firebaseToken },
+          status: "ACTIVE"
+        },
+        data: { status: "INACTIVE" }
+      });
+    }
+
+    return device;
   }
 
   static async unregisterDevice(firebaseToken: string) {

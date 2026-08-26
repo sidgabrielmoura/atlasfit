@@ -17,14 +17,15 @@ messaging.onBackgroundMessage((payload) => {
   const notificationTitle = payload.notification?.title || payload.data?.title || "AtlasFit";
   const notificationBody = payload.notification?.body || payload.data?.description || payload.data?.body || "";
   const imageUrl = payload.notification?.image || payload.notification?.imageUrl || payload.data?.image || payload.data?.imageUrl;
+  const tag = payload.data?.tag || payload.data?.engagePushLogId || payload.data?.notificationId || "atlasfit-push";
 
   const notificationOptions = {
     body: notificationBody,
     icon: "/logos_atlasfit/atlasfit_black.png",
     badge: "/logos_atlasfit/atlasfit (4).png",
     image: imageUrl || undefined,
-    tag: payload.data?.engagePushLogId || payload.data?.notificationId || "atlasfit-push",
-    renotify: true,
+    tag: tag,
+    renotify: false,
     vibrate: [200, 100, 200],
     data: {
       url: payload.data?.url || payload.data?.deepLink || "/",
