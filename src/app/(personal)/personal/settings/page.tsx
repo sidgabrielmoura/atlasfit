@@ -1044,16 +1044,10 @@ export default function SettingsPage() {
             )}
           </TabsContent>
 
-          {/* ============================== */}
-          {/* ABA: PRIVACIDADE & LGPD        */}
-          {/* ============================== */}
           <TabsContent value="privacidade" className="space-y-8 mt-0 outline-none">
             <PrivacyCenterTab />
           </TabsContent>
 
-          {/* ================================== */}
-          {/* ABA: CONTA & DADOS (DANGER ZONE)   */}
-          {/* ================================== */}
           <TabsContent value="seguranca" className="space-y-8 mt-0 outline-none">
             {/* Card 1: Exclusão de Dados Pessoais */}
             {/* <Card className="border-red-500/20 shadow-xs bg-card overflow-hidden relative">

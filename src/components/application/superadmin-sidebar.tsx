@@ -60,7 +60,6 @@ const controlNavItems = [
 
 const accountsNavItems = [
   { title: "Usuários", href: "/superadmin/users", icon: Users },
-  { title: "Solicitações de Exclusão", href: "/superadmin/deletion-requests", icon: UserX },
   { title: "Workspaces", href: "/superadmin/workspaces", icon: Building2 },
 ];
 
@@ -154,7 +153,7 @@ export function SuperAdminSidebar() {
 
       <SidebarSeparator className="max-w-[85%] mx-auto opacity-50" />
 
-      <SidebarContent className="space-y-1 py-2">
+      <SidebarContent className="py-2">
         {renderNavSection("Painel de Controle", controlNavItems)}
         <SidebarSeparator className="max-w-[85%] mx-auto opacity-40" />
 

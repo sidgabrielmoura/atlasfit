@@ -15,6 +15,7 @@ import { FinancialAccountStatus, WalletKycStatus, WalletPaymentMethod } from "@p
 import crypto from "crypto";
 import fs from "fs";
 import path from "path";
+import { timingSafeEqualString } from "../../security/wallet-security";
 
 export class AsaasAdapter implements PaymentProviderAdapter {
   private get baseUrl(): string {
@@ -447,14 +448,20 @@ export class AsaasAdapter implements PaymentProviderAdapter {
   }
 
   async verifyWebhook(headers: Record<string, string>, rawBody: string): Promise<boolean> {
-    const token = headers["asaas-access-token"] || headers["Asaas-Access-Token"];
+    const token = headers["asaas-access-token"] || headers["Asaas-Access-Token"] || headers["ASAAS-ACCESS-TOKEN"];
     const secret = process.env.ASAAS_WEBHOOK_SECRET;
     if (!secret || !token) return false;
-    return token === secret;
+    return timingSafeEqualString(token, secret);
   }
 
   async normalizeWebhook(rawBody: string): Promise<NormalizedFinancialEvent> {
-    const parsed = JSON.parse(rawBody);
+    let parsed: any;
+    try {
+      parsed = JSON.parse(rawBody);
+    } catch {
+      throw new Error("Payload do webhook malformado ou JSON inválido");
+    }
+
     const eventId = parsed.id || parsed.event + "_" + (parsed.payment?.id || parsed.transfer?.id || Date.now());
 
     return {

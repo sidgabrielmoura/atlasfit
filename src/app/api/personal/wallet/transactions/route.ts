@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { enforceWalletRateLimit } from "@/modules/payments/security/wallet-security";
+
+const VALID_TYPES = new Set(["ALL", "BILLING", "PAYOUT"]);
+const VALID_STATUSES = new Set(["ALL", "PAID", "SETTLED", "PENDING", "CANCELLED", "FAILED"]);
+const VALID_METHODS = new Set(["ALL", "PIX", "CREDIT_CARD"]);
 
 export async function GET(req: NextRequest) {
   try {
@@ -9,15 +14,34 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
+    // 1. Rate Limit Enforcement
+    const rateLimitResult = await enforceWalletRateLimit(req, "WALLET_TRANSACTIONS_READ", session.user.id);
+    if (!rateLimitResult.allowed) {
+      return rateLimitResult.response;
+    }
+
     const userId = session.user.id;
     const { searchParams } = new URL(req.url);
 
-    const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
-    const pageSize = Math.max(1, Math.min(100, parseInt(searchParams.get("pageSize") || "15", 10)));
-    const search = (searchParams.get("search") || "").trim().toLowerCase();
-    const typeFilter = (searchParams.get("type") || "ALL").toUpperCase();
-    const statusFilter = (searchParams.get("status") || "ALL").toUpperCase();
-    const methodFilter = (searchParams.get("method") || "ALL").toUpperCase();
+    // 2. Input Sanitization & Bounds Checking
+    const rawPage = parseInt(searchParams.get("page") || "1", 10);
+    const page = Number.isInteger(rawPage) && rawPage > 0 ? Math.min(rawPage, 1000) : 1;
+
+    const rawPageSize = parseInt(searchParams.get("pageSize") || "15", 10);
+    const pageSize = Number.isInteger(rawPageSize) && rawPageSize > 0 ? Math.min(rawPageSize, 100) : 15;
+
+    const rawSearch = (searchParams.get("search") || "").trim().slice(0, 60).toLowerCase();
+    // Strip control characters or dangerous injection patterns
+    const search = rawSearch.replace(/[\u0000-\u001F\u007F-\u009F]/g, "");
+
+    const rawType = (searchParams.get("type") || "ALL").toUpperCase();
+    const typeFilter = VALID_TYPES.has(rawType) ? rawType : "ALL";
+
+    const rawStatus = (searchParams.get("status") || "ALL").toUpperCase();
+    const statusFilter = VALID_STATUSES.has(rawStatus) ? rawStatus : "ALL";
+
+    const rawMethod = (searchParams.get("method") || "ALL").toUpperCase();
+    const methodFilter = VALID_METHODS.has(rawMethod) ? rawMethod : "ALL";
 
     const account = await prisma.paymentProviderAccount.findUnique({
       where: { personalUserId: userId }
@@ -46,7 +70,7 @@ export async function GET(req: NextRequest) {
     const students = studentIds.length > 0
       ? await prisma.user.findMany({
           where: { id: { in: studentIds } },
-          select: { id: true, name: true, email: true }
+          select: { id: true, name: true }
         })
       : [];
     const studentMap = new Map(students.map((s) => [s.id, s]));
@@ -155,6 +179,6 @@ export async function GET(req: NextRequest) {
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : String(error);
     console.error("[WALLET_TRANSACTIONS_ERROR]", message);
-    return NextResponse.json({ success: false, error: message }, { status: 500 });
+    return NextResponse.json({ success: false, error: "Erro ao consultar extrato." }, { status: 500 });
   }
 }

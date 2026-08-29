@@ -1951,7 +1951,6 @@ export function PushNotificationsStudio() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* 9. Dialog de Emissão de Notificação de Teste a Usuário Específico */}
       <Dialog open={isTestModalOpen} onOpenChange={setIsTestModalOpen}>
         <DialogContent className="max-w-lg rounded-2xl! overflow-y-auto! bg-card border-border shadow-2xl p-0 overflow-hidden">
           <DialogHeader className="p-4 sm:p-5 border-b border-border/50 bg-secondary/10 shrink-0">
@@ -1964,7 +1963,6 @@ export function PushNotificationsStudio() {
           </DialogHeader>
 
           <div className="p-4 sm:p-5 space-y-4">
-            {/* Aviso de bypass de bloqueio de horário */}
             <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-600 dark:text-amber-400 flex items-start gap-2.5">
               <Zap className="size-4 shrink-0 mt-0.5" />
               <div>
@@ -1975,7 +1973,6 @@ export function PushNotificationsStudio() {
               </div>
             </div>
 
-            {/* Notification Preview */}
             {itemToTest ? (
               <div className="rounded-xl border border-border bg-secondary/20 p-3.5 space-y-2.5">
                 <div className="flex items-center justify-between">

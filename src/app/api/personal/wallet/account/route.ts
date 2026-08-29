@@ -2,12 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { paymentService } from "@/modules/payments/application/payment-service";
+import {
+  enforceWalletRateLimit,
+  sanitizeWalletAccount
+} from "@/modules/payments/security/wallet-security";
 
 export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
+
+    // 1. Rate Limit Enforcement
+    const rateLimitResult = await enforceWalletRateLimit(req, "WALLET_ACCOUNT_READ", session.user.id);
+    if (!rateLimitResult.allowed) {
+      return rateLimitResult.response;
     }
 
     const userId = session.user.id;
@@ -28,18 +38,16 @@ export async function GET(req: NextRequest) {
     const isLocked = !isSubscriptionActive && !user?.isTestAccount;
 
     const overview = await paymentService.getWalletOverview(userId);
-    const sanitizedOverview = overview
-      ? JSON.parse(JSON.stringify(overview, (key, value) =>
-          typeof value === "bigint" ? value.toString() : value
-        ))
-      : null;
 
-    const hasValidWallet = !!sanitizedOverview &&
-      Boolean(sanitizedOverview.providerAccountId) &&
-      sanitizedOverview.status !== "NOT_STARTED";
+    const hasValidWallet = !!overview &&
+      Boolean(overview.providerAccountId) &&
+      overview.status !== "NOT_STARTED";
+
+    // 2. Data Minimization: sanitize and strip sensitive credentials before returning
+    const sanitizedAccount = hasValidWallet ? sanitizeWalletAccount(overview) : null;
 
     return NextResponse.json({
-      account: hasValidWallet ? sanitizedOverview : null,
+      account: sanitizedAccount,
       hasWallet: hasValidWallet,
       isLocked
     });

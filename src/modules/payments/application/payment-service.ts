@@ -284,6 +284,19 @@ export class PaymentService {
       throw new Error("Aluno não encontrado");
     }
 
+    // IDOR Defense: Garantir que o aluno pertence ao workspace do personal
+    const studentWorkspaceMember = await prisma.workspaceMember.findFirst({
+      where: {
+        userId: params.studentUserId,
+        role: "STUDENT",
+        workspace: { ownerId: params.personalUserId }
+      }
+    });
+
+    if (!studentWorkspaceMember) {
+      throw new Error("Aluno não autorizado ou não vinculado a um workspace do personal trainer.");
+    }
+
     const studentCpfCnpj = params.studentCpfCnpj || student.cpfCnpj || undefined;
 
     const customerResult = await this.adapter.createOrGetCustomer(
@@ -423,6 +436,28 @@ export class PaymentService {
 
     if (!account) {
       throw new Error("Conta financeira não encontrada");
+    }
+
+    // 1. Pre-check idempotencyKey to prevent duplicate external transfers
+    const existingPayout = await prisma.walletPayoutRequest.findUnique({
+      where: { idempotencyKey: params.idempotencyKey }
+    });
+
+    if (existingPayout) {
+      return existingPayout;
+    }
+
+    // 2. Concurrency Lock: Prevenir race conditions e duplo saque simultâneo
+    const inFlightPayout = await prisma.walletPayoutRequest.findFirst({
+      where: {
+        providerAccountId: account.id,
+        status: { in: [WalletPayoutStatus.REQUESTED, WalletPayoutStatus.PROCESSING] },
+        requestedAt: { gte: new Date(Date.now() - 60000) } // solicitado no último minuto
+      }
+    });
+
+    if (inFlightPayout) {
+      throw new Error("Já existe uma solicitação de saque em processamento para sua conta. Aguarde alguns instantes.");
     }
 
     const minPayout = BigInt(process.env.PAYMENT_MIN_PAYOUT_IN_CENTS || "1000");

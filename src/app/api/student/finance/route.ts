@@ -1,17 +1,24 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { AsaasAdapter } from "@/modules/payments/providers/asaas/asaas-adapter";
 import { StudentBillingStatus, LedgerEntryType, LedgerDirection } from "@prisma/client";
 import { publishToChannel } from "@/lib/ably";
+import { enforceWalletRateLimit } from "@/modules/payments/security/wallet-security";
 
 const adapter = new AsaasAdapter();
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
+    }
+
+    // 1. Rate Limit Enforcement (Prevenção de sobrecarga em consultas externas ao Asaas)
+    const rateLimitResult = await enforceWalletRateLimit(req, "STUDENT_FINANCE_READ", session.user.id);
+    if (!rateLimitResult.allowed) {
+      return rateLimitResult.response;
     }
 
     const studentUserId = session.user.id;

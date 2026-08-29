@@ -21,7 +21,6 @@ import {
 } from "@/components/ui/select";
 import { Loader2, Plus, Video, Sparkles, Film } from "lucide-react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { SelectVideoModal } from "@/components/videos/select-video-modal";
 
 interface MuscleGroup {

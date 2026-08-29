@@ -71,6 +71,7 @@ import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
+import { DeletionRequestsSection } from "@/components/superadmin/deletion-requests-section";
 
 function UserStatCard({ title, value, icon: Icon, color }: { title: string; value: string; icon: any; color: string }) {
   return (
@@ -98,6 +99,7 @@ function UsersContent() {
   const [onboardingFilter, setOnboardingFilter] = useState("all");
   const [workspaceFilter, setWorkspaceFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
+  const [deletionRequestsCount, setDeletionRequestsCount] = useState<number>(0);
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -188,8 +190,8 @@ function UsersContent() {
     activeTab === "personal"
       ? personalUsers
       : activeTab === "aluno"
-      ? studentUsers
-      : superadminUsers;
+        ? studentUsers
+        : superadminUsers;
 
   const filteredUsers = activeTabUsers.filter((u: any) => {
     // 1. Search
@@ -246,7 +248,7 @@ function UsersContent() {
   const userGrowthData = (() => {
     const now = new Date();
     const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-    
+
     // Construct last 6 months boundaries
     const months = [];
     for (let i = 5; i >= 0; i--) {
@@ -311,7 +313,7 @@ function UsersContent() {
               <UserPlus className="size-4" /> NOVO USUÁRIO
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md rounded-2xl">
+          <DialogContent className="max-w-md rounded-2xl!">
             <DialogHeader>
               <DialogTitle className="text-xl font-black tracking-tight">Criar Novo Usuário</DialogTitle>
             </DialogHeader>
@@ -390,10 +392,22 @@ function UsersContent() {
       </div>
 
       {/* 2. Bento Estatísticas de Usuários */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <UserStatCard title="Total Usuários" value={(snap.users || []).length.toLocaleString()} icon={UserCheck} color="bg-emerald-500/10 text-emerald-600 border border-emerald-500/20" />
         <UserStatCard title="SuperAdmins" value={(snap.users || []).filter((u: any) => u.role === "SUPERADMIN").length.toString()} icon={ShieldAlert} color="bg-rose-500/10 text-rose-600 border border-rose-500/20" />
         <UserStatCard title="Atividade Recente" value={`+${recentUsersCount} novos (7d)`} icon={Activity} color="bg-primary/10 text-primary border border-primary/20" />
+        <a href="#solicitacoes-exclusao" className="block transition-transform hover:-translate-y-0.5">
+          <UserStatCard
+            title="Exclusões Pendentes"
+            value={deletionRequestsCount.toString()}
+            icon={UserX}
+            color={
+              deletionRequestsCount > 0
+                ? "bg-red-500/10 text-red-600 border border-red-500/20 animate-pulse"
+                : "bg-secondary text-muted-foreground border border-border/40"
+            }
+          />
+        </a>
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
@@ -606,6 +620,12 @@ function UsersContent() {
           </Card>
         </div>
       </Tabs>
+
+      {/* 3. Seção Própria: Solicitações de Exclusão de Dados */}
+      <DeletionRequestsSection
+        onRequestCountChange={setDeletionRequestsCount}
+        onDataChange={() => superAdminActions.fetchUsers()}
+      />
 
       <AlertDialog open={isDeleteDialogOpen} onOpenChange={(open) => { if (!open) { setIsDeleteDialogOpen(false); setUserToDelete(null); } }}>
         <AlertDialogContent className="rounded-2xl border-border/40">
