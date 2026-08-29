@@ -36,6 +36,20 @@ export function AbacatePay(config: { secret: string }) {
     };
   }
 
+  if (client && client.subscriptions) {
+    (client.subscriptions as any).cancel = async (data: { id: string }) => {
+      const res = await fetch(`${ABACATEPAY_BASE}/subscriptions/cancel`, {
+        method: "POST",
+        headers: authHeaders,
+        body: JSON.stringify(data),
+      });
+      if (!res.ok) {
+        throw new Error(`AbacatePay subscriptions.cancel error: ${res.status} - ${await res.text()}`);
+      }
+      return (await res.json()).data;
+    };
+  }
+
   const extendedProducts = Object.assign(client.products, {
     update: async (id: string, data: { name?: string; description?: string; price?: number }) => {
       const res = await fetch(`${ABACATEPAY_BASE}/products/update?id=${encodeURIComponent(id)}`, {

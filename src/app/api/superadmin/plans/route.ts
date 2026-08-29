@@ -79,14 +79,16 @@ export async function POST(req: Request) {
       const apiKey = process.env.ABACATEPAY_API_KEY;
       if (apiKey && apiKey !== "abc_dev_placeholder") {
         const abacate = AbacatePay({ secret: apiKey });
+        const cycle = plan.interval === "year" ? "ANNUALLY" : "MONTHLY";
         await abacate.products.create({
           externalId: plan.id,
           name: plan.name,
           price: Math.round(plan.price * 100), // convert to cents
           currency: "BRL",
-          description: plan.features || `Plano ${plan.name}`
+          description: plan.features || `Plano ${plan.name}`,
+          cycle
         });
-        console.log(`Product synced successfully with AbacatePay: ${plan.id}`);
+        console.log(`Product synced successfully with AbacatePay (${cycle}): ${plan.id}`);
       }
     } catch (abacateError) {
       console.error("Erro ao sincronizar produto com AbacatePay:", abacateError);

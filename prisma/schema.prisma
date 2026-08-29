@@ -221,9 +221,11 @@ model Subscription {
   plan               Plan      @relation(fields: [planId], references: [id])
   startDate          DateTime  @default(now())
   endDate            DateTime?
-  isPreSubscription  Boolean   @default(false)
-  importQuotaUsed    Int       @default(0)
-  importQuotaResetAt DateTime?
+  isPreSubscription     Boolean   @default(false)
+  importQuotaUsed       Int       @default(0)
+  importQuotaResetAt    DateTime?
+  abacateSubscriptionId String?   @unique
+  abacateCustomerId     String?
 }
 
 model FreeTrial {

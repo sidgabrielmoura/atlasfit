@@ -327,11 +327,16 @@ export async function POST(req: Request) {
           else if (Array.isArray((response as any).products)) products = (response as any).products;
         }
 
+        const cycle = plan.interval === "year" ? "ANNUALLY" : "MONTHLY";
         const existingProduct = products.find((p: any) => p.externalId === plan.id);
         const targetPriceCents = Math.round(plan.price * 100);
 
         if (existingProduct) {
-          if (existingProduct.price !== targetPriceCents || existingProduct.name !== plan.name) {
+          if (
+            existingProduct.price !== targetPriceCents ||
+            existingProduct.name !== plan.name ||
+            existingProduct.cycle !== cycle
+          ) {
             try {
               await abacate.products.delete({ id: existingProduct.id });
             } catch (delError) {
@@ -342,7 +347,8 @@ export async function POST(req: Request) {
               name: plan.name,
               price: targetPriceCents,
               currency: "BRL",
-              description: plan.features || `Plano ${plan.name}`
+              description: plan.features || `Plano ${plan.name}`,
+              cycle
             });
             abacateProductId = newProduct.id;
           } else {
@@ -354,19 +360,22 @@ export async function POST(req: Request) {
             name: plan.name,
             price: targetPriceCents,
             currency: "BRL",
-            description: plan.features || `Plano ${plan.name}`
+            description: plan.features || `Plano ${plan.name}`,
+            cycle
           });
           abacateProductId = newProduct.id;
         }
       } catch (abacateError) {
         await logSystemError({ action: "POST_SUBSCRIPTION_SYNC_PRODUCT_ABACATEPAY", error: abacateError, entity: "SUBSCRIPTION" });
         try {
+          const cycle = plan.interval === "year" ? "ANNUALLY" : "MONTHLY";
           const newProduct = await abacate.products.create({
             externalId: plan.id,
             name: plan.name,
             price: Math.round(plan.price * 100),
             currency: "BRL",
-            description: plan.features || `Plano ${plan.name}`
+            description: plan.features || `Plano ${plan.name}`,
+            cycle
           });
           abacateProductId = newProduct.id;
         } catch (innerErr) {
@@ -384,48 +393,105 @@ export async function POST(req: Request) {
       });
       const activeCouponCodes = activeCoupons.map(c => c.code);
 
-      const planMethodsStr = (plan as any).paymentMethods || "PIX";
+      const planMethodsStr = (plan as any).paymentMethods || "CARD,PIX";
       const rawMethods = String(planMethodsStr).split(",").map((m: string) => m.trim().toUpperCase());
       const validMethods = rawMethods.filter((m: string) => m === "PIX" || m === "CARD") as Array<"PIX" | "CARD">;
-      const methods = validMethods.length > 0 ? validMethods : (["PIX"] as Array<"PIX" | "CARD">);
+      const methods = validMethods.length > 0 ? validMethods : (["CARD"] as Array<"PIX" | "CARD">);
 
-      const checkoutPayload = (requestedMethods: Array<"PIX" | "CARD">) => ({
-        methods: requestedMethods,
-        items: [
-          {
-            id: abacateProductId || "prod_fallback",
-            quantity: 1
-          }
-        ],
-        customer: {
-          name: user?.name || "Personal Trainer",
-          email: user?.email || "trainer@atlasfit.com",
-          cellphone: resolveValidCellphone(user?.whatsapp),
-          taxId: resolveValidTaxId(user?.cpfCnpj)
-        },
-        allowCoupons: true,
-        coupons: activeCouponCodes,
-        externalId: transaction.id,
-        metadata: {
-          planId: plan.id,
-          userId: session.user.id,
-          isPreSubscription: isTrialActive ? "true" : "false"
-        },
-        returnUrl: `${req.headers.get("origin") || "http://localhost:3000"}/subscription-expired/pending?transactionId=${transaction.id}`,
-        completionUrl: `${req.headers.get("origin") || "http://localhost:3000"}/subscription-expired/pending?transactionId=${transaction.id}`
-      });
+      const returnOrigin = req.headers.get("origin") || "http://localhost:3000";
+      const completionUrl = `${returnOrigin}/subscription-expired/pending?transactionId=${transaction.id}`;
+      const returnUrl = `${returnOrigin}/subscription-expired/pending?transactionId=${transaction.id}`;
 
       let checkout;
-      try {
-        checkout = await abacate.checkouts.create(checkoutPayload(methods));
-      } catch (abacateErr: any) {
-        const errStr = String(abacateErr?.message || abacateErr || "");
-        if (methods.includes("CARD") && (errStr.includes("CARD is not available") || errStr.includes("CARD"))) {
-          console.warn("AbacatePay: Cartão de crédito indisponível na conta da loja. Executando fallback automático para PIX.");
-          checkout = await abacate.checkouts.create(checkoutPayload(["PIX"]));
-        } else {
-          throw abacateErr;
+
+      // Se o plano permite cartão, criar Checkout de Assinatura Recorrente (POST /subscriptions/create)
+      // para que a própria AbacatePay tokenize o cartão e debite automaticamente no vencimento
+      if (methods.includes("CARD")) {
+        try {
+          checkout = await abacate.subscriptions.create({
+            items: [
+              {
+                id: abacateProductId || "prod_fallback",
+                quantity: 1
+              }
+            ],
+            methods: ["CARD"],
+            customer: {
+              name: user?.name || "Personal Trainer",
+              email: user?.email || "trainer@atlasfit.com",
+              cellphone: resolveValidCellphone(user?.whatsapp),
+              taxId: resolveValidTaxId(user?.cpfCnpj)
+            },
+            allowCoupons: true,
+            coupons: activeCouponCodes,
+            externalId: transaction.id,
+            metadata: {
+              planId: plan.id,
+              userId: session.user.id,
+              interval: plan.interval,
+              isPreSubscription: isTrialActive ? "true" : "false"
+            },
+            returnUrl,
+            completionUrl,
+            retryPolicy: {
+              maxRetry: 3,
+              retryEvery: 1
+            }
+          });
+        } catch (subErr: any) {
+          const errStr = String(subErr?.message || subErr || "");
+          console.warn("Falha ao criar assinatura com cartão no AbacatePay:", errStr);
+          // Fallback para checkout comum se houver restrição da loja
+          if (methods.includes("PIX") || errStr.includes("CARD is not available") || errStr.includes("CARD")) {
+            console.warn("Executando fallback para checkout avulso PIX no AbacatePay.");
+            checkout = await abacate.checkouts.create({
+              methods: ["PIX"],
+              items: [{ id: abacateProductId || "prod_fallback", quantity: 1 }],
+              customer: {
+                name: user?.name || "Personal Trainer",
+                email: user?.email || "trainer@atlasfit.com",
+                cellphone: resolveValidCellphone(user?.whatsapp),
+                taxId: resolveValidTaxId(user?.cpfCnpj)
+              },
+              allowCoupons: true,
+              coupons: activeCouponCodes,
+              externalId: transaction.id,
+              metadata: {
+                planId: plan.id,
+                userId: session.user.id,
+                interval: plan.interval,
+                isPreSubscription: isTrialActive ? "true" : "false"
+              },
+              returnUrl,
+              completionUrl
+            });
+          } else {
+            throw subErr;
+          }
         }
+      } else {
+        // Cobrança pontual exclusiva por PIX
+        checkout = await abacate.checkouts.create({
+          methods: ["PIX"],
+          items: [{ id: abacateProductId || "prod_fallback", quantity: 1 }],
+          customer: {
+            name: user?.name || "Personal Trainer",
+            email: user?.email || "trainer@atlasfit.com",
+            cellphone: resolveValidCellphone(user?.whatsapp),
+            taxId: resolveValidTaxId(user?.cpfCnpj)
+          },
+          allowCoupons: true,
+          coupons: activeCouponCodes,
+          externalId: transaction.id,
+          metadata: {
+            planId: plan.id,
+            userId: session.user.id,
+            interval: plan.interval,
+            isPreSubscription: isTrialActive ? "true" : "false"
+          },
+          returnUrl,
+          completionUrl
+        });
       }
 
       return NextResponse.json({ success: true, checkoutUrl: checkout.url });

@@ -35,6 +35,45 @@ export async function PATCH(
       }
     });
 
+    // Sincronizar atualização com o AbacatePay
+    try {
+      const apiKey = process.env.ABACATEPAY_API_KEY;
+      if (apiKey && apiKey !== "abc_dev_placeholder") {
+        const abacate = AbacatePay({ secret: apiKey });
+        const response = await abacate.products.list();
+        let products: any[] = [];
+        if (Array.isArray(response)) {
+          products = response;
+        } else if (response && typeof response === "object") {
+          if (Array.isArray((response as any).data)) products = (response as any).data;
+          else if (Array.isArray((response as any).products)) products = (response as any).products;
+        }
+
+        const existing = products.find((p: any) => p.externalId === id);
+        if (existing) {
+          try {
+            await abacate.products.delete({ id: existing.id });
+          } catch (e) {
+            console.error("Erro ao deletar produto antigo para recriação no AbacatePay:", e);
+          }
+        }
+
+        const cycle = plan.interval === "year" ? "ANNUALLY" : "MONTHLY";
+        await abacate.products.create({
+          externalId: plan.id,
+          name: plan.name,
+          price: Math.round(plan.price * 100),
+          currency: "BRL",
+          description: plan.features || `Plano ${plan.name}`,
+          cycle
+        });
+        console.log(`Plano ${id} atualizado com sucesso no AbacatePay com ciclo: ${cycle}`);
+      }
+    } catch (abacateError) {
+      console.error("Erro ao sincronizar atualização de produto com AbacatePay:", abacateError);
+      await logSystemError({ action: "PATCH_PLAN_SYNC_ABACATEPAY", error: abacateError, entity: "PLAN", entityId: id });
+    }
+
     return NextResponse.json(plan);
   } catch (error) {
     await logSystemError({ action: "PATCH_PLAN", error, entity: "PLAN", entityId: id });
