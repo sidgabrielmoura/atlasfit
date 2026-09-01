@@ -31,7 +31,6 @@ export async function POST(
       targetType = body.targetStudentId ? "STUDENT" : "TEMPLATE",
       targetStudentId = null,
       dayOfWeek = null,
-      includeObservations = true,
       name = null,
       goal = null,
       difficulty = null,
@@ -44,6 +43,11 @@ export async function POST(
       excludedExerciseIds = [],
       exerciseConfigs = {},
     } = body;
+
+    const shouldIncludeObservations =
+      body.includeObservations !== undefined
+        ? body.includeObservations === true || body.includeObservations === "true"
+        : true;
 
     // Find original workout with exercises and groups
     const originalWorkout = await prisma.workout.findFirst({
@@ -97,7 +101,11 @@ export async function POST(
         const cleanReps = cfg?.reps !== undefined && cfg.reps !== "" ? String(cfg.reps).slice(0, 50) : defaultReps;
         const cleanLoad = cfg?.load !== undefined ? String(cfg.load).slice(0, 100) : defaultLoad;
         const cleanRest = cfg?.rest !== undefined && cfg.rest !== "" ? String(cfg.rest).slice(0, 50) : defaultRest;
-        const cleanDescription = cfg?.description !== undefined ? String(cfg.description).slice(0, 500) : ex.description;
+        const cleanDescription = shouldIncludeObservations
+          ? (cfg?.description !== undefined && cfg.description !== null
+              ? (String(cfg.description).trim() === "" ? null : String(cfg.description).slice(0, 500))
+              : (ex.description ? String(ex.description).slice(0, 500) : null))
+          : null;
 
         return {
           ...ex,
@@ -229,9 +237,11 @@ export async function POST(
           const finalReps = cfg?.reps !== undefined && cfg.reps !== "" ? String(cfg.reps).slice(0, 50) : simplifyCommaSeparatedString(ex.reps);
           const finalRest = cfg?.rest !== undefined && cfg.rest !== "" ? String(cfg.rest).slice(0, 50) : simplifyCommaSeparatedString(ex.rest);
           const finalLoad = cfg?.load !== undefined ? String(cfg.load).slice(0, 100) : simplifyCommaSeparatedString(ex.load || "");
-          const finalDescription = cfg?.description !== undefined
-            ? String(cfg.description).slice(0, 500)
-            : (includeObservations ? ex.description : null);
+          const finalDescription = shouldIncludeObservations
+            ? (cfg?.description !== undefined && cfg.description !== null
+                ? (String(cfg.description).trim() === "" ? null : String(cfg.description).slice(0, 500))
+                : (ex.description ? String(ex.description).slice(0, 500) : null))
+            : null;
 
           await tx.workoutExercise.create({
             data: {

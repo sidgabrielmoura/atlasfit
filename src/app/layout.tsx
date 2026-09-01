@@ -22,6 +22,7 @@ import prisma from "@/lib/prisma";
 import { PWARegister } from "@/components/pwa-register";
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
 import { PwaFcmInit } from "@/components/pwa-fcm-init";
+import { SpeedInsights } from "@vercel/speed-insights/next"
 
 export const viewport: Viewport = {
   themeColor: "#3052EB",
@@ -97,6 +98,7 @@ export default function RootLayout({
           <PWARegister />
           <PwaFcmInit />
           <PWAInstallPrompt />
+          <SpeedInsights />
           <ImpersonationBanner />
           <LegalReacceptanceModal />
           {children}

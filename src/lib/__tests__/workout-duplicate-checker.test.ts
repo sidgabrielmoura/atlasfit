@@ -155,4 +155,53 @@ describe("workout-duplicate-checker", () => {
       expect(areWorkoutsIdentical(baseWorkoutA, reversedWorkout)).toBe(true);
     });
   });
+
+  describe("Observations Duplication Logic", () => {
+    const originalExercise = {
+      id: "we-1",
+      exerciseId: "ex-1",
+      sets: 4,
+      reps: "10",
+      description: "Cadência 3-0-1, focar na contração de peito",
+    };
+
+    it("quando includeObservations for false, a descrição final deve ser estritamente null", () => {
+      const shouldIncludeObservations = false;
+      const cfg = { description: "Cadência 3-0-1, focar na contração de peito" };
+
+      const cleanDescription = shouldIncludeObservations
+        ? (cfg?.description !== undefined && cfg.description !== null
+            ? (String(cfg.description).trim() === "" ? null : String(cfg.description).slice(0, 500))
+            : (originalExercise.description ? String(originalExercise.description).slice(0, 500) : null))
+        : null;
+
+      expect(cleanDescription).toBeNull();
+    });
+
+    it("quando includeObservations for true, deve preservar a observação original se não houver override", () => {
+      const shouldIncludeObservations = true;
+      const cfg = undefined;
+
+      const cleanDescription = shouldIncludeObservations
+        ? (cfg && (cfg as any)?.description !== undefined && (cfg as any).description !== null
+            ? (String((cfg as any).description).trim() === "" ? null : String((cfg as any).description).slice(0, 500))
+            : (originalExercise.description ? String(originalExercise.description).slice(0, 500) : null))
+        : null;
+
+      expect(cleanDescription).toBe("Cadência 3-0-1, focar na contração de peito");
+    });
+
+    it("quando includeObservations for true e o usuário alterar a observação no modal, deve usar o valor atualizado", () => {
+      const shouldIncludeObservations = true;
+      const cfg = { description: "Nova observação personalizada" };
+
+      const cleanDescription = shouldIncludeObservations
+        ? (cfg?.description !== undefined && cfg.description !== null
+            ? (String(cfg.description).trim() === "" ? null : String(cfg.description).slice(0, 500))
+            : (originalExercise.description ? String(originalExercise.description).slice(0, 500) : null))
+        : null;
+
+      expect(cleanDescription).toBe("Nova observação personalizada");
+    });
+  });
 });

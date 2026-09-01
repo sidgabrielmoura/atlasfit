@@ -22,6 +22,7 @@
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
     "@types/papaparse": "^5.5.2",
+    "@vercel/speed-insights": "^2.0.0",
     "ably": "^2.24.0",
     "axios": "^1.16.1",
     "bcryptjs": "^3.0.3",

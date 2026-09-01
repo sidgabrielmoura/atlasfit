@@ -404,11 +404,41 @@ export function DuplicateWorkoutModal({
     }
   };
 
+  const handleToggleIncludeObservations = (include: boolean) => {
+    setIncludeObservations(include);
+    setExerciseConfigs((prev) => {
+      const updated = { ...prev };
+      (workout?.exercises || []).forEach((we: any) => {
+        const defaultSets = we?.sets ?? 4;
+        const defaultReps = simplifyCommaSeparatedString(we?.reps ? String(we.reps) : "10") || "10";
+        const defaultLoad = simplifyCommaSeparatedString(we?.load ? String(we?.load) : "");
+        const defaultRest = simplifyCommaSeparatedString(we?.rest ? String(we?.rest) : "01:00") || "01:00";
+        const existing = updated[we.id] || {
+          sets: defaultSets,
+          reps: defaultReps,
+          load: defaultLoad,
+          rest: defaultRest,
+          description: "",
+        };
+
+        updated[we.id] = {
+          ...existing,
+          description: include ? (we.description ? String(we.description) : "") : "",
+        };
+      });
+      return updated;
+    });
+  };
+
   const handleUpdateExerciseField = (
     exerciseId: string,
     field: keyof ExerciseCustomConfig,
     value: any
   ) => {
+    if (field === "description" && value && String(value).trim() !== "" && !includeObservations) {
+      setIncludeObservations(true);
+    }
+
     setExerciseConfigs((prev) => {
       const existing = prev[exerciseId];
       const we = (workout?.exercises || []).find((e: any) => e.id === exerciseId);
@@ -455,11 +485,19 @@ export function DuplicateWorkoutModal({
       const targetStudentObj = students.find((s) => s.id === selectedStudentId);
       const targetStudentName = targetStudentObj?.name || currentStudentName || "o aluno";
 
+      const sanitizedExerciseConfigs: Record<string, ExerciseCustomConfig> = {};
+      Object.entries(exerciseConfigs).forEach(([id, cfg]) => {
+        sanitizedExerciseConfigs[id] = {
+          ...cfg,
+          description: includeObservations ? (cfg.description || "") : "",
+        };
+      });
+
       const payload = {
         targetType: activeTab === "DUPLICATE_TO_STUDENT" ? "STUDENT" : "TEMPLATE",
         targetStudentId: activeTab === "DUPLICATE_TO_STUDENT" ? selectedStudentId : null,
         dayOfWeek: activeTab === "DUPLICATE_TO_STUDENT" ? selectedDayOfWeek : null,
-        includeObservations,
+        includeObservations: Boolean(includeObservations),
         name: customName.trim() || workout.name,
         goal: customGoal,
         difficulty: customDifficulty,
@@ -470,7 +508,7 @@ export function DuplicateWorkoutModal({
         allowCompleteView,
         allowSkipExercises,
         excludedExerciseIds,
-        exerciseConfigs,
+        exerciseConfigs: sanitizedExerciseConfigs,
       };
 
       const res = await fetch(`/api/personal/workouts/${workout.id}/duplicate`, {
@@ -762,7 +800,7 @@ export function DuplicateWorkoutModal({
                 <button
                   type="button"
                   disabled={isSubmitting}
-                  onClick={() => setIncludeObservations(true)}
+                  onClick={() => handleToggleIncludeObservations(true)}
                   className={cn(
                     "p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3",
                     includeObservations
@@ -787,7 +825,7 @@ export function DuplicateWorkoutModal({
                 <button
                   type="button"
                   disabled={isSubmitting}
-                  onClick={() => setIncludeObservations(false)}
+                  onClick={() => handleToggleIncludeObservations(false)}
                   className={cn(
                     "p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3",
                     !includeObservations
@@ -838,7 +876,7 @@ export function DuplicateWorkoutModal({
                 <button
                   type="button"
                   disabled={isSubmitting}
-                  onClick={() => setIncludeObservations(true)}
+                  onClick={() => handleToggleIncludeObservations(true)}
                   className={cn(
                     "p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3",
                     includeObservations
@@ -863,7 +901,7 @@ export function DuplicateWorkoutModal({
                 <button
                   type="button"
                   disabled={isSubmitting}
-                  onClick={() => setIncludeObservations(false)}
+                  onClick={() => handleToggleIncludeObservations(false)}
                   className={cn(
                     "p-3 rounded-xl border text-left transition-all cursor-pointer flex items-start gap-3",
                     !includeObservations
