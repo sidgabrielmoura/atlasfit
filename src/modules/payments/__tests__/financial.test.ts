@@ -83,6 +83,17 @@ describe("Subaccount Crypto", () => {
     const tampered = encrypted.slice(0, -4) + "AAAA";
     expect(() => decryptSubAccountApiKey(tampered)).toThrow();
   });
+
+  it("[T-CRYPTO-5] fallback para AUTH_SECRET quando ASAAS_ENCRYPTION_SECRET não está definido", () => {
+    const originalAsaasSecret = process.env.ASAAS_ENCRYPTION_SECRET;
+    delete process.env.ASAAS_ENCRYPTION_SECRET;
+    process.env.AUTH_SECRET = "fallback-auth-secret-32-chars-long!!";
+
+    const { encrypted } = encryptSubAccountApiKey(MOCK_RAW_KEY);
+    expect(decryptSubAccountApiKey(encrypted)).toBe(MOCK_RAW_KEY);
+
+    process.env.ASAAS_ENCRYPTION_SECRET = originalAsaasSecret;
+  });
 });
 
 describe("PaymentService – processActivationFeeRecovery", () => {

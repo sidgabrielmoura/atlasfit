@@ -37,7 +37,11 @@ export async function GET(req: NextRequest) {
 
     const isLocked = !isSubscriptionActive && !user?.isTestAccount;
 
-    const overview = await paymentService.getWalletOverview(userId);
+    let overview = await paymentService.getWalletOverview(userId);
+
+    if (!overview) {
+      overview = await paymentService.healOrphanedAccountIfAny(userId);
+    }
 
     const hasValidWallet = !!overview &&
       Boolean(overview.providerAccountId) &&

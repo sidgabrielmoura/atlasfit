@@ -4,9 +4,9 @@ const ALGORITHM = "aes-256-gcm";
 const KEY_VERSION = "v1";
 
 function getDerivedKey(): Buffer {
-  const secret = process.env.ASAAS_ENCRYPTION_SECRET;
+  const secret = process.env.ASAAS_ENCRYPTION_SECRET || process.env.AUTH_SECRET;
   if (!secret || secret.length < 32) {
-    throw new Error("ASAAS_ENCRYPTION_SECRET inválido ou ausente no ambiente");
+    throw new Error("ASAAS_ENCRYPTION_SECRET ou AUTH_SECRET inválido ou ausente no ambiente (mínimo 32 caracteres)");
   }
   return crypto.createHash("sha256").update(secret).digest();
 }

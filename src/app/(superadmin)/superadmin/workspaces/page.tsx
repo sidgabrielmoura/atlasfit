@@ -195,7 +195,7 @@ export default function WorkspacesManagementPage() {
   }
 
   const totalWorkspaces = (snap.workspaces || []).length;
-  
+
   const planCounts: Record<string, number> = {};
   (snap.workspaces || []).forEach((ws: any) => {
     const planName = ws.subscription?.plan?.name || "FREE";
@@ -234,14 +234,14 @@ export default function WorkspacesManagementPage() {
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Gestão de Workspaces</h1>
           <p className="text-muted-foreground text-xs sm:text-sm font-medium">Controle e monitoramento de assessorias, academias e times.</p>
         </div>
-        
+
         <Dialog open={isCreateModalOpen} onOpenChange={setIsCreateModalOpen}>
           <DialogTrigger asChild>
             <Button className="h-11 rounded-xl gap-2 font-bold bg-primary text-primary-foreground shadow-lg shadow-primary/20 w-full sm:w-auto">
               <Plus className="size-4" /> NOVO WORKSPACE
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md rounded-2xl">
+          <DialogContent className="max-w-md rounded-3xl!">
             <DialogHeader>
               <DialogTitle className="text-xl font-black tracking-tight">Criar Novo Workspace</DialogTitle>
             </DialogHeader>
@@ -471,7 +471,7 @@ export default function WorkspacesManagementPage() {
 
       {/* 3. Bento Grid: Gráfico de Planos + Tabela de Workspaces */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
-        
+
         {/* Diretório de Workspaces (Tabela Principal) */}
         <Card className="lg:col-span-8 border-border/40 shadow-sm overflow-hidden flex flex-col justify-between">
           <CardHeader className="border-b border-border/40 bg-secondary/10 px-6 py-5">
@@ -611,7 +611,7 @@ export default function WorkspacesManagementPage() {
                 </ResponsiveContainer>
               )}
             </div>
-            
+
             <div className="space-y-2 mt-4 pt-4 border-t border-border/30">
               {planDistributionData.map((d, index) => (
                 <div key={index} className="flex justify-between items-center text-xs">

@@ -52,9 +52,14 @@ export class PaymentService {
       const creationFeeCents = BigInt(process.env.ASAAS_SUBACCOUNT_CREATION_FEE_IN_CENTS || "1290");
       const initialFeeStatus = creationFeeCents > BigInt(0) ? "PENDING" : "NOT_APPLICABLE";
 
-      const apiKeyFields = result.providerApiKey
-        ? encryptSubAccountApiKey(result.providerApiKey)
-        : null;
+      let apiKeyFields: { encrypted: string; keyVersion: string } | null = null;
+      if (result.providerApiKey) {
+        try {
+          apiKeyFields = encryptSubAccountApiKey(result.providerApiKey);
+        } catch (cryptoErr) {
+          console.error("[PAYMENT_SERVICE] Aviso: Falha ao criptografar apiKey da subconta:", cryptoErr);
+        }
+      }
 
       if (existing) {
         return await prisma.paymentProviderAccount.update({
@@ -602,6 +607,97 @@ export class PaymentService {
     }
 
     return account;
+  }
+
+  async healOrphanedAccountIfAny(personalUserId: string) {
+    try {
+      const user = await prisma.user.findUnique({
+        where: { id: personalUserId },
+        select: { id: true, name: true, email: true, cpfCnpj: true }
+      });
+
+      if (!user?.email) return null;
+
+      const existingSubAccount = await this.adapter.findExistingSubAccountByEmailOrCpf(
+        user.email,
+        user.cpfCnpj ? user.cpfCnpj.replace(/\D/g, "") : undefined
+      );
+
+      if (!existingSubAccount) return null;
+
+      const providerEnv = (process.env.ASAAS_ENVIRONMENT || "sandbox") === "production"
+        ? ProviderEnvironment.PRODUCTION
+        : ProviderEnvironment.SANDBOX;
+
+      const creationFeeCents = BigInt(process.env.ASAAS_SUBACCOUNT_CREATION_FEE_IN_CENTS || "1290");
+      const initialFeeStatus = creationFeeCents > BigInt(0) ? "PENDING" : "NOT_APPLICABLE";
+
+      const isApproved = existingSubAccount.status === "APPROVED" || Boolean(existingSubAccount.walletId);
+      const maskedName = (existingSubAccount.name || user.name || "Personal")
+        .split(" ")
+        .map((n: string, i: number) => (i === 0 ? n : n[0] + "."))
+        .join(" ");
+      const docLast4 = (existingSubAccount.cpfCnpj || user.cpfCnpj || "0000")
+        .replace(/\D/g, "")
+        .slice(-4);
+
+      let apiKeyFields: { encrypted: string; keyVersion: string } | null = null;
+      if (existingSubAccount.apiKey) {
+        try {
+          apiKeyFields = encryptSubAccountApiKey(existingSubAccount.apiKey);
+        } catch (err) {
+          console.error("[PAYMENT_SERVICE] Erro ao criptografar apiKey no heal:", err);
+        }
+      }
+
+      const healedAccount = await prisma.paymentProviderAccount.upsert({
+        where: { personalUserId },
+        create: {
+          personalUserId,
+          provider: PaymentProvider.ASAAS,
+          environment: providerEnv,
+          providerAccountId: existingSubAccount.id,
+          providerWalletId: existingSubAccount.walletId || null,
+          status: isApproved ? FinancialAccountStatus.APPROVED : FinancialAccountStatus.ONBOARDING,
+          kycStatus: isApproved ? WalletKycStatus.APPROVED : WalletKycStatus.PENDING,
+          providerStatus: existingSubAccount.status || (isApproved ? "APPROVED" : "AWAITING_APPROVAL"),
+          legalNameMasked: maskedName,
+          documentLast4: docLast4,
+          ...(apiKeyFields ? {
+            providerApiKeyEncrypted: apiKeyFields.encrypted,
+            providerApiKeyKeyVersion: apiKeyFields.keyVersion
+          } : {}),
+          activationFeeTotalInCents: creationFeeCents,
+          activationFeeRecoveredInCents: BigInt(0),
+          activationFeeStatus: initialFeeStatus
+        },
+        update: {
+          providerAccountId: existingSubAccount.id,
+          providerWalletId: existingSubAccount.walletId || null,
+          status: isApproved ? FinancialAccountStatus.APPROVED : FinancialAccountStatus.ONBOARDING,
+          kycStatus: isApproved ? WalletKycStatus.APPROVED : WalletKycStatus.PENDING,
+          providerStatus: existingSubAccount.status || (isApproved ? "APPROVED" : "AWAITING_APPROVAL"),
+          legalNameMasked: maskedName,
+          documentLast4: docLast4,
+          ...(apiKeyFields ? {
+            providerApiKeyEncrypted: apiKeyFields.encrypted,
+            providerApiKeyKeyVersion: apiKeyFields.keyVersion
+          } : {}),
+          updatedAt: new Date()
+        },
+        include: {
+          balanceSnapshots: { orderBy: { capturedAt: "desc" }, take: 1 },
+          billings: { orderBy: { createdAt: "desc" }, take: 20 },
+          payouts: { orderBy: { requestedAt: "desc" }, take: 10 },
+          ledgerEntries: { orderBy: { occurredAt: "desc" }, take: 30 }
+        }
+      });
+
+      return healedAccount;
+    } catch (err) {
+      console.error("[PAYMENT_SERVICE] Erro ao auto-recuperar conta órfã:", err);
+      return null;
+    }
   }
 
   async cancelStudentSubscription(studentUserId: string, workspaceId: string) {

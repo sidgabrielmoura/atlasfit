@@ -92,6 +92,30 @@ export class AsaasAdapter implements PaymentProviderAdapter {
     return errorText || "Erro de validação no processamento do cadastro Asaas.";
   }
 
+  async findExistingSubAccountByEmailOrCpf(email: string, cleanCpfCnpj?: string): Promise<any | null> {
+    try {
+      const res = await fetch(`${this.baseUrl}/accounts?email=${encodeURIComponent(email)}`, {
+        method: "GET",
+        headers: this.headers
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.data && Array.isArray(json.data) && json.data.length > 0) {
+          const matched = json.data.find((acc: any) => {
+            if (acc.email && acc.email.toLowerCase() === email.toLowerCase()) return true;
+            if (cleanCpfCnpj && acc.cpfCnpj && acc.cpfCnpj.replace(/\D/g, "") === cleanCpfCnpj) return true;
+            return false;
+          });
+          if (matched) return matched;
+          return json.data[0];
+        }
+      }
+    } catch (err) {
+      console.error("[ASAAS_ADAPTER] Erro ao buscar subconta existente:", err);
+    }
+    return null;
+  }
+
   async createFinancialAccount(input: CreateAccountInput): Promise<AccountStatusResult> {
     const cleanCpfCnpj = input.cpfCnpj.replace(/\D/g, "");
     const cleanPhone = input.mobilePhone.replace(/\D/g, "");
@@ -123,6 +147,32 @@ export class AsaasAdapter implements PaymentProviderAdapter {
 
     if (!res.ok) {
       const errorText = await res.text();
+      const lower = errorText.toLowerCase();
+      const isAlreadyExists =
+        lower.includes("já está em uso") ||
+        lower.includes("já pertence") ||
+        lower.includes("já cadastrado") ||
+        lower.includes("pertence a outra conta");
+
+      if (isAlreadyExists) {
+        const existingSubAccount = await this.findExistingSubAccountByEmailOrCpf(input.email, cleanCpfCnpj);
+        if (existingSubAccount) {
+          const docLast4 = (existingSubAccount.cpfCnpj || cleanCpfCnpj).replace(/\D/g, "").slice(-4);
+          const maskedName = (existingSubAccount.name || input.name).split(" ").map((n: string, i: number) => (i === 0 ? n : n[0] + ".")).join(" ");
+          const isApproved = existingSubAccount.status === "APPROVED" || Boolean(existingSubAccount.walletId);
+
+          return {
+            providerAccountId: existingSubAccount.id,
+            providerApiKey: existingSubAccount.apiKey ?? undefined,
+            status: isApproved ? FinancialAccountStatus.APPROVED : FinancialAccountStatus.ONBOARDING,
+            kycStatus: isApproved ? WalletKycStatus.APPROVED : WalletKycStatus.PENDING,
+            providerStatus: existingSubAccount.status || (isApproved ? "APPROVED" : "AWAITING_APPROVAL"),
+            legalNameMasked: maskedName,
+            documentLast4: docLast4
+          };
+        }
+      }
+
       throw new Error(this.parseAsaasError(errorText));
     }
 

@@ -274,7 +274,7 @@ export function WorkspaceSwitcher() {
 
       {/* Premium Create Workspace Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="sm:max-w-125 rounded-3xl border-border/50 bg-background/95 backdrop-blur-xl shadow-2xl p-6 overflow-hidden">
+        <DialogContent className="sm:max-w-125 rounded-3xl! border-border/50 bg-background/95 backdrop-blur-xl shadow-2xl p-6 overflow-hidden">
           <DialogHeader className="space-y-2">
             <DialogTitle className="text-2xl font-black tracking-tight flex items-center gap-2">
               Criar Novo Workspace
