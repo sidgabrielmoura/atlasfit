@@ -83,7 +83,7 @@ export async function updateBrandSettings(
     data: {
       name: data.name.trim(),
       slogan: data.slogan?.trim() || null,
-      primaryColor: data.primaryColor?.trim() || "#0ea5e9",
+      primaryColor: data.primaryColor?.trim() || "#2B4FCC",
       logoUrl: data.logoUrl?.trim() || null,
       logoKey: data.logoKey || null,
       watermarkUrl: data.watermarkUrl?.trim() || null,
@@ -119,7 +119,7 @@ export async function updateBrandSettings(
       logo,
       logoUrl: updatedWorkspace.logoUrl,
       logoKey: updatedWorkspace.logoKey,
-      primaryColor: updatedWorkspace.primaryColor || "#0ea5e9",
+      primaryColor: updatedWorkspace.primaryColor || "#2B4FCC",
       slogan: updatedWorkspace.slogan,
       watermarkUrl: updatedWorkspace.watermarkUrl,
       watermarkKey: updatedWorkspace.watermarkKey,

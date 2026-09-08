@@ -46,6 +46,7 @@ import { useSnapshot } from "valtio";
 import { workspaceStore } from "@/stores/workspace.store";
 import { cn } from "@/lib/utils";
 import { RestTimeInput } from "@/components/application/RestTimeInput";
+import { WorkoutDurationSelect } from "@/components/application/WorkoutDurationSelect";
 import { CreateCustomExerciseDialog } from "@/components/workouts/create-custom-exercise-dialog";
 
 export default function NewWorkoutPage() {
@@ -633,14 +634,11 @@ export default function NewWorkoutPage() {
 
               <div className="space-y-1.5 flex flex-col">
                 <Label htmlFor="duration" className="text-xs font-medium text-foreground">Tempo Estimado</Label>
-                <Input
+                <WorkoutDurationSelect
                   id="duration"
-                  type="text"
-                  placeholder="Ex: 60 min"
                   value={duration}
-                  onChange={(e) => setDuration(e.target.value)}
+                  onValueChange={setDuration}
                   className="bg-background/80 border-border h-10 text-sm"
-                  required
                 />
               </div>
 

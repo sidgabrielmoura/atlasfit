@@ -13,6 +13,7 @@ import { ChatHeaderButton } from "@/components/application/chat-header-button";
 import { WorkoutManager } from "@/components/application/WorkoutManager";
 import { TopBannerCarousel } from "@/components/application/top-banner-carousel";
 import { StudentBillingTopBanner } from "@/components/application/student-billing-top-banner";
+import { WorkspaceInitializer } from "@/components/application/workspace-initializer";
 
 export default async function StudentLayout({
   children,
@@ -63,10 +64,14 @@ export default async function StudentLayout({
     activeWorkspace = await prisma.workspace.findUnique({
       where: { id: activeWorkspaceId, isActive: true },
       select: {
+        id: true,
         name: true,
+        slug: true,
         logoUrl: true,
         primaryColor: true,
         slogan: true,
+        workoutCoverUrl: true,
+        watermarkUrl: true,
       }
     });
   } else {
@@ -79,8 +84,22 @@ export default async function StudentLayout({
     }
   }
 
+  const workspaceData = activeWorkspace ? {
+    id: activeWorkspace.id || activeWorkspaceId || "",
+    name: activeWorkspace.name,
+    slug: (activeWorkspace as any).slug || "",
+    logo: activeWorkspace.name.slice(0, 2).toUpperCase(),
+    logoUrl: activeWorkspace.logoUrl,
+    primaryColor: activeWorkspace.primaryColor || "#2B4FCC",
+    plan: "Pro",
+    slogan: activeWorkspace.slogan,
+    workoutCoverUrl: activeWorkspace.workoutCoverUrl || null,
+    watermarkUrl: activeWorkspace.watermarkUrl || null,
+  } : null;
+
   return (
     <SidebarProvider>
+      {workspaceData && <WorkspaceInitializer workspace={workspaceData} />}
       <StudentSidebar />
       <SidebarInset className="bg-background">
         <StudentBillingTopBanner />

@@ -21,6 +21,7 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { isValidCPF, formatCPF } from "@/lib/cpf-validator";
+import { updateMobileStatusBar } from "@/components/application/dynamic-branding";
 
 interface CaptureFormProps {
   workspace: {
@@ -52,13 +53,16 @@ export function CaptureForm({ workspace }: CaptureFormProps) {
   const [selectedPlan, setSelectedPlan] = useState("Mensal");
 
   useEffect(() => {
+    if (workspace.primaryColor) {
+      updateMobileStatusBar(workspace.primaryColor);
+    }
     if (typeof window !== "undefined") {
       const isPending = localStorage.getItem(`atlasfit_pending_${workspace.slug}`);
       if (isPending === "true") {
         router.replace(`/t/${workspace.slug}/pending`);
       }
     }
-  }, [workspace.slug, router]);
+  }, [workspace.slug, workspace.primaryColor, router]);
 
   const getInitials = (nameStr?: string | null) => {
     if (!nameStr) return "PT";
@@ -132,6 +136,8 @@ export function CaptureForm({ workspace }: CaptureFormProps) {
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white flex flex-col lg:flex-row relative">
+      <meta name="theme-color" content={workspace.primaryColor || "#2B4FCC"} />
+      <meta name="apple-mobile-web-app-status-bar-style" content="default" />
       {/* Dynamic Branding Injector */}
       <style dangerouslySetInnerHTML={{
         __html: `

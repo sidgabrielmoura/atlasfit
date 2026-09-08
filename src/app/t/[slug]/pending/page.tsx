@@ -36,6 +36,8 @@ export default async function PendingPage({ params }: PendingPageProps) {
 
   return (
     <div className="min-h-screen bg-neutral-950 text-white flex flex-col items-center justify-center p-6 relative">
+      <meta name="theme-color" content={workspace?.primaryColor || "#2B4FCC"} />
+      <meta name="apple-mobile-web-app-status-bar-style" content="default" />
       {/* Dynamic Branding Injector */}
       {workspace?.primaryColor && (
         <style dangerouslySetInnerHTML={{

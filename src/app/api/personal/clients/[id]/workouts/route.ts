@@ -278,7 +278,7 @@ export async function POST(
             difficulty,
             duration,
             muscleGroupLabel: muscleGroupLabel || "Geral",
-            restBetweenExercises: restBetweenExercises || "2 min",
+            restBetweenExercises: restBetweenExercises || "02:00",
             creatorId: session.user.id,
             workspaceId,
             studentId,

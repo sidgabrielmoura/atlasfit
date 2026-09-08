@@ -166,14 +166,17 @@ const getDisplayItems = (exercises: any[], exerciseGroups: any[] = []): DisplayI
 /**
  * Converte o valor de descanso configurado pelo personal em segundos.
  * Suporta os formatos:
- *   "MM:SS" → ex: "01:00" = 60s, "01:30" = 90s
- *   "Xs"    → ex: "60s" = 60s
- *   "X"     → ex: "60" = 60s
+ *   "MM:SS"    → ex: "02:00" = 120s, "01:30" = 90s
+ *   "X min"    → ex: "2 min" = 120s, "1 min 30s" = 90s, "2 minutos" = 120s
+ *   "Xs"       → ex: "60s" = 60s, "90 seg" = 90s
+ *   "X"        → ex: "120" = 120s, "60" = 60s, ou "2" = 120s (valores <= 10 interpretados como minutos)
  */
-const parseRestToSeconds = (value: string | undefined | null, fallback = 60): number => {
-  if (!value) return fallback;
+const parseRestToSeconds = (value: string | number | undefined | null, fallback = 60): number => {
+  if (value === undefined || value === null || value === "") return fallback;
   const v = String(value).trim();
-  // MM:SS format
+  if (!v) return fallback;
+
+  // 1. Formato MM:SS ou M:S (ex: "02:00", "1:30")
   if (v.includes(":")) {
     const parts = v.split(":");
     const mins = parseInt(parts[0], 10) || 0;
@@ -181,9 +184,45 @@ const parseRestToSeconds = (value: string | undefined | null, fallback = 60): nu
     const total = mins * 60 + secs;
     return total > 0 ? total : fallback;
   }
-  // "60s" or plain number
-  const plain = parseInt(v, 10);
-  return plain > 0 ? plain : fallback;
+
+  const lower = v.toLowerCase();
+
+  // 2. Contém "min", "m", "minuto", "minutos" (ex: "2 min", "2min", "1 min 30s", "2 minutos")
+  if (lower.includes("min") || /\b\d+\s*m\b/.test(lower)) {
+    const minMatch = lower.match(/(\d+(?:[.,]\d+)?)\s*(?:minutos?|min|m\b)/);
+    const secMatch = lower.match(/(\d+)\s*(?:segundos?|seg|s\b)/);
+    let total = 0;
+    if (minMatch) {
+      const minVal = parseFloat(minMatch[1].replace(",", "."));
+      if (!isNaN(minVal)) total += Math.round(minVal * 60);
+    }
+    if (secMatch) {
+      const secVal = parseInt(secMatch[1], 10);
+      if (!isNaN(secVal)) total += secVal;
+    }
+    if (total > 0) return total;
+  }
+
+  // 3. Contém indicação de segundos (ex: "60s", "90 seg", "120 segundos")
+  if (lower.includes("s") || lower.includes("seg")) {
+    const secMatch = lower.match(/(\d+)\s*(?:segundos?|seg|s\b)/);
+    if (secMatch) {
+      const secVal = parseInt(secMatch[1], 10);
+      if (!isNaN(secVal) && secVal > 0) return secVal;
+    }
+  }
+
+  // 4. Apenas número (ex: "120", "60", "2", 120, 2)
+  const num = parseFloat(v.replace(",", "."));
+  if (!isNaN(num) && num > 0) {
+    // Em contexto de treino, descansos de 1 a 10 sem unidade são minutos (ex: "2" = 2 min = 120s)
+    if (num <= 10) {
+      return Math.round(num * 60);
+    }
+    return Math.round(num);
+  }
+
+  return fallback;
 };
 
 
@@ -365,6 +404,7 @@ export default function StudentWorkoutsPage() {
     const logoUrl = activeWs?.logoUrl || "";
     const workspaceName = activeWs?.name || "";
     const watermarkUrl = activeWs?.watermarkUrl || "";
+    const workoutCoverUrl = activeWs?.workoutCoverUrl || "";
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
@@ -639,6 +679,12 @@ export default function StudentWorkoutsPage() {
                 <p>${workout.name}</p>
               </div>
             </div>
+
+            ${workoutCoverUrl ? `
+            <div style="width: 100%; height: 120px; border-radius: 12px; overflow: hidden; margin-bottom: 20px; border: 1px solid #e4e4e7;">
+              <img src="${workoutCoverUrl}" alt="Capa do Treino" style="width: 100%; height: 100%; object-fit: cover;" />
+            </div>
+            ` : ""}
 
             <div class="workout-summary">
               <div class="summary-item">
@@ -1194,32 +1240,53 @@ export default function StudentWorkoutsPage() {
               <div className="lg:col-span-2 space-y-6">
 
                 {/* Active Workout Info Card */}
-                <Card className="border-border/50 bg-gradient-to-r from-card to-secondary/20 overflow-hidden relative">
-                  <CardContent className="p-6 md:p-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6">
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge variant="outline" className={cn(
-                          "rounded-full px-2.5 py-0.5 text-[9px] font-extrabold uppercase gap-1.5 ring-1",
-                          selectedWorkout.isActive
-                            ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 ring-emerald-500/10"
-                            : "bg-destructive/10 text-destructive border-destructive/20 ring-destructive/10"
-                        )}>
-                          <span className={cn("size-1.5 rounded-full", selectedWorkout.isActive ? "bg-emerald-500 animate-pulse" : "bg-destructive")} />
-                          {selectedWorkout.isActive ? "Treino Ativo" : "Treino Suspenso"}
-                        </Badge>
-                        <Badge variant="secondary" className="bg-primary/10 text-primary border-none text-[9px] font-bold uppercase">
-                          {selectedWorkout.goal}
-                        </Badge>
-                        {isCompletedToday && (
-                          <Badge variant="outline" className="rounded-full px-2.5 py-0.5 text-[9px] font-extrabold uppercase gap-1.5 ring-1 bg-emerald-500/10 text-emerald-500 border-emerald-500/20 ring-emerald-500/10">
-                            <Check className="size-3 text-emerald-500 animate-bounce" /> Concluído Hoje
+                <Card className="border-border/50 bg-gradient-to-r from-card to-secondary/20 overflow-hidden relative shadow-lg group">
+                  {/* Atmospheric Workout Cover Background */}
+                  {activeWs?.workoutCoverUrl && (
+                    <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+                      <img
+                        src={activeWs.workoutCoverUrl}
+                        alt="Capa do Treino"
+                        className="size-full object-cover opacity-15 dark:opacity-20 filter blur-[0.5px] scale-105 group-hover:scale-110 transition-transform duration-700"
+                      />
+                      <div className="absolute inset-0 bg-gradient-to-t sm:bg-gradient-to-r from-card via-card/90 to-card/75 dark:from-card dark:via-card/95 dark:to-card/85" />
+                    </div>
+                  )}
+                  <CardContent className="p-6 md:p-8 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-6 relative z-10">
+                    <div className="flex items-start gap-4 flex-1 min-w-0">
+                      {activeWs?.workoutCoverUrl && (
+                        <div className="size-20 md:size-24 rounded-2xl overflow-hidden border border-border/70 shadow-md shrink-0 bg-muted/40 relative hidden sm:block">
+                          <img
+                            src={activeWs.workoutCoverUrl}
+                            alt="Capa do Treino"
+                            className="size-full object-cover transition-transform duration-500 hover:scale-110"
+                          />
+                        </div>
+                      )}
+                      <div className="space-y-2 flex-1 min-w-0">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="outline" className={cn(
+                            "rounded-full px-2.5 py-0.5 text-[9px] font-extrabold uppercase gap-1.5 ring-1",
+                            selectedWorkout.isActive
+                              ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20 ring-emerald-500/10"
+                              : "bg-destructive/10 text-destructive border-destructive/20 ring-destructive/10"
+                          )}>
+                            <span className={cn("size-1.5 rounded-full", selectedWorkout.isActive ? "bg-emerald-500 animate-pulse" : "bg-destructive")} />
+                            {selectedWorkout.isActive ? "Treino Ativo" : "Treino Suspenso"}
                           </Badge>
-                        )}
-                      </div>
-                      <h2 className="text-xl md:text-2xl font-black tracking-tight">{selectedWorkout.name}</h2>
-                      <p className="text-xs text-muted-foreground font-medium">
-                        Foco muscular em <span className="text-primary font-semibold">{selectedWorkout.muscleGroupLabel || "Geral"}</span>
-                      </p>
+                          <Badge variant="secondary" className="bg-primary/10 text-primary border-none text-[9px] font-bold uppercase">
+                            {selectedWorkout.goal}
+                          </Badge>
+                          {isCompletedToday && (
+                            <Badge variant="outline" className="rounded-full px-2.5 py-0.5 text-[9px] font-extrabold uppercase gap-1.5 ring-1 bg-emerald-500/10 text-emerald-500 border-emerald-500/20 ring-emerald-500/10">
+                              <Check className="size-3 text-emerald-500 animate-bounce" /> Concluído Hoje
+                            </Badge>
+                          )}
+                        </div>
+                        <h2 className="text-xl md:text-2xl font-black tracking-tight">{selectedWorkout.name}</h2>
+                        <p className="text-xs text-muted-foreground font-medium">
+                          Foco muscular em <span className="text-primary font-semibold">{selectedWorkout.muscleGroupLabel || "Geral"}</span>
+                        </p>
                       {(() => {
                         const methods = Array.from(new Set(
                           selectedWorkout.exercises
@@ -1283,8 +1350,9 @@ export default function StudentWorkoutsPage() {
                         );
                       })()}
                     </div>
+                  </div>
 
-                    <div className="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto shrink-0">
+                  <div className="flex flex-col sm:flex-row gap-2.5 w-full sm:w-auto shrink-0">
                       <Button
                         onClick={() => handlePrintWorkout(selectedWorkout)}
                         variant="outline"

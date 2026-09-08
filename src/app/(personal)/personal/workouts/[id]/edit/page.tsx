@@ -44,6 +44,7 @@ import {
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { RestTimeInput } from "@/components/application/RestTimeInput";
+import { WorkoutDurationSelect } from "@/components/application/WorkoutDurationSelect";
 import { CreateCustomExerciseDialog } from "@/components/workouts/create-custom-exercise-dialog";
 
 interface EditWorkoutPageProps {
@@ -780,14 +781,11 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
 
               <div className="space-y-1.5 flex flex-col">
                 <Label htmlFor="duration" className="text-xs font-medium text-foreground">Tempo Estimado</Label>
-                <Input
+                <WorkoutDurationSelect
                   id="duration"
-                  type="text"
-                  placeholder="Ex: 60 min"
                   value={duration}
-                  onChange={(e) => setDuration(e.target.value)}
+                  onValueChange={setDuration}
                   className="bg-background/80 border-border h-10 text-sm"
-                  required
                 />
               </div>
 

@@ -83,6 +83,7 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
     const logoUrl = activeWs?.logoUrl || "";
     const workspaceName = activeWs?.name || "";
     const watermarkUrl = activeWs?.watermarkUrl || "";
+    const workoutCoverUrl = activeWs?.workoutCoverUrl || "";
 
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
@@ -99,14 +100,14 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
       const repsArr = String(we.reps || "").split(",").map(s => s.trim());
       const loadArr = String(we.load || "").split(",").map(s => s.trim());
       const restArr = String(we.rest || "").split(",").map(s => s.trim());
-      
+
       const isBodyweight = String(we.load || "").toLowerCase().includes("p.c");
-      const formattedLoads = isBodyweight 
-        ? "Peso do Corpo (p.c.)" 
+      const formattedLoads = isBodyweight
+        ? "Peso do Corpo (p.c.)"
         : (loadArr.map(l => l ? `${l} kg` : "Auto").join(" / ") || "Auto");
 
       const instructions = we.notes || we.exercise.instructions || "";
-      
+
       let methodTags = "";
       let methodInstructions = "";
 
@@ -357,6 +358,12 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
                 <p>${workout.name}</p>
               </div>
             </div>
+
+            ${workoutCoverUrl ? `
+            <div style="width: 100%; height: 120px; border-radius: 12px; overflow: hidden; margin-bottom: 20px; border: 1px solid #e4e4e7;">
+              <img src="${workoutCoverUrl}" alt="Capa do Treino" style="width: 100%; height: 100%; object-fit: cover;" />
+            </div>
+            ` : ""}
 
             <div class="workout-summary">
               <div class="summary-item">
@@ -707,49 +714,74 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
         <div className="lg:col-span-2 space-y-8">
 
           {/* Main Glassmorphic Hero Card */}
-          <Card className="border border-border shadow-2xl bg-card overflow-hidden rounded-3xl relative">
-            {/* Visual glow ribbon top right */}
-            <div className="absolute right-0 top-0 w-80 h-80 bg-gradient-to-bl from-primary/10 to-transparent blur-3xl pointer-events-none" />
-            <Dumbbell className="absolute -right-12 -bottom-12 size-60 text-muted-foreground/10 pointer-events-none rotate-12" />
+          <Card className="border border-border shadow-2xl bg-card overflow-hidden rounded-3xl relative group">
+            {/* Atmospheric Workout Cover Background */}
+            {activeWs?.workoutCoverUrl ? (
+              <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+                <img
+                  src={activeWs.workoutCoverUrl}
+                  alt="Capa do Treino"
+                  className="size-full object-cover opacity-15 dark:opacity-20 filter blur-[0.5px] scale-105 group-hover:scale-110 transition-transform duration-700"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t sm:bg-gradient-to-r from-card via-card/90 to-card/75 dark:from-card dark:via-card/95 dark:to-card/85" />
+              </div>
+            ) : (
+              <>
+                {/* Visual glow ribbon top right */}
+                <div className="absolute right-0 top-0 w-80 h-80 bg-gradient-to-bl from-primary/10 to-transparent blur-3xl pointer-events-none" />
+                <Dumbbell className="absolute -right-12 -bottom-12 size-60 text-muted-foreground/10 pointer-events-none rotate-12" />
+              </>
+            )}
 
             <CardContent className="p-6 md:p-8 relative z-10">
-              <div className="space-y-4">
-                <div className="flex items-center gap-2">
-                  <Badge className="bg-primary/10 text-primary border border-primary/20 rounded-lg px-2.5 py-0.5 text-xs font-bold flex items-center gap-1">
-                    Ficha de Modelo
-                  </Badge>
-                  {workout.muscleGroupLabel && (
-                    <Badge variant="outline" className="border-border bg-secondary text-muted-foreground font-semibold px-2.5 py-0.5 rounded-lg text-xs">
-                      {workout.muscleGroupLabel}
+              <div className="flex flex-col sm:flex-row items-start gap-5">
+                {activeWs?.workoutCoverUrl && (
+                  <div className="size-20 md:size-24 rounded-2xl overflow-hidden border border-border/80 shadow-md shrink-0 bg-muted/40 relative hidden sm:block">
+                    <img
+                      src={activeWs.workoutCoverUrl}
+                      alt="Capa do Treino"
+                      className="size-full object-cover transition-transform duration-500 hover:scale-110"
+                    />
+                  </div>
+                )}
+                <div className="space-y-4 flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <Badge className="bg-primary/10 text-primary border border-primary/20 rounded-lg px-2.5 py-0.5 text-xs font-bold flex items-center gap-1">
+                      Ficha de Modelo
                     </Badge>
-                  )}
-                </div>
+                    {workout.muscleGroupLabel && (
+                      <Badge variant="outline" className="border-border bg-secondary text-muted-foreground font-semibold px-2.5 py-0.5 rounded-lg text-xs">
+                        {workout.muscleGroupLabel}
+                      </Badge>
+                    )}
+                  </div>
 
-                <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground leading-tight">
-                  {workout.name}
-                </h1>
+                  <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight text-foreground leading-tight">
+                    {workout.name}
+                  </h1>
 
-                <div className="flex flex-wrap items-center gap-2 pt-1.5">
-                  <Badge className="bg-primary/15 text-primary border border-primary/25 px-3.5 py-1 rounded-full font-semibold text-xs tracking-wide">
-                    Objetivo: {workout.goal}
-                  </Badge>
+                  <div className="flex flex-wrap items-center gap-2 pt-1.5">
+                    <Badge className="bg-primary/15 text-primary border border-primary/25 px-3.5 py-1 rounded-full font-semibold text-xs tracking-wide">
+                      Objetivo: {workout.goal}
+                    </Badge>
 
-                  {/* Smart Semantic Difficulty Tags */}
-                  {workout.difficulty === "Iniciante" && (
-                    <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 px-3.5 py-1 rounded-full font-semibold text-xs">
-                      Nível: Iniciante
-                    </Badge>
-                  )}
-                  {workout.difficulty === "Intermediário" && (
-                    <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/25 px-3.5 py-1 rounded-full font-semibold text-xs">
-                      Nível: Intermediário
-                    </Badge>
-                  )}
-                  {workout.difficulty === "Avançado" && (
-                    <Badge className="bg-rose-500/10 text-rose-400 border border-rose-500/25 px-3.5 py-1 rounded-full font-semibold text-xs animate-pulse">
-                      Nível: Avançado 🔥
-                    </Badge>
-                  )}
+                    {/* Smart Semantic Difficulty Tags */}
+                    {workout.difficulty === "Iniciante" && (
+                      <Badge className="bg-emerald-500/10 text-emerald-400 border border-emerald-500/25 px-3.5 py-1 rounded-full font-semibold text-xs">
+                        Nível: Iniciante
+                      </Badge>
+                    )}
+                    {workout.difficulty === "Intermediário" && (
+                      <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/25 px-3.5 py-1 rounded-full font-semibold text-xs">
+                        Nível: Intermediário
+                      </Badge>
+                    )}
+                    {workout.difficulty === "Avançado" && (
+                      <Badge className="bg-rose-500/10 text-rose-400 border border-rose-500/25 px-3.5 py-1 rounded-full font-semibold text-xs animate-pulse">
+                        Nível: Avançado 🔥
+                      </Badge>
+                    )}
+                  </div>
                 </div>
               </div>
             </CardContent>
@@ -853,17 +885,17 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
                                 {we.exercise.name}
                               </h4>
                               <div className="flex flex-wrap items-center gap-2">
-                                 {we.exercise.muscleGroups && we.exercise.muscleGroups.length > 0 ? (
-                                   we.exercise.muscleGroups.map((g: any) => (
-                                     <Badge key={g.name} variant="outline" className="border-border bg-secondary text-muted-foreground text-[10px] px-2 py-0.5 rounded-md font-bold tracking-wider uppercase">
-                                       {g.name}
-                                     </Badge>
-                                   ))
-                                 ) : (
-                                   <Badge variant="outline" className="border-border bg-secondary text-muted-foreground text-[10px] px-2 py-0.5 rounded-md font-bold tracking-wider uppercase">
-                                     {we.exercise.muscleGroup?.name || "Geral"}
-                                   </Badge>
-                                 )}
+                                {we.exercise.muscleGroups && we.exercise.muscleGroups.length > 0 ? (
+                                  we.exercise.muscleGroups.map((g: any) => (
+                                    <Badge key={g.name} variant="outline" className="border-border bg-secondary text-muted-foreground text-[10px] px-2 py-0.5 rounded-md font-bold tracking-wider uppercase">
+                                      {g.name}
+                                    </Badge>
+                                  ))
+                                ) : (
+                                  <Badge variant="outline" className="border-border bg-secondary text-muted-foreground text-[10px] px-2 py-0.5 rounded-md font-bold tracking-wider uppercase">
+                                    {we.exercise.muscleGroup?.name || "Geral"}
+                                  </Badge>
+                                )}
 
                                 {we.groupId && we.group && (
                                   <Badge className="bg-primary/10 text-primary border border-primary/20 text-[10px] px-2 py-0.5 rounded-md font-bold">
@@ -976,60 +1008,60 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
                         </div>
                       </div>
 
-                    {/* Collapsible individual sets section */}
-                    {isIndividual && (
-                      <div className="w-full relative z-20">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-8 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg gap-1.5 px-2.5 -ml-2.5"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            setExpandedExercises(prev => ({ ...prev, [we.id]: !prev[we.id] }));
-                          }}
-                        >
-                          {expandedExercises[we.id] ? (
-                            <>
-                              Ocultar séries <ChevronUp className="size-3.5" />
-                            </>
-                          ) : (
-                            <>
-                              Ver todas as {we.sets} séries <ChevronDown className="size-3.5" />
-                            </>
-                          )}
-                        </Button>
+                      {/* Collapsible individual sets section */}
+                      {isIndividual && (
+                        <div className="w-full relative z-20">
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            className="h-8 text-xs font-bold text-muted-foreground hover:text-foreground hover:bg-secondary rounded-lg gap-1.5 px-2.5 -ml-2.5"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setExpandedExercises(prev => ({ ...prev, [we.id]: !prev[we.id] }));
+                            }}
+                          >
+                            {expandedExercises[we.id] ? (
+                              <>
+                                Ocultar séries <ChevronUp className="size-3.5" />
+                              </>
+                            ) : (
+                              <>
+                                Ver todas as {we.sets} séries <ChevronDown className="size-3.5" />
+                              </>
+                            )}
+                          </Button>
 
-                        {expandedExercises[we.id] && (
-                          <div className="mt-3 flex flex-col! gap-2.5 p-3 rounded-xl bg-muted border border-border/40">
-                            {Array.from({ length: we.sets }).map((_, si) => (
-                              <div key={si} className="flex items-center justify-between gap-4 p-2 rounded-lg bg-secondary border border-border/40 text-xs">
-                                <span className="font-bold text-muted-foreground">#{si + 1}</span>
-                                <div className="flex items-center gap-3">
-                                  <div>
-                                    <span className="text-[10px] text-muted-foreground block leading-none font-bold uppercase">Reps</span>
-                                    <span className="font-bold text-foreground">{repsArr[si] || repsArr[0] || "10"}</span>
-                                  </div>
-                                  <div className="w-px h-5 bg-border" />
-                                  <div>
-                                    <span className="text-[10px] text-muted-foreground block leading-none font-bold uppercase">Carga</span>
-                                    <span className="font-bold text-foreground">{loadArr[si] || loadArr[0] || "Auto"}</span>
-                                  </div>
-                                  <div className="w-px h-5 bg-border" />
-                                  <div>
-                                    <span className="text-[10px] text-muted-foreground block leading-none font-bold uppercase">Desc.</span>
-                                    <span className="font-bold text-foreground">{restArr[si] || restArr[0] || "60s"}</span>
+                          {expandedExercises[we.id] && (
+                            <div className="mt-3 flex flex-col! gap-2.5 p-3 rounded-xl bg-muted border border-border/40">
+                              {Array.from({ length: we.sets }).map((_, si) => (
+                                <div key={si} className="flex items-center justify-between gap-4 p-2 rounded-lg bg-secondary border border-border/40 text-xs">
+                                  <span className="font-bold text-muted-foreground">#{si + 1}</span>
+                                  <div className="flex items-center gap-3">
+                                    <div>
+                                      <span className="text-[10px] text-muted-foreground block leading-none font-bold uppercase">Reps</span>
+                                      <span className="font-bold text-foreground">{repsArr[si] || repsArr[0] || "10"}</span>
+                                    </div>
+                                    <div className="w-px h-5 bg-border" />
+                                    <div>
+                                      <span className="text-[10px] text-muted-foreground block leading-none font-bold uppercase">Carga</span>
+                                      <span className="font-bold text-foreground">{loadArr[si] || loadArr[0] || "Auto"}</span>
+                                    </div>
+                                    <div className="w-px h-5 bg-border" />
+                                    <div>
+                                      <span className="text-[10px] text-muted-foreground block leading-none font-bold uppercase">Desc.</span>
+                                      <span className="font-bold text-foreground">{restArr[si] || restArr[0] || "60s"}</span>
+                                    </div>
                                   </div>
                                 </div>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                );
-              })
-            })()}</div>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })
+              })()}</div>
           </div>
         </div>
 

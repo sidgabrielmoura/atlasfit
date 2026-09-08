@@ -25,7 +25,7 @@ import { PwaFcmInit } from "@/components/pwa-fcm-init";
 import { SpeedInsights } from "@vercel/speed-insights/next"
 
 export const viewport: Viewport = {
-  themeColor: "#3052EB",
+  themeColor: "#2B4FCC",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,
@@ -54,6 +54,11 @@ export async function generateMetadata(): Promise<Metadata> {
     title,
     description,
     manifest: "/manifest.json",
+    appleWebApp: {
+      capable: true,
+      statusBarStyle: "default",
+      title: platformName,
+    },
     icons: {
       icon: "/logos_atlasfit/favicon.ico",
       apple: "/logos_atlasfit/favicon.ico",

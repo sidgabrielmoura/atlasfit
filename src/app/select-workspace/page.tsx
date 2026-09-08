@@ -25,7 +25,7 @@ export default async function SelectWorkspacePage() {
     redirect("/superadmin/dashboard");
   }
 
-  const colors = ["#0ea5e9", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6"];
+  const colors = ["#2B4FCC", "#0ea5e9", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6"];
 
   const userWorkspaces = await Promise.all(
     members.map(async (member, index) => {
@@ -34,10 +34,13 @@ export default async function SelectWorkspacePage() {
       // Find the owner of the workspace and their active subscription
       const owner = await prisma.user.findUnique({
         where: { id: ws.ownerId },
-        include: {
+        select: {
+          id: true,
           subscription: {
-            include: {
-              plan: true,
+            select: {
+              plan: {
+                select: { name: true },
+              },
             },
           },
         },
@@ -57,7 +60,7 @@ export default async function SelectWorkspacePage() {
         slug: ws.slug,
         logo,
         logoUrl: ws.logoUrl,
-        primaryColor: ws.primaryColor || "#3052EB",
+        primaryColor: ws.primaryColor || "#2B4FCC",
         plan: owner?.subscription?.plan?.name || "Free Trial",
       };
     })

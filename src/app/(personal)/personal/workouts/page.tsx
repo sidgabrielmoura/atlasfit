@@ -95,6 +95,7 @@ const item = {
 export default function WorkoutsPage() {
   const workspaceSnap = useSnapshot(workspaceStore);
   const activeWorkspaceId = workspaceSnap.activeWorkspaceId;
+  const activeWorkspace = workspaceSnap.activeWorkspace;
 
   const [workouts, setWorkouts] = useState<any[]>([]);
   const [loadingWorkouts, setLoadingWorkouts] = useState(true);
@@ -668,28 +669,27 @@ export default function WorkoutsPage() {
               ) : (
                 filteredWorkouts.map((workout) => (
                   <motion.div key={workout.id} variants={item as any}>
-                    <Card className="hover:border-primary/50 transition-all duration-300 p-0 shadow-sm hover:shadow-md">
-                      <CardContent className="p-5 flex flex-col h-full justify-between gap-4">
-                        <div className="flex items-start justify-between">
-                          <div className="space-y-1.5 pr-4">
-                            <h3 className="font-semibold text-lg leading-tight">{workout.name}</h3>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Badge variant="secondary" className="text-xs bg-primary/10 text-primary hover:bg-primary/20">
-                                {workout.goal}
-                              </Badge>
-                              {workout.muscleGroupLabel && (
-                                <Badge variant="outline" className="text-xs bg-emerald-500/5 text-emerald-500 border-emerald-500/20">
-                                  {workout.muscleGroupLabel}
-                                </Badge>
-                              )}
-                              <span className="text-xs text-muted-foreground border border-border rounded-full px-2 py-0.5">
-                                {workout.difficulty}
-                              </span>
-                            </div>
+                    <Card className="hover:border-primary/50 gap-0 transition-all duration-300 p-0 shadow-sm hover:shadow-md overflow-hidden rounded-2xl group flex flex-col h-full">
+                      {/* Workout Top Banner Cover */}
+                      <div className="h-32 w-full overflow-hidden relative bg-muted/30 shrink-0">
+                        {activeWorkspace?.workoutCoverUrl ? (
+                          <img
+                            src={activeWorkspace.workoutCoverUrl}
+                            alt={workout.name}
+                            className="size-full object-cover group-hover:scale-[1] scale-[1.05] transition-transform duration-500"
+                          />
+                        ) : (
+                          <div className="size-full bg-gradient-to-br from-primary/15 via-secondary/40 to-card flex items-center justify-center relative overflow-hidden">
+                            <Dumbbell className="size-16 text-primary/10 -rotate-12 absolute -bottom-2 -right-2" />
                           </div>
+                        )}
+                        <div className="absolute inset-0 bg-gradient-to-t from-card via-card/25 to-transparent" />
+
+                        {/* Dropdown Menu floating on top right */}
+                        <div className="absolute top-2.5 right-2.5 z-10">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="h-8 w-8 -mr-2 text-muted-foreground hover:text-foreground shrink-0">
+                              <Button variant="ghost" size="icon" className="h-8 w-8 rounded-full bg-background/80 hover:bg-background backdrop-blur-md text-foreground shadow-sm shrink-0 border border-border/40">
                                 <MoreVertical className="size-4" />
                               </Button>
                             </DropdownMenuTrigger>
@@ -733,8 +733,30 @@ export default function WorkoutsPage() {
                           </DropdownMenu>
                         </div>
 
+                        {/* Badges on bottom-left of banner */}
+                        <div className="absolute bottom-2 left-3 z-10 flex flex-wrap items-center gap-1.5">
+                          <Badge variant="secondary" className="text-[10px] font-bold bg-background/90 text-foreground backdrop-blur-md border border-border/50 shadow-xs">
+                            {workout.goal}
+                          </Badge>
+                          {workout.muscleGroupLabel && (
+                            <Badge variant="outline" className="text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border-emerald-500/30 backdrop-blur-md shadow-xs">
+                              {workout.muscleGroupLabel}
+                            </Badge>
+                          )}
+                        </div>
+                      </div>
 
-                        <div className="flex items-center justify-between mt-2 pt-3 border-t border-border/50">
+                      <CardContent className="p-4 pt-3 flex flex-col flex-1 justify-between gap-3">
+                        <div className="space-y-1">
+                          <div className="flex items-center justify-between gap-2">
+                            <h3 className="font-bold text-base leading-tight text-foreground truncate">{workout.name}</h3>
+                            <span className="text-[10px] text-muted-foreground border border-border/70 rounded-full px-2 py-0.5 shrink-0">
+                              {workout.difficulty}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center justify-between mt-auto pt-3 border-t border-border/50">
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                             <div className="flex items-center gap-1">
                               <Clock className="size-3.5" />

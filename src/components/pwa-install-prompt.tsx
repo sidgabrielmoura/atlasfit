@@ -3,11 +3,17 @@
 import { useState, useEffect } from "react";
 import { Download, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useSnapshot } from "valtio";
+import { workspaceStore } from "@/stores/workspace.store";
 
 export function PWAInstallPrompt() {
   const [showPrompt, setShowPrompt] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [installing, setInstalling] = useState(false);
+  const snap = useSnapshot(workspaceStore);
+
+  const appName = snap.activeWorkspace?.name || "AtlasFit";
+  const appLogo = snap.activeWorkspace?.logoUrl;
 
   useEffect(() => {
     // 1. Check if running in standalone mode (already installed)
@@ -89,12 +95,20 @@ export function PWAInstallPrompt() {
 
         {/* Icon & Brand */}
         <div className="flex items-center gap-3">
-          <div className="size-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
-            <Download className="size-5 text-primary" />
-          </div>
+          {appLogo ? (
+            <img
+              src={appLogo}
+              alt={appName}
+              className="size-11 rounded-xl object-cover shrink-0 border border-primary/20"
+            />
+          ) : (
+            <div className="size-11 rounded-xl bg-primary/10 flex items-center justify-center shrink-0 border border-primary/20">
+              <Download className="size-5 text-primary" />
+            </div>
+          )}
           <div>
             <span className="text-[9px] text-primary font-bold uppercase tracking-wider">Web App</span>
-            <h4 className="text-sm font-bold text-white tracking-tight leading-tight">AtlasFit App</h4>
+            <h4 className="text-sm font-bold text-white tracking-tight leading-tight">{appName} App</h4>
           </div>
         </div>
 
@@ -107,7 +121,7 @@ export function PWAInstallPrompt() {
         <Button
           onClick={handleInstall}
           disabled={installing}
-          className="w-full h-10 text-xs font-semibold bg-primary hover:bg-primary/90 text-black rounded-xl shadow-lg shadow-primary/10 flex items-center justify-center gap-1.5 transition-all"
+          className="w-full h-10 text-xs font-semibold bg-primary hover:bg-primary/90 text-primary-foreground rounded-xl shadow-lg shadow-primary/10 flex items-center justify-center gap-1.5 transition-all"
         >
           {installing ? "Instalando..." : "Instalar Aplicativo"}
         </Button>

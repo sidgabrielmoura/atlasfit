@@ -390,7 +390,7 @@ export default function SettingsPage() {
 
   const [brandName, setBrandName] = useState("");
   const [brandSlogan, setBrandSlogan] = useState("");
-  const [brandColor, setBrandColor] = useState("#0ea5e9");
+  const [brandColor, setBrandColor] = useState("#2B4FCC");
   const [logoUrl, setLogoUrl] = useState("");
   const [logoKey, setLogoKey] = useState("");
   const [watermarkUrl, setWatermarkUrl] = useState("");
@@ -438,7 +438,7 @@ export default function SettingsPage() {
     if (activeWorkspace) {
       setBrandName(activeWorkspace.name || "");
       setBrandSlogan(activeWorkspace.slogan || "");
-      setBrandColor(activeWorkspace.primaryColor || "#0ea5e9");
+      setBrandColor(activeWorkspace.primaryColor || "#2B4FCC");
       setLogoUrl(activeWorkspace.logoUrl || "");
       setLogoKey((activeWorkspace as any).logoKey || "");
       setWatermarkUrl(activeWorkspace.watermarkUrl || "");
@@ -746,13 +746,13 @@ export default function SettingsPage() {
                         <Input
                           type="color"
                           id="colorPrimary"
-                          value={brandColor || "#0ea5e9"}
+                          value={brandColor || "#2B4FCC"}
                           onChange={(e) => setBrandColor(e.target.value)}
                           className="absolute inset-0 size-full p-0 border-0 cursor-pointer scale-150"
                         />
                       </div>
                       <Input
-                        value={brandColor || "#0ea5e9"}
+                        value={brandColor || "#2B4FCC"}
                         onChange={(e) => setBrandColor(e.target.value)}
                         className="flex-1 uppercase font-mono text-sm tracking-wider rounded-xl bg-secondary/30 border-border/50"
                       />

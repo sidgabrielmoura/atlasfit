@@ -213,7 +213,7 @@ export default function StudentHistoryPage() {
       <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 border-b border-border/30 pb-4">
         <div className="space-y-1">
           <h1 className="text-2xl md:text-3xl font-black tracking-tight flex items-center gap-2">
-            <HistoryIcon className="size-7 text-primary" /> Histórico de Treinos
+            Histórico de Treinos
           </h1>
           <p className="text-sm text-neutral-400 font-semibold">
             Você completou <span className="text-primary font-black">{stats?.totalWorkoutsYear || 0} treinos</span> este ano. Continue mantendo a consistência!

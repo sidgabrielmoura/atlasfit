@@ -129,10 +129,10 @@ export function PersonalSidebar() {
   const [qrcodeImage, setQrcodeImage] = useState<string | null>(null)
   const clickDownloadQrcode = useRef<HTMLAnchorElement>(null);
 
-  const primaryHex = workspaceSnap.activeWorkspace?.primaryColor || "#3052EB";
+  const primaryHex = workspaceSnap.activeWorkspace?.primaryColor || "#2B4FCC";
   const hexToRgb = (hex: string) => {
     const clean = hex.replace("#", "");
-    if (clean.length !== 6) return { r: 48, g: 82, b: 235 };
+    if (clean.length !== 6) return { r: 43, g: 79, b: 204 };
     return {
       r: parseInt(clean.slice(0, 2), 16),
       g: parseInt(clean.slice(2, 4), 16),

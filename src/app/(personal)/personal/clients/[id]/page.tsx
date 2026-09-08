@@ -73,6 +73,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { compressImage } from "@/lib/image-compress";
 import { RestTimeInput } from "@/components/application/RestTimeInput";
+import { WorkoutDurationSelect } from "@/components/application/WorkoutDurationSelect";
 import { PhysicalEvaluationFormModal } from "@/components/application/physical-evaluation-form-modal";
 import { ExercisePreviewModal } from "@/components/application/exercise-preview-modal";
 import { PhysicalEvaluationDetailModal } from "@/components/application/physical-evaluation-detail-modal";
@@ -150,6 +151,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   // Active Workspace
   const workspaceSnap = useSnapshot(workspaceStore);
   const activeWorkspaceId = workspaceSnap.activeWorkspaceId;
+  const activeWorkspace = workspaceSnap.activeWorkspace;
 
   // Active Tab
   const defaultTab = searchParams.get("tab") || "treinos";
@@ -730,7 +732,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
       setCustomGoal("Hipertrofia");
       setCustomDifficulty("Intermediário");
       setCustomDuration("60 min");
-      setCustomRestBetweenExercises("2 min");
+      setCustomRestBetweenExercises("02:00");
       setCustomMuscleGroup("");
       setCustomExercises([]);
 
@@ -2227,8 +2229,24 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                         return (
                           <Card
                             key={workout.id}
-                            className="bg-card dark:bg-zinc-950 p-0 border border-border dark:border-zinc-900 rounded-2xl overflow-hidden hover:border-zinc-800 transition-all shadow-md"
+                            className="bg-card dark:bg-zinc-950 p-0 border border-border dark:border-zinc-900 rounded-2xl overflow-hidden hover:border-zinc-800 transition-all shadow-md group relative flex flex-col"
                           >
+                            {/* Workout Top Banner Cover */}
+                            <div className="h-28 w-full overflow-hidden relative bg-muted/30 shrink-0">
+                              {activeWorkspace?.workoutCoverUrl ? (
+                                <img
+                                  src={activeWorkspace.workoutCoverUrl}
+                                  alt={workout.name}
+                                  className="size-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                />
+                              ) : (
+                                <div className="size-full bg-gradient-to-br from-primary/15 via-secondary/40 to-card flex items-center justify-center relative overflow-hidden">
+                                  <Dumbbell className="size-16 text-primary/10 -rotate-12 absolute -bottom-2 -right-2" />
+                                </div>
+                              )}
+                              <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/20 to-transparent" />
+                            </div>
+
                             <CardContent className="p-5 flex flex-col justify-between h-full gap-4">
                               <div className="flex items-start justify-between gap-4">
                                 <div className="space-y-2.5 min-w-0 flex-1">
@@ -2467,8 +2485,24 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                             return (
                               <Card
                                 key={workout.id}
-                                className="bg-card dark:bg-zinc-950 p-0 border border-border dark:border-zinc-900 rounded-2xl overflow-hidden hover:border-zinc-800 transition-all shadow-md"
+                                className="bg-card dark:bg-zinc-950 p-0 border border-border dark:border-zinc-900 rounded-2xl overflow-hidden hover:border-zinc-800 transition-all shadow-md group relative flex flex-col"
                               >
+                                {/* Workout Top Banner Cover */}
+                                <div className="h-28 w-full overflow-hidden relative bg-muted/30 shrink-0">
+                                  {activeWorkspace?.workoutCoverUrl ? (
+                                    <img
+                                      src={activeWorkspace.workoutCoverUrl}
+                                      alt={workout.name}
+                                      className="size-full object-cover group-hover:scale-105 transition-transform duration-500"
+                                    />
+                                  ) : (
+                                    <div className="size-full bg-gradient-to-br from-primary/15 via-secondary/40 to-card flex items-center justify-center relative overflow-hidden">
+                                      <Dumbbell className="size-16 text-primary/10 -rotate-12 absolute -bottom-2 -right-2" />
+                                    </div>
+                                  )}
+                                  <div className="absolute inset-0 bg-gradient-to-t from-background/90 via-background/20 to-transparent" />
+                                </div>
+
                                 <CardContent className="p-4 sm:p-5 flex flex-col justify-between h-full gap-4">
                                   <div className="flex items-start justify-between gap-4">
                                     <div className="space-y-2 min-w-0 flex-1">
@@ -5174,12 +5208,11 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="customDuration" className="font-bold text-neutral-300">Duração Estimada</Label>
-                    <Input
+                    <WorkoutDurationSelect
                       id="customDuration"
-                      placeholder="Ex: 60 min"
                       className="bg-background border-border h-10"
                       value={customDuration}
-                      onChange={(e) => setCustomDuration(e.target.value)}
+                      onValueChange={setCustomDuration}
                     />
                   </div>
                   <div className="space-y-2">
@@ -5688,11 +5721,11 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="editDuration" className="font-bold text-neutral-300">Duração Estimada</Label>
-                <Input
+                <WorkoutDurationSelect
                   id="editDuration"
                   className="bg-background border-border h-10"
                   value={editDuration}
-                  onChange={(e) => setEditDuration(e.target.value)}
+                  onValueChange={setEditDuration}
                 />
               </div>
               <div className="space-y-2">
@@ -7929,7 +7962,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
       {/* ==================== DIALOG: DETAILED WORKOUT LOG DETAILS ==================== */}
       <Dialog open={isLogDetailOpen} onOpenChange={setIsLogDetailOpen}>
-        <DialogContent className="max-w-2xl bg-card border border-border text-foreground rounded-2xl shadow-2xl p-6 overflow-hidden">
+        <DialogContent className="max-w-2xl bg-card border border-border text-foreground rounded-2xl! overflow-y-auto! shadow-2xl p-6 overflow-hidden">
           <div className="absolute top-0 inset-x-0 h-[2px] bg-gradient-to-r from-primary/10 via-primary/50 to-primary/10" />
           <DialogHeader>
             <DialogTitle className="text-xl font-bold flex items-center gap-2">
@@ -7941,123 +7974,279 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
             </DialogDescription>
           </DialogHeader>
 
-          {selectedLogForDetail && (
-            <div className="space-y-6 mt-4">
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 border border-border/80 bg-secondary/20 rounded-2xl">
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">Data</span>
-                  <span className="text-xs font-semibold text-foreground">
-                    {(() => {
-                      try {
-                        const date = new Date(selectedLogForDetail.completedAt);
-                        return date.toLocaleDateString("pt-BR", {
-                          day: "2-digit",
-                          month: "short",
-                          year: "numeric",
-                          hour: "2-digit",
-                          minute: "2-digit",
-                        });
-                      } catch (e) {
-                        return selectedLogForDetail.completedAt;
-                      }
-                    })()}
-                  </span>
+          {selectedLogForDetail && (() => {
+            const parseJsonField = (val: any): Record<string, any> => {
+              if (!val) return {};
+              if (typeof val === "object" && val !== null) return val;
+              if (typeof val === "string") {
+                try {
+                  const p = JSON.parse(val);
+                  return typeof p === "object" && p !== null ? p : {};
+                } catch {
+                  return {};
+                }
+              }
+              return {};
+            };
+
+            const toList = (raw: any): string[] => {
+              if (raw === null || raw === undefined) return [];
+              if (Array.isArray(raw)) {
+                return raw.map((item) => String(item ?? "").trim());
+              }
+              if (typeof raw === "object" && raw !== null) {
+                return Object.values(raw).map((item) => String(item ?? "").trim());
+              }
+              if (typeof raw === "string") {
+                const s = raw.trim();
+                if (s.startsWith("[") && s.endsWith("]")) {
+                  try {
+                    const parsed = JSON.parse(s);
+                    if (Array.isArray(parsed)) {
+                      return parsed.map((item) => String(item ?? "").trim());
+                    }
+                  } catch { }
+                }
+                return s.split(",").map((item) => item.trim());
+              }
+              return [String(raw).trim()];
+            };
+
+            const loadsObj = parseJsonField(selectedLogForDetail.loads);
+            const repsObj = parseJsonField(selectedLogForDetail.reps);
+            const restsObj = parseJsonField(selectedLogForDetail.restTimes);
+            const skippedObj = parseJsonField(selectedLogForDetail.skippedExercises);
+
+            const getExecutionList = (obj: Record<string, any>, ex: any, idx: number): string[] => {
+              if (!obj || typeof obj !== "object") return [];
+              const candidateKeys = [
+                ex.id,
+                ex.exerciseId,
+                ex.exercise?.id,
+                ex.exercise?.name,
+                String(idx),
+                idx,
+              ].filter((k) => k !== undefined && k !== null && k !== "");
+
+              for (const k of candidateKeys) {
+                if (obj[k] !== undefined && obj[k] !== null) {
+                  const list = toList(obj[k]);
+                  if (list.length > 0 && list.some((x) => x !== "" && x !== "—")) {
+                    return list;
+                  }
+                  if (list.length > 0) return list;
+                }
+              }
+
+              if (ex.exercise?.name) {
+                const targetName = ex.exercise.name.toLowerCase().trim();
+                for (const [k, v] of Object.entries(obj)) {
+                  if (k.toLowerCase().trim() === targetName) {
+                    return toList(v);
+                  }
+                }
+              }
+
+              return [];
+            };
+
+            const formatRepDisplay = (repRaw?: string) => {
+              if (!repRaw || repRaw === "—") return "—";
+              const clean = repRaw.replace(/reps?/i, "").trim();
+              if (!clean || clean === "—") return "—";
+              return `${clean} reps`;
+            };
+
+            const formatLoadDisplay = (loadRaw?: string) => {
+              if (!loadRaw || loadRaw === "—") return "—";
+              const clean = loadRaw.trim();
+              if (!clean || clean === "—") return "—";
+              if (/^\d+([.,]\d+)?$/.test(clean)) {
+                return `${clean} kg`;
+              }
+              return clean;
+            };
+
+            const formatRestDisplay = (restRaw?: string) => {
+              if (!restRaw || restRaw === "—" || restRaw === "0" || restRaw === "00:00") return "—";
+              const clean = restRaw.trim();
+              if (!clean || clean === "—" || clean === "0" || clean === "00:00") return "—";
+              const num = parseInt(clean, 10);
+              if (!isNaN(num) && !clean.includes(":") && num > 0) {
+                const m = Math.floor(num / 60);
+                const s = num % 60;
+                return `${String(m).padStart(2, "0")}:${String(s).padStart(2, "0")}`;
+              }
+              return clean;
+            };
+
+            const exercisesList = (() => {
+              const existing = selectedLogForDetail.workout?.exercises || [];
+              if (existing.length > 0) return existing;
+
+              const allKeys = Array.from(
+                new Set([
+                  ...Object.keys(loadsObj),
+                  ...Object.keys(repsObj),
+                  ...Object.keys(restsObj),
+                ])
+              );
+
+              return allKeys.map((k, i) => ({
+                id: k,
+                sets: Math.max(
+                  toList(loadsObj[k]).length,
+                  toList(repsObj[k]).length,
+                  toList(restsObj[k]).length,
+                  1
+                ),
+                exercise: {
+                  id: k,
+                  name: `Exercício #${i + 1}`,
+                },
+              }));
+            })();
+
+            return (
+              <div className="space-y-6 mt-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4 p-4 border border-border/80 bg-secondary/20 rounded-2xl">
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground block">Data</span>
+                    <span className="text-xs font-semibold text-foreground">
+                      {(() => {
+                        try {
+                          const date = new Date(selectedLogForDetail.completedAt);
+                          return date.toLocaleDateString("pt-BR", {
+                            day: "2-digit",
+                            month: "short",
+                            year: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          });
+                        } catch (e) {
+                          return selectedLogForDetail.completedAt;
+                        }
+                      })()}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground block">Treino</span>
+                    <span className="text-xs font-bold text-foreground truncate block">{selectedLogForDetail.workout?.name || "Treino Excluído"}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground block">Ficha / Grupo</span>
+                    <span className="text-xs font-semibold text-foreground">{selectedLogForDetail.workout?.muscleGroupLabel || "Geral"}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] uppercase font-bold text-muted-foreground block">Percepção de Esforço</span>
+                    <span className="text-xs font-semibold text-foreground block">
+                      {selectedLogForDetail.effortScore === 1 && "😴 Muito Fácil"}
+                      {selectedLogForDetail.effortScore === 2 && "🙂 Fácil"}
+                      {selectedLogForDetail.effortScore === 3 && "👍 Moderado"}
+                      {selectedLogForDetail.effortScore === 4 && "🥵 Difícil"}
+                      {selectedLogForDetail.effortScore === 5 && "💀 Muito Difícil"}
+                      {!selectedLogForDetail.effortScore && "Não Informada"}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">Treino</span>
-                  <span className="text-xs font-bold text-foreground truncate block">{selectedLogForDetail.workout?.name || "Treino Excluído"}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">Ficha / Grupo</span>
-                  <span className="text-xs font-semibold text-foreground">{selectedLogForDetail.workout?.muscleGroupLabel || "Geral"}</span>
-                </div>
-                <div>
-                  <span className="text-[10px] uppercase font-bold text-muted-foreground block">Percepção de Esforço</span>
-                  <span className="text-xs font-semibold text-foreground block">
-                    {selectedLogForDetail.effortScore === 1 && "😴 Muito Fácil"}
-                    {selectedLogForDetail.effortScore === 2 && "🙂 Fácil"}
-                    {selectedLogForDetail.effortScore === 3 && "👍 Moderado"}
-                    {selectedLogForDetail.effortScore === 4 && "🥵 Difícil"}
-                    {selectedLogForDetail.effortScore === 5 && "💀 Muito Difícil"}
-                    {!selectedLogForDetail.effortScore && "Não Informada"}
-                  </span>
+
+                {selectedLogForDetail.feedback && (
+                  <div className="p-3 bg-muted dark:bg-neutral-900/60 border border-border dark:border-neutral-800 rounded-xl text-xs italic text-neutral-300 flex items-start gap-2">
+                    <MessageCircle className="size-4 shrink-0 text-primary mt-0.5" />
+                    <span>"{selectedLogForDetail.feedback}"</span>
+                  </div>
+                )}
+
+                <div className="space-y-3">
+                  <h4 className="text-xs font-extrabold uppercase text-muted-foreground tracking-wider">Exercícios Executados</h4>
+                  <div className="border border-border/60 rounded-xl overflow-hidden divide-y divide-border/60">
+                    {exercisesList && exercisesList.length > 0 ? (
+                      exercisesList.map((ex: any, idx: number) => {
+                        const loadParts = getExecutionList(loadsObj, ex, idx);
+                        const repParts = getExecutionList(repsObj, ex, idx);
+                        const restParts = getExecutionList(restsObj, ex, idx);
+
+                        const isSkipped = !!(
+                          skippedObj[ex.id] ||
+                          skippedObj[ex.exerciseId] ||
+                          skippedObj[ex.exercise?.id] ||
+                          skippedObj[ex.exercise?.name]
+                        );
+                        const skipReason = (
+                          skippedObj[ex.id]?.reason ||
+                          skippedObj[ex.exerciseId]?.reason ||
+                          skippedObj[ex.exercise?.id]?.reason ||
+                          skippedObj[ex.exercise?.name]?.reason ||
+                          ""
+                        );
+
+                        const actualLoadsCount = loadParts.filter((x) => x !== "" && x !== "—").length;
+                        const actualRepsCount = repParts.filter((x) => x !== "" && x !== "—").length;
+                        const actualRestsCount = restParts.filter((x) => x !== "" && x !== "—" && x !== "00:00").length;
+                        const maxRecordedSets = Math.max(actualLoadsCount, actualRepsCount, actualRestsCount);
+                        const numSets = Math.max(maxRecordedSets, ex.sets || 1);
+
+                        return (
+                          <div key={ex.id || idx} className="p-4 bg-background/20 space-y-3">
+                            <div className="flex items-center justify-between gap-2 flex-wrap">
+                              <span className="text-xs font-bold text-foreground">
+                                {idx + 1}. {ex.exercise?.name || ex.name || "Exercício"}
+                              </span>
+                              <div className="flex items-center gap-1.5">
+                                {isSkipped ? (
+                                  <Badge variant="outline" className="text-[10px] bg-rose-500/10 text-rose-500 border-rose-500/20 py-0 px-2 font-bold">
+                                    Pulado {skipReason ? `• ${skipReason}` : ""}
+                                  </Badge>
+                                ) : (
+                                  <Badge variant="outline" className="text-[10px] bg-secondary/35 text-muted-foreground border-border py-0 px-2 font-semibold">
+                                    {ex.sets || numSets} séries prescritas
+                                  </Badge>
+                                )}
+                              </div>
+                            </div>
+
+                            <div className="grid grid-cols-[50px_1fr_1fr_1fr] gap-2 text-[9px] uppercase font-bold text-muted-foreground/80 pl-2">
+                              <div>Série</div>
+                              <div>Reps Registradas</div>
+                              <div>Carga Registrada</div>
+                              <div>Descanso Real</div>
+                            </div>
+
+                            <div className="space-y-1 pl-2">
+                              {Array.from({ length: numSets }).map((_, si) => {
+                                const repFormatted = formatRepDisplay(repParts[si]);
+                                const loadFormatted = formatLoadDisplay(loadParts[si]);
+                                const restFormatted = formatRestDisplay(restParts[si]);
+
+                                return (
+                                  <div key={si} className="grid grid-cols-[50px_1fr_1fr_1fr] gap-2 items-center text-xs">
+                                    <span className="text-muted-foreground font-mono">#{si + 1}</span>
+                                    <span className={cn("font-bold", repFormatted !== "—" ? "text-foreground" : "text-muted-foreground font-medium")}>
+                                      {repFormatted}
+                                    </span>
+                                    <span className={cn("font-bold", loadFormatted !== "—" ? "text-foreground" : "text-muted-foreground font-medium")}>
+                                      {loadFormatted}
+                                    </span>
+                                    <span className={cn("font-mono font-bold", restFormatted !== "—" ? "text-emerald-500" : "text-muted-foreground")}>
+                                      {restFormatted}
+                                    </span>
+                                  </div>
+                                );
+                              })}
+                            </div>
+                          </div>
+                        );
+                      })
+                    ) : (
+                      <div className="p-4 text-center text-xs text-muted-foreground">
+                        Dados de exercícios indisponíveis para este log.
+                      </div>
+                    )}
+                  </div>
                 </div>
               </div>
-
-              {selectedLogForDetail.feedback && (
-                <div className="p-3 bg-muted dark:bg-neutral-900/60 border border-border dark:border-neutral-800 rounded-xl text-xs italic text-neutral-300 flex items-start gap-2">
-                  <MessageCircle className="size-4 shrink-0 text-primary mt-0.5" />
-                  <span>"{selectedLogForDetail.feedback}"</span>
-                </div>
-              )}
-
-              <div className="space-y-3">
-                <h4 className="text-xs font-extrabold uppercase text-muted-foreground tracking-wider">Exercícios Executados</h4>
-                <div className="border border-border/60 rounded-xl overflow-hidden divide-y divide-border/60 max-h-80 overflow-y-auto">
-                  {selectedLogForDetail.workout?.exercises && selectedLogForDetail.workout.exercises.length > 0 ? (
-                    selectedLogForDetail.workout.exercises.map((ex: any, idx: number) => {
-                      // Get execution data from JSON arrays/objects
-                      const exerciseId = ex.exercise.id;
-                      const loadsObj = selectedLogForDetail.loads || {};
-                      const repsObj = selectedLogForDetail.reps || {};
-                      const restsObj = selectedLogForDetail.restTimes || {};
-
-                      const rawLoads = loadsObj[exerciseId] || "";
-                      const rawReps = repsObj[exerciseId] || "";
-                      const rawRests = restsObj[exerciseId] || "";
-
-                      const loadParts = String(rawLoads).split(",").map(s => s.trim());
-                      const repParts = String(rawReps).split(",").map(s => s.trim());
-                      const restParts = String(rawRests).split(",").map(s => s.trim());
-
-                      const numSets = Math.max(loadParts.length, repParts.length, ex.sets || 1);
-
-                      return (
-                        <div key={ex.id} className="p-4 bg-background/20 space-y-3">
-                          <div className="flex items-center justify-between">
-                            <span className="text-xs font-bold text-foreground">
-                              {idx + 1}. {ex.exercise.name}
-                            </span>
-                            <Badge variant="outline" className="text-[10px] bg-secondary/35 text-muted-foreground border-border py-0 px-2 font-semibold">
-                              {ex.sets || 4} séries prescritas
-                            </Badge>
-                          </div>
-
-                          <div className="grid grid-cols-[50px_1fr_1fr_1fr] gap-2 text-[9px] uppercase font-bold text-muted-foreground/80 pl-2">
-                            <div>Série</div>
-                            <div>Reps Registradas</div>
-                            <div>Carga Registrada</div>
-                            <div>Descanso Real</div>
-                          </div>
-
-                          <div className="space-y-1 pl-2">
-                            {Array.from({ length: numSets }).map((_, si) => {
-                              const rep = repParts[si] || "—";
-                              const load = loadParts[si] || "—";
-                              const rest = restParts[si] || "—";
-
-                              return (
-                                <div key={si} className="grid grid-cols-[50px_1fr_1fr_1fr] gap-2 items-center text-xs">
-                                  <span className="text-muted-foreground font-mono">#{si + 1}</span>
-                                  <span className="font-bold text-foreground">{rep} reps</span>
-                                  <span className="font-bold text-foreground">{load}</span>
-                                  <span className="font-mono text-emerald-500 font-bold">{rest}</span>
-                                </div>
-                              );
-                            })}
-                          </div>
-                        </div>
-                      );
-                    })
-                  ) : (
-                    <div className="p-4 text-center text-xs text-muted-foreground">
-                      Dados de exercícios indisponíveis para este log.
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           <DialogFooter className="mt-4 pt-4 border-t border-border">
             <Button

@@ -118,7 +118,7 @@ export async function POST(req: Request) {
           slogan: brandSlogan?.trim() || null,
           logoUrl: logoUrl || null,
           logoKey: logoKey || null,
-          primaryColor: brandColor || "#3052EB",
+          primaryColor: brandColor || "#2B4FCC",
           watermarkUrl: watermarkUrl || null,
           watermarkKey: watermarkKey || null,
           workoutCoverUrl: workoutCoverUrl || null,

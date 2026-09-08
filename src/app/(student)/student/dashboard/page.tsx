@@ -320,12 +320,24 @@ export default function StudentDashboardPage() {
               ? "border-emerald-500/25 bg-gradient-to-br from-card to-emerald-500/5 shadow-emerald-500/[0.02]"
               : "border-primary/20 bg-gradient-to-br from-card to-secondary/10 shadow-primary/5"
           )}>
-            <div className="absolute top-0 right-0 p-8 text-primary/5 select-none pointer-events-none group-hover:text-primary/10 transition-colors hidden md:block">
-              <Dumbbell className="size-44 rotate-12" />
-            </div>
+            {/* Atmospheric Workout Cover Background */}
+            {activeWs?.workoutCoverUrl ? (
+              <div className="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+                <img
+                  src={activeWs.workoutCoverUrl}
+                  alt="Capa do Treino"
+                  className="size-full object-cover opacity-15 dark:opacity-20 filter blur-[0.5px] scale-105 group-hover:scale-110 transition-transform duration-700"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t md:bg-gradient-to-r from-card via-card/90 to-card/75 dark:from-card dark:via-card/95 dark:to-card/85" />
+              </div>
+            ) : (
+              <div className="absolute top-0 right-0 p-8 text-primary/5 select-none pointer-events-none group-hover:text-primary/10 transition-colors hidden md:block">
+                <Dumbbell className="size-44 rotate-12" />
+              </div>
+            )}
 
             {todayWorkouts.length > 1 && (
-              <div className="flex items-center justify-between border-b border-border/30 px-6 py-3 bg-secondary/10">
+              <div className="relative z-10 flex items-center justify-between border-b border-border/30 px-6 py-3 bg-secondary/10 backdrop-blur-xs">
                 <div className="flex items-center gap-2 text-primary text-[10px] font-black uppercase tracking-widest">
                   <Activity className="size-3.5 animate-pulse" />
                   Treino Recomendado {activeWorkoutIdx + 1} de {todayWorkouts.length}
@@ -369,23 +381,34 @@ export default function StudentDashboardPage() {
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: -10 }}
                 transition={{ duration: 0.15 }}
-                className="flex flex-col md:flex-row"
+                className="relative z-10 flex flex-col md:flex-row"
               >
                 {/* Workout summary */}
                 <div className="flex-1 p-6 md:p-8 space-y-4">
-                  <div className="space-y-2">
-                    {todayWorkouts.length === 1 && (
-                      <div className="flex items-center gap-2 text-primary text-[10px] font-black uppercase tracking-widest">
-                        <Activity className="size-3.5 animate-pulse" />
-                        Treino Recomendado
+                  <div className="flex items-start gap-4">
+                    {activeWs?.workoutCoverUrl && (
+                      <div className="size-16 md:size-20 rounded-2xl overflow-hidden border border-border/80 shadow-md shrink-0 bg-muted/40 relative group/thumb">
+                        <img
+                          src={activeWs.workoutCoverUrl}
+                          alt="Capa do Treino"
+                          className="size-full object-cover transition-transform duration-500 group-hover/thumb:scale-110"
+                        />
                       </div>
                     )}
-                    <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight">
-                      {todayWorkouts[activeWorkoutIdx]?.name}
-                    </h2>
-                    <p className="text-muted-foreground text-sm font-medium">
-                      {todayWorkouts[activeWorkoutIdx]?.muscleGroupLabel}
-                    </p>
+                    <div className="space-y-1.5 flex-1 min-w-0">
+                      {todayWorkouts.length === 1 && (
+                        <div className="flex items-center gap-2 text-primary text-[10px] font-black uppercase tracking-widest">
+                          <Activity className="size-3.5 animate-pulse" />
+                          Treino Recomendado
+                        </div>
+                      )}
+                      <h2 className="text-2xl md:text-3xl font-extrabold tracking-tight truncate">
+                        {todayWorkouts[activeWorkoutIdx]?.name}
+                      </h2>
+                      <p className="text-muted-foreground text-sm font-medium">
+                        {todayWorkouts[activeWorkoutIdx]?.muscleGroupLabel || "Geral"}
+                      </p>
+                    </div>
                   </div>
 
                   <div className="flex flex-wrap items-center gap-6 text-sm">
@@ -405,7 +428,7 @@ export default function StudentDashboardPage() {
                 </div>
 
                 {/* Workout CTA block */}
-                <div className="bg-secondary/20 p-6 md:w-64 flex flex-col justify-center items-center border-t md:border-t-0 md:border-l border-border/50 gap-4 shrink-0">
+                <div className="bg-secondary/20 backdrop-blur-xs p-6 md:w-64 flex flex-col justify-center items-center border-t md:border-t-0 md:border-l border-border/50 gap-4 shrink-0">
                   <div className="text-center space-y-1">
                     <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Status Atual</p>
                     {todayWorkouts[activeWorkoutIdx]?.isCompletedToday ? (
@@ -767,12 +790,18 @@ export default function StudentDashboardPage() {
                   {selectedDayWorkouts.map((w: any) => (
                     <div key={w.id} className="flex items-center justify-between bg-card p-2.5 rounded-lg border border-border/40 text-xs">
                       <div className="flex items-center gap-2.5 min-w-0">
-                        <div className={cn(
-                          "size-7 rounded-lg flex items-center justify-center shrink-0",
-                          w.isCompletedToday ? "bg-emerald-500/10 text-emerald-500" : "bg-primary/10 text-primary"
-                        )}>
-                          <Dumbbell className="size-3.5" />
-                        </div>
+                        {activeWs?.workoutCoverUrl ? (
+                          <div className="size-8 rounded-lg overflow-hidden shrink-0 border border-border/60 bg-muted">
+                            <img src={activeWs.workoutCoverUrl} alt="Capa" className="size-full object-cover" />
+                          </div>
+                        ) : (
+                          <div className={cn(
+                            "size-7 rounded-lg flex items-center justify-center shrink-0",
+                            w.isCompletedToday ? "bg-emerald-500/10 text-emerald-500" : "bg-primary/10 text-primary"
+                          )}>
+                            <Dumbbell className="size-3.5" />
+                          </div>
+                        )}
                         <div className="min-w-0">
                           <p className="font-bold text-foreground truncate">{w.name}</p>
                           <p className="text-[10px] text-muted-foreground truncate">{w.muscleGroupLabel || "Geral"}</p>

@@ -88,7 +88,7 @@ export default async function CapturePage({ params }: CapturePageProps) {
     name: workspace.name,
     slug: workspace.slug,
     logoUrl: workspace.logoUrl,
-    primaryColor: workspace.primaryColor || "#0ea5e9",
+    primaryColor: workspace.primaryColor || "#2B4FCC",
     slogan: workspace.slogan,
     owner: {
       name: owner.name || "Treinador AtlasFit",

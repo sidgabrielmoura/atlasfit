@@ -119,7 +119,7 @@ export async function POST(req: Request) {
           difficulty,
           duration,
           muscleGroupLabel: muscleGroupLabel || null,
-          restBetweenExercises: restBetweenExercises || "2 min",
+          restBetweenExercises: restBetweenExercises || "02:00",
           creatorId: session.user.id,
           workspaceId: workspaceId || null,
           allowRepsModification: allowRepsModification !== undefined ? Boolean(allowRepsModification) : true,

@@ -3,18 +3,30 @@
 import { useSnapshot } from "valtio";
 import { workspaceStore } from "@/stores/workspace.store";
 import { usePathname } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useLayoutEffect } from "react";
+
+const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
+
+export const DEFAULT_APP_COLOR = "#2B4FCC";
+const DEFAULT_COLOR_LIGHT = "oklch(0.484 0.198 266.4)"; // #2B4FCC
+const DEFAULT_COLOR_DARK = "oklch(0.580 0.198 266.4)";  // #2B4FCC dark
 
 /**
  * Converte cor HEX para componentes RGB normalizados (0-1)
  */
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
-  const clean = hex.replace("#", "");
+  if (!hex) return null;
+  let clean = hex.replace("#", "").trim();
+  if (clean.length === 3) {
+    clean = clean.split("").map((c) => c + c).join("");
+  }
   if (clean.length !== 6) return null;
+  const num = parseInt(clean, 16);
+  if (isNaN(num)) return null;
   return {
-    r: parseInt(clean.slice(0, 2), 16) / 255,
-    g: parseInt(clean.slice(2, 4), 16) / 255,
-    b: parseInt(clean.slice(4, 6), 16) / 255,
+    r: ((num >> 16) & 255) / 255,
+    g: ((num >> 8) & 255) / 255,
+    b: (num & 255) / 255,
   };
 }
 
@@ -24,7 +36,7 @@ function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
  */
 function hexToOklch(hex: string): string {
   const rgb = hexToRgb(hex);
-  if (!rgb) return "oklch(0.532 0.258 269.4)";
+  if (!rgb) return DEFAULT_COLOR_LIGHT;
 
   // Linearizar sRGB
   const linearize = (v: number) =>
@@ -62,7 +74,7 @@ function hexToOklch(hex: string): string {
  */
 function hexToOklchDark(hex: string): string {
   const rgb = hexToRgb(hex);
-  if (!rgb) return "oklch(0.60 0.24 269.4)";
+  if (!rgb) return DEFAULT_COLOR_DARK;
 
   const linearize = (v: number) =>
     v <= 0.04045 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
@@ -93,8 +105,49 @@ function hexToOklchDark(hex: string): string {
   return `oklch(${darkL.toFixed(3)} ${C.toFixed(3)} ${H.toFixed(1)})`;
 }
 
-const DEFAULT_COLOR_LIGHT = "oklch(0.532 0.258 269.4)";
-const DEFAULT_COLOR_DARK = "oklch(0.60 0.24 269.4)";
+/**
+ * Atualiza todas as tags de meta necessárias para a barra de status do celular
+ * (seção com bateria, horário, ícones de rede no Android e iOS Safari/PWA).
+ */
+export function updateMobileStatusBar(color: string) {
+  if (typeof document === "undefined") return;
+
+  // 1. Atualiza ou cria as tags meta[name="theme-color"]
+  const themeMetas = document.querySelectorAll('meta[name="theme-color"]');
+  if (themeMetas.length === 0) {
+    const meta = document.createElement("meta");
+    meta.setAttribute("name", "theme-color");
+    meta.setAttribute("content", color);
+    document.head.appendChild(meta);
+  } else {
+    themeMetas.forEach((meta) => {
+      meta.setAttribute("content", color);
+      // Remove media query restrictiva para garantir que a cor seja aplicada
+      if (meta.hasAttribute("media")) {
+        meta.removeAttribute("media");
+      }
+    });
+  }
+
+  // 2. msapplication-navbutton-color (Windows Phone / navegadores móveis legados)
+  let msMeta = document.querySelector('meta[name="msapplication-navbutton-color"]');
+  if (!msMeta) {
+    msMeta = document.createElement("meta");
+    msMeta.setAttribute("name", "msapplication-navbutton-color");
+    document.head.appendChild(msMeta);
+  }
+  msMeta.setAttribute("content", color);
+
+  // 3. apple-mobile-web-app-status-bar-style
+  // "default" permite que o iOS Safari e PWA no iOS 15+ adotem a cor do theme-color
+  let appleStatusBar = document.querySelector('meta[name="apple-mobile-web-app-status-bar-style"]');
+  if (!appleStatusBar) {
+    appleStatusBar = document.createElement("meta");
+    appleStatusBar.setAttribute("name", "apple-mobile-web-app-status-bar-style");
+    document.head.appendChild(appleStatusBar);
+  }
+  appleStatusBar.setAttribute("content", "default");
+}
 
 export function DynamicBranding() {
   const [mounted, setMounted] = useState(false);
@@ -105,42 +158,47 @@ export function DynamicBranding() {
     setMounted(true);
   }, []);
 
-  // SuperAdmin sempre usa a cor padrão azul ou se não estiver montado no client
-  if (!mounted || pathname?.startsWith("/superadmin")) {
-    return null; // globals.css define a cor padrão corretamente
-  }
+  const isSuperAdmin = pathname?.startsWith("/superadmin");
+  const rawColor = (!isSuperAdmin && snap.activeWorkspace?.primaryColor?.trim())
+    ? snap.activeWorkspace.primaryColor.trim()
+    : DEFAULT_APP_COLOR;
 
-  const primaryHex = snap.activeWorkspace?.primaryColor;
+  // Sincroniza a barra de status móvel (bateria, relógio, ícones) antes do paint
+  useIsomorphicLayoutEffect(() => {
+    updateMobileStatusBar(rawColor);
+  }, [rawColor]);
 
-  // Se não houver cor configurada ou for a mesma cor padrão, não injeta nada
-  // deixando o globals.css assumir
-  if (!primaryHex) {
+  if (!mounted) {
     return null;
   }
 
-  // Se a cor for um hex válido, converte para oklch para consistência com o tema
-  const isHex = /^#[0-9a-fA-F]{6}$/.test(primaryHex);
-  const lightColor = isHex ? hexToOklch(primaryHex) : primaryHex;
-  const darkColor = isHex ? hexToOklchDark(primaryHex) : primaryHex;
+  const isHex = /^#[0-9a-fA-F]{3,8}$/.test(rawColor);
+  const lightColor = isHex ? hexToOklch(rawColor) : rawColor;
+  const darkColor = isHex ? hexToOklchDark(rawColor) : rawColor;
 
   return (
-    <style dangerouslySetInnerHTML={{
-      __html: `
-        :root {
-          --primary: ${lightColor} !important;
-          --sidebar-primary: ${lightColor} !important;
-          --ring: ${lightColor} !important;
-          --sidebar-ring: ${lightColor} !important;
-          --chart-1: ${lightColor} !important;
-        }
-        .dark {
-          --primary: ${darkColor} !important;
-          --sidebar-primary: ${darkColor} !important;
-          --ring: ${darkColor} !important;
-          --sidebar-ring: ${darkColor} !important;
-          --chart-1: ${darkColor} !important;
-        }
-      `
-    }} />
+    <>
+      <meta name="theme-color" content={rawColor} />
+      <meta name="msapplication-navbutton-color" content={rawColor} />
+      <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+      <style dangerouslySetInnerHTML={{
+        __html: `
+          :root {
+            --primary: ${lightColor} !important;
+            --sidebar-primary: ${lightColor} !important;
+            --ring: ${lightColor} !important;
+            --sidebar-ring: ${lightColor} !important;
+            --chart-1: ${lightColor} !important;
+          }
+          .dark {
+            --primary: ${darkColor} !important;
+            --sidebar-primary: ${darkColor} !important;
+            --ring: ${darkColor} !important;
+            --sidebar-ring: ${darkColor} !important;
+            --chart-1: ${darkColor} !important;
+          }
+        `
+      }} />
+    </>
   );
 }

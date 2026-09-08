@@ -41,8 +41,13 @@ export function RestTimeInput({ value = "01:00", onChange, className, disabled }
     } else {
       const totalSeconds = parseInt(valClean);
       if (!isNaN(totalSeconds)) {
-        initialMinutes = Math.floor(totalSeconds / 60);
-        initialSeconds = totalSeconds % 60;
+        if (totalSeconds <= 10) {
+          initialMinutes = totalSeconds;
+          initialSeconds = 0;
+        } else {
+          initialMinutes = Math.floor(totalSeconds / 60);
+          initialSeconds = totalSeconds % 60;
+        }
       }
     }
   }

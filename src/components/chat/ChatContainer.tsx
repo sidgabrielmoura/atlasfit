@@ -275,7 +275,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
   const primaryHex = workspaceSnap.activeWorkspace?.primaryColor;
 
   const contrast = React.useMemo(() => {
-    const hex = primaryHex || "#3052EB";
+    const hex = primaryHex || "#2B4FCC";
     const clean = hex.replace("#", "");
     let isLight = false;
     if (clean.length === 6) {

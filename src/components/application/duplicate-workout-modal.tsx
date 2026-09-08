@@ -62,6 +62,7 @@ import {
 import { cn, simplifyCommaSeparatedString } from "@/lib/utils";
 import { toast } from "sonner";
 import { RestTimeInput } from "@/components/application/RestTimeInput";
+import { WorkoutDurationSelect, WORKOUT_DURATIONS } from "@/components/application/WorkoutDurationSelect";
 import { areWorkoutsIdentical } from "@/lib/workout-duplicate-checker";
 
 const DAYS_OF_WEEK = [
@@ -84,7 +85,6 @@ const WORKOUT_GOALS = [
   "Geral",
 ];
 const WORKOUT_DIFFICULTIES = ["Iniciante", "Intermediário", "Avançado"];
-const WORKOUT_DURATIONS = ["30 min", "45 min", "60 min", "75 min", "90 min"];
 
 export interface ExerciseCustomConfig {
   sets: number | string;
@@ -975,22 +975,12 @@ export function DuplicateWorkoutModal({
                   <Label className="text-[11px] font-semibold text-muted-foreground">
                     Duração Prevista
                   </Label>
-                  <Select
+                  <WorkoutDurationSelect
                     value={customDuration}
                     onValueChange={setCustomDuration}
                     disabled={isSubmitting}
-                  >
-                    <SelectTrigger className="h-9 text-xs rounded-lg border-border w-full">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {WORKOUT_DURATIONS.map((dur) => (
-                        <SelectItem key={dur} value={dur} className="text-xs cursor-pointer">
-                          {dur}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
+                    className="h-9 text-xs rounded-lg border-border w-full"
+                  />
                 </div>
 
                 <div className="space-y-1">

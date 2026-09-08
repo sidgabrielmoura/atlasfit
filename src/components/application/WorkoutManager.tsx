@@ -106,8 +106,8 @@ function WorkoutMinimizedCard({
   onMinimizeToBubble: () => void;
 }) {
   const wsSnap = useSnapshot(workspaceStore);
-  const primaryHex = wsSnap.activeWorkspace?.primaryColor || "#3052EB";
-  const rgb = hexToRgb(primaryHex) || { r: 48, g: 82, b: 235 };
+  const primaryHex = wsSnap.activeWorkspace?.primaryColor || "#2B4FCC";
+  const rgb = hexToRgb(primaryHex) || { r: 43, g: 79, b: 204 };
 
   // Build dark metallic gradient using the brand color as accent
   const cardBg = `linear-gradient(135deg, #0d0d0f 0%, #111218 50%, rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.18) 100%)`;
@@ -243,8 +243,8 @@ function WorkoutBubblePlayer({
   onRestore: () => void;
 }) {
   const wsSnap = useSnapshot(workspaceStore);
-  const primaryHex = wsSnap.activeWorkspace?.primaryColor || "#3052EB";
-  const rgb = hexToRgb(primaryHex) || { r: 48, g: 82, b: 235 };
+  const primaryHex = wsSnap.activeWorkspace?.primaryColor || "#2B4FCC";
+  const rgb = hexToRgb(primaryHex) || { r: 43, g: 79, b: 204 };
 
   // Build metallic brand gradient and borders for the bubble player
   const cardBg = `linear-gradient(135deg, #0d0d0f 0%, #111218 50%, rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.25) 100%)`;

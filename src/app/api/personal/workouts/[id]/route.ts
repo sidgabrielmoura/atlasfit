@@ -184,7 +184,7 @@ export async function PUT(
           difficulty,
           duration,
           muscleGroupLabel: muscleGroupLabel || null,
-          restBetweenExercises: restBetweenExercises || "2 min",
+          restBetweenExercises: restBetweenExercises || "02:00",
           allowRepsModification: allowRepsModification !== undefined ? Boolean(allowRepsModification) : true,
           allowCompleteView: allowCompleteView !== undefined ? Boolean(allowCompleteView) : false,
           allowSkipExercises: allowSkipExercises !== undefined ? Boolean(allowSkipExercises) : false,

@@ -310,7 +310,6 @@ export function PrivacyCenterTab() {
         </CardContent>
       </Card>
 
-      {/* Acceptance Evidence History */}
       {data?.acceptances && data.acceptances.length > 0 && (
         <Card className="border-border/50 bg-card/60">
           <CardHeader className="pb-3">
@@ -329,7 +328,7 @@ export function PrivacyCenterTab() {
                   <div className="font-semibold text-foreground">
                     {acc.documentType === "TERMS" ? "Termos de Uso" : "Política de Privacidade"} — v{acc.documentVersion}
                   </div>
-                  <div className="font-mono text-[10px] text-muted-foreground truncate max-w-sm">
+                  <div className="font-mono text-[10px] text-muted-foreground text-wrap break-all">
                     Hash: {acc.documentHash}
                   </div>
                 </div>
