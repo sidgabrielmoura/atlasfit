@@ -34,7 +34,9 @@ import {
    CheckCircle2,
    Edit2,
    Check,
-   X
+   X,
+   UploadCloud,
+   ImageIcon,
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { cn } from "@/lib/utils";
@@ -134,8 +136,14 @@ function PlanCarousel({ plans, isLoading, onEdit }: { plans: any[]; isLoading: b
                      data-card
                      className="snap-start shrink-0 w-[min(320px,80vw)] sm:w-72 lg:w-80"
                   >
-                     <Card className="border-border/40 p-0 bg-card/50 overflow-hidden hover:border-primary/30 transition-all duration-300 group h-full">
-                        <div className="p-6 space-y-4">
+                     <Card className="border-border/40 p-0 bg-card/50 overflow-hidden hover:border-primary/30 transition-all duration-300 group h-full flex flex-col">
+                        {plan.imageUrl && (
+                           <div className="relative h-28 w-full overflow-hidden border-b border-border/40 bg-secondary/30 shrink-0">
+                              <img src={plan.imageUrl} alt={plan.name} className="size-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                              <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent" />
+                           </div>
+                        )}
+                        <div className="p-6 space-y-4 flex-1 flex flex-col justify-between">
                            <div className="flex items-center justify-between">
                               <div className="p-2 rounded-lg bg-secondary border border-border/40 text-primary">
                                  <ShieldCheck className="size-5" />
@@ -518,6 +526,7 @@ export default function SubscriptionsManagementPage() {
       price: "",
       interval: "month",
       features: defaultFeatures,
+      imageUrl: "",
       maxWorkspaces: defaultWs,
       maxStudents: defaultStudents,
       importQuota: defaultQuota,
@@ -529,13 +538,45 @@ export default function SubscriptionsManagementPage() {
       price: "",
       interval: "month",
       features: "",
+      imageUrl: "",
       maxWorkspaces: "1",
       maxStudents: "",
       importQuota: defaultQuota,
       storageLimitMb: defaultStorage,
       paymentMethods: "PIX"
    });
+   const [isUploadingImage, setIsUploadingImage] = useState(false);
+   const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
+   const [imagePreview, setImagePreview] = useState<string | null>(null);
+   const [editPendingImageFile, setEditPendingImageFile] = useState<File | null>(null);
+   const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
    const [mounted, setMounted] = useState(false);
+
+   const uploadImageFile = async (file: File): Promise<string> => {
+      const presignedRes = await fetch("/api/storage/presigned", {
+         method: "POST",
+         headers: { "Content-Type": "application/json" },
+         body: JSON.stringify({
+            fileName: file.name,
+            contentType: file.type || "image/jpeg",
+            fileSize: file.size,
+            targetType: "campaign_banner",
+         }),
+      });
+      if (!presignedRes.ok) {
+         throw new Error("Erro ao obter URL para upload da imagem.");
+      }
+      const { uploadUrl, fileUrl } = await presignedRes.json();
+      const putRes = await fetch(uploadUrl, {
+         method: "PUT",
+         headers: { "Content-Type": file.type || "image/jpeg" },
+         body: file,
+      });
+      if (!putRes.ok) {
+         throw new Error("Erro ao enviar arquivo para o armazenamento.");
+      }
+      return fileUrl;
+   };
 
    useEffect(() => {
       setMounted(true);
@@ -577,11 +618,22 @@ export default function SubscriptionsManagementPage() {
       e.preventDefault();
       setIsSubmitting(true);
       try {
+         let finalImageUrl = formData.imageUrl.trim() || null;
+         if (pendingImageFile) {
+            setIsUploadingImage(true);
+            try {
+               finalImageUrl = await uploadImageFile(pendingImageFile);
+            } finally {
+               setIsUploadingImage(false);
+            }
+         }
+
          await superAdminActions.createPlan({
             name: formData.name,
             price: parseFloat(formData.price),
             interval: formData.interval,
             features: formData.features,
+            imageUrl: finalImageUrl,
             maxWorkspaces: parseInt(formData.maxWorkspaces) || 1,
             maxStudents: formData.maxStudents ? parseInt(formData.maxStudents) : null,
             importQuota: formData.importQuota ? parseInt(formData.importQuota) : 25,
@@ -589,12 +641,16 @@ export default function SubscriptionsManagementPage() {
             paymentMethods: formData.paymentMethods,
          });
          toast.success("Plano criado com sucesso!");
+         if (imagePreview) URL.revokeObjectURL(imagePreview);
+         setPendingImageFile(null);
+         setImagePreview(null);
          setIsModalOpen(false);
          setFormData({
             name: "",
             price: "",
             interval: "month",
             features: defaultFeatures,
+            imageUrl: "",
             maxWorkspaces: defaultWs,
             maxStudents: defaultStudents,
             importQuota: defaultQuota,
@@ -605,6 +661,7 @@ export default function SubscriptionsManagementPage() {
          toast.error(error.message || "Erro ao criar plano.");
       } finally {
          setIsSubmitting(false);
+         setIsUploadingImage(false);
       }
    };
 
@@ -613,11 +670,22 @@ export default function SubscriptionsManagementPage() {
       if (!selectedPlan) return;
       setIsSubmitting(true);
       try {
+         let finalImageUrl = editFormData.imageUrl.trim() || null;
+         if (editPendingImageFile) {
+            setIsUploadingImage(true);
+            try {
+               finalImageUrl = await uploadImageFile(editPendingImageFile);
+            } finally {
+               setIsUploadingImage(false);
+            }
+         }
+
          await superAdminActions.updatePlan(selectedPlan.id, {
             name: editFormData.name,
             price: parseFloat(editFormData.price),
             interval: editFormData.interval,
             features: editFormData.features,
+            imageUrl: finalImageUrl,
             maxWorkspaces: parseInt(editFormData.maxWorkspaces) || 1,
             maxStudents: editFormData.maxStudents ? parseInt(editFormData.maxStudents) : null,
             importQuota: editFormData.importQuota ? parseInt(editFormData.importQuota) : 25,
@@ -625,11 +693,15 @@ export default function SubscriptionsManagementPage() {
             paymentMethods: editFormData.paymentMethods,
          });
          toast.success("Plano atualizado com sucesso!");
+         if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+         setEditPendingImageFile(null);
+         setEditImagePreview(null);
          setIsEditModalOpen(false);
       } catch (error: any) {
          toast.error(error.message || "Erro ao atualizar plano.");
       } finally {
          setIsSubmitting(false);
+         setIsUploadingImage(false);
       }
    };
 
@@ -668,6 +740,9 @@ export default function SubscriptionsManagementPage() {
    };
 
    const openEditModal = (plan: any) => {
+      if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+      setEditPendingImageFile(null);
+      setEditImagePreview(null);
       setSelectedPlan(plan);
       const initialQuota = plan.importQuota !== null && plan.importQuota !== undefined ? plan.importQuota.toString() : "25";
       const initialStudents = plan.maxStudents !== null && plan.maxStudents !== undefined ? plan.maxStudents.toString() : "";
@@ -680,6 +755,7 @@ export default function SubscriptionsManagementPage() {
          price: plan.price.toString(),
          interval: plan.interval || "month",
          features: syncedFeatures,
+         imageUrl: plan.imageUrl || "",
          maxWorkspaces: initialWs,
          maxStudents: initialStudents,
          importQuota: initialQuota,
@@ -1246,7 +1322,17 @@ export default function SubscriptionsManagementPage() {
             </div>
          </section>
 
-         <Dialog open={isModalOpen} onOpenChange={setIsModalOpen}>
+         <Dialog
+            open={isModalOpen}
+            onOpenChange={(open) => {
+               setIsModalOpen(open);
+               if (!open) {
+                  if (imagePreview) URL.revokeObjectURL(imagePreview);
+                  setPendingImageFile(null);
+                  setImagePreview(null);
+               }
+            }}
+         >
             <DialogContent className="max-w-3xl overflow-auto! rounded-2xl!">
                <DialogHeader>
                   <DialogTitle className="text-xl font-black tracking-tight">Novo Plano de Assinatura</DialogTitle>
@@ -1368,12 +1454,99 @@ export default function SubscriptionsManagementPage() {
                         </div>
                      </div>
 
-                     <div>
+                     <div className="space-y-4">
                         <FeaturesManager
                            value={formData.features}
                            onChange={(val) => setFormData({ ...formData, features: val })}
                            label="Destaques / Vantagens do Plano"
                         />
+
+                        <div className="space-y-2 pt-2 border-t border-border/40">
+                           <div className="flex items-center justify-between">
+                              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                 Imagem do Plano
+                              </Label>
+                              {(imagePreview || formData.imageUrl) && (
+                                 <button
+                                    type="button"
+                                    onClick={() => {
+                                       if (imagePreview) URL.revokeObjectURL(imagePreview);
+                                       setPendingImageFile(null);
+                                       setImagePreview(null);
+                                       setFormData((f) => ({ ...f, imageUrl: "" }));
+                                    }}
+                                    className="text-[10px] truncate text-destructive hover:underline font-bold"
+                                 >
+                                    Remover imagem
+                                 </button>
+                              )}
+                           </div>
+                           <div className="flex gap-2">
+                              <Input
+                                 value={pendingImageFile ? `[Arquivo selecionado] ${pendingImageFile.name}` : formData.imageUrl}
+                                 onChange={(e) => {
+                                    if (imagePreview) URL.revokeObjectURL(imagePreview);
+                                    setPendingImageFile(null);
+                                    setImagePreview(null);
+                                    setFormData((f) => ({ ...f, imageUrl: e.target.value }));
+                                 }}
+                                 placeholder="https://... ou selecione um arquivo"
+                                 className="h-10 rounded-xl text-xs"
+                                 disabled={isSubmitting}
+                              />
+                              <label className="cursor-pointer">
+                                 <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    disabled={isSubmitting}
+                                    onChange={(e) => {
+                                       const file = e.target.files?.[0];
+                                       if (!file) return;
+                                       if (imagePreview) URL.revokeObjectURL(imagePreview);
+                                       const url = URL.createObjectURL(file);
+                                       setPendingImageFile(file);
+                                       setImagePreview(url);
+                                       e.target.value = "";
+                                    }}
+                                 />
+                                 <Button
+                                    type="button"
+                                    variant="outline"
+                                    disabled={isSubmitting}
+                                    className="h-10 rounded-xl px-3 shrink-0 gap-1.5 font-bold text-xs"
+                                    asChild
+                                 >
+                                    <span>
+                                       <UploadCloud className="size-3.5" />
+                                       Selecionar
+                                    </span>
+                                 </Button>
+                              </label>
+                           </div>
+                           {(imagePreview || formData.imageUrl) && (
+                              <div className="relative mt-2 rounded-xl border border-border/50 overflow-hidden bg-secondary/20 h-28 flex items-center justify-center group">
+                                 <img
+                                    src={imagePreview || formData.imageUrl}
+                                    alt="Preview"
+                                    className="h-full w-full object-contain p-2"
+                                 />
+                                 <button
+                                    type="button"
+                                    onClick={() => {
+                                       if (imagePreview) URL.revokeObjectURL(imagePreview);
+                                       setPendingImageFile(null);
+                                       setImagePreview(null);
+                                       setFormData((f) => ({ ...f, imageUrl: "" }));
+                                    }}
+                                    className="absolute top-2 right-2 size-6 rounded-full bg-background/80 hover:bg-destructive hover:text-white flex items-center justify-center text-muted-foreground transition-colors shadow-sm"
+                                    title="Remover imagem"
+                                 >
+                                    <X className="size-3.5" />
+                                 </button>
+                              </div>
+                           )}
+                        </div>
                      </div>
                   </div>
 
@@ -1383,7 +1556,7 @@ export default function SubscriptionsManagementPage() {
                      </Button>
                      <Button type="submit" disabled={isSubmitting} className="rounded-xl h-11 px-8 font-black gap-2">
                         {isSubmitting && <Loader2 className="size-4 animate-spin" />}
-                        Criar Plano
+                        {isSubmitting ? (isUploadingImage ? "Enviando imagem..." : "Criando...") : "Criar Plano"}
                      </Button>
                   </DialogFooter>
                </form>
@@ -1391,7 +1564,7 @@ export default function SubscriptionsManagementPage() {
          </Dialog>
 
          <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-            <DialogContent className="max-w-3xl rounded-2xl! overflow-auto! border-primary/20 shadow-2xl shadow-primary/10">
+            <DialogContent className="max-w-3xl rounded-2xl! overflow-auto! no-scrollbar border-primary/20 shadow-2xl shadow-primary/10">
                <DialogHeader className="flex flex-row items-center justify-between space-y-0">
                   <DialogTitle className="text-xl font-black tracking-tight">Editar Oferta</DialogTitle>
                </DialogHeader>
@@ -1510,12 +1683,99 @@ export default function SubscriptionsManagementPage() {
                         </div>
                      </div>
 
-                     <div>
+                     <div className="space-y-4">
                         <FeaturesManager
                            value={editFormData.features}
                            onChange={(val) => setEditFormData({ ...editFormData, features: val })}
                            label="Destaques / Vantagens do Plano"
                         />
+
+                        <div className="space-y-2 pt-2 border-t border-border/40">
+                           <div className="flex items-center justify-between">
+                              <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                                 Imagem do Plano
+                              </Label>
+                              {(editImagePreview || editFormData.imageUrl) && (
+                                 <button
+                                    type="button"
+                                    onClick={() => {
+                                       if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+                                       setEditPendingImageFile(null);
+                                       setEditImagePreview(null);
+                                       setEditFormData((f) => ({ ...f, imageUrl: "" }));
+                                    }}
+                                    className="text-[10px] truncate text-destructive hover:underline font-bold"
+                                 >
+                                    Remover imagem
+                                 </button>
+                              )}
+                           </div>
+                           <div className="flex gap-2">
+                              <Input
+                                 value={editPendingImageFile ? `[Arquivo selecionado] ${editPendingImageFile.name}` : editFormData.imageUrl}
+                                 onChange={(e) => {
+                                    if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+                                    setEditPendingImageFile(null);
+                                    setEditImagePreview(null);
+                                    setEditFormData((f) => ({ ...f, imageUrl: e.target.value }));
+                                 }}
+                                 placeholder="https://... ou selecione um arquivo"
+                                 className="h-10 rounded-xl text-xs"
+                                 disabled={isSubmitting}
+                              />
+                              <label className="cursor-pointer">
+                                 <input
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    disabled={isSubmitting}
+                                    onChange={(e) => {
+                                       const file = e.target.files?.[0];
+                                       if (!file) return;
+                                       if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+                                       const url = URL.createObjectURL(file);
+                                       setEditPendingImageFile(file);
+                                       setEditImagePreview(url);
+                                       e.target.value = "";
+                                    }}
+                                 />
+                                 <Button
+                                    type="button"
+                                    variant="outline"
+                                    disabled={isSubmitting}
+                                    className="h-10 rounded-xl px-3 shrink-0 gap-1.5 font-bold text-xs"
+                                    asChild
+                                 >
+                                    <span>
+                                       <UploadCloud className="size-3.5" />
+                                       Selecionar
+                                    </span>
+                                 </Button>
+                              </label>
+                           </div>
+                           {(editImagePreview || editFormData.imageUrl) && (
+                              <div className="relative mt-2 rounded-xl border border-border/50 overflow-hidden bg-secondary/20 h-28 flex items-center justify-center group">
+                                 <img
+                                    src={editImagePreview || editFormData.imageUrl}
+                                    alt="Preview"
+                                    className="h-full w-full object-contain p-2"
+                                 />
+                                 <button
+                                    type="button"
+                                    onClick={() => {
+                                       if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+                                       setEditPendingImageFile(null);
+                                       setEditImagePreview(null);
+                                       setEditFormData((f) => ({ ...f, imageUrl: "" }));
+                                    }}
+                                    className="absolute top-2 right-2 size-6 rounded-full bg-background/80 hover:bg-destructive hover:text-white flex items-center justify-center text-muted-foreground transition-colors shadow-sm"
+                                    title="Remover imagem"
+                                 >
+                                    <X className="size-3.5" />
+                                 </button>
+                              </div>
+                           )}
+                        </div>
                      </div>
                   </div>
 
@@ -1534,8 +1794,7 @@ export default function SubscriptionsManagementPage() {
                         <div className="flex gap-2">
                            <Button type="submit" disabled={isSubmitting} className="rounded-xl h-11 px-8 font-black gap-2 cursor-pointer">
                               {isSubmitting && <Loader2 className="size-4 animate-spin" />}
-                              Salvar Alterações
-                           </Button>
+                              {isSubmitting ? (isUploadingImage ? "Enviando imagem..." : "Salvando...") : "Salvar Alterações"}                           </Button>
                         </div>
                      </div>
                   </DialogFooter>

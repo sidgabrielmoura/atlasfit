@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
-import { AbacatePay } from "@/lib/abacatepay";
+import { AbacatePay, resolvePublicImageUrl } from "@/lib/abacatepay";
 
 async function requireSuperAdmin() {
   const session = await auth();
@@ -17,7 +17,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   try {
     const body = await req.json();
-    const { name, description, credits, priceInCents, isHighlighted, sortOrder, isActive } = body;
+    const { name, description, credits, priceInCents, isHighlighted, sortOrder, isActive, imageUrl } = body;
 
     const existing = await prisma.creditPackage.findUnique({ where: { id } });
     if (!existing) return new NextResponse("Pacote não encontrado.", { status: 404 });
@@ -29,21 +29,24 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         ...(description !== undefined && { description }),
         ...(credits !== undefined && { credits: parseInt(credits) }),
         ...(priceInCents !== undefined && { priceInCents: parseInt(priceInCents) }),
+        ...(imageUrl !== undefined && { imageUrl: imageUrl ? imageUrl.trim() : null }),
         ...(isHighlighted !== undefined && { isHighlighted }),
         ...(sortOrder !== undefined && { sortOrder }),
         ...(isActive !== undefined && { isActive }),
       },
     });
 
-    if (existing.abacatePayProductId && (name !== undefined || priceInCents !== undefined || description !== undefined)) {
+    if (existing.abacatePayProductId && (name !== undefined || priceInCents !== undefined || description !== undefined || imageUrl !== undefined)) {
       try {
         const apiKey = process.env.ABACATEPAY_API_KEY;
         if (apiKey && apiKey !== "abc_dev_placeholder") {
           const abacatePay = AbacatePay({ secret: apiKey });
+          const publicImage = resolvePublicImageUrl(updated.imageUrl);
           await abacatePay.products.update(existing.abacatePayProductId, {
             ...(name !== undefined && { name }),
             ...(description !== undefined && { description }),
             ...(priceInCents !== undefined && { price: parseInt(priceInCents) }),
+            ...(publicImage ? { image: publicImage, imageUrl: publicImage } : {}),
           });
         }
       } catch {
@@ -66,18 +69,9 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   try {
     const existing = await prisma.creditPackage.findUnique({
       where: { id },
-      include: { _count: { select: { purchases: true } } },
     });
 
     if (!existing) return new NextResponse("Pacote não encontrado.", { status: 404 });
-
-    if (existing._count.purchases > 0) {
-      await prisma.creditPackage.update({
-        where: { id },
-        data: { isActive: false },
-      });
-      return NextResponse.json({ deleted: false, deactivated: true });
-    }
 
     if (existing.abacatePayProductId) {
       try {
@@ -91,9 +85,16 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
       }
     }
 
+    // Desvincula compras do pacote para manter o registro financeiro e o saldo de créditos do personal intactos
+    await prisma.creditPurchase.updateMany({
+      where: { packageId: id },
+      data: { packageId: null },
+    });
+
     await prisma.creditPackage.delete({ where: { id } });
     return NextResponse.json({ deleted: true });
-  } catch {
+  } catch (error: any) {
+    console.error("Erro ao excluir pacote de créditos:", error);
     return new NextResponse("Erro ao excluir pacote.", { status: 500 });
   }
 }

@@ -101,6 +101,17 @@ export async function GET(req: Request) {
       }),
     }));
 
+    const now = new Date();
+    const day = now.getDay();
+    const diff = now.getDate() - day + (day === 0 ? -6 : 1);
+    const startOfWeek = new Date(now);
+    startOfWeek.setDate(diff);
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+
     const logs = await (prisma as any).workoutLog.findMany({
       where: {
         studentId: session.user.id,
@@ -109,8 +120,10 @@ export async function GET(req: Request) {
       include: {
         workout: {
           select: {
+            id: true,
             name: true,
             muscleGroupLabel: true,
+            dayOfWeek: true,
           }
         }
       },
@@ -124,6 +137,9 @@ export async function GET(req: Request) {
     return NextResponse.json({
       workouts: formattedWorkouts,
       logs,
+      canDoAnyWorkoutDay: member.canDoAnyWorkoutDay ?? false,
+      startOfWeek: startOfWeek.toISOString(),
+      endOfWeek: endOfWeek.toISOString(),
     });
   } catch (error) {
     console.error("Student Workouts API GET Error:", error);
@@ -158,9 +174,53 @@ export async function POST(req: Request) {
       return new NextResponse("Membro ativo do workspace não encontrado.", { status: 404 });
     }
 
+    // 2. Validate day restriction if personal configured strict day execution
+    if (member.canDoAnyWorkoutDay === false) {
+      const targetWorkout = await prisma.workout.findUnique({
+        where: { id: workoutId },
+        select: { dayOfWeek: true },
+      });
+
+      const todayDayOfWeek = new Date().getDay();
+      if (
+        targetWorkout?.dayOfWeek !== null &&
+        targetWorkout?.dayOfWeek !== undefined &&
+        targetWorkout.dayOfWeek !== todayDayOfWeek
+      ) {
+        return new NextResponse(
+          "Seu personal trainer configurou para que você realize apenas o treino do dia atual.",
+          { status: 403 }
+        );
+      }
+
+      // Check if already completed today in restricted mode
+      const now = new Date();
+      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+      const alreadyCompletedToday = await (prisma as any).workoutLog.findFirst({
+        where: {
+          studentId: session.user.id,
+          workoutId,
+          workspaceId: member.workspaceId,
+          completedAt: {
+            gte: todayStart,
+            lte: todayEnd,
+          },
+        },
+      });
+
+      if (alreadyCompletedToday) {
+        return new NextResponse(
+          "No modo restrito, o treino já foi concluído hoje e não permite repetição.",
+          { status: 403 }
+        );
+      }
+    }
+
     const workspaceId = member.workspaceId;
 
-    // 2. Create the completed workout log record
+    // 3. Create the completed workout log record
     const log = await (prisma as any).workoutLog.create({
       data: {
         studentId: session.user.id,

@@ -47,6 +47,9 @@ import {
   ToggleRight,
   Loader2,
   AlertCircle,
+  UploadCloud,
+  X,
+  ImageIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -56,6 +59,7 @@ interface CreditPackage {
   description: string | null;
   credits: number;
   priceInCents: number;
+  imageUrl: string | null;
   abacatePayProductId: string | null;
   isActive: boolean;
   isHighlighted: boolean;
@@ -68,6 +72,7 @@ const emptyForm = {
   description: "",
   credits: "",
   priceInCents: "",
+  imageUrl: "",
   isHighlighted: false,
   sortOrder: "0",
 };
@@ -124,8 +129,39 @@ export default function CreditsManagementPage() {
   const [editForm, setEditForm] = useState(emptyForm);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [editPendingImageFile, setEditPendingImageFile] = useState<File | null>(null);
+  const [editImagePreview, setEditImagePreview] = useState<string | null>(null);
   const [syncingId, setSyncingId] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
+
+  const uploadImageFile = async (file: File): Promise<string> => {
+    const presignedRes = await fetch("/api/storage/presigned", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        fileName: file.name,
+        contentType: file.type || "image/jpeg",
+        fileSize: file.size,
+        targetType: "campaign_banner",
+      }),
+    });
+    if (!presignedRes.ok) {
+      throw new Error("Erro ao obter URL para upload da imagem.");
+    }
+    const { uploadUrl, fileUrl } = await presignedRes.json();
+    const putRes = await fetch(uploadUrl, {
+      method: "PUT",
+      headers: { "Content-Type": file.type || "image/jpeg" },
+      body: file,
+    });
+    if (!putRes.ok) {
+      throw new Error("Erro ao enviar arquivo para o armazenamento.");
+    }
+    return fileUrl;
+  };
 
   const fetchPackages = useCallback(async () => {
     setIsLoading(true);
@@ -154,6 +190,16 @@ export default function CreditsManagementPage() {
     }
     setIsSubmitting(true);
     try {
+      let finalImageUrl = form.imageUrl.trim() || null;
+      if (pendingImageFile) {
+        setIsUploadingImage(true);
+        try {
+          finalImageUrl = await uploadImageFile(pendingImageFile);
+        } finally {
+          setIsUploadingImage(false);
+        }
+      }
+
       const res = await fetch("/api/superadmin/credits/packages", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -162,29 +208,38 @@ export default function CreditsManagementPage() {
           description: form.description || null,
           credits: parseInt(form.credits),
           priceInCents: priceVal,
+          imageUrl: finalImageUrl,
           isHighlighted: form.isHighlighted,
           sortOrder: parseInt(form.sortOrder),
         }),
       });
       if (!res.ok) throw new Error();
       toast.success("Pacote criado com sucesso!");
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+      setPendingImageFile(null);
+      setImagePreview(null);
       setIsCreateOpen(false);
       setForm(emptyForm);
       await fetchPackages();
-    } catch {
-      toast.error("Erro ao criar pacote.");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao criar pacote.");
     } finally {
       setIsSubmitting(false);
+      setIsUploadingImage(false);
     }
   };
 
   const openEdit = (pkg: CreditPackage) => {
+    if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+    setEditPendingImageFile(null);
+    setEditImagePreview(null);
     setSelected(pkg);
     setEditForm({
       name: pkg.name,
       description: pkg.description || "",
       credits: pkg.credits.toString(),
       priceInCents: (pkg.priceInCents / 100).toFixed(2),
+      imageUrl: pkg.imageUrl || "",
       isHighlighted: pkg.isHighlighted,
       sortOrder: pkg.sortOrder.toString(),
     });
@@ -201,6 +256,16 @@ export default function CreditsManagementPage() {
     }
     setIsSubmitting(true);
     try {
+      let finalImageUrl = editForm.imageUrl.trim() || null;
+      if (editPendingImageFile) {
+        setIsUploadingImage(true);
+        try {
+          finalImageUrl = await uploadImageFile(editPendingImageFile);
+        } finally {
+          setIsUploadingImage(false);
+        }
+      }
+
       const res = await fetch(`/api/superadmin/credits/packages/${selected.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -209,18 +274,23 @@ export default function CreditsManagementPage() {
           description: editForm.description || null,
           credits: parseInt(editForm.credits),
           priceInCents: priceVal,
+          imageUrl: finalImageUrl,
           isHighlighted: editForm.isHighlighted,
           sortOrder: parseInt(editForm.sortOrder),
         }),
       });
       if (!res.ok) throw new Error();
       toast.success("Pacote atualizado!");
+      if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+      setEditPendingImageFile(null);
+      setEditImagePreview(null);
       setIsEditOpen(false);
       await fetchPackages();
-    } catch {
-      toast.error("Erro ao atualizar pacote.");
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao atualizar pacote.");
     } finally {
       setIsSubmitting(false);
+      setIsUploadingImage(false);
     }
   };
 
@@ -232,12 +302,7 @@ export default function CreditsManagementPage() {
         method: "DELETE",
       });
       if (!res.ok) throw new Error();
-      const data = await res.json();
-      if (data.deactivated) {
-        toast.success("Pacote desativado (possui compras vinculadas).");
-      } else {
-        toast.success("Pacote excluído com sucesso.");
-      }
+      toast.success("Pacote excluído com sucesso.");
       setIsDeleteOpen(false);
       await fetchPackages();
     } catch {
@@ -344,18 +409,30 @@ export default function CreditsManagementPage() {
                 {packages.map((pkg) => (
                   <TableRow key={pkg.id} className="border-border/30 hover:bg-secondary/10 transition-colors">
                     <TableCell>
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-sm font-bold">{pkg.name}</span>
-                          {pkg.isHighlighted && (
-                            <Badge className="text-[9px] px-1.5 py-0 bg-amber-500/10 text-amber-500 border-amber-500/20 font-black uppercase tracking-wider">
-                              Destaque
-                            </Badge>
+                      <div className="flex items-center gap-3">
+                        {pkg.imageUrl ? (
+                          <div className="relative size-10 rounded-xl overflow-hidden border border-border/50 bg-secondary/30 shrink-0">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img src={pkg.imageUrl} alt={pkg.name} className="size-full object-cover" />
+                          </div>
+                        ) : (
+                          <div className="size-10 rounded-xl border border-border/40 bg-secondary/20 flex items-center justify-center shrink-0 text-muted-foreground/50">
+                            <Coins className="size-4.5" />
+                          </div>
+                        )}
+                        <div>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-bold">{pkg.name}</span>
+                            {pkg.isHighlighted && (
+                              <Badge className="text-[9px] px-1.5 py-0 bg-amber-500/10 text-amber-500 border-amber-500/20 font-black uppercase tracking-wider">
+                                Destaque
+                              </Badge>
+                            )}
+                          </div>
+                          {pkg.description && (
+                            <p className="text-[11px] text-muted-foreground mt-0.5 max-w-[200px] truncate">{pkg.description}</p>
                           )}
                         </div>
-                        {pkg.description && (
-                          <p className="text-[11px] text-muted-foreground mt-0.5 max-w-[200px] truncate">{pkg.description}</p>
-                        )}
                       </div>
                     </TableCell>
                     <TableCell>
@@ -428,10 +505,15 @@ export default function CreditsManagementPage() {
                           variant="ghost"
                           size="icon"
                           onClick={() => { setSelected(pkg); setIsDeleteOpen(true); }}
+                          disabled={isDeleting && selected?.id === pkg.id}
                           className="size-8 rounded-lg hover:bg-destructive/10 hover:text-destructive transition-colors"
                           title="Excluir pacote"
                         >
-                          <Trash2 className="size-3.5 text-muted-foreground" />
+                          {isDeleting && selected?.id === pkg.id ? (
+                            <Loader2 className="size-3.5 animate-spin text-destructive" />
+                          ) : (
+                            <Trash2 className="size-3.5 text-muted-foreground" />
+                          )}
                         </Button>
                       </div>
                     </TableCell>
@@ -443,8 +525,19 @@ export default function CreditsManagementPage() {
         )}
       </section>
 
-      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl!">
+      <Dialog
+        open={isCreateOpen}
+        onOpenChange={(open) => {
+          setIsCreateOpen(open);
+          if (!open) {
+            if (imagePreview) URL.revokeObjectURL(imagePreview);
+            setPendingImageFile(null);
+            setImagePreview(null);
+            setForm(emptyForm);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl overflow-y-auto! no-scrollbar rounded-2xl!">
           <DialogHeader>
             <DialogTitle className="text-lg font-black tracking-tight">Novo Pacote de Créditos</DialogTitle>
           </DialogHeader>
@@ -468,6 +561,92 @@ export default function CreditsManagementPage() {
                 rows={2}
                 className="rounded-xl resize-none"
               />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                  Imagem do Produto (Checkout AbacatePay)
+                </Label>
+                {(imagePreview || form.imageUrl) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (imagePreview) URL.revokeObjectURL(imagePreview);
+                      setPendingImageFile(null);
+                      setImagePreview(null);
+                      setForm((f) => ({ ...f, imageUrl: "" }));
+                    }}
+                    className="text-[10px] truncate text-destructive hover:underline font-bold"
+                  >
+                    Remover imagem
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={pendingImageFile ? `[Arquivo selecionado] ${pendingImageFile.name}` : form.imageUrl}
+                  onChange={(e) => {
+                    if (imagePreview) URL.revokeObjectURL(imagePreview);
+                    setPendingImageFile(null);
+                    setImagePreview(null);
+                    setForm((f) => ({ ...f, imageUrl: e.target.value }));
+                  }}
+                  placeholder="https://... ou selecione um arquivo"
+                  className="h-10 rounded-xl text-xs"
+                  disabled={isSubmitting}
+                />
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={isSubmitting}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (imagePreview) URL.revokeObjectURL(imagePreview);
+                      const url = URL.createObjectURL(file);
+                      setPendingImageFile(file);
+                      setImagePreview(url);
+                      e.target.value = "";
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isSubmitting}
+                    className="h-10 rounded-xl px-3 shrink-0 gap-1.5 font-bold text-xs"
+                    asChild
+                  >
+                    <span>
+                      <UploadCloud className="size-3.5" />
+                      Selecionar
+                    </span>
+                  </Button>
+                </label>
+              </div>
+              {(imagePreview || form.imageUrl) && (
+                <div className="relative mt-2 rounded-xl border border-border/50 overflow-hidden bg-secondary/20 h-24 flex items-center justify-center group">
+                  <img
+                    src={imagePreview || form.imageUrl}
+                    alt="Preview"
+                    className="h-full w-full object-contain p-2"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (imagePreview) URL.revokeObjectURL(imagePreview);
+                      setPendingImageFile(null);
+                      setImagePreview(null);
+                      setForm((f) => ({ ...f, imageUrl: "" }));
+                    }}
+                    className="absolute top-2 right-2 size-6 rounded-full bg-background/80 hover:bg-destructive hover:text-white flex items-center justify-center text-muted-foreground transition-colors shadow-sm"
+                    title="Remover imagem"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -522,15 +701,32 @@ export default function CreditsManagementPage() {
                 Cancelar
               </Button>
               <Button type="submit" disabled={isSubmitting} className="rounded-xl gap-2 font-bold">
-                {isSubmitting ? <><Loader2 className="size-4 animate-spin" /> Criando...</> : "Criar Pacote"}
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    {isUploadingImage ? "Enviando imagem..." : "Criando..."}
+                  </>
+                ) : (
+                  "Criar Pacote"
+                )}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl">
+      <Dialog
+        open={isEditOpen}
+        onOpenChange={(open) => {
+          setIsEditOpen(open);
+          if (!open) {
+            if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+            setEditPendingImageFile(null);
+            setEditImagePreview(null);
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-2xl no-scrollbar rounded-2xl! overflow-y-auto!">
           <DialogHeader>
             <DialogTitle className="text-lg font-black tracking-tight">Editar Pacote</DialogTitle>
           </DialogHeader>
@@ -552,6 +748,92 @@ export default function CreditsManagementPage() {
                 rows={2}
                 className="rounded-xl resize-none"
               />
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                  Imagem do Produto (Checkout AbacatePay)
+                </Label>
+                {(editImagePreview || editForm.imageUrl) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+                      setEditPendingImageFile(null);
+                      setEditImagePreview(null);
+                      setEditForm((f) => ({ ...f, imageUrl: "" }));
+                    }}
+                    className="text-[10px] truncate text-destructive hover:underline font-bold"
+                  >
+                    Remover imagem
+                  </button>
+                )}
+              </div>
+              <div className="flex gap-2">
+                <Input
+                  value={editPendingImageFile ? `[Arquivo selecionado] ${editPendingImageFile.name}` : editForm.imageUrl}
+                  onChange={(e) => {
+                    if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+                    setEditPendingImageFile(null);
+                    setEditImagePreview(null);
+                    setEditForm((f) => ({ ...f, imageUrl: e.target.value }));
+                  }}
+                  placeholder="https://... ou selecione um arquivo"
+                  className="h-10 rounded-xl text-xs"
+                  disabled={isSubmitting}
+                />
+                <label className="cursor-pointer">
+                  <input
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    disabled={isSubmitting}
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+                      const url = URL.createObjectURL(file);
+                      setEditPendingImageFile(file);
+                      setEditImagePreview(url);
+                      e.target.value = "";
+                    }}
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isSubmitting}
+                    className="h-10 rounded-xl px-3 shrink-0 gap-1.5 font-bold text-xs"
+                    asChild
+                  >
+                    <span>
+                      <UploadCloud className="size-3.5" />
+                      Selecionar
+                    </span>
+                  </Button>
+                </label>
+              </div>
+              {(editImagePreview || editForm.imageUrl) && (
+                <div className="relative mt-2 rounded-xl border border-border/50 overflow-hidden bg-secondary/20 h-24 flex items-center justify-center group">
+                  <img
+                    src={editImagePreview || editForm.imageUrl}
+                    alt="Preview"
+                    className="h-full w-full object-contain p-2"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (editImagePreview) URL.revokeObjectURL(editImagePreview);
+                      setEditPendingImageFile(null);
+                      setEditImagePreview(null);
+                      setEditForm((f) => ({ ...f, imageUrl: "" }));
+                    }}
+                    className="absolute top-2 right-2 size-6 rounded-full bg-background/80 hover:bg-destructive hover:text-white flex items-center justify-center text-muted-foreground transition-colors shadow-sm"
+                    title="Remover imagem"
+                  >
+                    <X className="size-3.5" />
+                  </button>
+                </div>
+              )}
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
@@ -620,31 +902,65 @@ export default function CreditsManagementPage() {
                 Cancelar
               </Button>
               <Button type="submit" disabled={isSubmitting} className="rounded-xl gap-2 font-bold">
-                {isSubmitting ? <><Loader2 className="size-4 animate-spin" /> Salvando...</> : "Salvar"}
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin" />
+                    {isUploadingImage ? "Enviando imagem..." : "Salvando..."}
+                  </>
+                ) : (
+                  "Salvar"
+                )}
               </Button>
             </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>
 
-      <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
-        <AlertDialogContent className="rounded-2xl">
-          <AlertDialogHeader>
-            <AlertDialogTitle className="font-black">Excluir Pacote?</AlertDialogTitle>
-            <AlertDialogDescription>
-              O pacote <strong>{selected?.name}</strong> será excluído permanentemente.
-              Se houver compras vinculadas, ele será apenas desativado.
+      <AlertDialog
+        open={isDeleteOpen}
+        onOpenChange={(open) => {
+          if (!isDeleting) setIsDeleteOpen(open);
+        }}
+      >
+        <AlertDialogContent className="rounded-2xl!">
+          <AlertDialogHeader className="space-y-1">
+            <div className="mx-auto size-12 rounded-full bg-destructive/10 text-destructive flex items-center justify-center border border-destructive/20">
+              <Trash2 className="size-6" />
+            </div>
+            <AlertDialogTitle className="font-black text-center! mx-auto text-lg">Excluir Pacote?</AlertDialogTitle>
+            <AlertDialogDescription className="text-center text-xs text-muted-foreground">
+              O pacote <strong className="text-foreground">{selected?.name}</strong> será excluído permanentemente do catálogo.
+              Os créditos já adquiridos pelos personais continuarão disponíveis em suas contas.
               Esta ação não pode ser desfeita.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="rounded-xl" autoFocus>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              onClick={handleDelete}
+          <AlertDialogFooter className="pt-2 gap-2 sm:justify-center">
+            <AlertDialogCancel
               disabled={isDeleting}
-              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-2"
+              className="rounded-xl font-bold"
+              autoFocus
             >
-              {isDeleting ? <><Loader2 className="size-4 animate-spin" /> Excluindo...</> : "Sim, excluir"}
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleDelete();
+              }}
+              disabled={isDeleting}
+              className="rounded-xl bg-destructive text-destructive-foreground hover:bg-destructive/90 gap-2 font-bold cursor-pointer"
+            >
+              {isDeleting ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Excluindo...
+                </>
+              ) : (
+                <>
+                  <Trash2 className="size-4" />
+                  Sim, excluir
+                </>
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

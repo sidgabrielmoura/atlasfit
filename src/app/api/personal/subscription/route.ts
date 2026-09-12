@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
-import { AbacatePay } from "@/lib/abacatepay";
+import { AbacatePay, resolvePublicImageUrl } from "@/lib/abacatepay";
 import { logSystemError } from "@/lib/logger";
 import { isValidCPF } from "@/lib/cpf-validator";
 
@@ -342,26 +342,30 @@ export async function POST(req: Request) {
             } catch (delError) {
               console.error("Erro ao deletar produto desatualizado no AbacatePay:", delError);
             }
+            const publicImage = resolvePublicImageUrl(plan.imageUrl);
             const newProduct = await abacate.products.create({
               externalId: plan.id,
               name: plan.name,
               price: targetPriceCents,
               currency: "BRL",
               description: plan.features || `Plano ${plan.name}`,
-              cycle
+              cycle,
+              ...(publicImage ? { image: publicImage, imageUrl: publicImage } : {})
             });
             abacateProductId = newProduct.id;
           } else {
             abacateProductId = existingProduct.id;
           }
         } else {
+          const publicImage = resolvePublicImageUrl(plan.imageUrl);
           const newProduct = await abacate.products.create({
             externalId: plan.id,
             name: plan.name,
             price: targetPriceCents,
             currency: "BRL",
             description: plan.features || `Plano ${plan.name}`,
-            cycle
+            cycle,
+            ...(publicImage ? { image: publicImage, imageUrl: publicImage } : {})
           });
           abacateProductId = newProduct.id;
         }
@@ -369,13 +373,15 @@ export async function POST(req: Request) {
         await logSystemError({ action: "POST_SUBSCRIPTION_SYNC_PRODUCT_ABACATEPAY", error: abacateError, entity: "SUBSCRIPTION" });
         try {
           const cycle = plan.interval === "year" ? "ANNUALLY" : "MONTHLY";
+          const publicImage = resolvePublicImageUrl(plan.imageUrl);
           const newProduct = await abacate.products.create({
             externalId: plan.id,
             name: plan.name,
             price: Math.round(plan.price * 100),
             currency: "BRL",
             description: plan.features || `Plano ${plan.name}`,
-            cycle
+            cycle,
+            ...(publicImage ? { image: publicImage, imageUrl: publicImage } : {})
           });
           abacateProductId = newProduct.id;
         } catch (innerErr) {

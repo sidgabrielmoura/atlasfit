@@ -34,6 +34,7 @@ import {
   Calendar,
   Smile,
   Check,
+  RotateCcw,
 } from "lucide-react";
 import Link from "next/link";
 import {
@@ -170,12 +171,14 @@ export default function StudentDashboardPage() {
     prs,
     pendingTasks,
     finance,
-    workoutsOfTheWeek,
+    workoutsOfTheWeek = [],
     todayWorkouts = [],
     studentName,
     planEndDate,
     trainerWhatsApp,
     trainerName = "Personal Trainer",
+    canDoAnyWorkoutDay = false,
+    differentWorkoutDoneToday = null,
   } = data;
 
   const daysOfWeekLabels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
@@ -290,6 +293,37 @@ export default function StudentDashboardPage() {
       {/* Engage Experiences (Banners & Cards) */}
       <EngageInline format="BANNER" workspaceId={activeWs?.id} />
       <EngageInline format="CARD" workspaceId={activeWs?.id} />
+
+      {/* Treino Alternativo Concluído Hoje */}
+      {differentWorkoutDoneToday && (
+        <motion.div
+          initial={{ opacity: 0, y: 15 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.05 }}
+        >
+          <Card className="p-4 rounded-2xl flex items-start sm:items-center gap-3.5 border border-amber-500/30 bg-amber-500/10 text-amber-700 dark:text-amber-400 shadow-sm">
+            <div className="size-10 rounded-xl bg-amber-500/20 flex items-center justify-center shrink-0 text-amber-500">
+              <AlertTriangle className="size-5 shrink-0" />
+            </div>
+            <div className="flex-1 min-w-0 space-y-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="font-extrabold text-xs tracking-tight text-foreground">
+                  Treino Alternativo Concluído Hoje!
+                </span>
+                <Badge variant="outline" className="bg-amber-500/20 text-amber-600 dark:text-amber-300 border-amber-500/30 font-bold text-[9px] px-1.5 py-0">
+                  Fora da Agenda
+                </Badge>
+              </div>
+              <p className="text-[11px] text-muted-foreground leading-relaxed">
+                Você concluiu o treino <strong className="text-foreground font-semibold">"{differentWorkoutDoneToday.name}"</strong> hoje às {new Date(differentWorkoutDoneToday.completedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                {differentWorkoutDoneToday.dayOfWeek !== null && differentWorkoutDoneToday.dayOfWeek !== undefined
+                  ? ` (originalmente previsto para ${daysOfWeekLabels[differentWorkoutDoneToday.dayOfWeek]})`
+                  : ""}.
+              </p>
+            </div>
+          </Card>
+        </motion.div>
+      )}
 
       {/* 2. Today's Workout Card */}
       {todayWorkouts.length === 0 ? (
@@ -444,12 +478,23 @@ export default function StudentDashboardPage() {
                     )}
                   </div>
                   {todayWorkouts[activeWorkoutIdx]?.isCompletedToday ? (
-                    <Button
-                      disabled
-                      className="w-full h-12 rounded-xl font-bold bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 opacity-100 cursor-not-allowed"
-                    >
-                      CONCLUÍDO
-                    </Button>
+                    canDoAnyWorkoutDay ? (
+                      <Button
+                        asChild
+                        className="w-full h-12 rounded-xl font-bold bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20 transition-all duration-300 active:scale-95 cursor-pointer"
+                      >
+                        <Link href={`/student/workouts?startWorkoutId=${todayWorkouts[activeWorkoutIdx]?.id}`}>
+                          <RotateCcw className="size-4 mr-2" /> REPETIR TREINO
+                        </Link>
+                      </Button>
+                    ) : (
+                      <Button
+                        disabled
+                        className="w-full h-12 rounded-xl font-bold bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 opacity-100 cursor-not-allowed"
+                      >
+                        CONCLUÍDO
+                      </Button>
+                    )
                   ) : (
                     <Button
                       asChild
@@ -723,7 +768,7 @@ export default function StudentDashboardPage() {
               {daysOfWeekLabels.map((dayLabel, idx) => {
                 const dayWorkouts = workoutsOfTheWeek.filter((w: any) => w.dayOfWeek === idx);
                 const hasWorkout = dayWorkouts.length > 0;
-                const isCompleted = hasWorkout && dayWorkouts.every((w: any) => w.isCompletedToday);
+                const isCompleted = hasWorkout && dayWorkouts.every((w: any) => w.isCompletedThisWeek || w.isCompletedToday);
                 const isToday = currentDayOfWeek === idx;
                 const isSelected = selectedDayIdx === idx;
 

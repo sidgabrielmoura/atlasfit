@@ -47,14 +47,18 @@ import {
   Play,
   X,
   Copy,
-  BookmarkPlus
+  BookmarkPlus,
+  Settings,
+  Lock,
+  Unlock,
 } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Accordion,
@@ -138,6 +142,19 @@ const DAYS_OF_WEEK = [
   { value: 6, label: "Sábado", short: "Sáb" },
   { value: 0, label: "Domingo", short: "Dom" },
 ];
+
+const getDayLabel = (dayNum?: number | null) => {
+  if (dayNum === undefined || dayNum === null) return "Dia não especificado";
+  return DAYS_OF_WEEK.find((d) => d.value === dayNum)?.label || "Dia específico";
+};
+
+const isLogOutOfSchedule = (log: any) => {
+  if (!log?.workout || log.workout.dayOfWeek === null || log.workout.dayOfWeek === undefined) {
+    return false;
+  }
+  const completedDay = new Date(log.completedAt).getDay();
+  return completedDay !== log.workout.dayOfWeek;
+};
 
 interface ClientProfilePageProps {
   params: Promise<{ id: string }>;
@@ -489,7 +506,43 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   const [uploadFileSize, setUploadFileSize] = useState("");
   const [selectedFileObj, setSelectedFileObj] = useState<File | null>(null);
 
+  // ==================== SETTINGS TAB: STUDENT PREFERENCES & WORKOUT RESTRICTIONS ====================
+  const [updatingSettings, setUpdatingSettings] = useState(false);
 
+  const handleToggleWorkoutDayRule = async (checked: boolean) => {
+    if (!activeWorkspaceId || !student) return;
+    try {
+      setUpdatingSettings(true);
+      // Optimistic update
+      setStudent((prev: any) => prev ? { ...prev, canDoAnyWorkoutDay: checked } : prev);
+
+      const res = await fetch(`/api/personal/clients/${studentId}?workspaceId=${activeWorkspaceId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ canDoAnyWorkoutDay: checked }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Não foi possível salvar a configuração do aluno.");
+      }
+
+      const resData = await res.json();
+      setStudent((prev: any) => prev ? { ...prev, canDoAnyWorkoutDay: resData.canDoAnyWorkoutDay } : prev);
+
+      if (checked) {
+        toast.success("Regra flexível ativada: o aluno pode iniciar qualquer treino da semana a qualquer momento.");
+      } else {
+        toast.success("Regra estrita ativada: o aluno só poderá iniciar o treino agendado para o dia atual.");
+      }
+    } catch (error: any) {
+      console.error("Error updating student settings:", error);
+      // Revert optimistic update
+      setStudent((prev: any) => prev ? { ...prev, canDoAnyWorkoutDay: !checked } : prev);
+      toast.error(error.message || "Erro ao salvar configuração.");
+    } finally {
+      setUpdatingSettings(false);
+    }
+  };
 
   // Load student profile
   useEffect(() => {
@@ -2075,6 +2128,12 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
             className="gap-2 font-semibold text-xs sm:text-sm py-2 px-4 rounded-lg shrink-0 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:font-bold"
           >
             <Trophy className="size-4 shrink-0" /> Feedbacks de Treino
+          </TabsTrigger>
+          <TabsTrigger
+            value="configuracoes"
+            className="gap-2 font-semibold text-xs sm:text-sm py-2 px-4 rounded-lg shrink-0 data-[state=active]:bg-primary data-[state=active]:text-primary-foreground data-[state=active]:font-bold"
+          >
+            <Settings className="size-4 shrink-0" /> Configurações
           </TabsTrigger>
         </TabsList>
 
@@ -4949,7 +5008,20 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                         {formatLogDate(log.completedAt)}
                                       </TableCell>
                                       <TableCell className="font-bold text-sm text-foreground">
-                                        {log.workout?.name || "Treino Excluído"}
+                                        <div className="space-y-1">
+                                          <span>{log.workout?.name || "Treino Excluído"}</span>
+                                          {isLogOutOfSchedule(log) && (
+                                            <div className="flex items-center gap-1.5 flex-wrap">
+                                              <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25 text-[10px] font-bold gap-1 py-0.5 px-2">
+                                                <AlertTriangle className="size-3 text-amber-500 shrink-0" />
+                                                Realizado fora do dia planejado
+                                              </Badge>
+                                              <span className="text-[10px] text-muted-foreground font-normal">
+                                                (Feito na {getDayLabel(new Date(log.completedAt).getDay())}, previsto para {getDayLabel(log.workout?.dayOfWeek)})
+                                              </span>
+                                            </div>
+                                          )}
+                                        </div>
                                       </TableCell>
                                       <TableCell className="text-xs font-semibold text-muted-foreground">
                                         {log.workout?.muscleGroupLabel || "Geral"}
@@ -5028,9 +5100,17 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                   className="border border-border/50 dark:border-white/[0.06] bg-card/40 dark:bg-neutral-950/40 p-4 rounded-xl space-y-3 cursor-pointer hover:bg-muted dark:hover:bg-neutral-900/35 transition-colors"
                                 >
                                   <div className="flex justify-between items-start">
-                                    <div>
+                                    <div className="space-y-1">
                                       <h4 className="font-bold text-foreground text-sm">{log.workout?.name || "Treino Excluído"}</h4>
-                                      <p className="text-xs text-neutral-450 mt-0.5">{log.workout?.muscleGroupLabel || "Geral"}</p>
+                                      <p className="text-xs text-neutral-450">{log.workout?.muscleGroupLabel || "Geral"}</p>
+                                      {isLogOutOfSchedule(log) && (
+                                        <div className="pt-0.5">
+                                          <Badge variant="outline" className="bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/25 text-[10px] font-bold gap-1 py-0.5 px-2">
+                                            <AlertTriangle className="size-3 text-amber-500 shrink-0" />
+                                            Feito na {getDayLabel(new Date(log.completedAt).getDay())} (previsto: {getDayLabel(log.workout?.dayOfWeek)})
+                                          </Badge>
+                                        </div>
+                                      )}
                                     </div>
                                     <span className="text-[10px] text-muted-foreground font-medium">
                                       {formatLogDate(log.completedAt)}
@@ -5058,6 +5138,117 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                   </>
                 );
               })()}
+            </div>
+          )}
+        </TabsContent>
+
+        {/* ==================== TAB 7: STUDENT SETTINGS / CONFIGURAÇÕES ==================== */}
+        <TabsContent value="configuracoes" className="space-y-6 outline-none focus-visible:ring-0">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border/30 pb-4">
+            <div>
+              <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
+                <Settings className="size-5 text-primary" /> Configurações do Aluno
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Personalize as regras de execução, permissões e restrições de treinamento exclusivas para este aluno no seu workspace.
+              </p>
+            </div>
+          </div>
+
+          {loadingProfile ? (
+            <div className="space-y-4">
+              <Skeleton className="h-44 w-full rounded-2xl bg-muted/40 border border-border/40" />
+              <Skeleton className="h-28 w-full rounded-2xl bg-muted/40 border border-border/40" />
+            </div>
+          ) : (
+            <div className="space-y-6">
+              {/* Card 1: Regras de Execução de Treino */}
+              <Card className="border border-border/60 bg-card rounded-2xl shadow-sm overflow-hidden">
+                <CardHeader className="border-b border-border/40 bg-muted/20 pb-4">
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <CardTitle className="text-base font-bold flex items-center gap-2 text-foreground">
+                        <Dumbbell className="size-4.5 text-primary" />
+                        Regras de Execução de Treinos
+                      </CardTitle>
+                      <CardDescription className="text-xs">
+                        Defina como o aluno pode acessar e iniciar as planilhas semanais no aplicativo.
+                      </CardDescription>
+                    </div>
+                    <Badge
+                      variant="outline"
+                      className={cn(
+                        "text-[11px] font-extrabold uppercase px-2.5 py-1 gap-1.5 transition-colors shrink-0",
+                        (student?.canDoAnyWorkoutDay ?? false)
+                          ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30 ring-1 ring-emerald-500/10"
+                          : "bg-amber-500/10 text-amber-500 border-amber-500/30 ring-1 ring-amber-500/10"
+                      )}
+                    >
+                      {(student?.canDoAnyWorkoutDay ?? false) ? (
+                        <>
+                          <Unlock className="size-3.5" /> Liberado pelo Personal
+                        </>
+                      ) : (
+                        <>
+                          <Lock className="size-3.5" /> Modo Restrito (Padrão)
+                        </>
+                      )}
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6 space-y-6">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-4 rounded-xl border border-border/50 bg-secondary/15 hover:bg-secondary/25 transition-colors">
+                    <div className="space-y-2 flex-1">
+                      <div className="flex items-center gap-2">
+                        <Label htmlFor="workout-day-toggle" className="text-sm font-bold text-foreground cursor-pointer">
+                          Liberar qualquer treino da semana
+                        </Label>
+                        {(student?.canDoAnyWorkoutDay ?? false) ? (
+                          <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-none text-[10px] font-bold">
+                            Liberado
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-none text-[10px] font-bold">
+                            Restrito ao dia (Padrão)
+                          </Badge>
+                        )}
+                      </div>
+                      <p className="text-xs text-muted-foreground leading-relaxed">
+                        {(student?.canDoAnyWorkoutDay ?? false)
+                          ? "Você liberou este aluno para iniciar e registrar qualquer treino cadastrado na semana em qualquer dia que desejar."
+                          : "Padrão ativo: o aluno só pode iniciar o treino agendado para o dia da semana atual. Nos outros dias, ele consegue navegar, consultar todos os exercícios e vídeos, mas não pode iniciar a execução."}
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3 self-end md:self-center shrink-0">
+                      {updatingSettings && (
+                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground animate-pulse font-medium">
+                          <Loader2 className="size-3.5 animate-spin text-primary" />
+                          <span>Salvando...</span>
+                        </div>
+                      )}
+                      <Switch
+                        id="workout-day-toggle"
+                        checked={student?.canDoAnyWorkoutDay ?? false}
+                        disabled={updatingSettings || loadingProfile}
+                        onCheckedChange={handleToggleWorkoutDayRule}
+                        className="data-[state=checked]:bg-emerald-600 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Informative Callout */}
+                  <div className="flex items-start gap-3 p-4 rounded-xl border border-primary/20 bg-primary/5 text-foreground text-xs leading-relaxed">
+                    <Info className="size-4.5 text-primary shrink-0 mt-0.5" />
+                    <div className="space-y-1">
+                      <p className="font-bold text-primary">Regra Padrão do Sistema</p>
+                      <p className="text-muted-foreground">
+                        Por padrão, todos os alunos funcionam no <strong>modo restrito</strong> (podem iniciar apenas o treino do dia atual). Se você desejar conceder liberdade para este aluno adiantar ou fazer qualquer treino em outros dias, basta ativar a chave acima. O aluno sempre poderá navegar e consultar os exercícios de todos os dias da semana.
+                      </p>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
             </div>
           )}
         </TabsContent>
@@ -8149,6 +8340,18 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                     </span>
                   </div>
                 </div>
+
+                {isLogOutOfSchedule(selectedLogForDetail) && (
+                  <div className="p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-600 dark:text-amber-400 flex items-start gap-2.5">
+                    <AlertTriangle className="size-4.5 text-amber-500 shrink-0 mt-0.5" />
+                    <div className="text-xs space-y-0.5">
+                      <p className="font-bold">Treino Realizado Fora do Cronograma Semanal</p>
+                      <p className="text-muted-foreground text-[11px] leading-relaxed">
+                        O aluno executou este treino na <strong>{getDayLabel(new Date(selectedLogForDetail.completedAt).getDay())}</strong>, mas ele estava originalmente configurado na planilha para <strong>{getDayLabel(selectedLogForDetail.workout?.dayOfWeek)}</strong>.
+                      </p>
+                    </div>
+                  </div>
+                )}
 
                 {selectedLogForDetail.feedback && (
                   <div className="p-3 bg-muted dark:bg-neutral-900/60 border border-border dark:border-neutral-800 rounded-xl text-xs italic text-neutral-300 flex items-start gap-2">

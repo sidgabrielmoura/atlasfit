@@ -63,16 +63,29 @@ declare module "@abacatepay/sdk" {
         currency: string;
         description?: string;
         cycle?: AbacatePayCycle;
+        image?: string;
+        imageUrl?: string;
       }): Promise<{
         id: string;
         externalId: string;
         name: string;
         price: number;
         cycle?: AbacatePayCycle;
+        image?: string;
       }>;
+      update?(
+        id: string,
+        data: {
+          name?: string;
+          description?: string;
+          price?: number;
+          image?: string;
+          imageUrl?: string;
+        }
+      ): Promise<any>;
       list(query?: { page?: number; limit?: number }): Promise<any[]>;
       get(params: { id?: string; externalId?: string }): Promise<any>;
-      delete(params: { id: string }): Promise<any>;
+      delete(params: { id: string } | string): Promise<any>;
     };
     coupons: {
       create(data: {
@@ -87,6 +100,33 @@ declare module "@abacatepay/sdk" {
       get(id: string): Promise<any>;
       delete(id: string): Promise<any>;
       toggleStatus(id: string): Promise<any>;
+    };
+    store: {
+      get(): Promise<{
+        id: string;
+        name: string;
+        balance: {
+          available: number;
+          pending: number;
+          blocked: number;
+        };
+      }>;
+    };
+    mrr: {
+      get(): Promise<{
+        mrr: number;
+        totalActiveSubscriptions: number;
+      }>;
+      revenue(query?: { startDate?: string; endDate?: string }): Promise<{
+        totalRevenue: number;
+        totalTransactions: number;
+        transactionsPerDay: Record<string, { amount: number; count: number }>;
+      }>;
+      merchant(): Promise<{
+        name: string;
+        website: string;
+        createdAt: string;
+      }>;
     };
     webhooks: {
       verify(rawBody: string, signature: string): {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
-import { AbacatePay } from "@/lib/abacatepay";
+import { AbacatePay, resolvePublicImageUrl } from "@/lib/abacatepay";
 import { randomUUID } from "crypto";
 import { isValidCPF } from "@/lib/cpf-validator";
 
@@ -62,12 +62,14 @@ async function getOrCreateAbacateProduct(abacatePay: any, pkg: any) {
   }
 
   try {
+    const publicImage = resolvePublicImageUrl(pkg.imageUrl);
     const newProduct = await abacatePay.products.create({
       externalId: pkg.id,
       name: pkg.name,
       price: pkg.priceInCents,
       currency: "BRL",
       description: pkg.description || `${pkg.credits} créditos de importação AtlasFit`,
+      ...(publicImage ? { image: publicImage, imageUrl: publicImage } : {}),
     });
     await prisma.creditPackage.update({
       where: { id: pkg.id },

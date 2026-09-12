@@ -27,6 +27,7 @@ import {
   HardDrive,
   Wallet,
   Compass,
+  CreditCard,
 } from "lucide-react";
 import {
   Sidebar,
@@ -55,7 +56,7 @@ import { layoutStore } from "@/stores/layout";
 import { useSnapshot } from "valtio";
 
 const controlNavItems = [
-  { title: "Dashboard Global", href: "/superadmin/dashboard", icon: LayoutDashboard },
+  { title: "Dashboard Global", href: "/superadmin/dashboard", icon: LayoutDashboard as any },
 ];
 
 const accountsNavItems = [
@@ -66,7 +67,8 @@ const accountsNavItems = [
 const financeNavItems = [
   { title: "Financeiro", href: "/superadmin/finance", icon: DollarSign },
   { title: "Solicitações de Saque", href: "/superadmin/finance/payouts", icon: BadgeCheck },
-  { title: "Métricas Asaas (BaaS)", href: "/superadmin/asaas", icon: Wallet },
+  { title: "Métricas Asaas (BaaS)", href: "/superadmin/asaas", icon: "/icons/icon_asaas.png" },
+  { title: "Métricas AbacatePay", href: "/superadmin/abacatepay", icon: "/icons/icon_abacatepay.png" },
 ];
 
 const platformNavItems = [
@@ -125,7 +127,7 @@ export function SuperAdminSidebar() {
                   )}
                 >
                   <Link href={item.href}>
-                    <item.icon className={cn("size-4", isActive && "text-primary")} />
+                    {typeof item.icon === "string" ? <img src={item.icon} alt={item.title} width={16} height={16} /> : <item.icon className={cn("size-4", isActive && "text-primary")} />}
                     <span className="text-xs font-semibold">{item.title}</span>
                   </Link>
                 </SidebarMenuButton>

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
-import { AbacatePay } from "@/lib/abacatepay";
+import { AbacatePay, resolvePublicImageUrl } from "@/lib/abacatepay";
 
 async function requireSuperAdmin() {
   const session = await auth();
@@ -34,7 +34,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { name, description, credits, priceInCents, isHighlighted, sortOrder } = body;
+    const { name, description, credits, priceInCents, isHighlighted, sortOrder, imageUrl } = body;
 
     if (!name || !credits || !priceInCents) {
       return new NextResponse("Campos obrigatórios ausentes.", { status: 400 });
@@ -50,6 +50,7 @@ export async function POST(req: Request) {
         description: description || null,
         credits: parseInt(credits),
         priceInCents: parseInt(priceInCents),
+        imageUrl: imageUrl ? imageUrl.trim() : null,
         isHighlighted: isHighlighted ?? false,
         sortOrder: sortOrder ?? 0,
       },
@@ -59,12 +60,14 @@ export async function POST(req: Request) {
       const apiKey = process.env.ABACATEPAY_API_KEY;
       if (apiKey && apiKey !== "abc_dev_placeholder") {
         const abacatePay = AbacatePay({ secret: apiKey });
+        const publicImage = resolvePublicImageUrl(pkg.imageUrl);
         const product = await abacatePay.products.create({
           externalId: pkg.id,
           name: pkg.name,
           price: pkg.priceInCents,
           currency: "BRL",
           description: pkg.description || `${pkg.credits} créditos de importação AtlasFit`,
+          ...(publicImage ? { image: publicImage, imageUrl: publicImage } : {})
         });
         await prisma.creditPackage.update({
           where: { id: pkg.id },

@@ -1459,9 +1459,6 @@ export function PushNotificationsStudio() {
                       <p className="font-medium truncate text-foreground">
                         {pendingImageFile ? pendingImageFile.name : "Imagem anexada"}
                       </p>
-                      <p className="text-[10px] text-muted-foreground truncate">
-                        {pendingImageFile ? `${(pendingImageFile.size / 1024).toFixed(0)} KB (será enviada ao salvar)` : formData.imageUrl}
-                      </p>
                     </div>
                     <Button
                       type="button"

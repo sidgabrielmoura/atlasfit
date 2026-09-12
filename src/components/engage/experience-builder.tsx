@@ -133,7 +133,6 @@ export function ExperienceBuilder({ blocks, onChange, format, onFileSelect, isAd
       const localUrl = URL.createObjectURL(file);
       onFileSelect?.(id, file);
       updateBlockContent(id, { imageUrl: localUrl, imageKey: "pending" });
-      toast.success("Imagem selecionada! Será enviada ao salvar a campanha.");
     } catch (err: any) {
       console.error(err);
       toast.error("Erro ao selecionar imagem.");
@@ -148,7 +147,6 @@ export function ExperienceBuilder({ blocks, onChange, format, onFileSelect, isAd
       const localUrl = URL.createObjectURL(file);
       onFileSelect?.(id, file);
       updateBlockContent(id, { videoUrl: localUrl, videoKey: "pending" });
-      toast.success("Vídeo selecionado! Será enviado ao salvar a campanha.");
     } catch (err: any) {
       console.error(err);
       toast.error("Erro ao selecionar vídeo.");
@@ -474,10 +472,10 @@ export function ExperienceBuilder({ blocks, onChange, format, onFileSelect, isAd
                 {/* Extract first image or video block for simulator thumbnail */}
                 {blocks.some(b => b.type === "IMAGE" && b.content.imageUrl) ? (
                   <div className="w-full aspect-video rounded-xl overflow-hidden border border-border bg-secondary/40 relative shadow-inner">
-                    <img 
-                      src={blocks.find(b => b.type === "IMAGE")?.content.imageUrl} 
-                      className="size-full object-cover" 
-                      alt="Banner thumbnail" 
+                    <img
+                      src={blocks.find(b => b.type === "IMAGE")?.content.imageUrl}
+                      className="size-full object-cover"
+                      alt="Banner thumbnail"
                     />
                   </div>
                 ) : blocks.some(b => b.type === "VIDEO" && b.content.videoUrl) ? (
@@ -510,9 +508,9 @@ export function ExperienceBuilder({ blocks, onChange, format, onFileSelect, isAd
                   {blocks.map(b => {
                     if (b.type === "BUTTON") {
                       return (
-                        <Button 
-                          key={b.id} 
-                          size="sm" 
+                        <Button
+                          key={b.id}
+                          size="sm"
                           className="w-full h-8 text-[9px] font-black rounded-lg bg-primary text-primary-foreground pointer-events-none select-none"
                         >
                           {b.content.text || "Clique Aqui"} <ChevronRight className="size-3 ml-1" />
@@ -587,9 +585,9 @@ function renderPreviewBlocks(blocks: EngageBlock[]) {
                 </div>
               );
             }
-            const isDirectVideoPreview = 
-              block.content.videoUrl.startsWith("blob:") || 
-              block.content.videoUrl.endsWith(".mp4") || 
+            const isDirectVideoPreview =
+              block.content.videoUrl.startsWith("blob:") ||
+              block.content.videoUrl.endsWith(".mp4") ||
               block.content.videoUrl.includes("campaign_banner") ||
               block.content.videoUrl.includes("/api/storage/file");
             return (

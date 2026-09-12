@@ -202,9 +202,42 @@ export async function GET(req: Request) {
     const todayWorkouts = workouts.filter(w => w.dayOfWeek === currentDayOfWeek);
     const todayWorkout = todayWorkouts[0] || null;
     const nextWorkout = todayWorkout || workouts.find(w => w.dayOfWeek !== null && w.dayOfWeek > currentDayOfWeek) || workouts[0] || null;
-    const completedWorkoutIdsToday = workoutLogs
-      .filter(log => log.completedAt >= new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0) && log.completedAt <= new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999))
+
+    // Start and end of current week (Monday to Sunday)
+    const startOfWeek = new Date(now);
+    const day = startOfWeek.getDay();
+    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
+    startOfWeek.setDate(diff);
+    startOfWeek.setHours(0, 0, 0, 0);
+
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    const completedWorkoutIdsThisWeek = workoutLogs
+      .filter(log => log.completedAt >= startOfWeek && log.completedAt <= endOfWeek)
       .map(log => log.workoutId);
+
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+    const logsCompletedToday = workoutLogs.filter(
+      log => log.completedAt >= todayStart && log.completedAt <= todayEnd
+    );
+    const completedWorkoutIdsToday = logsCompletedToday.map(log => log.workoutId);
+
+    // Detect if student completed a workout today that is different from today's scheduled workout
+    const todayScheduledWorkoutIds = todayWorkouts.map(w => w.id);
+    const outOfScheduleLogToday = logsCompletedToday.find(
+      log => !todayScheduledWorkoutIds.includes(log.workoutId)
+    );
+
+    const differentWorkoutDoneToday = outOfScheduleLogToday ? {
+      id: outOfScheduleLogToday.workoutId,
+      name: outOfScheduleLogToday.workout?.name || "Treino Alternativo",
+      dayOfWeek: outOfScheduleLogToday.workout?.dayOfWeek ?? null,
+      completedAt: outOfScheduleLogToday.completedAt.toISOString(),
+    } : null;
 
     // Weight and body fat evolution chart data
     const weightHistory = progressHistory.map((ph) => ({
@@ -290,9 +323,6 @@ export async function GET(req: Request) {
     }
 
     // Check if daily feedback submitted today
-    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-    
     const dailyFeedbackToday = await prisma.dailyFeedback.findFirst({
       where: {
         studentId: session.user.id,
@@ -426,13 +456,6 @@ export async function GET(req: Request) {
 
     // Finance status variables are already computed in step 7
 
-    // Days frequency in the current week (from Monday to Sunday)
-    const startOfWeek = new Date(now);
-    const day = startOfWeek.getDay();
-    const diff = startOfWeek.getDate() - day + (day === 0 ? -6 : 1); // adjust when day is sunday
-    startOfWeek.setDate(diff);
-    startOfWeek.setHours(0, 0, 0, 0);
-
     const weeklyFrequency = workoutLogs.filter(log => log.completedAt >= startOfWeek).length;
 
     const payload = {
@@ -457,6 +480,9 @@ export async function GET(req: Request) {
         duration: nextWorkout.duration,
         exercisesCount: nextWorkout.exercises.length,
       } : null,
+      canDoAnyWorkoutDay: member.canDoAnyWorkoutDay ?? false,
+      completedWorkoutIdsThisWeek,
+      differentWorkoutDoneToday,
       todayWorkouts: todayWorkouts.map(w => ({
         id: w.id,
         name: w.name,
@@ -465,6 +491,7 @@ export async function GET(req: Request) {
         exercisesCount: w.exercises.length,
         isActive: w.isActive,
         isCompletedToday: completedWorkoutIdsToday.includes(w.id),
+        isCompletedThisWeek: completedWorkoutIdsThisWeek.includes(w.id),
       })),
       weightHistory,
       prs,
@@ -492,6 +519,7 @@ export async function GET(req: Request) {
         dayOfWeek: w.dayOfWeek,
         muscleGroupLabel: w.muscleGroupLabel,
         isCompletedToday: completedWorkoutIdsToday.includes(w.id),
+        isCompletedThisWeek: completedWorkoutIdsThisWeek.includes(w.id),
       }))
     };
 

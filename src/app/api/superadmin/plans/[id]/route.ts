@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
-import { AbacatePay } from "@/lib/abacatepay";
+import { AbacatePay, resolvePublicImageUrl } from "@/lib/abacatepay";
 import { logSystemError } from "@/lib/logger";
 
 export async function PATCH(
@@ -18,7 +18,7 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    const { name, price, interval, features, maxWorkspaces, maxStudents, importQuota, storageLimitMb, paymentMethods } = body;
+    const { name, price, interval, features, maxWorkspaces, maxStudents, importQuota, storageLimitMb, paymentMethods, imageUrl } = body;
 
     const plan = await prisma.plan.update({
       where: { id },
@@ -27,6 +27,7 @@ export async function PATCH(
         price: price ? parseFloat(price) : undefined,
         interval,
         features,
+        imageUrl: imageUrl !== undefined ? (imageUrl ? imageUrl.trim() : null) : undefined,
         maxWorkspaces: maxWorkspaces !== undefined ? parseInt(maxWorkspaces) : undefined,
         maxStudents: maxStudents !== undefined ? (maxStudents === "" || maxStudents === null ? null : parseInt(maxStudents)) : undefined,
         importQuota: importQuota !== undefined ? (importQuota === "" || importQuota === null ? 0 : parseInt(importQuota)) : undefined,
@@ -59,13 +60,15 @@ export async function PATCH(
         }
 
         const cycle = plan.interval === "year" ? "ANNUALLY" : "MONTHLY";
+        const publicImage = resolvePublicImageUrl(plan.imageUrl);
         await abacate.products.create({
           externalId: plan.id,
           name: plan.name,
           price: Math.round(plan.price * 100),
           currency: "BRL",
           description: plan.features || `Plano ${plan.name}`,
-          cycle
+          cycle,
+          ...(publicImage ? { image: publicImage, imageUrl: publicImage } : {})
         });
         console.log(`Plano ${id} atualizado com sucesso no AbacatePay com ciclo: ${cycle}`);
       }

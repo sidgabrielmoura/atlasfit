@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
-import { AbacatePay } from "@/lib/abacatepay";
+import { AbacatePay, resolvePublicImageUrl } from "@/lib/abacatepay";
 import { logSystemError } from "@/lib/logger";
 
 export async function GET() {
@@ -29,9 +29,12 @@ export async function GET() {
           price: true,
           interval: true,
           features: true,
+          imageUrl: true,
           maxWorkspaces: true,
           maxStudents: true,
           importQuota: true,
+          storageLimitMb: true,
+          paymentMethods: true,
           _count: {
             select: { subscriptions: { where: { status: { in: ["active", "ACTIVE"] } } } }
           }
@@ -54,7 +57,7 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { name, price, interval, features, maxWorkspaces, maxStudents, importQuota, storageLimitMb, paymentMethods } = body;
+    const { name, price, interval, features, maxWorkspaces, maxStudents, importQuota, storageLimitMb, paymentMethods, imageUrl } = body;
 
     if (!name || price === undefined) {
       return new NextResponse("Missing required fields", { status: 400 });
@@ -66,6 +69,7 @@ export async function POST(req: Request) {
         price: parseFloat(price),
         interval: interval || "month",
         features,
+        imageUrl: imageUrl ? imageUrl.trim() : null,
         maxWorkspaces: maxWorkspaces !== undefined ? parseInt(maxWorkspaces) : 1,
         maxStudents: maxStudents !== undefined && maxStudents !== "" && maxStudents !== null ? parseInt(maxStudents) : null,
         importQuota: importQuota !== undefined && importQuota !== "" && importQuota !== null ? parseInt(importQuota) : 25,
@@ -80,13 +84,15 @@ export async function POST(req: Request) {
       if (apiKey && apiKey !== "abc_dev_placeholder") {
         const abacate = AbacatePay({ secret: apiKey });
         const cycle = plan.interval === "year" ? "ANNUALLY" : "MONTHLY";
+        const publicImage = resolvePublicImageUrl(plan.imageUrl);
         await abacate.products.create({
           externalId: plan.id,
           name: plan.name,
           price: Math.round(plan.price * 100), // convert to cents
           currency: "BRL",
           description: plan.features || `Plano ${plan.name}`,
-          cycle
+          cycle,
+          ...(publicImage ? { image: publicImage, imageUrl: publicImage } : {})
         });
         console.log(`Product synced successfully with AbacatePay (${cycle}): ${plan.id}`);
       }

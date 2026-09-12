@@ -194,6 +194,9 @@ model WorkspaceMember {
   billingCreatedAt           DateTime?
   planEndDate                DateTime?
 
+  // Configurações de execução de treinos do aluno neste workspace
+  canDoAnyWorkoutDay         Boolean   @default(false)
+
   @@unique([userId, workspaceId])
 }
 
@@ -208,6 +211,7 @@ model Plan {
   importQuota            Int                    @default(25)
   storageLimitMb         Int                    @default(1024)
   paymentMethods         String?                @default("PIX")
+  imageUrl               String?
   subscriptions          Subscription[]
   subscriptionActivities SubscriptionActivity[]
 }
@@ -1490,6 +1494,7 @@ model CreditPackage {
   description         String?
   credits             Int
   priceInCents        Int
+  imageUrl            String?
   abacatePayProductId String?          @unique
   isActive            Boolean          @default(true)
   isHighlighted       Boolean          @default(false)
@@ -1500,21 +1505,21 @@ model CreditPackage {
 }
 
 model CreditPurchase {
-  id                  String        @id @default(cuid())
+  id                  String         @id @default(cuid())
   workspaceId         String
-  packageId           String
+  packageId           String?
   userId              String
   amountInCents       Int
   credits             Int
-  status              String        @default("PENDING")
-  abacatePayBillingId String?       @unique
+  status              String         @default("PENDING")
+  abacatePayBillingId String?        @unique
   abacatePayUrl       String?
   paidAt              DateTime?
-  createdAt           DateTime      @default(now())
-  updatedAt           DateTime      @updatedAt
-  workspace           Workspace     @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
-  package             CreditPackage @relation(fields: [packageId], references: [id])
-  user                User          @relation(fields: [userId], references: [id])
+  createdAt           DateTime       @default(now())
+  updatedAt           DateTime       @updatedAt
+  workspace           Workspace      @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  package             CreditPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  user                User           @relation(fields: [userId], references: [id])
 
   @@index([workspaceId])
   @@index([userId])

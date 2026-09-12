@@ -37,6 +37,12 @@ import {
   SheetTrigger
 } from "@/components/ui/sheet";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   Play,
   Clock,
   Dumbbell,
@@ -270,6 +276,16 @@ export default function StudentWorkoutsPage() {
   }, [ablyClient, session?.user?.id]);
 
   const daysOfWeekLabels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+  const fullDaysOfWeek = [
+    "Domingo",
+    "Segunda-feira",
+    "Terça-feira",
+    "Quarta-feira",
+    "Quinta-feira",
+    "Sexta-feira",
+    "Sábado",
+  ];
+  const [canDoAnyWorkoutDay, setCanDoAnyWorkoutDay] = useState(false);
   const [selectedDay, setSelectedDay] = useState<number>(new Date().getDay());
 
   // Video Demo Modal
@@ -391,6 +407,11 @@ export default function StudentWorkoutsPage() {
       const apiData = await res.json();
       setWorkouts(apiData.workouts || []);
       setHistoryLogs(apiData.logs || []);
+      if (typeof apiData.canDoAnyWorkoutDay === "boolean") {
+        setCanDoAnyWorkoutDay(apiData.canDoAnyWorkoutDay);
+      } else {
+        setCanDoAnyWorkoutDay(false);
+      }
     } catch (err: any) {
       console.error(err);
       setError(err.message || "Erro de conexão.");
@@ -762,8 +783,28 @@ export default function StudentWorkoutsPage() {
     printWindow.document.close();
   };
 
+  // Week boundaries (Monday 00:00 to Sunday 23:59:59)
+  const now = new Date();
+  const currentWeekDay = now.getDay();
+  const diffToMonday = now.getDate() - currentWeekDay + (currentWeekDay === 0 ? -6 : 1);
+  const startOfWeek = new Date(now);
+  startOfWeek.setDate(diffToMonday);
+  startOfWeek.setHours(0, 0, 0, 0);
+
+  const endOfWeek = new Date(startOfWeek);
+  endOfWeek.setDate(startOfWeek.getDate() + 6);
+  endOfWeek.setHours(23, 59, 59, 999);
+
   // Active workout for the selected day of the week
   const selectedWorkout = workouts.find((w) => w.dayOfWeek === selectedDay);
+
+  const isCompletedThisWeek = selectedWorkout
+    ? historyLogs.some((log) => {
+        if (log.workoutId !== selectedWorkout.id) return false;
+        const compDate = new Date(log.completedAt);
+        return compDate >= startOfWeek && compDate <= endOfWeek;
+      })
+    : false;
 
   const isCompletedToday = selectedWorkout
     ? historyLogs.some((log) =>
@@ -771,6 +812,29 @@ export default function StudentWorkoutsPage() {
       new Date(log.completedAt).toLocaleDateString("pt-BR") === new Date().toLocaleDateString("pt-BR")
     )
     : false;
+
+  const todayDayOfWeek = new Date().getDay();
+  const todayWorkout = workouts.find((w) => w.dayOfWeek === todayDayOfWeek);
+
+  // Check if student completed any workout today that is different from today's scheduled workout
+  const todayDateStr = new Date().toLocaleDateString("pt-BR");
+  const logsCompletedToday = historyLogs.filter(
+    (log) => new Date(log.completedAt).toLocaleDateString("pt-BR") === todayDateStr
+  );
+  const differentWorkoutDoneToday = logsCompletedToday.find((log) => {
+    if (todayWorkout) {
+      return log.workoutId !== todayWorkout.id;
+    }
+    return true;
+  });
+
+  const isDayRestricted = Boolean(
+    !canDoAnyWorkoutDay &&
+    selectedWorkout &&
+    selectedWorkout.dayOfWeek !== null &&
+    selectedWorkout.dayOfWeek !== undefined &&
+    selectedWorkout.dayOfWeek !== todayDayOfWeek
+  );
 
   const currentStep = executionSteps[currentStepIdx];
   const allSetsCompleted = currentStep ? isStepCompleted(currentStep) : false;
@@ -851,6 +915,17 @@ export default function StudentWorkoutsPage() {
       return;
     }
 
+    const currentToday = new Date().getDay();
+    if (
+      !canDoAnyWorkoutDay &&
+      workout.dayOfWeek !== null &&
+      workout.dayOfWeek !== undefined &&
+      workout.dayOfWeek !== currentToday
+    ) {
+      toast.error("Seu personal configurou para que você realize apenas o treino do dia atual. Você pode visualizar os detalhes deste treino, mas não pode iniciá-lo hoje.");
+      return;
+    }
+
     if (workoutStore.activeWorkout && workoutStore.activeWorkout.id !== workout.id) {
       toast.error("Você já possui um treino em andamento. Finalize ou cancele o treino atual antes de iniciar outro. ⚠️");
       return;
@@ -861,8 +936,8 @@ export default function StudentWorkoutsPage() {
         new Date(log.completedAt).toLocaleDateString("pt-BR") === new Date().toLocaleDateString("pt-BR");
     });
 
-    if (isDoneToday) {
-      toast.error("Você já concluiu este treino hoje! Não é possível realizar o mesmo treino duas vezes no mesmo dia.");
+    if (isDoneToday && !canDoAnyWorkoutDay) {
+      toast.error("Você já concluiu este treino hoje! No modo restrito, o treino não pode ser repetido.");
       return;
     }
 
@@ -895,10 +970,20 @@ export default function StudentWorkoutsPage() {
       if (targetWorkout) {
         autoStartedRef.current = true;
         setSelectedDay(targetWorkout.dayOfWeek ?? new Date().getDay());
-        handleStartWorkout(targetWorkout);
+        const currentToday = new Date().getDay();
+        if (
+          !canDoAnyWorkoutDay &&
+          targetWorkout.dayOfWeek !== null &&
+          targetWorkout.dayOfWeek !== undefined &&
+          targetWorkout.dayOfWeek !== currentToday
+        ) {
+          toast.info("Você está visualizando este treino. Seu personal configurou para realizar apenas o treino do dia atual.");
+        } else {
+          handleStartWorkout(targetWorkout);
+        }
       }
     }
-  }, [workouts, startWorkoutId, historyLogs]);
+  }, [workouts, startWorkoutId, historyLogs, canDoAnyWorkoutDay]);
 
   // Toggle set status
   const handleToggleSet = (idx: number, exercise: any) => {
@@ -1174,11 +1259,12 @@ export default function StudentWorkoutsPage() {
               const isSelected = selectedDay === idx;
               const isToday = new Date().getDay() === idx;
 
-              const isDayCompletedToday = dayWorkouts.some((w) =>
-                historyLogs.some((log) =>
-                  log.workoutId === w.id &&
-                  new Date(log.completedAt).toLocaleDateString("pt-BR") === new Date().toLocaleDateString("pt-BR")
-                )
+              const isDayCompletedThisWeek = dayWorkouts.some((w) =>
+                historyLogs.some((log) => {
+                  if (log.workoutId !== w.id) return false;
+                  const d = new Date(log.completedAt);
+                  return d >= startOfWeek && d <= endOfWeek;
+                })
               );
 
               return (
@@ -1199,11 +1285,11 @@ export default function StudentWorkoutsPage() {
                     <div className="flex flex-col items-center gap-1">
                       <Badge variant="secondary" className={cn(
                         "text-[8px] font-black tracking-tighter px-1.5 py-0 border-none flex items-center justify-center gap-0.5",
-                        isDayCompletedToday
+                        isDayCompletedThisWeek
                           ? "bg-emerald-500/10 text-emerald-500"
                           : (isSelected ? "bg-primary text-primary-foreground" : "bg-primary/10 text-primary")
                       )}>
-                        {isDayCompletedToday && <Check className="size-2 shrink-0" />}
+                        {isDayCompletedThisWeek && <Check className="size-2 shrink-0" />}
                         {dayWorkouts[0].muscleGroupLabel?.split(" ")[0] || "TREINO"}
                       </Badge>
                       {dayWorkouts[0].exercises?.some((we: any) => (we.methodType && we.methodType !== "NONE") || we.groupId) && (
@@ -1277,11 +1363,15 @@ export default function StudentWorkoutsPage() {
                           <Badge variant="secondary" className="bg-primary/10 text-primary border-none text-[9px] font-bold uppercase">
                             {selectedWorkout.goal}
                           </Badge>
-                          {isCompletedToday && (
+                          {isCompletedToday ? (
                             <Badge variant="outline" className="rounded-full px-2.5 py-0.5 text-[9px] font-extrabold uppercase gap-1.5 ring-1 bg-emerald-500/10 text-emerald-500 border-emerald-500/20 ring-emerald-500/10">
                               <Check className="size-3 text-emerald-500 animate-bounce" /> Concluído Hoje
                             </Badge>
-                          )}
+                          ) : isCompletedThisWeek ? (
+                            <Badge variant="outline" className="rounded-full px-2.5 py-0.5 text-[9px] font-extrabold uppercase gap-1.5 ring-1 bg-emerald-500/10 text-emerald-500 border-emerald-500/20 ring-emerald-500/10">
+                              <Check className="size-3 text-emerald-500" /> Concluído nesta semana
+                            </Badge>
+                          ) : null}
                         </div>
                         <h2 className="text-xl md:text-2xl font-black tracking-tight">{selectedWorkout.name}</h2>
                         <p className="text-xs text-muted-foreground font-medium">
@@ -1362,13 +1452,41 @@ export default function StudentWorkoutsPage() {
                       </Button>
 
                       {selectedWorkout.isActive && (
-                        isCompletedToday ? (
-                          <Button
-                            disabled
-                            className="w-full sm:w-auto h-12 rounded-xl font-bold text-sm bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 gap-2 shrink-0 opacity-100 cursor-not-allowed"
-                          >
-                            <CheckCircle2 className="size-4.5 text-emerald-500" /> TREINO CONCLUÍDO HOJE
-                          </Button>
+                        (isCompletedToday || isCompletedThisWeek) ? (
+                          canDoAnyWorkoutDay ? (
+                            <Button
+                              onClick={() => handleStartWorkout(selectedWorkout)}
+                              className="w-full sm:w-auto h-12 rounded-xl font-bold text-sm bg-emerald-600 hover:bg-emerald-700 text-white shadow-md shadow-emerald-600/20 gap-2 transition-all cursor-pointer active:scale-95 shrink-0"
+                            >
+                              <RotateCcw className="size-4.5" /> REPETIR TREINO
+                            </Button>
+                          ) : (
+                            <Button
+                              disabled
+                              className="w-full sm:w-auto h-12 rounded-xl font-bold text-sm bg-emerald-500/20 text-emerald-500 border border-emerald-500/30 gap-2 shrink-0 opacity-100 cursor-not-allowed"
+                            >
+                              <CheckCircle2 className="size-4.5 text-emerald-500" />
+                              {isCompletedToday ? "TREINO CONCLUÍDO HOJE" : "CONCLUÍDO NESTA SEMANA"}
+                            </Button>
+                          )
+                        ) : isDayRestricted ? (
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <div className="w-full sm:w-auto">
+                                  <Button
+                                    disabled
+                                    className="w-full sm:w-auto h-12 rounded-xl font-bold text-sm bg-muted/60 text-muted-foreground border border-border/80 gap-2 shrink-0 opacity-80 cursor-not-allowed select-none"
+                                  >
+                                    <Lock className="size-4" /> DISPONÍVEL APENAS NO DIA
+                                  </Button>
+                                </div>
+                              </TooltipTrigger>
+                              <TooltipContent side="bottom" className="max-w-xs text-center text-xs font-medium">
+                                Seu personal trainer configurou para realizar apenas o treino do dia atual. Você pode navegar pelos exercícios, mas só poderá iniciar no dia programado ({fullDaysOfWeek[selectedWorkout.dayOfWeek] || "no dia correspondente"}).
+                              </TooltipContent>
+                            </Tooltip>
+                          </TooltipProvider>
                         ) : (
                           <Button
                             onClick={() => handleStartWorkout(selectedWorkout)}
@@ -1381,6 +1499,41 @@ export default function StudentWorkoutsPage() {
                     </div>
                   </CardContent>
                 </Card>
+
+                {/* Notice if student did another workout today instead of today's scheduled workout */}
+                {selectedDay === todayDayOfWeek && differentWorkoutDoneToday && (
+                  <div className="flex items-start sm:items-center gap-3 p-4 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-400 text-xs font-medium shadow-xs">
+                    <AlertTriangle className="size-4.5 shrink-0 text-amber-500 mt-0.5 sm:mt-0" />
+                    <div className="flex-1 space-y-1">
+                      <div className="flex items-center gap-2">
+                        <span className="font-black text-xs uppercase tracking-wider">Treino Alternativo Concluído Hoje</span>
+                        <Badge variant="outline" className="bg-amber-500/20 text-amber-600 dark:text-amber-400 border-amber-500/30 text-[9px] font-black px-1.5 py-0">
+                          Fora da Programação
+                        </Badge>
+                      </div>
+                      <p className="text-[11px] text-foreground/80 leading-relaxed">
+                        Você realizou o treino <strong>"{differentWorkoutDoneToday.workout?.name || 'Treino'}"</strong> hoje às {new Date(differentWorkoutDoneToday.completedAt).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" })}
+                        {differentWorkoutDoneToday.workout?.dayOfWeek !== null && differentWorkoutDoneToday.workout?.dayOfWeek !== undefined
+                          ? ` (programado para ${fullDaysOfWeek[differentWorkoutDoneToday.workout.dayOfWeek]})`
+                          : ""}.
+                        {selectedWorkout && selectedWorkout.id !== differentWorkoutDoneToday.workoutId && (
+                          <span> O treino agendado para hoje ({selectedWorkout.name}) ainda não foi realizado.</span>
+                        )}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Informational Callout when Day Restricted */}
+                {isDayRestricted && (
+                  <div className="flex items-start sm:items-center gap-3 p-3.5 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-700 dark:text-amber-400 text-xs font-medium shadow-xs">
+                    <Lock className="size-4 shrink-0 text-amber-500 mt-0.5 sm:mt-0" />
+                    <div className="flex-1">
+                      <span className="font-bold">Modo de visualização: </span>
+                      Seu personal configurou para realizar apenas o treino do dia atual. Você pode navegar livremente por todos os exercícios, repetições, cargas e vídeos explicativos, mas o início da execução fica liberado apenas em {fullDaysOfWeek[selectedWorkout.dayOfWeek] || "seu respectivo dia"}.
+                    </div>
+                  </div>
+                )}
 
                 {/* Exercises Flow */}
                 <section className="space-y-4">

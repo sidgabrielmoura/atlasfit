@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
-import { AbacatePay } from "@/lib/abacatepay";
+import { AbacatePay, resolvePublicImageUrl } from "@/lib/abacatepay";
 
 async function requireSuperAdmin() {
   const session = await auth();
@@ -26,6 +26,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
     const abacatePay = AbacatePay({ secret: apiKey });
     let abacatePayProductId = pkg.abacatePayProductId;
+    const publicImage = resolvePublicImageUrl(pkg.imageUrl);
 
     if (abacatePayProductId) {
       try {
@@ -33,6 +34,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
           name: pkg.name,
           description: pkg.description || `${pkg.credits} créditos de importação AtlasFit`,
           price: pkg.priceInCents,
+          ...(publicImage ? { image: publicImage, imageUrl: publicImage } : {}),
         });
       } catch (err: any) {
         if (err.message?.includes("Not found") || err.message?.includes("400") || err.message?.includes("404")) {
@@ -67,6 +69,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
           price: pkg.priceInCents,
           currency: "BRL",
           description: pkg.description || `${pkg.credits} créditos de importação AtlasFit`,
+          ...(publicImage ? { image: publicImage, imageUrl: publicImage } : {}),
         });
         abacatePayProductId = product.id;
         await prisma.creditPackage.update({
