@@ -14,6 +14,7 @@ import { isValidCPF } from "@/lib/cpf-validator";
 import { validateAgeEligibility } from "@/lib/privacy/age-validator";
 import { LegalAcceptanceService } from "@/lib/privacy/legal-acceptance.service";
 import { LegalDocumentType, LegalAcceptanceType } from "@prisma/client";
+import { verifyTOTP } from "@/lib/auth/totp";
 
 const TWO_FACTOR_EXPIRATION_MS = 7 * 24 * 60 * 60 * 1000; // 7 dias em ms
 
@@ -22,6 +23,7 @@ export async function login(formData: {
   password: string;
   redirectTo: string;
   code?: string;
+  totpCode?: string;
   forceNewCode?: boolean;
 }) {
   try {
@@ -33,7 +35,10 @@ export async function login(formData: {
       return { error: "Muitas tentativas de login. Tente novamente mais tarde." };
     }
     const user = await prisma.user.findUnique({
-      where: { email: formData.email }
+      where: { email: formData.email },
+      include: {
+        totpDevices: true,
+      },
     });
     if (!user) {
       return { error: "Credenciais inválidas. Tente novamente." };
@@ -47,21 +52,218 @@ export async function login(formData: {
       redirect("/maintenance");
     }
 
+    const isPasswordValid = user.password ? await bcryptjs.compare(formData.password, user.password) : false;
+    if (!isPasswordValid) {
+      return { error: "Credenciais inválidas. Tente novamente." };
+    }
+
+    const hasAnyTotpDevice =
+      Boolean(user.twoFactorSecret) || (user.totpDevices && user.totpDevices.length > 0);
+
+    const is3FAUser =
+      user.role === "SUPERADMIN" &&
+      Boolean(user.threeFactorEnabled) &&
+      hasAnyTotpDevice;
+
+    const isTotpUser =
+      !is3FAUser &&
+      user.role === "SUPERADMIN" &&
+      Boolean(user.twoFactorEnabled) &&
+      user.twoFactorType === "AUTHENTICATOR" &&
+      hasAnyTotpDevice;
+
+    const verifyCodeAgainstUserDevices = async (codeToVerify: string): Promise<boolean> => {
+      if (user.totpDevices && user.totpDevices.length > 0) {
+        for (const device of user.totpDevices) {
+          if (verifyTOTP(device.secret, codeToVerify)) {
+            prisma.userTotpDevice.update({
+              where: { id: device.id },
+              data: { lastUsedAt: new Date() },
+            }).catch(() => {});
+            return true;
+          }
+        }
+      }
+
+      if (user.twoFactorSecret && verifyTOTP(user.twoFactorSecret, codeToVerify)) {
+        return true;
+      }
+
+      return false;
+    };
+
+    // ETAPA 3 / TOTP: Código do Google Authenticator enviado
+    if (formData.totpCode) {
+      if (is3FAUser) {
+        // Verifica se a confirmação por e-mail (Etapa 2) foi realizada com sucesso
+        const verifiedToken = await prisma.verificationToken.findFirst({
+          where: {
+            identifier: `3FA_EMAIL_VERIFIED:${formData.email}`,
+            token: "VERIFIED",
+            expires: { gt: new Date() },
+          },
+        });
+
+        if (!verifiedToken) {
+          return {
+            error: "Confirmação por e-mail expirada ou não encontrada. Por favor, reinicie o login.",
+          };
+        }
+
+        const isTotpValid = await verifyCodeAgainstUserDevices(formData.totpCode);
+        let isBackupValid = false;
+
+        if (!isTotpValid && user.twoFactorBackupCodes && user.twoFactorBackupCodes.length > 0) {
+          const formattedCode = formData.totpCode.trim().toUpperCase();
+          if (user.twoFactorBackupCodes.includes(formattedCode)) {
+            isBackupValid = true;
+            await prisma.user.update({
+              where: { id: user.id },
+              data: {
+                twoFactorBackupCodes: user.twoFactorBackupCodes.filter((c) => c !== formattedCode),
+              },
+            });
+          }
+        }
+
+        if (!isTotpValid && !isBackupValid) {
+          return {
+            error: "Código do Google Authenticator inválido. Verifique o horário do celular ou utilize um código de backup.",
+          };
+        }
+
+        // Limpa o token temporário de 3FA
+        await prisma.verificationToken.deleteMany({
+          where: { identifier: `3FA_EMAIL_VERIFIED:${formData.email}` },
+        });
+
+        await signIn("credentials", {
+          email: formData.email,
+          password: formData.password,
+          redirect: false,
+        });
+        return { success: true, role: user.role };
+      }
+
+      if (isTotpUser) {
+        const isTotpValid = await verifyCodeAgainstUserDevices(formData.totpCode);
+        let isBackupValid = false;
+
+        if (!isTotpValid && user.twoFactorBackupCodes && user.twoFactorBackupCodes.length > 0) {
+          const formattedCode = formData.totpCode.trim().toUpperCase();
+          if (user.twoFactorBackupCodes.includes(formattedCode)) {
+            isBackupValid = true;
+            await prisma.user.update({
+              where: { id: user.id },
+              data: {
+                twoFactorBackupCodes: user.twoFactorBackupCodes.filter((c) => c !== formattedCode),
+              },
+            });
+          }
+        }
+
+        if (!isTotpValid && !isBackupValid) {
+          return {
+            error: "Código do Google Authenticator inválido. Verifique o horário do celular ou utilize um código de backup.",
+          };
+        }
+
+        await signIn("credentials", {
+          email: formData.email,
+          password: formData.password,
+          redirect: false,
+        });
+        return { success: true, role: user.role };
+      }
+    }
+
+    // ETAPA 2: Código de 6 dígitos enviado
     if (formData.code) {
+      if (is3FAUser) {
+        // Valida o código enviado para o e-mail
+        const identifier = `2FA:${formData.email}`;
+        const dbToken = await prisma.verificationToken.findFirst({
+          where: {
+            identifier,
+            token: formData.code,
+            expires: { gt: new Date() },
+          },
+        });
+
+        if (!dbToken) {
+          return {
+            error: "Código de verificação de e-mail inválido ou expirado. Clique em 'Enviar outro código' para receber um novo.",
+          };
+        }
+
+        // E-mail validado com sucesso! Salva token de aprovação da etapa 2 por 10 minutos
+        const authIdentifier = `3FA_EMAIL_VERIFIED:${formData.email}`;
+        await prisma.verificationToken.deleteMany({ where: { identifier: authIdentifier } });
+        await prisma.verificationToken.create({
+          data: {
+            identifier: authIdentifier,
+            token: "VERIFIED",
+            expires: new Date(Date.now() + 10 * 60 * 1000),
+          },
+        });
+
+        // NÃO FAZ SIGNIN: Transiciona para o 3º Fator (Google Authenticator)
+        return {
+          requires2FA: true,
+          requires3FA: true,
+          currentStep: "TOTP_OTP",
+          twoFactorType: "AUTHENTICATOR",
+          email: formData.email,
+          message: "E-mail confirmado com sucesso! Agora insira o código do seu Google Authenticator.",
+        };
+      }
+
+      if (isTotpUser) {
+        const isTotpValid = await verifyCodeAgainstUserDevices(formData.code);
+        let isBackupValid = false;
+
+        if (!isTotpValid && user.twoFactorBackupCodes && user.twoFactorBackupCodes.length > 0) {
+          const formattedCode = formData.code.trim().toUpperCase();
+          if (user.twoFactorBackupCodes.includes(formattedCode)) {
+            isBackupValid = true;
+            await prisma.user.update({
+              where: { id: user.id },
+              data: {
+                twoFactorBackupCodes: user.twoFactorBackupCodes.filter((c) => c !== formattedCode),
+              },
+            });
+          }
+        }
+
+        if (!isTotpValid && !isBackupValid) {
+          return {
+            error: "Código do Google Authenticator inválido. Verifique o horário do celular ou utilize um código de backup.",
+          };
+        }
+
+        await signIn("credentials", {
+          email: formData.email,
+          password: formData.password,
+          redirect: false,
+        });
+        return { success: true, role: user.role };
+      }
+
       const identifier = `2FA:${formData.email}`;
       const dbToken = await prisma.verificationToken.findFirst({
         where: {
           identifier,
           token: formData.code,
-          expires: { gt: new Date() }
-        }
+          expires: { gt: new Date() },
+        },
       });
 
       if (!dbToken) {
-        return { error: "Código de verificação inválido ou expirado. Clique em 'Enviar outro código' para receber um novo." };
+        return {
+          error: "Código de verificação inválido ou expirado. Clique em 'Enviar outro código' para receber um novo.",
+        };
       }
 
-      // O código emitido fica válido por 7 dias; não deletamos o token ao verificar
       await signIn("credentials", {
         email: formData.email,
         password: formData.password,
@@ -70,19 +272,70 @@ export async function login(formData: {
       return { success: true, role: user.role };
     }
 
-    const isPasswordValid = user.password ? await bcryptjs.compare(formData.password, user.password) : false;
-    if (!isPasswordValid) {
-      return { error: "Credenciais inválidas. Tente novamente." };
+    // PRIMEIRA SUBMISSÃO (Email e Senha verificados acima)
+    if (is3FAUser) {
+      // SuperAdmin com 3FA ativado: Exige primeiro validação por e-mail (Etapa 2 de 3)
+      const identifier = `2FA:${formData.email}`;
+      const existingToken = await prisma.verificationToken.findFirst({
+        where: {
+          identifier,
+          expires: { gt: new Date() },
+        },
+      });
+
+      if (existingToken && !formData.forceNewCode) {
+        return {
+          requires2FA: true,
+          requires3FA: true,
+          currentStep: "EMAIL_OTP",
+          twoFactorType: "EMAIL",
+          email: formData.email,
+          isExistingCodeActive: true,
+        };
+      }
+
+      const code = Math.floor(100000 + Math.random() * 900000).toString();
+
+      await prisma.verificationToken.deleteMany({
+        where: { identifier },
+      });
+
+      await prisma.verificationToken.create({
+        data: {
+          identifier,
+          token: code,
+          expires: new Date(Date.now() + TWO_FACTOR_EXPIRATION_MS),
+        },
+      });
+
+      const emailResult = await EmailService.sendTwoFactorCode(formData.email, code);
+
+      if (!emailResult.success) {
+        console.error("3FA_EMAIL_DISPATCH_FAILED:", emailResult.error);
+        return {
+          error: `Erro ao enviar o e-mail de verificação: ${
+            emailResult.error || "Domínio de e-mail não verificado ou chave API inválida"
+          }`,
+        };
+      }
+
+      return {
+        requires2FA: true,
+        requires3FA: true,
+        currentStep: "EMAIL_OTP",
+        twoFactorType: "EMAIL",
+        email: formData.email,
+        isNewCodeGenerated: true,
+      };
     }
 
     const global2FA = await prisma.systemSetting.findUnique({
-      where: { key: "two_factor_auth_enabled" }
+      where: { key: "two_factor_auth_enabled" },
     });
     const isGlobal2FA = global2FA?.value === "true";
-    
-    const is2FAEnabled = user.twoFactorEnabled !== null 
-      ? user.twoFactorEnabled 
-      : isGlobal2FA;
+
+    const is2FAEnabled =
+      user.twoFactorEnabled !== null ? user.twoFactorEnabled : isGlobal2FA;
 
     if (!is2FAEnabled) {
       await signIn("credentials", {
@@ -93,40 +346,53 @@ export async function login(formData: {
       return { success: true, role: user.role };
     }
 
+    if (isTotpUser) {
+      return {
+        requires2FA: true,
+        twoFactorType: "AUTHENTICATOR",
+        email: formData.email,
+      };
+    }
+
     const identifier = `2FA:${formData.email}`;
     const existingToken = await prisma.verificationToken.findFirst({
       where: {
         identifier,
-        expires: { gt: new Date() }
-      }
+        expires: { gt: new Date() },
+      },
     });
 
-    // Se o usuário já possui um código ativo (válido por 7 dias) e não pediu explicitamente um novo, não reenvia e-mail
     if (existingToken && !formData.forceNewCode) {
-      return { requires2FA: true, email: formData.email, isExistingCodeActive: true };
+      return {
+        requires2FA: true,
+        twoFactorType: "EMAIL",
+        email: formData.email,
+        isExistingCodeActive: true,
+      };
     }
 
-    // Caso contrário (sem código ou solicitou outro), gera um novo código e envia o e-mail
     const code = Math.floor(100000 + Math.random() * 900000).toString();
 
     await prisma.verificationToken.deleteMany({
-      where: { identifier }
+      where: { identifier },
     });
 
     await prisma.verificationToken.create({
       data: {
         identifier,
         token: code,
-        expires: new Date(Date.now() + TWO_FACTOR_EXPIRATION_MS)
-      }
+        expires: new Date(Date.now() + TWO_FACTOR_EXPIRATION_MS),
+      },
     });
 
     const emailResult = await EmailService.sendTwoFactorCode(formData.email, code);
 
     if (!emailResult.success) {
       console.error("2FA_EMAIL_DISPATCH_FAILED:", emailResult.error);
-      return { 
-        error: `Erro ao enviar o e-mail de verificação: ${emailResult.error || "Domínio de e-mail não verificado ou chave API inválida"}` 
+      return {
+        error: `Erro ao enviar o e-mail de verificação: ${
+          emailResult.error || "Domínio de e-mail não verificado ou chave API inválida"
+        }`,
       };
     }
 

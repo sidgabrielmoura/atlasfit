@@ -9,6 +9,8 @@ import { DynamicBranding } from "@/components/application/dynamic-branding";
 import { AblyProvider } from "@/providers/ably-provider";
 import dynamic from "next/dynamic";
 
+import { EngagePushTracker } from "@/components/engage/engage-push-tracker";
+
 const EngageRenderer = dynamic(
   () => import("@/components/engage/engage-renderer").then((mod) => mod.EngageRenderer),
   { ssr: false }
@@ -36,6 +38,7 @@ export function Providers({ children }: { children: React.ReactNode }) {
         <TooltipProvider delayDuration={0}>
           <AblyProvider>
             <DynamicBranding />
+            <EngagePushTracker />
             {children}
             <EngageRenderer />
             <Toaster position="top-right" richColors />

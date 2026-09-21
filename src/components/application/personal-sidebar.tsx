@@ -65,7 +65,7 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { personalInfo } from "@/lib/mock-data";
 import { useSession, signOut } from "next-auth/react";
-import { cn } from "@/lib/utils";
+import { cn, slugify } from "@/lib/utils";
 import { layoutStore } from "@/stores/layout";
 import { useSnapshot } from "valtio";
 import { workspaceStore } from "@/stores/workspace.store";
@@ -182,7 +182,8 @@ export function PersonalSidebar() {
       .toUpperCase();
   };
 
-  const captureLink = `https://${subInfo?.primaryDomain || "atlasfit.app"}/t/${workspaceSnap.activeWorkspace?.slug || (user?.name || personalInfo.name).toLowerCase()}`;
+  const activeSlug = workspaceSnap.activeWorkspace?.slug || slugify(user?.name || personalInfo.name);
+  const captureLink = `https://${subInfo?.primaryDomain || "app.atlasfit.site"}/t/${activeSlug}`;
 
   const generateQrcode = async () => {
     const qrcode = await generateQrCode(captureLink, { errorCorrectionLevel: 'H', type: 'image/png', color: { light: "#fff", dark: "#000" } })

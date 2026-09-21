@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { rateLimit } from "@/lib/rate-limit";
 import { isValidCPF } from "@/lib/cpf-validator";
+import { findWorkspaceBySlugOrAlias } from "@/lib/workspace-lookup";
 
 export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "127.0.0.1";
@@ -36,9 +37,7 @@ export async function POST(req: Request) {
       return new NextResponse("Formato de e-mail inválido.", { status: 400 });
     }
 
-    const workspace = await prisma.workspace.findUnique({
-      where: { slug: workspaceSlug.toLowerCase() },
-    });
+    const workspace = await findWorkspaceBySlugOrAlias(workspaceSlug);
 
     if (!workspace) {
       return new NextResponse("Workspace não encontrado.", { status: 404 });

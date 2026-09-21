@@ -1,7 +1,11 @@
 import prisma from "@/lib/prisma";
-import { Flame, Clock, CheckCircle2, MessageSquare } from "lucide-react";
+import { Clock, CheckCircle2, MessageSquare, ArrowRight, ShieldCheck } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Card, CardContent } from "@/components/ui/card";
+import { findWorkspaceBySlugOrAlias } from "@/lib/workspace-lookup";
 
 interface PendingPageProps {
   params: Promise<{ slug: string }>;
@@ -10,10 +14,8 @@ interface PendingPageProps {
 export default async function PendingPage({ params }: PendingPageProps) {
   const { slug } = await params;
 
-  // Fetch workspace and owner to personalize the confirmation page
-  const workspace = await prisma.workspace.findUnique({
-    where: { slug: slug.toLowerCase() },
-  });
+  // 1. Fetch workspace via cascade lookup (slug, alias, name)
+  const workspace = await findWorkspaceBySlugOrAlias(slug);
 
   const owner = workspace
     ? await prisma.user.findUnique({
@@ -26,111 +28,158 @@ export default async function PendingPage({ params }: PendingPageProps) {
     : null;
 
   const trainerName = owner?.name || "seu personal trainer";
+  const workspaceName = workspace?.name || "AtlasFit";
   const whatsappNumber = owner?.whatsapp?.replace(/\D/g, "") || "";
   const whatsappText = encodeURIComponent(
-    `Olá ${trainerName}, acabei de fazer meu pré-cadastro na assessoria ${workspace?.name || "AtlasFit"} e gostaria de solicitar a liberação do meu acesso!`
+    `Olá ${trainerName}, acabei de fazer meu pré-cadastro na assessoria ${workspaceName} e gostaria de solicitar a liberação do meu acesso!`
   );
   const whatsappUrl = whatsappNumber
     ? `https://wa.me/55${whatsappNumber}?text=${whatsappText}`
     : null;
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-white flex flex-col items-center justify-center p-6 relative">
+    <div className="min-h-screen bg-background text-foreground flex flex-col items-center justify-center p-4 md:p-6 relative overflow-hidden">
       <meta name="theme-color" content={workspace?.primaryColor || "#2B4FCC"} />
       <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+
       {/* Dynamic Branding Injector */}
       {workspace?.primaryColor && (
-        <style dangerouslySetInnerHTML={{
-          __html: `
-            :root, .dark {
-              --primary: ${workspace.primaryColor} !important;
-              --ring: ${workspace.primaryColor} !important;
-            }
-          `
-        }} />
+        <style
+          dangerouslySetInnerHTML={{
+            __html: `
+              :root, .dark {
+                --primary: ${workspace.primaryColor} !important;
+                --ring: ${workspace.primaryColor} !important;
+              }
+            `,
+          }}
+        />
       )}
 
-      <div className="relative z-10 max-w-lg w-full bg-neutral-900 border border-neutral-800 p-8 md:p-10 rounded-2xl flex flex-col items-center space-y-8">
-        {/* Logo Branding */}
-        <div className="flex items-center gap-2">
-          {workspace?.logoUrl ? (
-            <img src={workspace.logoUrl} alt={workspace.name} className="h-10 w-auto object-contain rounded-lg" />
-          ) : (
-            <div className="flex items-center gap-2">
-              <div className="p-2 bg-primary rounded-lg">
-                <Flame className="size-6 text-black" />
+      {/* Background glow effects */}
+      <div className="absolute top-[15%] left-[20%] w-[50%] h-[50%] rounded-full bg-primary/5 blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[15%] right-[20%] w-[50%] h-[50%] rounded-full bg-blue-500/5 blur-[120px] pointer-events-none" />
+
+      <Card className="relative z-10 max-w-lg w-full border-border/60 bg-card/80 backdrop-blur-xl shadow-2xl rounded-2xl overflow-hidden">
+        <CardContent className="p-8 md:p-10 flex flex-col items-center space-y-6">
+          {/* Logo Branding */}
+          <div className="flex items-center justify-center mb-1">
+            {workspace?.logoUrl ? (
+              <img
+                src={workspace.logoUrl}
+                alt={workspaceName}
+                className="h-11 w-auto max-w-[200px] object-contain rounded-lg"
+              />
+            ) : (
+              <div className="flex justify-center">
+                <Image
+                  src="/logos_atlasfit/atlasfit (4).png"
+                  alt="AtlasFit"
+                  width={160}
+                  height={50}
+                  priority
+                  className="object-contain dark:block hidden h-10 w-auto"
+                />
+                <Image
+                  src="/logos_atlasfit/atlasfit_black.png"
+                  alt="AtlasFit"
+                  width={160}
+                  height={50}
+                  priority
+                  className="object-contain dark:hidden block h-10 w-auto"
+                />
               </div>
-              <span className="text-xl font-black italic tracking-tighter uppercase">{workspace?.name || "ATLASFIT"}</span>
+            )}
+          </div>
+
+          {/* Status Graphic */}
+          <div className="relative flex items-center justify-center">
+            <div className="size-16 rounded-2xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary shadow-sm">
+              <Clock className="size-8" />
             </div>
-          )}
-        </div>
-
-        {/* Status Graphic */}
-        <div className="relative flex items-center justify-center">
-          <div className="size-16 rounded-xl bg-primary/10 border border-primary/20 flex items-center justify-center text-primary">
-            <Clock className="size-8 animate-spin" style={{ animationDuration: "3s" }} />
           </div>
-        </div>
 
-        {/* Message */}
-        <div className="text-center space-y-3">
-          <span className="text-xs uppercase font-extrabold tracking-widest text-primary">Solicitação Enviada!</span>
-          <h1 className="text-3xl font-black tracking-tight uppercase leading-none">Pré-cadastro Concluído</h1>
-          <p className="text-neutral-400 text-sm leading-relaxed max-w-sm mx-auto">
-            Seus dados foram enviados para <strong className="text-white font-bold">{trainerName}</strong> da assessoria <strong className="text-white font-bold">{workspace?.name || "AtlasFit"}</strong> e estão aguardando liberação.
-          </p>
-        </div>
+          {/* Message Header */}
+          <div className="text-center space-y-2.5">
+            <Badge
+              variant="outline"
+              className="bg-primary/10 text-primary border-primary/25 px-3 py-0.5 text-[11px] font-bold uppercase tracking-wider"
+            >
+              Aguardando Liberação
+            </Badge>
+            <h1 className="text-2xl md:text-3xl font-black tracking-tight uppercase">
+              Pré-cadastro Concluído
+            </h1>
+            <p className="text-muted-foreground text-sm leading-relaxed max-w-md mx-auto font-medium">
+              Seus dados foram enviados com sucesso para <strong className="text-foreground font-semibold">{trainerName}</strong> na assessoria <strong className="text-foreground font-semibold">{workspaceName}</strong>.
+            </p>
+          </div>
 
-        {/* Steps Card */}
-        <div className="w-full bg-neutral-950 border border-neutral-800 rounded-xl p-5 space-y-4">
-          <h3 className="text-xs uppercase font-bold tracking-wider text-neutral-300">Próximas Etapas:</h3>
-          <div className="space-y-3.5">
-            {[
-              {
-                title: "Análise de Perfil",
-                desc: "Seu treinador analisará suas informações e plano selecionado.",
-              },
-              {
-                title: "Liberação de Acesso",
-                desc: "Você receberá um e-mail contendo a confirmação e link para a planilha.",
-              },
-              {
-                title: "Início dos Treinos",
-                desc: "Basta efetuar login utilizando o e-mail e a senha cadastrados.",
-              },
-            ].map((step, idx) => (
-              <div key={idx} className="flex gap-3">
-                <div className="size-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 mt-0.5">
-                  <CheckCircle2 className="size-3 text-primary" />
+          {/* Next Steps Card */}
+          <div className="w-full bg-muted/40 border border-border/50 rounded-xl p-5 space-y-4 text-left">
+            <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-wider text-muted-foreground">
+              <ShieldCheck className="size-4 text-primary" />
+              <span>Próximas Etapas:</span>
+            </div>
+            <div className="space-y-3.5">
+              {[
+                {
+                  title: "Análise de Perfil",
+                  desc: "Seu treinador analisará suas informações e seu plano selecionado.",
+                },
+                {
+                  title: "Liberação de Acesso",
+                  desc: "Você receberá uma notificação assim que a sua ficha for autorizada.",
+                },
+                {
+                  title: "Início dos Treinos",
+                  desc: "Basta efetuar login utilizando seu e-mail e a senha cadastrados.",
+                },
+              ].map((step, idx) => (
+                <div key={idx} className="flex gap-3 items-start">
+                  <div className="size-5 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center shrink-0 mt-0.5">
+                    <CheckCircle2 className="size-3 text-primary" />
+                  </div>
+                  <div className="space-y-0.5">
+                    <h4 className="text-xs font-bold text-foreground">{step.title}</h4>
+                    <p className="text-[11px] text-muted-foreground leading-snug">{step.desc}</p>
+                  </div>
                 </div>
-                <div className="space-y-0.5">
-                  <h4 className="text-xs font-bold text-neutral-200">{step.title}</h4>
-                  <p className="text-[11px] text-neutral-500 leading-snug">{step.desc}</p>
-                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Action CTAs */}
+          <div className="w-full flex flex-col gap-3 pt-1">
+            {whatsappUrl ? (
+              <Button
+                asChild
+                className="w-full h-11 rounded-xl text-sm font-bold gap-2 bg-emerald-600 hover:bg-emerald-700 text-white shadow-md cursor-pointer border-none"
+              >
+                <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
+                  <MessageSquare className="size-4" />
+                  Avisar Treinador no WhatsApp
+                </a>
+              </Button>
+            ) : (
+              <div className="text-xs text-center text-muted-foreground leading-relaxed p-2 bg-muted/30 border border-border/40 rounded-lg">
+                O seu treinador será notificado e liberará seu acesso em breve.
               </div>
-            ))}
-          </div>
-        </div>
+            )}
 
-        {/* Actions */}
-        <div className="w-full flex flex-col gap-3">
-          {whatsappUrl ? (
             <Button
               asChild
-              className="w-full h-12 rounded-lg text-sm font-semibold gap-2 bg-emerald-500 hover:bg-emerald-600 text-neutral-950 border-none transition-colors cursor-pointer"
+              variant="outline"
+              className="w-full h-11 rounded-xl text-sm font-semibold border-border/60 hover:bg-accent cursor-pointer"
             >
-              <a href={whatsappUrl} target="_blank" rel="noopener noreferrer">
-                <MessageSquare className="size-4 text-neutral-950" />
-                Avisar Treinador no WhatsApp
-              </a>
+              <Link href="/login">
+                Já tem acesso liberado? Fazer Login
+                <ArrowRight className="size-4 ml-1.5" />
+              </Link>
             </Button>
-          ) : (
-            <div className="text-[11px] text-center text-neutral-500 leading-relaxed">
-              O treinador será notificado e liberará seu acesso em breve.
-            </div>
-          )}
-        </div>
-      </div>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

@@ -163,6 +163,13 @@ export function useFcm() {
                 ? {
                     label: "Abrir",
                     onClick: () => {
+                      const logId = payload.data?.engagePushLogId;
+                      if (logId) {
+                        fetch(`/api/engage/push/click?logId=${encodeURIComponent(logId)}`, {
+                          method: "GET",
+                          keepalive: true,
+                        }).catch(() => {});
+                      }
                       window.location.href = targetUrl;
                     },
                   }

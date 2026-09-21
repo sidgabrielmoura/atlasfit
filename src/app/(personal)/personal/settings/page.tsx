@@ -9,14 +9,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Save, Paintbrush, Image as ImageIcon, UserCircle, Loader2, Palette, CreditCard, XCircle, AlertTriangle, Calendar, AlertCircle, ShieldAlert, Trash2, Building2, UserX } from "lucide-react";
+import { Save, Paintbrush, Image as ImageIcon, UserCircle, Loader2, Palette, CreditCard, XCircle, AlertTriangle, Calendar, AlertCircle, ShieldAlert, Trash2, Building2, UserX, Link2, Copy } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { toast } from "sonner";
 import { updateProfile, updateBrandSettings } from "./actions";
 import { useSnapshot } from "valtio";
 import { workspaceStore, workspaceActions } from "@/stores/workspace.store";
-import { cn, formatPhone } from "@/lib/utils";
+import { cn, formatPhone, slugify } from "@/lib/utils";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Badge } from "@/components/ui/badge";
 import { compressImage } from "@/lib/image-compress";
@@ -389,6 +389,8 @@ export default function SettingsPage() {
   const activeWorkspace = snap.activeWorkspace;
 
   const [brandName, setBrandName] = useState("");
+  const [brandSlug, setBrandSlug] = useState("");
+  const [isSlugManual, setIsSlugManual] = useState(false);
   const [brandSlogan, setBrandSlogan] = useState("");
   const [brandColor, setBrandColor] = useState("#2B4FCC");
   const [logoUrl, setLogoUrl] = useState("");
@@ -437,6 +439,8 @@ export default function SettingsPage() {
   useEffect(() => {
     if (activeWorkspace) {
       setBrandName(activeWorkspace.name || "");
+      setBrandSlug(activeWorkspace.slug || "");
+      setIsSlugManual(false);
       setBrandSlogan(activeWorkspace.slogan || "");
       setBrandColor(activeWorkspace.primaryColor || "#2B4FCC");
       setLogoUrl(activeWorkspace.logoUrl || "");
@@ -447,6 +451,18 @@ export default function SettingsPage() {
       setWorkoutCoverKey((activeWorkspace as any).workoutCoverKey || "");
     }
   }, [activeWorkspace]);
+
+  const handleBrandNameChange = (val: string) => {
+    setBrandName(val);
+    if (!isSlugManual) {
+      setBrandSlug(slugify(val));
+    }
+  };
+
+  const handleSlugChange = (val: string) => {
+    setIsSlugManual(true);
+    setBrandSlug(slugify(val));
+  };
 
   const uploadToR2 = async (file: File, targetType: string, workspaceId?: string) => {
     let fileToUpload = file;
@@ -562,6 +578,7 @@ export default function SettingsPage() {
 
         const result = await updateBrandSettings(activeWorkspace.id, {
           name: brandName,
+          slug: brandSlug,
           slogan: brandSlogan,
           primaryColor: brandColor,
           logoUrl: finalLogoUrl,
@@ -576,6 +593,8 @@ export default function SettingsPage() {
           setLogoFile(null);
           setWatermarkFile(null);
           setWorkoutCoverFile(null);
+          setBrandSlug(result.workspace.slug);
+          setIsSlugManual(false);
 
           // Update Valtio store locally so dynamic styles and switcher logo propagate instantly
           workspaceActions.setActiveWorkspace({
@@ -686,7 +705,7 @@ export default function SettingsPage() {
                     <Input
                       id="brandName"
                       value={brandName || ""}
-                      onChange={(e) => setBrandName(e.target.value)}
+                      onChange={(e) => handleBrandNameChange(e.target.value)}
                       placeholder="ex: Silva Assessoria Esportiva"
                       className="rounded-xl bg-secondary/30 border-border/50 focus:bg-secondary/50 transition-all font-semibold"
                     />
@@ -701,6 +720,46 @@ export default function SettingsPage() {
                       className="rounded-xl bg-secondary/30 border-border/50 focus:bg-secondary/50 transition-all"
                     />
                   </div>
+                </div>
+
+                {/* Slug / Link de Captação Exclusivo */}
+                <div className="space-y-2 pt-4 border-t border-border/50">
+                  <div className="flex items-center justify-between">
+                    <Label htmlFor="brandSlug" className="font-semibold flex items-center gap-2">
+                      <Link2 className="size-4 text-primary" />
+                      Link de Captação e Portal do Aluno (Slug)
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-2.5 text-xs text-primary gap-1.5 hover:bg-primary/10 cursor-pointer"
+                      onClick={() => {
+                        const targetSlug = brandSlug || activeWorkspace?.slug || "";
+                        const url = `https://${subscription?.primaryDomain || "app.atlasfit.site"}/t/${targetSlug}`;
+                        navigator.clipboard.writeText(url);
+                        toast.success("Link copiado para a área de transferência! 📋");
+                      }}
+                    >
+                      <Copy className="size-3.5" />
+                      Copiar Link
+                    </Button>
+                  </div>
+                  <div className="flex items-center rounded-xl bg-secondary/30 border border-border/50 focus-within:border-primary/50 focus-within:bg-secondary/50 transition-all overflow-hidden">
+                    <span className="pl-3.5 pr-1 text-xs font-mono text-muted-foreground select-none">
+                      {`https://${subscription?.primaryDomain || "app.atlasfit.site"}/t/`}
+                    </span>
+                    <Input
+                      id="brandSlug"
+                      value={brandSlug || ""}
+                      onChange={(e) => handleSlugChange(e.target.value)}
+                      placeholder="seu-link-exclusivo"
+                      className="border-none bg-transparent shadow-none focus-visible:ring-0 text-foreground font-mono text-xs font-bold pl-0 h-10"
+                    />
+                  </div>
+                  <p className="text-[11px] text-muted-foreground">
+                    Este é o seu link oficial exclusivo para captação direta de novos alunos e acesso ao portal web da sua assessoria.
+                  </p>
                 </div>
 
                 <div className="grid md:grid-cols-2 gap-6 pt-4 border-t border-border/50">

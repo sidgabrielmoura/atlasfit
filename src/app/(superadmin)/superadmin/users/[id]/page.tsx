@@ -19,8 +19,14 @@ import {
   AlertCircle,
   Ban,
   Loader2,
-  Key
+  Key,
+  Pencil,
+  Phone,
+  Calendar,
+  Lock,
+  Shield
 } from "lucide-react";
+import { EditUserDialog } from "@/components/superadmin/edit-user-dialog";
 import {
   Select,
   SelectContent,
@@ -65,6 +71,7 @@ export default function UserDeepViewPage({ params }: { params: Promise<{ id: str
   const [isLoading, setIsLoading] = useState(true);
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [isTogglingRole, setIsTogglingRole] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   useEffect(() => {
     async function fetchUser() {
@@ -234,7 +241,16 @@ export default function UserDeepViewPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
 
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
+          <Button
+            variant="outline"
+            onClick={() => setIsEditDialogOpen(true)}
+            className="h-11 rounded-xl font-bold gap-2 shadow-sm border-border/60 hover:bg-secondary cursor-pointer"
+          >
+            <Pencil className="size-4 text-primary" />
+            Editar Dados
+          </Button>
+
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button
@@ -308,6 +324,83 @@ export default function UserDeepViewPage({ params }: { params: Promise<{ id: str
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Informações Cadastrais & Perfil */}
+        <Card className="border-border/40 shadow-sm bg-card/50 lg:col-span-2">
+          <CardHeader className="flex flex-row items-center justify-between pb-4 border-b border-border/30">
+            <div>
+              <CardTitle className="text-lg font-bold flex items-center gap-2">
+                <User className="size-5 text-primary" /> Informações Cadastrais & Perfil
+              </CardTitle>
+              <CardDescription className="text-xs font-medium uppercase tracking-widest mt-0.5">
+                Dados pessoais, e-mail e credenciais de acesso
+              </CardDescription>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setIsEditDialogOpen(true)}
+              className="h-9 rounded-xl font-bold text-xs gap-1.5 border-border/60 hover:bg-secondary cursor-pointer"
+            >
+              <Pencil className="size-3.5 text-primary" />
+              Editar Informações
+            </Button>
+          </CardHeader>
+          <CardContent className="pt-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="p-3.5 rounded-xl border border-border/30 bg-secondary/15 space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Nome Completo</span>
+                <p className="text-sm font-bold text-foreground truncate">{user.name || "Não informado"}</p>
+              </div>
+
+              <div className="p-3.5 rounded-xl border border-border/30 bg-secondary/15 space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">E-mail de Acesso</span>
+                <p className="text-sm font-bold text-foreground truncate">{user.email || "Não informado"}</p>
+              </div>
+
+              <div className="p-3.5 rounded-xl border border-border/30 bg-secondary/15 space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Senha de Login</span>
+                <div className="flex items-center justify-between">
+                  <span className="font-mono text-sm tracking-widest text-muted-foreground">••••••••</span>
+                  <button
+                    type="button"
+                    onClick={() => setIsEditDialogOpen(true)}
+                    className="text-[11px] font-bold text-primary hover:underline cursor-pointer"
+                  >
+                    Alterar Senha
+                  </button>
+                </div>
+              </div>
+
+              <div className="p-3.5 rounded-xl border border-border/30 bg-secondary/15 space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Perfil Global</span>
+                <p className="text-sm font-bold text-foreground">{user.role}</p>
+              </div>
+
+              <div className="p-3.5 rounded-xl border border-border/30 bg-secondary/15 space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">WhatsApp / Telefone</span>
+                <p className="text-sm font-bold text-foreground">{user.whatsapp || "Não cadastrado"}</p>
+              </div>
+
+              <div className="p-3.5 rounded-xl border border-border/30 bg-secondary/15 space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">CPF / CNPJ</span>
+                <p className="text-sm font-bold text-foreground">{user.cpfCnpj || "Não informado"}</p>
+              </div>
+
+              <div className="p-3.5 rounded-xl border border-border/30 bg-secondary/15 space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Data de Nascimento</span>
+                <p className="text-sm font-bold text-foreground">
+                  {user.birthDate ? new Date(user.birthDate).toLocaleDateString("pt-BR") : "Não informada"}
+                </p>
+              </div>
+
+              <div className="p-3.5 rounded-xl border border-border/30 bg-secondary/15 space-y-1">
+                <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Gênero</span>
+                <p className="text-sm font-bold text-foreground">{user.gender || "Não especificado"}</p>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Workspaces List */}
         <Card className="border-border/40 shadow-sm bg-card/50">
           <CardHeader>
@@ -448,6 +541,15 @@ export default function UserDeepViewPage({ params }: { params: Promise<{ id: str
           </div>
         </div>
       )}
+
+      <EditUserDialog
+        user={user}
+        open={isEditDialogOpen}
+        onOpenChange={setIsEditDialogOpen}
+        onSuccess={(updated) => {
+          setUser((prev: any) => ({ ...prev, ...updated }));
+        }}
+      />
     </div>
   );
 }

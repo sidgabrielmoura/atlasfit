@@ -71,6 +71,9 @@ export async function POST(req: Request) {
       scheduleTime,
       daysOfWeek,
       inactivityDays,
+      targetWithWorkout = true,
+      targetWithoutWorkout = true,
+      onlyNotTrainedToday = false,
       isActive = true,
       priority = "HIGH"
     } = body;
@@ -93,7 +96,10 @@ export async function POST(req: Request) {
         category,
         scheduleTime: scheduleTime || null,
         daysOfWeek: daysOfWeek || null,
-        inactivityDays: inactivityDays ? parseInt(inactivityDays) : null,
+        inactivityDays: triggerType === "INACTIVITY" && inactivityDays ? parseInt(inactivityDays) : null,
+        targetWithWorkout: Boolean(targetWithWorkout),
+        targetWithoutWorkout: Boolean(targetWithoutWorkout),
+        onlyNotTrainedToday: Boolean(onlyNotTrainedToday),
         isActive: Boolean(isActive),
         priority,
         creatorId: session.user.id

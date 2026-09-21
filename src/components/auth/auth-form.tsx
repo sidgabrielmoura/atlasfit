@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Eye, EyeOff, Mail, Lock, ArrowRight } from "lucide-react";
+import { Eye, EyeOff, Mail, Lock, ArrowRight, ShieldCheck, Smartphone, KeyRound } from "lucide-react";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { toast } from "sonner";
@@ -23,6 +23,9 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [requires2FA, setRequires2FA] = useState(false);
+  const [is3FA, setIs3FA] = useState(false);
+  const [currentAuthStep, setCurrentAuthStep] = useState<"CREDENTIALS" | "EMAIL_OTP" | "TOTP_OTP">("CREDENTIALS");
+  const [twoFactorType, setTwoFactorType] = useState<"EMAIL" | "AUTHENTICATOR">("EMAIL");
   const [emailVal, setEmailVal] = useState("");
   const [passwordVal, setPasswordVal] = useState("");
   const [otpValue, setOtpValue] = useState("");
@@ -51,14 +54,24 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
       autoSubmitActive.current = true;
       const autoSubmit = async () => {
         setIsLoading(true);
-        const toastId = toast.loading("Verificando código de segurança...");
+        const isTotpStep = currentAuthStep === "TOTP_OTP" || twoFactorType === "AUTHENTICATOR";
+        const toastId = toast.loading(
+          isTotpStep ? "Verificando Google Authenticator..." : "Verificando código de segurança..."
+        );
         try {
-          const result = await login({
+          const payload: any = {
             email: emailVal,
             password: passwordVal,
-            code: otpValue,
             redirectTo: callbackUrl,
-          });
+          };
+
+          if (isTotpStep) {
+            payload.totpCode = otpValue;
+          } else {
+            payload.code = otpValue;
+          }
+
+          const result = await login(payload);
 
           if (result?.error) {
             toast.error(result.error, { id: toastId });
@@ -67,7 +80,19 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
             return;
           }
 
-          toast.success("Acesso autorizado! Bem-vindo de volta.", { id: toastId });
+          // Se concluiu o passo do e-mail e agora requer o 3º Fator (Google Authenticator)
+          if (result?.requires3FA && (result.currentStep === "TOTP_OTP" || result.twoFactorType === "AUTHENTICATOR")) {
+            toast.success("E-mail confirmado com sucesso! Digite o código do Google Authenticator.", { id: toastId });
+            setIs3FA(true);
+            setCurrentAuthStep("TOTP_OTP");
+            setTwoFactorType("AUTHENTICATOR");
+            setOtpValue("");
+            autoSubmitActive.current = false;
+            setIsLoading(false);
+            return;
+          }
+
+          toast.success(is3FA ? "Acesso 3FA autorizado com sucesso!" : "Acesso autorizado! Bem-vindo de volta.", { id: toastId });
           const realCallbackUrl = result.role === "SUPERADMIN"
             ? "/superadmin/dashboard"
             : result.role === "TRAINER"
@@ -83,7 +108,7 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
       };
       autoSubmit();
     }
-  }, [otpValue, requires2FA, emailVal, passwordVal, callbackUrl]);
+  }, [otpValue, requires2FA, currentAuthStep, twoFactorType, is3FA, emailVal, passwordVal, callbackUrl]);
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -101,12 +126,20 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
           return;
         }
 
-        const result = await login({
+        const isTotpStep = currentAuthStep === "TOTP_OTP" || twoFactorType === "AUTHENTICATOR";
+        const payload: any = {
           email,
           password,
-          code: otpValue,
           redirectTo: callbackUrl,
-        });
+        };
+
+        if (isTotpStep) {
+          payload.totpCode = otpValue;
+        } else {
+          payload.code = otpValue;
+        }
+
+        const result = await login(payload);
 
         if (result?.error) {
           toast.error(result.error);
@@ -114,7 +147,19 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
           return;
         }
 
-        toast.success("Acesso autorizado!");
+        // Se concluiu o passo do e-mail e agora requer o 3º Fator (Google Authenticator)
+        if (result?.requires3FA && (result.currentStep === "TOTP_OTP" || result.twoFactorType === "AUTHENTICATOR")) {
+          toast.success("E-mail confirmado com sucesso! Digite o código do Google Authenticator.");
+          setIs3FA(true);
+          setCurrentAuthStep("TOTP_OTP");
+          setTwoFactorType("AUTHENTICATOR");
+          setOtpValue("");
+          autoSubmitActive.current = false;
+          setIsLoading(false);
+          return;
+        }
+
+        toast.success(is3FA ? "Acesso 3FA autorizado com sucesso!" : "Acesso autorizado!");
         const realCallbackUrl = result.role === "SUPERADMIN"
           ? "/superadmin/dashboard"
           : result.role === "TRAINER"
@@ -142,11 +187,22 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
         setEmailVal(email);
         setPasswordVal(password);
         setRequires2FA(true);
+        const has3FA = Boolean(result.requires3FA);
+        setIs3FA(has3FA);
+
+        const isAuthApp = result.twoFactorType === "AUTHENTICATOR";
+        setTwoFactorType(isAuthApp ? "AUTHENTICATOR" : "EMAIL");
+        setCurrentAuthStep(isAuthApp ? "TOTP_OTP" : "EMAIL_OTP");
+
         setResendCooldown(30);
         setIsLoading(false);
         autoSubmitActive.current = false;
 
-        if (result?.isNewCodeGenerated) {
+        if (has3FA) {
+          toast.info("Autenticação em 3 Fatores: Código de confirmação enviado ao seu e-mail!");
+        } else if (isAuthApp) {
+          toast.info("Insira o código gerado no seu Google Authenticator.");
+        } else if (result?.isNewCodeGenerated) {
           toast.success("Código de verificação enviado ao seu e-mail!");
         } else {
           toast.info("Insira seu código de segurança para continuar.");
@@ -197,12 +253,34 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
   };
 
   if (requires2FA) {
+    const isTotp = twoFactorType === "AUTHENTICATOR";
+
     return (
       <div className="space-y-8 w-full max-w-sm mx-auto animate-in fade-in slide-in-from-bottom-4 duration-300">
-        <div className="space-y-2 text-center">
-          <h2 className="text-3xl font-extrabold tracking-tight">Verifique seu e-mail</h2>
-          <p className="text-muted-foreground text-sm leading-relaxed">
-            Digite o código de 6 dígitos enviado para <strong className="text-foreground">{emailVal}</strong>. Este código permanece válido por <strong>7 dias</strong> para seus acessos.
+        <div className="space-y-3 text-center">
+          <div className="mx-auto size-14 rounded-2xl bg-primary/10 border border-primary/20 text-primary flex items-center justify-center shadow-sm">
+            {isTotp ? <ShieldCheck className="size-7" /> : <Mail className="size-7" />}
+          </div>
+
+          <h2 className="text-2xl font-extrabold tracking-tight">
+            {isTotp ? "Google Authenticator" : "Verifique seu e-mail"}
+          </h2>
+          <p className="text-muted-foreground text-xs leading-relaxed">
+            {isTotp ? (
+              <>
+                {is3FA && <span className="text-emerald-500 font-bold block mb-1">✓ E-mail verificado com sucesso!</span>}
+                Abra o aplicativo <strong>Google Authenticator</strong> no seu celular e digite o código de 6 dígitos para autenticar seu acesso.
+              </>
+            ) : (
+              <>
+                Digite o código de 6 dígitos enviado para <strong className="text-foreground">{emailVal}</strong>.
+                {is3FA ? (
+                  <span className="block mt-1 text-muted-foreground">Após validar seu e-mail, será solicitado o código do Google Authenticator.</span>
+                ) : (
+                  <> Este código permanece válido por <strong>7 dias</strong>.</>
+                )}
+              </>
+            )}
           </p>
         </div>
 
@@ -239,29 +317,37 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
               />
             ) : (
               <>
-                Confirmar Código
+                {isTotp ? "Entrar com Authenticator" : "Confirmar Código de E-mail"}
                 <ArrowRight className="size-5 group-hover:translate-x-1 transition-transform" />
               </>
             )}
           </Button>
         </form>
 
-        <div className="p-4 bg-secondary/20 border border-border/50 rounded-2xl space-y-3 text-center">
-          <p className="text-xs text-muted-foreground">
-            Esqueceu ou perdeu o código ativo?
-          </p>
-          <Button
-            type="button"
-            variant="outline"
-            disabled={isLoading || resendCooldown > 0}
-            onClick={handleResendOTP}
-            className="w-full h-10 text-xs font-bold rounded-xl border-border text-foreground hover:bg-secondary/60 cursor-pointer"
-          >
-            {resendCooldown > 0
-              ? `Aguarde ${resendCooldown}s para novo código`
-              : "Enviar outro código"}
-          </Button>
-        </div>
+        {isTotp ? (
+          <div className="p-4 bg-secondary/20 border border-border/50 rounded-2xl text-center space-y-1">
+            <p className="text-[11px] font-medium text-muted-foreground">
+              Sem acesso ao app? Digite um de seus códigos de backup de contingência no campo acima.
+            </p>
+          </div>
+        ) : (
+          <div className="p-4 bg-secondary/20 border border-border/50 rounded-2xl space-y-3 text-center">
+            <p className="text-xs text-muted-foreground">
+              Não recebeu ou perdeu o código enviado?
+            </p>
+            <Button
+              type="button"
+              variant="outline"
+              disabled={isLoading || resendCooldown > 0}
+              onClick={handleResendOTP}
+              className="w-full h-10 text-xs font-bold rounded-xl border-border text-foreground hover:bg-secondary/60 cursor-pointer"
+            >
+              {resendCooldown > 0
+                ? `Aguarde ${resendCooldown}s para novo código`
+                : "Enviar outro código por e-mail"}
+            </Button>
+          </div>
+        )}
 
         <div className="text-center">
           <button
@@ -269,6 +355,8 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
             disabled={isLoading}
             onClick={() => {
               setRequires2FA(false);
+              setIs3FA(false);
+              setCurrentAuthStep("CREDENTIALS");
               setOtpValue("");
               autoSubmitActive.current = false;
             }}

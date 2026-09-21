@@ -87,6 +87,9 @@ export interface PushNotificationItem {
   scheduleTime?: string | null;
   daysOfWeek?: string | null;
   inactivityDays?: number | null;
+  targetWithWorkout?: boolean;
+  targetWithoutWorkout?: boolean;
+  onlyNotTrainedToday?: boolean;
   isActive: boolean;
   priority: string;
   sentCount: number;
@@ -181,7 +184,7 @@ const TEMPLATE_PRESETS = [
 const TRIGGER_DESCRIPTIONS: Record<string, { label: string; desc: string }> = {
   SCHEDULED: {
     label: "Horário Agendado (Diário - Fuso Brasília)",
-    desc: "Dispara nos dias e horário configurados (Horário de Brasília). Cancela automaticamente se o aluno já treinou hoje."
+    desc: "Dispara nos dias e horários configurados (Fuso Brasília). Permite filtrar por treino no dia e alunos que já treinaram."
   },
   STREAK_SAVER: {
     label: "Ofensiva & Sequência (Duolingo Style)",
@@ -267,7 +270,10 @@ export function PushNotificationsStudio() {
     category: "TRAINING",
     scheduleTime: "18:00",
     daysOfWeek: "1,2,3,4,5",
-    inactivityDays: 3,
+    inactivityDays: null as number | null,
+    targetWithWorkout: true,
+    targetWithoutWorkout: true,
+    onlyNotTrainedToday: false,
     isActive: true,
     priority: "HIGH",
   });
@@ -375,7 +381,10 @@ export function PushNotificationsStudio() {
         category: preset.category,
         scheduleTime: (preset as any).scheduleTime || "18:00",
         daysOfWeek: (preset as any).daysOfWeek || "1,2,3,4,5",
-        inactivityDays: (preset as any).inactivityDays || 3,
+        inactivityDays: preset.triggerType === "INACTIVITY" ? ((preset as any).inactivityDays || 3) : null,
+        targetWithWorkout: true,
+        targetWithoutWorkout: true,
+        onlyNotTrainedToday: false,
         isActive: true,
         priority: "HIGH",
       });
@@ -395,7 +404,10 @@ export function PushNotificationsStudio() {
         category: "TRAINING",
         scheduleTime: "18:00",
         daysOfWeek: "1,2,3,4,5",
-        inactivityDays: 3,
+        inactivityDays: null,
+        targetWithWorkout: true,
+        targetWithoutWorkout: true,
+        onlyNotTrainedToday: false,
         isActive: true,
         priority: "HIGH",
       });
@@ -428,7 +440,10 @@ export function PushNotificationsStudio() {
       category: item.category,
       scheduleTime: item.scheduleTime || "18:00",
       daysOfWeek: item.daysOfWeek || "1,2,3,4,5",
-      inactivityDays: item.inactivityDays || 3,
+      inactivityDays: item.triggerType === "INACTIVITY" ? (item.inactivityDays || 3) : null,
+      targetWithWorkout: item.targetWithWorkout ?? true,
+      targetWithoutWorkout: item.targetWithoutWorkout ?? true,
+      onlyNotTrainedToday: item.onlyNotTrainedToday ?? false,
       isActive: item.isActive,
       priority: item.priority,
     });
@@ -522,6 +537,11 @@ export function PushNotificationsStudio() {
       return;
     }
 
+    if (formData.targetRole !== "TRAINER" && !formData.targetWithWorkout && !formData.targetWithoutWorkout) {
+      toast.error("Selecione pelo menos uma segmentação: alunos com ou sem treino no dia.");
+      return;
+    }
+
     const deepLink = getFinalDeepLink();
 
     try {
@@ -579,6 +599,10 @@ export function PushNotificationsStudio() {
           bodyB: formData.enableAbTest ? formData.bodyB : null,
           imageUrl: finalImageUrl || null,
           deepLink,
+          inactivityDays: formData.triggerType === "INACTIVITY" ? formData.inactivityDays : null,
+          targetWithWorkout: formData.targetWithWorkout,
+          targetWithoutWorkout: formData.targetWithoutWorkout,
+          onlyNotTrainedToday: formData.onlyNotTrainedToday,
         }),
       });
 
@@ -1152,10 +1176,25 @@ export function PushNotificationsStudio() {
                           <Clock className="size-3" /> {item.scheduleTime} ({formatDaysOfWeek(item.daysOfWeek)})
                         </span>
                       )}
-                      {item.inactivityDays && (
+                      {item.triggerType === "INACTIVITY" && item.inactivityDays && (
                         <span className="text-[11px] text-muted-foreground">
                           Após {item.inactivityDays} dias sem treino
                         </span>
+                      )}
+                      {item.targetRole !== "TRAINER" && item.targetWithWorkout && !item.targetWithoutWorkout && (
+                        <Badge variant="outline" className="text-[10px] font-semibold border-primary/40 text-primary">
+                          Com treino no dia
+                        </Badge>
+                      )}
+                      {item.targetRole !== "TRAINER" && !item.targetWithWorkout && item.targetWithoutWorkout && (
+                        <Badge variant="outline" className="text-[10px] font-semibold border-amber-500/40 text-amber-600 dark:text-amber-400">
+                          Sem treino no dia
+                        </Badge>
+                      )}
+                      {item.targetRole !== "TRAINER" && item.onlyNotTrainedToday && (
+                        <Badge variant="outline" className="text-[10px] font-semibold border-sky-500/40 text-sky-600 dark:text-sky-400">
+                          Apenas não treinaram hoje
+                        </Badge>
                       )}
                     </div>
 
@@ -1547,11 +1586,116 @@ export function PushNotificationsStudio() {
                 </div>
               </div>
 
-              {/* Caixa explicativa do gatilho selecionado */}
+              {/* Segmentação de Treino no Dia e Execução (Quando público inclui Alunos) */}
+              {(formData.targetRole === "ALL" || formData.targetRole === "STUDENT") && (
+                <div className="space-y-3 rounded-xl border border-border/80 bg-secondary/10 p-3.5">
+                  <div className="space-y-0.5">
+                    <Label className="text-[11px] font-bold uppercase tracking-widest text-foreground flex items-center gap-1.5">
+                      <Target className="size-3.5 text-primary" /> Segmentação por Treino no Dia
+                    </Label>
+                    <p className="text-[11px] text-muted-foreground">
+                      Filtre quais alunos receberão o push de acordo com a programação de treino de hoje.
+                    </p>
+                  </div>
+
+                  <div className="space-y-2 pt-1 border-t border-border/40">
+                    {/* Switch: Todos (com ou sem treino no dia) */}
+                    <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/60 bg-card/60">
+                      <div className="space-y-0.5 pr-2">
+                        <Label htmlFor="switch-target-all" className="text-xs font-semibold cursor-pointer">
+                          Enviar para alunos com ou sem treino no dia (Todos)
+                        </Label>
+                        <p className="text-[10px] text-muted-foreground">
+                          Habilita o envio para todos os alunos, independente de ter treino prescrito hoje.
+                        </p>
+                      </div>
+                      <Switch
+                        id="switch-target-all"
+                        checked={formData.targetWithWorkout && formData.targetWithoutWorkout}
+                        onCheckedChange={(checked) => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            targetWithWorkout: checked,
+                            targetWithoutWorkout: checked,
+                          }));
+                        }}
+                      />
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                      {/* Switch: Alunos com treino no dia */}
+                      <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/60 bg-card/60">
+                        <div className="space-y-0.5 pr-2">
+                          <Label htmlFor="switch-target-with-workout" className="text-xs font-semibold cursor-pointer">
+                            Alunos COM treino no dia
+                          </Label>
+                          <p className="text-[10px] text-muted-foreground">
+                            Apenas alunos com rotina/ficha programada para hoje.
+                          </p>
+                        </div>
+                        <Switch
+                          id="switch-target-with-workout"
+                          checked={formData.targetWithWorkout}
+                          onCheckedChange={(checked) => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              targetWithWorkout: checked,
+                            }));
+                          }}
+                        />
+                      </div>
+
+                      {/* Switch: Alunos sem treino no dia */}
+                      <div className="flex items-center justify-between p-2.5 rounded-lg border border-border/60 bg-card/60">
+                        <div className="space-y-0.5 pr-2">
+                          <Label htmlFor="switch-target-without-workout" className="text-xs font-semibold cursor-pointer">
+                            Alunos SEM treino no dia
+                          </Label>
+                          <p className="text-[10px] text-muted-foreground">
+                            Alunos em descanso ou sem treino prescrito hoje.
+                          </p>
+                        </div>
+                        <Switch
+                          id="switch-target-without-workout"
+                          checked={formData.targetWithoutWorkout}
+                          onCheckedChange={(checked) => {
+                            setFormData((prev) => ({
+                              ...prev,
+                              targetWithoutWorkout: checked,
+                            }));
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center justify-between p-2.5 rounded-lg border mt-2">
+                      <div className="space-y-0.5 pr-2">
+                        <Label htmlFor="switch-only-not-trained" className="text-xs font-semibold cursor-pointer flex items-center gap-1.5">
+                          <Activity className="size-3 text-sky-500" />
+                          Mandar só para alunos que ainda NÃO treinaram no dia
+                        </Label>
+                        <p className="text-[10px] text-muted-foreground">
+                          Todo aluno que já concluiu treino hoje não receberá a notificação.
+                        </p>
+                      </div>
+                      <Switch
+                        id="switch-only-not-trained"
+                        checked={formData.onlyNotTrainedToday}
+                        onCheckedChange={(checked) => {
+                          setFormData((prev) => ({
+                            ...prev,
+                            onlyNotTrainedToday: checked,
+                          }));
+                        }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {TRIGGER_DESCRIPTIONS[formData.triggerType] && (
                 <div className="rounded-xl bg-secondary/25 border border-border/70 p-3 text-xs space-y-1">
                   <p className="font-semibold text-foreground flex items-center gap-1.5">
-                    <Sparkles className="size-3.5 text-primary" />
                     {TRIGGER_DESCRIPTIONS[formData.triggerType].label}
                   </p>
                   <p className="text-muted-foreground leading-relaxed text-[11px]">
@@ -1663,7 +1807,7 @@ export function PushNotificationsStudio() {
                     type="number"
                     min={1}
                     max={30}
-                    value={formData.inactivityDays}
+                    value={formData.inactivityDays ?? 3}
                     onChange={(e) => setFormData({ ...formData, inactivityDays: parseInt(e.target.value) || 3 })}
                     className="rounded-xl text-xs h-9"
                   />

@@ -31,6 +31,10 @@ model User {
   role              GlobalRole        @default(USER)
   onboarded         Boolean           @default(false)
   twoFactorEnabled  Boolean?
+  twoFactorSecret   String?
+  twoFactorType     String?           @default("EMAIL")
+  twoFactorBackupCodes String[]       @default([])
+  threeFactorEnabled Boolean?         @default(false)
   isTestAccount     Boolean           @default(false)
   objective         String?
   gender            String?
@@ -119,6 +123,22 @@ model User {
   // Atlas Engage Push Notification Relations
   createdPushNotifications EngagePushNotification[] @relation("CreatedPushNotifications")
   pushLogs                 EngagePushLog[]          @relation("UserPushLogs")
+
+  // Multi-Device TOTP / Google Authenticator
+  totpDevices              UserTotpDevice[]
+}
+
+model UserTotpDevice {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deviceName String
+  secret     String
+  lastUsedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@index([userId])
 }
 
 model Workspace {
@@ -920,6 +940,11 @@ model EngagePushNotification {
   scheduleTime    String?         // Ex: "18:00" ou "08:00"
   daysOfWeek      String?         // Ex: "1,2,3,4,5" (0=Dom, 1=Seg...)
   inactivityDays  Int?            // Ex: 3 (após 3 dias sem treino)
+  
+  // Segmentação por treino do dia
+  targetWithWorkout    Boolean     @default(true) // Alunos com treino no dia
+  targetWithoutWorkout Boolean     @default(true) // Alunos sem treino no dia
+  onlyNotTrainedToday  Boolean     @default(false) // Apenas quem ainda NÃO treinou hoje
   
   // Status e prioridade
   isActive        Boolean         @default(true)

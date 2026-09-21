@@ -38,9 +38,14 @@ export async function PUT(
       scheduleTime,
       daysOfWeek,
       inactivityDays,
+      targetWithWorkout,
+      targetWithoutWorkout,
+      onlyNotTrainedToday,
       isActive,
       priority
     } = body;
+
+    const effectiveTriggerType = triggerType !== undefined ? triggerType : existing.triggerType;
 
     const updated = await prisma.engagePushNotification.update({
       where: { id },
@@ -57,7 +62,12 @@ export async function PUT(
         ...(category !== undefined && { category }),
         ...(scheduleTime !== undefined && { scheduleTime: scheduleTime || null }),
         ...(daysOfWeek !== undefined && { daysOfWeek: daysOfWeek || null }),
-        ...(inactivityDays !== undefined && { inactivityDays: inactivityDays ? parseInt(inactivityDays) : null }),
+        ...(inactivityDays !== undefined || triggerType !== undefined ? {
+          inactivityDays: effectiveTriggerType === "INACTIVITY" && inactivityDays ? parseInt(inactivityDays) : null
+        } : {}),
+        ...(targetWithWorkout !== undefined && { targetWithWorkout: Boolean(targetWithWorkout) }),
+        ...(targetWithoutWorkout !== undefined && { targetWithoutWorkout: Boolean(targetWithoutWorkout) }),
+        ...(onlyNotTrainedToday !== undefined && { onlyNotTrainedToday: Boolean(onlyNotTrainedToday) }),
         ...(isActive !== undefined && { isActive: Boolean(isActive) }),
         ...(priority !== undefined && { priority })
       }

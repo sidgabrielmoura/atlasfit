@@ -37,19 +37,42 @@ function chunkArray<T>(array: T[], size: number): T[][] {
 
 export class EngagePushService {
   /**
-   * Helper to get current Brasília (America/Sao_Paulo) hour and day of week
+   * Helper to get current Brasília (America/Sao_Paulo) hour, minute, day of week and startOfToday
    */
-  static getBrasiliaTime(): { hour: number; dayOfWeek: number; startOfToday: Date } {
+  static getBrasiliaTime(): { hour: number; minute: number; dayOfWeek: number; startOfToday: Date } {
     const now = new Date();
-    const brString = now.toLocaleString("en-US", { timeZone: "America/Sao_Paulo" });
-    const brDate = new Date(brString);
+    const formatter = new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Sao_Paulo",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+      hour12: false,
+    });
+    const parts = formatter.formatToParts(now);
+    const partMap: Record<string, string> = {};
+    for (const p of parts) {
+      partMap[p.type] = p.value;
+    }
 
-    const startOfToday = new Date(brDate);
-    startOfToday.setHours(0, 0, 0, 0);
+    const year = parseInt(partMap.year);
+    const month = parseInt(partMap.month) - 1;
+    const day = parseInt(partMap.day);
+    const hour = parseInt(partMap.hour);
+    const minute = parseInt(partMap.minute);
+
+    const midDay = new Date(Date.UTC(year, month, day, 12, 0, 0));
+    const dayOfWeek = midDay.getUTCDay();
+
+    // Início do dia em Brasília (00:00:00 BRT = 03:00:00 UTC)
+    const startOfToday = new Date(Date.UTC(year, month, day, 3, 0, 0, 0));
 
     return {
-      hour: brDate.getHours(),
-      dayOfWeek: brDate.getDay(), // 0 = Sunday, 1 = Monday...
+      hour,
+      minute,
+      dayOfWeek,
       startOfToday,
     };
   }
@@ -77,6 +100,38 @@ export class EngagePushService {
       .replace(/{streak_dias}/gi, streak)
       .replace(/{dias_inativo}/gi, inactivity)
       .replace(/{nome_personal}/gi, trainer);
+  }
+
+  /**
+   * Helper to verify if an aluno has a workout scheduled for today
+   */
+  static async hasUserWorkoutScheduledToday(userId: string): Promise<boolean> {
+    const { dayOfWeek } = this.getBrasiliaTime();
+
+    const workout = await prisma.workout.findFirst({
+      where: {
+        isActive: true,
+        dayOfWeek,
+        OR: [
+          { studentId: userId },
+          {
+            studentId: null,
+            workspace: {
+              members: {
+                some: {
+                  userId,
+                  role: "STUDENT",
+                  isActive: true
+                }
+              }
+            }
+          }
+        ]
+      },
+      select: { id: true }
+    });
+
+    return Boolean(workout);
   }
 
   /**
@@ -301,7 +356,7 @@ export class EngagePushService {
     cleanedLogsCount?: number;
     details: any[];
   }> {
-    const { hour: currentHour, dayOfWeek: currentDayOfWeek } = this.getBrasiliaTime();
+    const { hour: currentHour, minute: currentMinute, dayOfWeek: currentDayOfWeek } = this.getBrasiliaTime();
 
     // Janela de silêncio: não disparar entre 22h e 07h (a menos que seja forçado manualmente)
     if (!force && (currentHour >= 22 || currentHour < 7)) {
@@ -335,10 +390,22 @@ export class EngagePushService {
             }
           }
 
-          // Check schedule time matching current hour
+          // Check schedule time matching current hour & minute window
           if (notification.scheduleTime && !force) {
-            const [schedHour] = notification.scheduleTime.split(":").map(Number);
-            if (schedHour !== currentHour) {
+            const [schedHour, schedMin = 0] = notification.scheduleTime.split(":").map(Number);
+            const schedTotalMin = (schedHour || 0) * 60 + (schedMin || 0);
+            const currentTotalMin = currentHour * 60 + currentMinute;
+
+            // Se o horário agendado é posterior ao momento atual, ainda não chegou a hora de disparar
+            if (currentTotalMin < schedTotalMin) {
+              continue;
+            }
+
+            // Dispara na janela do horário agendado (na mesma hora a partir do minuto, ou até 50 minutos após)
+            const isWithinWindow = (currentHour === schedHour && currentMinute >= schedMin) ||
+              (currentTotalMin >= schedTotalMin && currentTotalMin <= schedTotalMin + 50);
+
+            if (!isWithinWindow) {
               continue;
             }
           }
@@ -371,12 +438,34 @@ export class EngagePushService {
                   }
                 }
 
-                // Smart Abort: if notification is training reminder and student already trained today, skip
-                if (notification.category === "TRAINING" && user.role === "STUDENT") {
-                  const alreadyTrained = await this.hasUserTrainedToday(user.id);
-                  if (alreadyTrained) {
-                    skippedCount++;
-                    return;
+                // Se for aluno, aplicar regras de segmentação de treino no dia
+                if (user.role === "STUDENT") {
+                  const targetWith = notification.targetWithWorkout ?? true;
+                  const targetWithout = notification.targetWithoutWorkout ?? true;
+
+                  // Se a segmentação for exclusiva (apenas com treino ou apenas sem treino)
+                  if (targetWith !== targetWithout) {
+                    const hasWorkoutScheduled = await this.hasUserWorkoutScheduledToday(user.id);
+                    if (targetWith && !hasWorkoutScheduled) {
+                      // Exige ter treino hoje, mas o aluno não tem
+                      skippedCount++;
+                      return;
+                    }
+                    if (targetWithout && hasWorkoutScheduled) {
+                      // Exige NÃO ter treino hoje, mas o aluno tem
+                      skippedCount++;
+                      return;
+                    }
+                  }
+
+                  // Regra de execução: se configurado para enviar APENAS para quem ainda NÃO treinou hoje
+                  if (notification.onlyNotTrainedToday) {
+                    const alreadyTrained = await this.hasUserTrainedToday(user.id);
+                    if (alreadyTrained) {
+                      // Aluno já concluiu treino hoje -> não recebe
+                      skippedCount++;
+                      return;
+                    }
                   }
                 }
 

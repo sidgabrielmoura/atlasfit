@@ -36,3 +36,15 @@ export function simplifyCommaSeparatedString(val: string | null | undefined): st
 
   return str;
 }
+
+export function slugify(text: string): string {
+  return text
+    .toString()
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // Remove acentos
+    .replace(/[^\w\s-]/g, "") // Remove caracteres especiais não-alfanuméricos
+    .replace(/[\s_]+/g, "-") // Substitui espaços e underlines por hífen
+    .replace(/--+/g, "-") // Remove múltiplos hifens consecutivos
+    .trim();
+}

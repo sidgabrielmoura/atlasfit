@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
 import { logSystemError } from "@/lib/logger";
+import bcryptjs from "bcryptjs";
 
 export async function GET(
   req: Request,
@@ -82,34 +83,102 @@ export async function PATCH(
   const { id } = await params;
 
   try {
-    const body = await req.json();
-    const { role, twoFactorEnabled, isTestAccount } = body;
-
     if (!id) {
       return new NextResponse("Missing user ID", { status: 400 });
     }
 
+    const currentUser = await prisma.user.findUnique({
+      where: { id },
+      select: { id: true, email: true }
+    });
+
+    if (!currentUser) {
+      return NextResponse.json({ error: "Usuário não encontrado." }, { status: 404 });
+    }
+
+    const body = await req.json();
+    const {
+      name,
+      email,
+      password,
+      role,
+      whatsapp,
+      cpfCnpj,
+      birthDate,
+      gender,
+      twoFactorEnabled,
+      isTestAccount
+    } = body;
+
     const dataToUpdate: any = {};
+
+    if (name !== undefined) {
+      dataToUpdate.name = typeof name === "string" ? name.trim() : null;
+    }
+
+    if (email !== undefined && typeof email === "string") {
+      const cleanEmail = email.trim().toLowerCase();
+      if (!cleanEmail || !cleanEmail.includes("@")) {
+        return NextResponse.json({ error: "E-mail inválido." }, { status: 400 });
+      }
+
+      if (cleanEmail !== currentUser.email) {
+        const emailInUse = await prisma.user.findUnique({
+          where: { email: cleanEmail }
+        });
+        if (emailInUse && emailInUse.id !== id) {
+          return NextResponse.json(
+            { error: "Este e-mail já está sendo utilizado por outra conta." },
+            { status: 400 }
+          );
+        }
+        dataToUpdate.email = cleanEmail;
+      }
+    }
+
+    if (password !== undefined && typeof password === "string" && password.trim().length > 0) {
+      if (password.trim().length < 6) {
+        return NextResponse.json(
+          { error: "A nova senha deve ter no mínimo 6 caracteres." },
+          { status: 400 }
+        );
+      }
+      dataToUpdate.password = await bcryptjs.hash(password.trim(), 10);
+    }
+
     if (role !== undefined) dataToUpdate.role = role;
-    if (twoFactorEnabled !== undefined) {
-      dataToUpdate.twoFactorEnabled = twoFactorEnabled;
+    if (whatsapp !== undefined) dataToUpdate.whatsapp = whatsapp ? String(whatsapp).trim() : null;
+    if (cpfCnpj !== undefined) dataToUpdate.cpfCnpj = cpfCnpj ? String(cpfCnpj).trim() : null;
+    if (birthDate !== undefined) {
+      dataToUpdate.birthDate = birthDate ? new Date(birthDate) : null;
     }
-    if (isTestAccount !== undefined) {
-      dataToUpdate.isTestAccount = isTestAccount;
-    }
+    if (gender !== undefined) dataToUpdate.gender = gender ? String(gender).trim() : null;
+    if (twoFactorEnabled !== undefined) dataToUpdate.twoFactorEnabled = twoFactorEnabled;
+    if (isTestAccount !== undefined) dataToUpdate.isTestAccount = isTestAccount;
 
     const updatedUser = await prisma.user.update({
       where: { id },
       data: dataToUpdate,
     });
 
-    const { password, ...userWithoutPassword } = updatedUser;
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: "UPDATE_USER",
+        entity: "USER",
+        entityId: id,
+        severity: "info",
+        ip: "SuperAdmin Panel",
+      }
+    });
+
+    const { password: _, ...userWithoutPassword } = updatedUser;
 
     return NextResponse.json(userWithoutPassword, { status: 200 });
   } catch (error) {
     console.error("[PATCH_USER_ERROR]", error);
     await logSystemError({ action: "PATCH_USER_BY_ID", error, entity: "USER", entityId: id });
-    return new NextResponse("Internal Error", { status: 500 });
+    return NextResponse.json({ error: "Erro interno ao atualizar usuário." }, { status: 500 });
   }
 }
 

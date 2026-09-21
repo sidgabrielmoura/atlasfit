@@ -23,6 +23,8 @@
 # Firebase
 secrets/
 *.json
+!/package.json
+!/components.json
 
 # misc
 .DS_Store

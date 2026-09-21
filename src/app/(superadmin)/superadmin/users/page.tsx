@@ -25,8 +25,10 @@ import {
   TrendingUp,
   ArrowUpRight,
   ArrowDownRight,
-  Trash2
+  Trash2,
+  Pencil
 } from "lucide-react";
+import { EditUserDialog } from "@/components/superadmin/edit-user-dialog";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import {
   DropdownMenu,
@@ -114,6 +116,9 @@ function UsersContent() {
   const [userToDelete, setUserToDelete] = useState<any | null>(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  const [userToEdit, setUserToEdit] = useState<any | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
   const handleDeleteConfirm = async () => {
     if (!userToDelete) return;
@@ -542,6 +547,16 @@ function UsersContent() {
                                     <span>Perfil & Acesso</span>
                                   </DropdownMenuItem>
                                 </Link>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setUserToEdit(user);
+                                    setIsEditDialogOpen(true);
+                                  }}
+                                  className="h-9 rounded-lg gap-2 cursor-pointer font-semibold text-xs"
+                                >
+                                  <Pencil className="size-3.5 text-primary" />
+                                  <span>Editar Dados</span>
+                                </DropdownMenuItem>
                                 <DropdownMenuItem className="h-9 rounded-lg gap-2 cursor-pointer text-rose-600 focus:text-rose-600 focus:bg-rose-500/10 font-semibold text-xs">
                                   <Ban className="size-3.5" />
                                   <span>Bloquear Acesso</span>
@@ -670,6 +685,18 @@ function UsersContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      <EditUserDialog
+        user={userToEdit}
+        open={isEditDialogOpen}
+        onOpenChange={(open) => {
+          setIsEditDialogOpen(open);
+          if (!open) setUserToEdit(null);
+        }}
+        onSuccess={() => {
+          superAdminActions.fetchUsers();
+        }}
+      />
     </div>
   );
 }

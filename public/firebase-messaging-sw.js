@@ -51,6 +51,23 @@ self.addEventListener("notificationclick", (event) => {
     urlToOpen = `${origin}/${urlToOpen}`;
   }
 
+  // Rastreio imediato do clique no push
+  const notifData = event.notification.data || {};
+  let logId = notifData.engagePushLogId;
+  if (!logId && urlToOpen) {
+    try {
+      const parsed = new URL(urlToOpen);
+      logId = parsed.searchParams.get("engage_push_log") || parsed.searchParams.get("logId");
+    } catch (e) {}
+  }
+
+  if (logId) {
+    fetch(`${origin}/api/engage/push/click?logId=${encodeURIComponent(logId)}`, {
+      method: "GET",
+      keepalive: true
+    }).catch((err) => console.warn("[SW] Erro ao registrar clique:", err));
+  }
+
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
       for (let i = 0; i < windowClients.length; i++) {

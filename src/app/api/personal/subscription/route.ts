@@ -227,7 +227,7 @@ export async function GET(req: Request) {
     const domainSetting = await prisma.systemSetting.findUnique({
       where: { key: "primary_domain" }
     });
-    const primaryDomain = domainSetting?.value || "atlasfit.app";
+    const primaryDomain = domainSetting?.value || "app.atlasfit.site";
 
     const responseData = {
       currentSubscription: {
@@ -410,8 +410,6 @@ export async function POST(req: Request) {
 
       let checkout;
 
-      // Se o plano permite cartão, criar Checkout de Assinatura Recorrente (POST /subscriptions/create)
-      // para que a própria AbacatePay tokenize o cartão e debite automaticamente no vencimento
       if (methods.includes("CARD")) {
         try {
           checkout = await abacate.subscriptions.create({
@@ -614,8 +612,8 @@ export async function DELETE(req: Request) {
           if (response.ok) {
             const result = await response.json();
             const subscriptions = result.data || [];
-            const abacateSub = subscriptions.find((sub: any) => 
-              sub.customer?.email === user.email && 
+            const abacateSub = subscriptions.find((sub: any) =>
+              sub.customer?.email === user.email &&
               ["active", "ACTIVE"].includes(sub.status)
             );
 

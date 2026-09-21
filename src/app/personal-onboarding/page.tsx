@@ -21,6 +21,7 @@ import {
   Image as ImageIcon,
   CheckCircle2,
 } from "lucide-react";
+import Image from "next/image";
 import { HugeiconsIcon } from "@hugeicons/react";
 import { InstagramIcon, LinkedinIcon } from "@hugeicons/core-free-icons";
 import { Button } from "@/components/ui/button";
@@ -28,9 +29,10 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { workspaceActions } from "@/stores/workspace.store";
-import { formatPhone } from "@/lib/utils";
+import { formatPhone, cn } from "@/lib/utils";
 import { compressImage } from "@/lib/image-compress";
 
 const STEPS = [
@@ -304,554 +306,625 @@ export default function PersonalOnboardingPage() {
   };
 
   return (
-    <div className="min-h-screen bg-neutral-950 text-foreground flex flex-col justify-between select-none relative overflow-hidden font-sans">
+    <div className="min-h-screen bg-background text-foreground flex flex-col justify-between select-none relative overflow-hidden font-sans">
       {/* Decorative Glow elements */}
-      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[40%] bg-primary/[0.03] rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[40%] bg-purple-500/[0.03] rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute top-[-10%] left-[-10%] w-[50%] h-[40%] bg-primary/10 rounded-full blur-[120px] pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[40%] bg-blue-500/10 rounded-full blur-[120px] pointer-events-none" />
 
       {/* Header */}
       <header className="p-6 md:p-8 flex items-center justify-between z-10">
-        <div className="flex items-center gap-2">
-          <div className="size-8 rounded-lg bg-gradient-to-tr from-primary to-orange-500 flex items-center justify-center shadow-lg shadow-primary/10">
-            <Dumbbell className="size-4.5 text-white" />
-          </div>
-          <span className="text-lg font-black tracking-tight bg-gradient-to-r from-white to-neutral-300 bg-clip-text text-transparent">
-            Atlas<span className="text-primary">Fit</span>
-          </span>
+        <div className="flex items-center gap-3">
+          <Image
+            src="/logos_atlasfit/atlasfit (4).png"
+            alt="AtlasFit"
+            width={140}
+            height={45}
+            priority
+            className="object-contain dark:block hidden h-9 w-auto"
+          />
+          <Image
+            src="/logos_atlasfit/atlasfit_black.png"
+            alt="AtlasFit"
+            width={140}
+            height={45}
+            priority
+            className="object-contain dark:hidden block h-9 w-auto"
+          />
         </div>
-        <div className="text-xs font-bold text-neutral-500 uppercase tracking-widest bg-white/[0.02] border border-white/[0.04] px-4 py-2 rounded-full">
-          Painel do Personal
-        </div>
+        <Badge
+          variant="outline"
+          className="text-xs font-semibold uppercase tracking-wider text-muted-foreground border-border/60 bg-card/60 backdrop-blur-sm px-3.5 py-1"
+        >
+          Onboarding do Personal
+        </Badge>
       </header>
 
       {/* Main Container */}
       <main className="flex-1 flex items-center justify-center px-4 md:px-8 py-6 z-10">
-        <div className="w-full max-w-xl md:max-w-2xl min-h-[420px] flex flex-col justify-center">
-          <AnimatePresence mode="wait" initial={false} custom={direction}>
-
-            {/* STEP 1: Perfil Profissional */}
-            {currentStep === 1 && (
-              <motion.div
-                key="step1"
-                custom={direction}
-                variants={slideVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                className="space-y-6 md:space-y-8"
-              >
-                <div className="space-y-2">
-                  <span className="text-[10px] font-black text-primary uppercase tracking-widest leading-none flex items-center gap-1.5">
-                    <User className="size-3.5" /> Passo 1 de 3
-                  </span>
-                  <h2 className="text-2xl md:text-3xl font-black tracking-tight text-white leading-tight">
-                    Monte seu perfil profissional
-                  </h2>
-                  <p className="text-xs text-neutral-450 font-semibold leading-relaxed">
-                    Estas informações serão expostas aos seus alunos no aplicativo deles.
-                  </p>
+        <div className="w-full max-w-2xl flex flex-col space-y-6">
+          {/* Multi-step progress pills */}
+          <div className="grid grid-cols-3 gap-2 md:gap-3">
+            {STEPS.map((s) => {
+              const isDone = currentStep > s.id;
+              const isCurrent = currentStep === s.id;
+              return (
+                <div
+                  key={s.id}
+                  className={cn(
+                    "flex items-center gap-2 p-2.5 md:p-3 rounded-xl border text-xs font-semibold transition-all",
+                    isCurrent
+                      ? "bg-primary/10 border-primary/30 text-primary shadow-xs"
+                      : isDone
+                      ? "bg-muted/40 border-border/60 text-muted-foreground"
+                      : "bg-muted/10 border-border/30 text-muted-foreground/50"
+                  )}
+                >
+                  <div
+                    className={cn(
+                      "size-6 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0",
+                      isCurrent
+                        ? "bg-primary text-primary-foreground"
+                        : isDone
+                        ? "bg-primary/20 text-primary"
+                        : "bg-muted text-muted-foreground"
+                    )}
+                  >
+                    {isDone ? <CheckCircle2 className="size-3.5" /> : s.id}
+                  </div>
+                  <span className="hidden md:inline truncate">{s.title}</span>
                 </div>
+              );
+            })}
+          </div>
 
-                <div className="space-y-6">
-                  {/* Avatar upload */}
-                  <div className="flex flex-col sm:flex-row items-center gap-5 pb-4 border-b border-white/[0.04]">
-                    <div className="relative group size-20 rounded-full overflow-hidden border border-white/[0.08] bg-neutral-900 flex items-center justify-center shrink-0">
-                      {imageType === "file" && imagePreview ? (
-                        <img src={imagePreview} alt="Avatar Preview" className="size-full object-cover" />
-                      ) : imageType === "url" && imageUrl ? (
-                        <img src={imageUrl} alt="Avatar Preview" className="size-full object-cover" />
-                      ) : (
-                        <User className="size-9 text-neutral-500" />
-                      )}
+          {/* Card Container */}
+          <Card className="border-border/60 bg-card/85 backdrop-blur-xl shadow-2xl rounded-2xl overflow-hidden">
+            <CardContent className="p-6 md:p-10">
+              <AnimatePresence mode="wait" initial={false} custom={direction}>
 
-                      {imageType === "file" && (
-                        <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all">
-                          <Camera className="size-4.5 text-white" />
-                          <span className="text-[8px] font-black uppercase text-white">Upload</span>
-                          <input
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => handleFileSelect(e, setImageFile, setImagePreview)}
-                          />
-                        </label>
-                      )}
+                {/* STEP 1: Perfil Profissional */}
+                {currentStep === 1 && (
+                  <motion.div
+                    key="step1"
+                    custom={direction}
+                    variants={slideVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    className="space-y-6 md:space-y-8"
+                  >
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-black text-primary uppercase tracking-widest leading-none flex items-center gap-1.5">
+                        <User className="size-3.5" /> Passo 1 de 3
+                      </span>
+                      <h2 className="text-2xl md:text-3xl font-black tracking-tight text-foreground leading-tight">
+                        Monte seu perfil profissional
+                      </h2>
+                      <p className="text-xs text-muted-foreground font-semibold leading-relaxed">
+                        Estas informações serão expostas aos seus alunos no aplicativo deles.
+                      </p>
                     </div>
 
-                    <div className="space-y-3 flex-1 w-full">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-xs font-bold text-neutral-350">Foto de Perfil</Label>
-                        <div className="flex gap-1.5 bg-neutral-900/80 p-0.5 rounded-lg border border-white/[0.04]">
-                          <button
-                            type="button"
-                            onClick={() => setImageType("file")}
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${imageType === "file" ? "bg-primary text-white" : "text-neutral-400"
-                              }`}
-                          >
-                            Arquivo
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setImageType("url")}
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${imageType === "url" ? "bg-primary text-white" : "text-neutral-400"
-                              }`}
-                          >
-                            Link URL
-                          </button>
+                    <div className="space-y-6">
+                      {/* Avatar upload */}
+                      <div className="flex flex-col sm:flex-row items-center gap-5 pb-4 border-b border-border/50">
+                        <div className="relative group size-20 rounded-full overflow-hidden border border-border/80 bg-muted/30 flex items-center justify-center shrink-0">
+                          {imageType === "file" && imagePreview ? (
+                            <img src={imagePreview} alt="Avatar Preview" className="size-full object-cover" />
+                          ) : imageType === "url" && imageUrl ? (
+                            <img src={imageUrl} alt="Avatar Preview" className="size-full object-cover" />
+                          ) : (
+                            <User className="size-9 text-muted-foreground" />
+                          )}
+
+                          {imageType === "file" && (
+                            <label className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 flex flex-col items-center justify-center gap-1 cursor-pointer transition-all">
+                              <Camera className="size-4.5 text-white" />
+                              <span className="text-[8px] font-black uppercase text-white">Upload</span>
+                              <input
+                                type="file"
+                                accept="image/*"
+                                className="hidden"
+                                onChange={(e) => handleFileSelect(e, setImageFile, setImagePreview)}
+                              />
+                            </label>
+                          )}
+                        </div>
+
+                        <div className="space-y-3 flex-1 w-full">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">
+                              Foto de Perfil
+                            </Label>
+                            <div className="flex gap-1 bg-muted p-0.5 rounded-lg border border-border/50">
+                              <button
+                                type="button"
+                                onClick={() => setImageType("file")}
+                                className={cn(
+                                  "px-2.5 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer",
+                                  imageType === "file" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                                )}
+                              >
+                                Arquivo
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setImageType("url")}
+                                className={cn(
+                                  "px-2.5 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer",
+                                  imageType === "url" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                                )}
+                              >
+                                Link URL
+                              </button>
+                            </div>
+                          </div>
+
+                          {imageType === "file" ? (
+                            <p className="text-[10px] text-muted-foreground font-medium leading-normal">
+                              Passe o cursor sobre o círculo para carregar uma imagem em JPG ou PNG.
+                            </p>
+                          ) : (
+                            <Input
+                              placeholder="https://exemplo.com/suafoto.png"
+                              value={imageUrl}
+                              onChange={(e) => setImageUrl(e.target.value)}
+                              className="bg-background/80 border-input text-foreground focus-visible:ring-primary h-10 rounded-xl placeholder:text-muted-foreground/60 font-semibold text-xs"
+                            />
+                          )}
                         </div>
                       </div>
 
-                      {imageType === "file" ? (
-                        <p className="text-[10px] text-neutral-500 font-medium leading-normal">
-                          Passe o cursor sobre o círculo para carregar uma imagem em JPG ou PNG.
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="trainer-name" className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">
+                            Nome Completo
+                          </Label>
+                          <Input
+                            id="trainer-name"
+                            placeholder="Ex: Ricardo Silva"
+                            value={name}
+                            onChange={(e) => setName(e.target.value)}
+                            className="bg-background/80 border-input text-foreground focus-visible:ring-primary h-12 rounded-xl placeholder:text-muted-foreground/60 font-bold text-sm"
+                            required
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="trainer-specialty" className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">
+                            Especialidade Principal
+                          </Label>
+                          <Input
+                            id="trainer-specialty"
+                            placeholder="Ex: Hipertrofia & Definição"
+                            value={specialty}
+                            onChange={(e) => setSpecialty(e.target.value)}
+                            className="bg-background/80 border-input text-foreground focus-visible:ring-primary h-12 rounded-xl placeholder:text-muted-foreground/60 font-bold text-sm"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="trainer-experience" className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">
+                            Anos de Experiência
+                          </Label>
+                          <Input
+                            id="trainer-experience"
+                            placeholder="Ex: 5 anos"
+                            value={experience}
+                            onChange={(e) => setExperience(e.target.value)}
+                            className="bg-background/80 border-input text-foreground focus-visible:ring-primary h-12 rounded-xl placeholder:text-muted-foreground/60 font-bold text-sm"
+                            required
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="trainer-cref" className="text-[10px] font-black text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+                            <span>Registro CREF (Opcional)</span>
+                            <span className="text-[8px] text-muted-foreground/70 font-semibold normal-case">Opcional</span>
+                          </Label>
+                          <Input
+                            id="trainer-cref"
+                            placeholder="Ex: CREF 123456-G/SP"
+                            value={cref}
+                            onChange={(e) => setCref(e.target.value)}
+                            className="bg-background/80 border-input text-foreground focus-visible:ring-primary h-12 rounded-xl placeholder:text-muted-foreground/60 font-bold text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <Label htmlFor="trainer-bio" className="text-[10px] font-black text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+                          <span>Biografia Curta</span>
+                          <span className="text-[8px] text-muted-foreground/70 font-semibold normal-case">Opcional</span>
+                        </Label>
+                        <Textarea
+                          id="trainer-bio"
+                          placeholder="Conte rapidamente um pouco da sua trajetória e abordagem de treinos..."
+                          value={bio}
+                          onChange={(e) => setBio(e.target.value)}
+                          className="bg-background/80 border-input text-foreground focus-visible:ring-primary min-h-[90px] rounded-xl placeholder:text-muted-foreground/60 font-semibold text-xs leading-relaxed resize-none"
+                        />
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* STEP 2: Identidade Visual */}
+                {currentStep === 2 && (
+                  <motion.div
+                    key="step2"
+                    custom={direction}
+                    variants={slideVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    className="space-y-6 md:space-y-8"
+                  >
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-black text-primary uppercase tracking-widest leading-none flex items-center gap-1.5">
+                        <Paintbrush className="size-3.5" /> Passo 2 de 3
+                      </span>
+                      <h2 className="text-2xl md:text-3xl font-black tracking-tight text-foreground leading-tight">
+                        Crie a marca da sua Assessoria
+                      </h2>
+                      <p className="text-xs text-muted-foreground font-semibold leading-relaxed">
+                        Personalize o visual e a cor primária que pintarão todo o painel de treino e PDFs.
+                      </p>
+                    </div>
+
+                    <div className="space-y-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="brand-name" className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">
+                            Nome da Assessoria / Marca
+                          </Label>
+                          <Input
+                            id="brand-name"
+                            placeholder="Ex: Silva Assessoria Esportiva"
+                            value={brandName}
+                            onChange={(e) => setBrandName(e.target.value)}
+                            className="bg-background/80 border-input text-foreground focus-visible:ring-primary h-12 rounded-xl placeholder:text-muted-foreground/60 font-bold text-sm"
+                            required
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="brand-slogan" className="text-[10px] font-black text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+                            <span>Slogan / Slogan de Impacto</span>
+                            <span className="text-[8px] text-muted-foreground/70 font-semibold normal-case">Opcional</span>
+                          </Label>
+                          <Input
+                            id="brand-slogan"
+                            placeholder="Ex: Conquiste sua melhor versão"
+                            value={brandSlogan}
+                            onChange={(e) => setBrandSlogan(e.target.value)}
+                            className="bg-background/80 border-input text-foreground focus-visible:ring-primary h-12 rounded-xl placeholder:text-muted-foreground/60 font-bold text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      {/* Primary Color Picker */}
+                      <div className="space-y-2">
+                        <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                          <Palette className="size-3.5 text-primary" /> Cor do Tema da Assessoria
+                        </Label>
+                        <div className="flex gap-3">
+                          <div className="relative size-12 shrink-0 rounded-xl overflow-hidden border border-border/80 shadow-xs">
+                            <input
+                              type="color"
+                              value={brandColor}
+                              onChange={(e) => setBrandColor(e.target.value)}
+                              className="absolute inset-0 size-full p-0 border-0 cursor-pointer scale-150"
+                            />
+                          </div>
+                          <Input
+                            value={brandColor}
+                            onChange={(e) => setBrandColor(e.target.value)}
+                            className="flex-1 uppercase font-mono text-sm tracking-wider rounded-xl bg-background/80 border-input h-12 text-foreground font-bold"
+                          />
+                        </div>
+                      </div>
+
+                      {/* LOGO, WATERMARK, COVER Inputs */}
+                      <div className="space-y-4 pt-2 border-t border-border/50">
+
+                        {/* Logotipo */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-wider flex items-center justify-between w-full">
+                              <span>Logotipo da Marca (Opcional)</span>
+                              <span className="text-[8px] text-muted-foreground/70 font-semibold normal-case">Opcional</span>
+                            </Label>
+                            <div className="flex gap-1 bg-muted p-0.5 rounded-lg border border-border/50">
+                              <button
+                                type="button"
+                                onClick={() => setLogoType("file")}
+                                className={cn(
+                                  "px-2.5 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer",
+                                  logoType === "file" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                                )}
+                              >
+                                Arquivo
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setLogoType("url")}
+                                className={cn(
+                                  "px-2.5 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer",
+                                  logoType === "url" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                                )}
+                              >
+                                Link URL
+                              </button>
+                            </div>
+                          </div>
+
+                          {logoType === "file" ? (
+                            <div className="flex items-center gap-3">
+                              <Input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => handleFileSelect(e, setLogoFile, setLogoPreview)}
+                                className="bg-background/80 border-input text-foreground focus-visible:ring-primary h-11 rounded-xl text-xs flex items-center pt-2.5"
+                              />
+                              {logoPreview && (
+                                <div className="size-11 rounded-lg border border-border/80 bg-muted/30 overflow-hidden flex items-center justify-center shrink-0">
+                                  <img src={logoPreview} className="size-full object-cover" />
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <Input
+                              placeholder="https://exemplo.com/logo.png"
+                              value={logoUrl}
+                              onChange={(e) => setLogoUrl(e.target.value)}
+                              className="bg-background/80 border-input text-foreground focus-visible:ring-primary h-11 rounded-xl text-xs"
+                            />
+                          )}
+                        </div>
+
+                        {/* Marca d'agua */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1.5">
+                              <span>Marca d'água de Impressão (Opcional)</span>
+                            </Label>
+                            <div className="flex gap-1 bg-muted p-0.5 rounded-lg border border-border/50">
+                              <button
+                                type="button"
+                                onClick={() => setWatermarkType("file")}
+                                className={cn(
+                                  "px-2.5 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer",
+                                  watermarkType === "file" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                                )}
+                              >
+                                Arquivo
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setWatermarkType("url")}
+                                className={cn(
+                                  "px-2.5 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer",
+                                  watermarkType === "url" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                                )}
+                              >
+                                Link URL
+                              </button>
+                            </div>
+                          </div>
+
+                          {watermarkType === "file" ? (
+                            <div className="flex items-center gap-3">
+                              <Input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => handleFileSelect(e, setWatermarkFile, setWatermarkPreview)}
+                                className="bg-background/80 border-input text-foreground focus-visible:ring-primary h-11 rounded-xl text-xs flex items-center pt-2.5"
+                              />
+                              {watermarkPreview && (
+                                <div className="size-11 rounded-lg border border-border/80 bg-muted/30 overflow-hidden flex items-center justify-center shrink-0">
+                                  <img src={watermarkPreview} className="size-full object-cover" />
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <Input
+                              placeholder="https://exemplo.com/marca-dagua.png"
+                              value={watermarkUrl}
+                              onChange={(e) => setWatermarkUrl(e.target.value)}
+                              className="bg-background/80 border-input text-foreground focus-visible:ring-primary h-11 rounded-xl text-xs"
+                            />
+                          )}
+                        </div>
+
+                        {/* Capa de treino */}
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between">
+                            <Label className="text-[10px] font-black text-muted-foreground uppercase tracking-wider">Capa Padrão de Treinos (Opcional)</Label>
+                            <div className="flex gap-1 bg-muted p-0.5 rounded-lg border border-border/50">
+                              <button
+                                type="button"
+                                onClick={() => setCoverType("file")}
+                                className={cn(
+                                  "px-2.5 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer",
+                                  coverType === "file" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                                )}
+                              >
+                                Arquivo
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setCoverType("url")}
+                                className={cn(
+                                  "px-2.5 py-1 rounded-md text-[10px] font-bold transition-all cursor-pointer",
+                                  coverType === "url" ? "bg-card text-foreground shadow-xs" : "text-muted-foreground hover:text-foreground"
+                                )}
+                              >
+                                Link URL
+                              </button>
+                            </div>
+                          </div>
+
+                          {coverType === "file" ? (
+                            <div className="flex items-center gap-3">
+                              <Input
+                                type="file"
+                                accept="image/*"
+                                onChange={(e) => handleFileSelect(e, setCoverFile, setCoverPreview)}
+                                className="bg-background/80 border-input text-foreground focus-visible:ring-primary h-11 rounded-xl text-xs flex items-center pt-2.5"
+                              />
+                              {coverPreview && (
+                                <div className="size-11 rounded-lg border border-border/80 bg-muted/30 overflow-hidden flex items-center justify-center shrink-0">
+                                  <img src={coverPreview} className="size-full object-cover" />
+                                </div>
+                              )}
+                            </div>
+                          ) : (
+                            <Input
+                              placeholder="https://exemplo.com/capa-treino.jpg"
+                              value={coverUrl}
+                              onChange={(e) => setCoverUrl(e.target.value)}
+                              className="bg-background/80 border-input text-foreground focus-visible:ring-primary h-11 rounded-xl text-xs"
+                            />
+                          )}
+                        </div>
+
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* STEP 3: Contatos e Localização */}
+                {currentStep === 3 && (
+                  <motion.div
+                    key="step3"
+                    custom={direction}
+                    variants={slideVariants}
+                    initial="enter"
+                    animate="center"
+                    exit="exit"
+                    className="space-y-6 md:space-y-8"
+                  >
+                    <div className="space-y-2">
+                      <span className="text-[10px] font-black text-primary uppercase tracking-widest leading-none flex items-center gap-1.5">
+                        <Phone className="size-3.5" /> Passo 3 de 3
+                      </span>
+                      <h2 className="text-2xl md:text-3xl font-black tracking-tight text-foreground leading-tight">
+                        Como os alunos te contatam?
+                      </h2>
+                      <p className="text-xs text-muted-foreground font-semibold leading-relaxed">
+                        Insira seus canais de contato e sua cidade/estado de atuação.
+                      </p>
+                    </div>
+
+                    <div className="space-y-5">
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="trainer-whatsapp" className="text-[10px] font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                            <Phone className="size-3 text-primary" /> WhatsApp (DDD + Celular)
+                          </Label>
+                          <Input
+                            id="trainer-whatsapp"
+                            placeholder="Ex: (11) 99999-9999"
+                            value={whatsapp}
+                            onChange={(e) => setWhatsapp(formatPhone(e.target.value))}
+                            className="bg-background/80 border-input text-foreground focus-visible:ring-primary h-12 rounded-xl placeholder:text-muted-foreground/60 font-bold text-sm"
+                            required
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="trainer-city" className="text-[10px] font-black text-muted-foreground uppercase tracking-wider flex items-center gap-1">
+                            <MapPin className="size-3 text-primary" /> Cidade / Estado (UF)
+                          </Label>
+                          <Input
+                            id="trainer-city"
+                            placeholder="Ex: São Paulo - SP"
+                            value={city}
+                            onChange={(e) => setCity(e.target.value)}
+                            className="bg-background/80 border-input text-foreground focus-visible:ring-primary h-12 rounded-xl placeholder:text-muted-foreground/60 font-bold text-sm"
+                            required
+                          />
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-border/50">
+                        <div className="space-y-2">
+                          <Label htmlFor="trainer-instagram" className="text-[10px] font-black text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+                            <span className="flex items-center gap-1">
+                              <HugeiconsIcon icon={InstagramIcon} className="size-3.5 text-primary" /> Instagram
+                            </span>
+                            <span className="text-[8px] text-muted-foreground/70 font-semibold normal-case">Opcional</span>
+                          </Label>
+                          <Input
+                            id="trainer-instagram"
+                            placeholder="Ex: @ricardo.personal"
+                            value={instagram}
+                            onChange={(e) => setInstagram(e.target.value)}
+                            className="bg-background/80 border-input text-foreground focus-visible:ring-primary h-12 rounded-xl placeholder:text-muted-foreground/60 font-bold text-sm"
+                          />
+                        </div>
+
+                        <div className="space-y-2">
+                          <Label htmlFor="trainer-linkedin" className="text-[10px] font-black text-muted-foreground uppercase tracking-wider flex items-center justify-between">
+                            <span className="flex items-center gap-1">
+                              <HugeiconsIcon icon={LinkedinIcon} className="size-3.5 text-primary" /> LinkedIn Link
+                            </span>
+                            <span className="text-[8px] text-muted-foreground/70 font-semibold normal-case">Opcional</span>
+                          </Label>
+                          <Input
+                            id="trainer-linkedin"
+                            placeholder="Ex: linkedin.com/in/ricardo"
+                            value={linkedin}
+                            onChange={(e) => setLinkedin(e.target.value)}
+                            className="bg-background/80 border-input text-foreground focus-visible:ring-primary h-12 rounded-xl placeholder:text-muted-foreground/60 font-bold text-sm"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-muted/40 border border-border/50 rounded-2xl flex gap-3.5 items-start mt-2">
+                        <CheckCircle2 className="size-5 text-primary shrink-0 mt-0.5" />
+                        <p className="text-[11px] text-muted-foreground font-semibold leading-relaxed">
+                          Quase tudo pronto! Ao finalizar, você terá acesso imediato ao seu dashboard, link de captação personalizado e poderá começar a gerenciar seus alunos e treinos.
                         </p>
-                      ) : (
-                        <Input
-                          placeholder="https://exemplo.com/suafoto.png"
-                          value={imageUrl}
-                          onChange={(e) => setImageUrl(e.target.value)}
-                          className="bg-neutral-900 border-white/[0.06] focus-visible:ring-primary h-10 text-white rounded-xl placeholder:text-neutral-600 font-semibold text-xs"
-                        />
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="trainer-name" className="text-[10px] font-black text-neutral-400 uppercase tracking-wider">
-                        Nome Completo
-                      </Label>
-                      <Input
-                        id="trainer-name"
-                        placeholder="Ex: Ricardo Silva"
-                        value={name}
-                        onChange={(e) => setName(e.target.value)}
-                        className="bg-neutral-900 border-white/[0.06] focus-visible:ring-primary h-12 text-white rounded-xl placeholder:text-neutral-650 font-extrabold text-sm"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="trainer-specialty" className="text-[10px] font-black text-neutral-400 uppercase tracking-wider">
-                        Especialidade Principal
-                      </Label>
-                      <Input
-                        id="trainer-specialty"
-                        placeholder="Ex: Hipertrofia & Definição"
-                        value={specialty}
-                        onChange={(e) => setSpecialty(e.target.value)}
-                        className="bg-neutral-900 border-white/[0.06] focus-visible:ring-primary h-12 text-white rounded-xl placeholder:text-neutral-650 font-extrabold text-sm"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="trainer-experience" className="text-[10px] font-black text-neutral-400 uppercase tracking-wider">
-                        Anos de Experiência
-                      </Label>
-                      <Input
-                        id="trainer-experience"
-                        placeholder="Ex: 5 anos"
-                        value={experience}
-                        onChange={(e) => setExperience(e.target.value)}
-                        className="bg-neutral-900 border-white/[0.06] focus-visible:ring-primary h-12 text-white rounded-xl placeholder:text-neutral-655 font-extrabold text-sm"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="trainer-cref" className="text-[10px] font-black text-neutral-400 uppercase tracking-wider flex items-center justify-between">
-                        <span>Registro CREF (Opcional)</span>
-                        <span className="text-[8px] text-neutral-500 font-semibold normal-case">Opcional</span>
-                      </Label>
-                      <Input
-                        id="trainer-cref"
-                        placeholder="Ex: CREF 123456-G/SP"
-                        value={cref}
-                        onChange={(e) => setCref(e.target.value)}
-                        className="bg-neutral-900 border-white/[0.06] focus-visible:ring-primary h-12 text-white rounded-xl placeholder:text-neutral-650 font-extrabold text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="trainer-bio" className="text-[10px] font-black text-neutral-400 uppercase tracking-wider flex items-center justify-between">
-                      <span>Biografia Curta</span>
-                      <span className="text-[8px] text-neutral-500 font-semibold normal-case">Opcional</span>
-                    </Label>
-                    <Textarea
-                      id="trainer-bio"
-                      placeholder="Conte rapidamente um pouco da sua trajetória e abordagem de treinos..."
-                      value={bio}
-                      onChange={(e) => setBio(e.target.value)}
-                      className="bg-neutral-900 border-white/[0.06] focus-visible:ring-primary min-h-[90px] text-white rounded-xl placeholder:text-neutral-650 font-semibold text-xs leading-relaxed resize-none"
-                    />
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* STEP 2: Identidade Visual */}
-            {currentStep === 2 && (
-              <motion.div
-                key="step2"
-                custom={direction}
-                variants={slideVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                className="space-y-6 md:space-y-8"
-              >
-                <div className="space-y-2">
-                  <span className="text-[10px] font-black text-primary uppercase tracking-widest leading-none flex items-center gap-1.5">
-                    <Paintbrush className="size-3.5" /> Passo 2 de 3
-                  </span>
-                  <h2 className="text-2xl md:text-3xl font-black tracking-tight text-white leading-tight">
-                    Crie a marca da sua Assessoria
-                  </h2>
-                  <p className="text-xs text-neutral-450 font-semibold leading-relaxed">
-                    Personalize o visual e a cor primária que pintarão todo o painel de treino e PDFs.
-                  </p>
-                </div>
-
-                <div className="space-y-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="brand-name" className="text-[10px] font-black text-neutral-400 uppercase tracking-wider">
-                        Nome da Assessoria / Marca
-                      </Label>
-                      <Input
-                        id="brand-name"
-                        placeholder="Ex: Silva Assessoria Esportiva"
-                        value={brandName}
-                        onChange={(e) => setBrandName(e.target.value)}
-                        className="bg-neutral-900 border-white/[0.06] focus-visible:ring-primary h-12 text-white rounded-xl placeholder:text-neutral-650 font-extrabold text-sm"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="brand-slogan" className="text-[10px] font-black text-neutral-400 uppercase tracking-wider flex items-center justify-between">
-                        <span>Slogan / Slogan de Impacto</span>
-                        <span className="text-[8px] text-neutral-500 font-semibold normal-case">Opcional</span>
-                      </Label>
-                      <Input
-                        id="brand-slogan"
-                        placeholder="Ex: Conquiste sua melhor versão"
-                        value={brandSlogan}
-                        onChange={(e) => setBrandSlogan(e.target.value)}
-                        className="bg-neutral-900 border-white/[0.06] focus-visible:ring-primary h-12 text-white rounded-xl placeholder:text-neutral-650 font-extrabold text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  {/* Primary Color Picker */}
-                  <div className="space-y-2">
-                    <Label className="text-[10px] font-black text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
-                      <Palette className="size-3.5 text-primary" /> Cor do Tema da Assessoria
-                    </Label>
-                    <div className="flex gap-3">
-                      <div className="relative size-12 shrink-0 rounded-xl overflow-hidden border border-white/[0.06] shadow-md">
-                        <input
-                          type="color"
-                          value={brandColor}
-                          onChange={(e) => setBrandColor(e.target.value)}
-                          className="absolute inset-0 size-full p-0 border-0 cursor-pointer scale-150"
-                        />
                       </div>
-                      <Input
-                        value={brandColor}
-                        onChange={(e) => setBrandColor(e.target.value)}
-                        className="flex-1 uppercase font-mono text-sm tracking-wider rounded-xl bg-neutral-900 border-white/[0.06] h-12 text-white font-bold"
-                      />
                     </div>
-                  </div>
+                  </motion.div>
+                )}
 
-                  {/* LOGO, WATERMARK, COVER Inputs */}
-                  <div className="space-y-4 pt-2 border-t border-white/[0.04]">
-
-                    {/* Logotipo */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-[10px] font-black text-neutral-400 uppercase tracking-wider flex items-center justify-between w-full">
-                          <span>Logotipo da Marca (Opcional)</span>
-                          <span className="text-[8px] text-neutral-500 font-semibold normal-case">Opcional</span>
-                        </Label>
-                        <div className="flex gap-1.5 bg-neutral-900/80 p-0.5 rounded-lg border border-white/[0.04]">
-                          <button
-                            type="button"
-                            onClick={() => setLogoType("file")}
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${logoType === "file" ? "bg-primary text-white" : "text-neutral-400"
-                              }`}
-                          >
-                            Arquivo
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setLogoType("url")}
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${logoType === "url" ? "bg-primary text-white" : "text-neutral-400"
-                              }`}
-                          >
-                            Link URL
-                          </button>
-                        </div>
-                      </div>
-
-                      {logoType === "file" ? (
-                        <div className="flex items-center gap-3">
-                          <Input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleFileSelect(e, setLogoFile, setLogoPreview)}
-                            className="bg-neutral-900 border-white/[0.06] focus-visible:ring-primary h-11 text-white rounded-xl text-xs flex items-center pt-2.5"
-                          />
-                          {logoPreview && (
-                            <div className="size-11 rounded-lg border border-white/[0.06] bg-neutral-900 overflow-hidden flex items-center justify-center shrink-0">
-                              <img src={logoPreview} className="size-full object-cover" />
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <Input
-                          placeholder="https://exemplo.com/logo.png"
-                          value={logoUrl}
-                          onChange={(e) => setLogoUrl(e.target.value)}
-                          className="bg-neutral-900 border-white/[0.06] focus-visible:ring-primary h-11 text-white rounded-xl text-xs"
-                        />
-                      )}
-                    </div>
-
-                    {/* Marca d'agua */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-[10px] font-black text-neutral-400 uppercase tracking-wider flex items-center gap-1.5">
-                          <span>Marca d'água de Impressão (Opcional)</span>
-                        </Label>
-                        <div className="flex gap-1.5 bg-neutral-900/80 p-0.5 rounded-lg border border-white/[0.04]">
-                          <button
-                            type="button"
-                            onClick={() => setWatermarkType("file")}
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${watermarkType === "file" ? "bg-primary text-white" : "text-neutral-400"
-                              }`}
-                          >
-                            Arquivo
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setWatermarkType("url")}
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${watermarkType === "url" ? "bg-primary text-white" : "text-neutral-400"
-                              }`}
-                          >
-                            Link URL
-                          </button>
-                        </div>
-                      </div>
-
-                      {watermarkType === "file" ? (
-                        <div className="flex items-center gap-3">
-                          <Input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleFileSelect(e, setWatermarkFile, setWatermarkPreview)}
-                            className="bg-neutral-900 border-white/[0.06] focus-visible:ring-primary h-11 text-white rounded-xl text-xs flex items-center pt-2.5"
-                          />
-                          {watermarkPreview && (
-                            <div className="size-11 rounded-lg border border-white/[0.06] bg-neutral-900 overflow-hidden flex items-center justify-center shrink-0">
-                              <img src={watermarkPreview} className="size-full object-cover" />
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <Input
-                          placeholder="https://exemplo.com/marca-dagua.png"
-                          value={watermarkUrl}
-                          onChange={(e) => setWatermarkUrl(e.target.value)}
-                          className="bg-neutral-900 border-white/[0.06] focus-visible:ring-primary h-11 text-white rounded-xl text-xs"
-                        />
-                      )}
-                    </div>
-
-                    {/* Capa de treino */}
-                    <div className="space-y-2">
-                      <div className="flex items-center justify-between">
-                        <Label className="text-[10px] font-black text-neutral-400 uppercase tracking-wider">Capa Padrão de Treinos (Opcional)</Label>
-                        <div className="flex gap-1.5 bg-neutral-900/80 p-0.5 rounded-lg border border-white/[0.04]">
-                          <button
-                            type="button"
-                            onClick={() => setCoverType("file")}
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${coverType === "file" ? "bg-primary text-white" : "text-neutral-400"
-                              }`}
-                          >
-                            Arquivo
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setCoverType("url")}
-                            className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all ${coverType === "url" ? "bg-primary text-white" : "text-neutral-400"
-                              }`}
-                          >
-                            Link URL
-                          </button>
-                        </div>
-                      </div>
-
-                      {coverType === "file" ? (
-                        <div className="flex items-center gap-3">
-                          <Input
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => handleFileSelect(e, setCoverFile, setCoverPreview)}
-                            className="bg-neutral-900 border-white/[0.06] focus-visible:ring-primary h-11 text-white rounded-xl text-xs flex items-center pt-2.5"
-                          />
-                          {coverPreview && (
-                            <div className="size-11 rounded-lg border border-white/[0.06] bg-neutral-900 overflow-hidden flex items-center justify-center shrink-0">
-                              <img src={coverPreview} className="size-full object-cover" />
-                            </div>
-                          )}
-                        </div>
-                      ) : (
-                        <Input
-                          placeholder="https://exemplo.com/capa-treino.jpg"
-                          value={coverUrl}
-                          onChange={(e) => setCoverUrl(e.target.value)}
-                          className="bg-neutral-900 border-white/[0.06] focus-visible:ring-primary h-11 text-white rounded-xl text-xs"
-                        />
-                      )}
-                    </div>
-
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-            {/* STEP 3: Contatos e Localização */}
-            {currentStep === 3 && (
-              <motion.div
-                key="step3"
-                custom={direction}
-                variants={slideVariants}
-                initial="enter"
-                animate="center"
-                exit="exit"
-                className="space-y-6 md:space-y-8"
-              >
-                <div className="space-y-2">
-                  <span className="text-[10px] font-black text-primary uppercase tracking-widest leading-none flex items-center gap-1.5">
-                    <Phone className="size-3.5" /> Passo 3 de 3
-                  </span>
-                  <h2 className="text-2xl md:text-3xl font-black tracking-tight text-white leading-tight">
-                    Como os alunos te contatam?
-                  </h2>
-                  <p className="text-xs text-neutral-450 font-semibold leading-relaxed">
-                    Insira seus canais de contato e sua cidade/estado de atuação.
-                  </p>
-                </div>
-
-                <div className="space-y-5">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="trainer-whatsapp" className="text-[10px] font-black text-neutral-400 uppercase tracking-wider flex items-center gap-1">
-                        <Phone className="size-3 text-primary" /> WhatsApp (DDD + Celular)
-                      </Label>
-                      <Input
-                        id="trainer-whatsapp"
-                        placeholder="Ex: (11) 99999-9999"
-                        value={whatsapp}
-                        onChange={(e) => setWhatsapp(formatPhone(e.target.value))}
-                        className="bg-neutral-900 border-white/[0.06] focus-visible:ring-primary h-12 text-white rounded-xl placeholder:text-neutral-650 font-extrabold text-sm"
-                        required
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="trainer-city" className="text-[10px] font-black text-neutral-400 uppercase tracking-wider flex items-center gap-1">
-                        <MapPin className="size-3 text-primary" /> Cidade / Estado (UF)
-                      </Label>
-                      <Input
-                        id="trainer-city"
-                        placeholder="Ex: São Paulo - SP"
-                        value={city}
-                        onChange={(e) => setCity(e.target.value)}
-                        className="bg-neutral-900 border-white/[0.06] focus-visible:ring-primary h-12 text-white rounded-xl placeholder:text-neutral-650 font-extrabold text-sm"
-                        required
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-white/[0.04]">
-                    <div className="space-y-2">
-                      <Label htmlFor="trainer-instagram" className="text-[10px] font-black text-neutral-400 uppercase tracking-wider flex items-center justify-between">
-                        <span className="flex items-center gap-1">
-                          <HugeiconsIcon icon={InstagramIcon} className="size-3.5 text-primary" /> Instagram
-                        </span>
-                        <span className="text-[8px] text-neutral-500 font-semibold normal-case">Opcional</span>
-                      </Label>
-                      <Input
-                        id="trainer-instagram"
-                        placeholder="Ex: @ricardo.personal"
-                        value={instagram}
-                        onChange={(e) => setInstagram(e.target.value)}
-                        className="bg-neutral-900 border-white/[0.06] focus-visible:ring-primary h-12 text-white rounded-xl placeholder:text-neutral-650 font-extrabold text-sm"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="trainer-linkedin" className="text-[10px] font-black text-neutral-400 uppercase tracking-wider flex items-center justify-between">
-                        <span className="flex items-center gap-1">
-                          <HugeiconsIcon icon={LinkedinIcon} className="size-3.5 text-primary" /> LinkedIn Link
-                        </span>
-                        <span className="text-[8px] text-neutral-500 font-semibold normal-case">Opcional</span>
-                      </Label>
-                      <Input
-                        id="trainer-linkedin"
-                        placeholder="Ex: linkedin.com/in/ricardo"
-                        value={linkedin}
-                        onChange={(e) => setLinkedin(e.target.value)}
-                        className="bg-neutral-900 border-white/[0.06] focus-visible:ring-primary h-12 text-white rounded-xl placeholder:text-neutral-650 font-extrabold text-sm"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="p-4 bg-white/[0.02] border border-white/[0.04] rounded-2xl flex gap-3.5 items-start mt-2">
-                    <CheckCircle2 className="size-5.5 text-primary shrink-0 mt-0.5" />
-                    <p className="text-[11px] text-neutral-400 font-semibold leading-relaxed">
-                      Quase tudo pronto! Ao finalizar, você terá acesso imediato ao seu dashboard, link de captação personalizado e poderá começar a gerenciar seus alunos e treinos.
-                    </p>
-                  </div>
-                </div>
-              </motion.div>
-            )}
-
-          </AnimatePresence>
+              </AnimatePresence>
+            </CardContent>
+          </Card>
         </div>
       </main>
 
       {/* Footer / Progress indicator */}
-      <footer className="p-6 md:p-8 space-y-6 bg-neutral-950/80 backdrop-blur-md border-t border-white/[0.02] z-10">
+      <footer className="p-6 md:p-8 space-y-6 bg-background/80 backdrop-blur-md border-t border-border/50 z-10">
 
         {/* Progress Tracker */}
-        <div className="max-w-xl mx-auto space-y-2">
-          <div className="h-1.5 w-full bg-neutral-900 rounded-full overflow-hidden">
+        <div className="max-w-2xl mx-auto space-y-2">
+          <div className="h-1.5 w-full bg-muted rounded-full overflow-hidden">
             <div
               className="h-full bg-primary rounded-full transition-all duration-300"
               style={{ width: `${progressPercent}%` }}
             />
           </div>
-          <div className="flex justify-between text-[9px] font-black uppercase text-neutral-450 tracking-wider leading-none">
+          <div className="flex justify-between text-[9px] font-black uppercase text-muted-foreground tracking-wider leading-none">
             <span>Início</span>
             <span>Concluído</span>
           </div>
         </div>
 
         {/* Buttons */}
-        <div className="max-w-xl mx-auto flex items-center justify-between">
+        <div className="max-w-2xl mx-auto flex items-center justify-between">
           <Button
             onClick={handleBack}
             disabled={currentStep === 1 || loading}
-            variant="ghost"
-            className="rounded-xl h-11 px-5 border border-white/[0.04] text-neutral-350 hover:text-white hover:bg-white/[0.03] disabled:opacity-30 disabled:hover:bg-transparent font-bold text-xs uppercase tracking-wider cursor-pointer"
+            variant="outline"
+            className="rounded-xl h-11 px-5 border-border/60 text-muted-foreground hover:text-foreground hover:bg-accent disabled:opacity-40 font-bold text-xs uppercase tracking-wider cursor-pointer"
           >
             <ChevronLeft className="size-4 mr-1" /> Voltar
           </Button>
@@ -859,7 +932,7 @@ export default function PersonalOnboardingPage() {
           <Button
             onClick={handleNext}
             disabled={loading}
-            className="rounded-xl h-11 px-6 bg-primary text-primary-foreground hover:bg-primary/90 font-bold text-xs uppercase tracking-wider shadow-lg shadow-primary/10 cursor-pointer min-w-[120px]"
+            className="rounded-xl h-11 px-6 font-bold text-xs uppercase tracking-wider shadow-md cursor-pointer min-w-[130px]"
           >
             {loading ? (
               <div className="flex items-center gap-1.5">
