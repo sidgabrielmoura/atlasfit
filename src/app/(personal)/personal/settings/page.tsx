@@ -621,8 +621,7 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="flex-1 space-y-8 p-4 md:p-8 pt-6 w-full">
-      {/* Live brand color CSS custom property overrides for instant color feedback */}
+    <div className="flex-1 space-y-8 p-4 md:p-8 pt-6 w-full max-w-400 mx-auto">
       <style dangerouslySetInnerHTML={{
         __html: `
           :root, .dark {

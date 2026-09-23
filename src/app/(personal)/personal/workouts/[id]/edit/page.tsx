@@ -636,7 +636,7 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
 
   if (loading) {
     return (
-      <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 max-w-4xl mx-auto">
+      <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 max-w-400 mx-auto">
         <div className="flex items-center gap-4">
           <Skeleton className="h-9 w-9 bg-muted rounded-lg animate-pulse" />
           <div className="space-y-1.5">
@@ -700,7 +700,7 @@ export default function EditWorkoutPage({ params }: EditWorkoutPageProps) {
   }
 
   return (
-    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 max-w-4xl mx-auto">
+    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 max-w-400 mx-auto">
       {/* Header */}
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" asChild>

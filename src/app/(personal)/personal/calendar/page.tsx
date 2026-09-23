@@ -439,7 +439,7 @@ export default function CalendarPage() {
   );
 
   return (
-    <div className="flex-1 flex flex-col space-y-8 p-4 md:p-8 pt-6 overflow-hidden w-full bg-background">
+    <div className="flex-1 flex flex-col space-y-8 p-4 md:p-8 pt-6 overflow-hidden w-full bg-background max-w-400 mx-auto">
       <div className="flex flex-col max-sm:gap-4 sm:flex-row items-start sm:items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight text-foreground">Tarefas Diárias</h2>

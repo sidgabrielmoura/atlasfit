@@ -333,8 +333,7 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
   const pendingCount = pendingRecordsList.length;
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6 md:p-8 space-y-6 mx-auto max-w-5xl font-sans pb-24 sm:pb-8">
-      {/* Header Corporativo */}
+    <div className="min-h-screen bg-background p-4 sm:p-6 md:p-8 space-y-6 max-w-400 mx-auto font-sans pb-24 sm:pb-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/50 pb-5">
         <div className="flex items-center gap-3">
           <Button
@@ -379,7 +378,6 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
         </Button>
       </div>
 
-      {/* Navegação de Filtros Responsiva */}
       <div className="bg-card p-2 rounded-2xl border border-border/80 shadow-2xs">
         <div className="flex overflow-x-auto no-scrollbar gap-1.5 pb-1">
           {[
@@ -408,9 +406,9 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
         </div>
       </div>
 
-      {/* Grid de Cards de Registros */}
       {isLoadingRecords ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+          <Skeleton className="h-40 w-full rounded-3xl" />
           <Skeleton className="h-40 w-full rounded-3xl" />
           <Skeleton className="h-40 w-full rounded-3xl" />
         </div>
@@ -423,7 +421,7 @@ export default function ReviewJobPage({ params }: { params: Promise<{ id: string
           </CardContent>
         </Card>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
           {records.map((rec) => {
             const norm = rec.normalizedData || {};
             const isStudent = rec.entityType === "STUDENT";

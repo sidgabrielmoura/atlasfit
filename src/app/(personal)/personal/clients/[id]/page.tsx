@@ -1970,9 +1970,8 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   };
 
   return (
-    <div className="container max-w-7xl mx-auto px-4 py-8 space-y-8 animate-in fade-in duration-300">
+    <div className="max-w-400 mx-auto px-4 py-8 space-y-8 animate-in fade-in duration-300">
 
-      {/* Breadcrumbs */}
       <div className="flex items-center gap-2 text-sm text-muted-foreground">
         <Link href="/personal/clients" className="hover:text-foreground flex items-center transition-colors">
           <ChevronLeft className="size-4 mr-0.5" /> Voltar para Alunos
@@ -1981,7 +1980,6 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
         <span className="text-foreground font-medium">Perfil do Aluno</span>
       </div>
 
-      {/* Profile Header Block */}
       {loadingProfile ? (
         <Card className="border overflow-hidden bg-card/40 dark:bg-zinc-950/40 backdrop-blur-md border border-border/30 dark:border-border/10 rounded-2xl">
           <CardContent className="p-6 sm:p-8 flex flex-col md:flex-row items-center gap-6 relative">
@@ -2157,7 +2155,6 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
           {!loadingWorkouts && studentWorkouts.length > 0 && (
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4 bg-muted/10 dark:bg-zinc-900/10 p-3 rounded-2xl border border-border/30">
-              {/* Display Mode Selector */}
               <div className="flex bg-muted/60 dark:bg-zinc-900/60 p-1 rounded-xl border border-border/40 w-fit shrink-0">
                 <button
                   type="button"

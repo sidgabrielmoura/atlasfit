@@ -640,7 +640,7 @@ export default function WorkoutDetailsPage({ params }: WorkoutDetailsPageProps) 
   if (!workout) return null;
 
   return (
-    <div className="flex-1 space-y-8 p-4 md:p-8 pt-6 max-w-7xl mx-auto relative overflow-hidden">
+    <div className="flex-1 space-y-8 p-4 md:p-8 pt-6 max-w-400 mx-auto relative overflow-hidden">
       {/* Glow aesthetic overlays */}
       <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-primary/[0.02] rounded-full blur-[120px] -z-10 pointer-events-none" />
       <div className="absolute bottom-10 right-1/4 w-[500px] h-[500px] bg-purple-500/[0.02] rounded-full blur-[120px] -z-10 pointer-events-none" />

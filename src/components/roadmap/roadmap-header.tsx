@@ -31,7 +31,7 @@ export function RoadmapHeader({
   onOpenAdminMetricsModal,
 }: RoadmapHeaderProps) {
   return (
-    <div className="space-y-4 pb-4 border-b border-border/30">
+    <div className="space-y-4 pb-4 border-b border-border/30 max-w-400 mx-auto">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">

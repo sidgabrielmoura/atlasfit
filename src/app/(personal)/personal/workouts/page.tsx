@@ -582,8 +582,7 @@ export default function WorkoutsPage() {
   const filteredExercises = dbExercises;
 
   return (
-    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6">
-      {/* Header */}
+    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 max-w-400 mx-auto">
       <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Treinos e Exercícios</h2>
@@ -1208,9 +1207,8 @@ export default function WorkoutsPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal: Solicitar Reajuste de Exercício */}
       <Dialog open={isAdjustmentModalOpen} onOpenChange={setIsAdjustmentModalOpen}>
-        <DialogContent className="max-w-md w-[95%] rounded-xl">
+        <DialogContent className="max-w-md w-[95%] rounded-2xl!">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <RefreshCw className="size-5 text-primary animate-spin-slow" />
@@ -1221,7 +1219,6 @@ export default function WorkoutsPage() {
               <span className="font-semibold text-foreground">
                 {selectedExerciseForAdjustment?.name}
               </span>
-              . Sua mensagem será enviada para o SuperAdmin.
             </DialogDescription>
           </DialogHeader>
 
@@ -1230,10 +1227,10 @@ export default function WorkoutsPage() {
               <Label htmlFor="adjustment-description">Descrição do Problema / Sugestão</Label>
               <textarea
                 id="adjustment-description"
-                placeholder="Descreva detalhadamente o problema ou o que deve ser alterado (ex: o link do vídeo está quebrado, a descrição muscular está incorreta...)"
+                placeholder="Descreva detalhadamente o problema ou o que deve ser alterado."
                 value={adjustmentDescription}
                 onChange={(e) => setAdjustmentDescription(e.target.value)}
-                className="flex min-h-[120px] w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50 bg-background border-border"
+                className="flex resize-none min-h-30 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                 required
               />
             </div>

@@ -110,7 +110,6 @@ function DashboardSkeleton() {
         ))}
       </div>
 
-      {/* Charts Row Skeleton */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
         <Card className="lg:col-span-2">
           <CardHeader className="space-y-2">
@@ -240,7 +239,6 @@ export default function DashboardPage() {
         </Badge>
       </motion.div>
 
-      {/* Engage Experiences (Banners & Cards) */}
       <div className="space-y-4">
         <EngageInline format="BANNER" workspaceId={workspaceSnap.activeWorkspaceId || undefined} />
         <EngageInline format="CARD" workspaceId={workspaceSnap.activeWorkspaceId || undefined} />
@@ -292,13 +290,9 @@ export default function DashboardPage() {
         </AnimatePresence>
       </Card>
 
-      {/* Main Dashboard Section without Tabs */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left Column: Analytical Charts & Information */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Row 1: Financial Information */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Evolução da Receita */}
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}>
               <Card className="border-border/50 h-full flex flex-col justify-between" size="sm">
                 <CardHeader>
@@ -326,7 +320,6 @@ export default function DashboardPage() {
               </Card>
             </motion.div>
 
-            {/* Modalidades de Atendimento */}
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}>
               <Card className="h-full border-border/50" size="sm">
                 <CardHeader>
@@ -352,9 +345,7 @@ export default function DashboardPage() {
             </motion.div>
           </div>
 
-          {/* Row 2: Performance & Activity Charts */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Frequência Semanal */}
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
               <Card className="h-full border-border/50" size="sm">
                 <CardHeader>
@@ -378,7 +369,6 @@ export default function DashboardPage() {
               </Card>
             </motion.div>
 
-            {/* Consistência de Treino */}
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
               <Card className="h-full border-border/50" size="sm">
                 <CardHeader>
@@ -415,7 +405,6 @@ export default function DashboardPage() {
               </Card>
             </motion.div>
 
-            {/* Evolução de Cargas */}
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
               <Card className="h-full border-border/50" size="sm">
                 <CardHeader>
@@ -437,7 +426,6 @@ export default function DashboardPage() {
               </Card>
             </motion.div>
 
-            {/* Percepção de Esforço */}
             <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
               <Card className="h-full border-border/50" size="sm">
                 <CardHeader>
@@ -469,9 +457,7 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Right Column: Operational Sidebar & Timeline */}
         <div className="space-y-6">
-          {/* Alunos Inativos */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}>
             <Card className="h-full border-border/50" size="sm">
               <CardHeader>
@@ -515,7 +501,6 @@ export default function DashboardPage() {
             </Card>
           </motion.div>
 
-          {/* Atividade Recente */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
             <Card className="h-full border-border/50" size="sm">
               <CardHeader>
@@ -546,7 +531,6 @@ export default function DashboardPage() {
             </Card>
           </motion.div>
 
-          {/* Top Alunos da Semana */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }}>
             <Card className="h-full border-border/50" size="sm">
               <CardHeader>
@@ -574,7 +558,6 @@ export default function DashboardPage() {
             </Card>
           </motion.div>
 
-          {/* Recordes de Alunos */}
           <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.35 }}>
             <Card className="h-full border-border/50" size="sm">
               <CardHeader>

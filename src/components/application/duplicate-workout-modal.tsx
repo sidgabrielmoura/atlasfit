@@ -565,10 +565,6 @@ export function DuplicateWorkoutModal({
     <Dialog open={isOpen} onOpenChange={(open) => !isSubmitting && !open && onClose()}>
       <DialogContent className="max-w-md sm:max-w-2xl w-[96vw] max-h-[90vh] overflow-y-auto! p-4 sm:p-6 rounded-2xl! bg-card border-border dark:border-zinc-900 shadow-2xl">
         <DialogHeader className="space-y-2 pb-3 border-b border-border/40 text-left">
-          <div className="flex items-center gap-2 text-primary font-extrabold text-xs uppercase tracking-wider">
-            <Copy className="size-4 shrink-0" />
-            <span>Duplicação de Treino</span>
-          </div>
           <DialogTitle className="text-xl sm:text-2xl font-black tracking-tight text-foreground">
             {activeTab === "DUPLICATE_TO_STUDENT"
               ? "Duplicar Treino para Aluno"

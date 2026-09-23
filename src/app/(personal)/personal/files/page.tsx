@@ -415,7 +415,7 @@ export default function PersonalFilesPage() {
   const othersFilesCount = files.filter(f => f.category === "outros").length;
 
   return (
-    <div className="p-4 md:p-6 lg:p-8 space-y-5 w-full! max-w-7xl! mx-auto">
+    <div className="p-4 md:p-6 lg:p-8 space-y-5 w-full! max-w-400 mx-auto">
       <div className="flex flex-col md:flex-row md:items-center md:justify-between border-b border-border/55 pb-6 gap-4">
         <div className="space-y-1">
           <div className="flex items-center gap-2">

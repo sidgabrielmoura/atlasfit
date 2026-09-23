@@ -221,8 +221,7 @@ export default function MigrationDashboardPage() {
   const activeProcessingJob = jobs.find(j => j.status === "PROCESSING" || j.status === "UPLOADED");
 
   return (
-    <div className="min-h-screen bg-background p-4 sm:p-6 md:p-8 space-y-6 mx-auto max-w-5xl font-sans pb-24 sm:pb-8">
-      {/* Header Corporativo Respondivo */}
+    <div className="min-h-screen bg-background p-4 sm:p-6 md:p-8 space-y-6 max-w-400 mx-auto font-sans pb-24 sm:pb-8">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/50 pb-5">
         <div className="flex items-center gap-3">
           <Button
@@ -253,7 +252,6 @@ export default function MigrationDashboardPage() {
         </Link>
       </div>
 
-      {/* Banner de Saldo de Importação */}
       {isLoadingQuota ? (
         <Skeleton className="h-14 w-full rounded-2xl" />
       ) : quotaBalance && !quotaBalance.allowed ? (
@@ -291,210 +289,211 @@ export default function MigrationDashboardPage() {
         </div>
       ) : null}
 
-      {/* Lista de Importações */}
       <div className="space-y-3">
         <div className="flex items-center justify-between px-0.5">
           <h2 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">Histórico de Importações</h2>
           <span className="text-xs text-muted-foreground/80 font-medium">{jobs.length} registro(s)</span>
         </div>
 
-        {isLoadingJobs ? (
-          <div className="space-y-3">
-            <Skeleton className="h-32 w-full rounded-2xl" />
-            <Skeleton className="h-32 w-full rounded-2xl" />
-          </div>
-        ) : jobs.length === 0 ? (
-          <Card className="py-12 text-center border-dashed rounded-3xl bg-card/30">
-            <CardContent className="space-y-3 max-w-sm mx-auto">
-              <div className="size-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
-                <FileSpreadsheet className="h-6 w-6" />
-              </div>
-              <div className="space-y-1">
-                <p className="font-bold text-sm text-foreground">Nenhuma importação realizada</p>
-                <p className="text-xs text-muted-foreground">
-                  Importe alunos, treinos e dados via PDF, planilha ou foto.
-                </p>
-              </div>
-              <Link href="/personal/clients/migrate/new" className="inline-block pt-1">
-                <Button size="sm" className="font-bold rounded-xl gap-2 text-xs">
-                  <Plus className="h-3.5 w-3.5" /> Criar Primeira Importação
-                </Button>
-              </Link>
-            </CardContent>
-          </Card>
-        ) : (
-          <div className="space-y-3">
-            {jobs.map((job) => {
-              const progress = getStepProgressPercentage(job);
-              const isProcessing = job.status === "PROCESSING" || job.status === "UPLOADED";
-              const isReviewNeeded = job.status === "REVIEW";
-              const isCompleted = job.status === "COMPLETED";
-              const isFailed = job.status === "FAILED";
+        <section>
+          {isLoadingJobs ? (
+            <div className="gap-4 grid grid-cols-1 lg:grid-cols-2">
+              <Skeleton className="h-32 w-full rounded-2xl" />
+              <Skeleton className="h-32 w-full rounded-2xl" />
+            </div>
+          ) : jobs.length === 0 ? (
+            <Card className="py-12 text-center border-dashed rounded-3xl bg-card/30">
+              <CardContent className="space-y-3 max-w-sm mx-auto">
+                <div className="size-12 rounded-2xl bg-primary/10 text-primary flex items-center justify-center mx-auto">
+                  <FileSpreadsheet className="h-6 w-6" />
+                </div>
+                <div className="space-y-1">
+                  <p className="font-bold text-sm text-foreground">Nenhuma importação realizada</p>
+                  <p className="text-xs text-muted-foreground">
+                    Importe alunos, treinos e dados via PDF, planilha ou foto.
+                  </p>
+                </div>
+                <Link href="/personal/clients/migrate/new" className="inline-block pt-1">
+                  <Button size="sm" className="font-bold rounded-xl gap-2 text-xs">
+                    <Plus className="h-3.5 w-3.5" /> Criar Primeira Importação
+                  </Button>
+                </Link>
+              </CardContent>
+            </Card>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {jobs.map((job) => {
+                const progress = getStepProgressPercentage(job);
+                const isProcessing = job.status === "PROCESSING" || job.status === "UPLOADED";
+                const isReviewNeeded = job.status === "REVIEW";
+                const isCompleted = job.status === "COMPLETED";
+                const isFailed = job.status === "FAILED";
 
-              return (
-                <motion.div key={job.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}>
-                  <Card className={`border rounded-2xl p-4 sm:p-5 bg-card/80 backdrop-blur-xs transition-all space-y-4 hover:border-border ${isProcessing ? "border-primary/40 shadow-xs" : "border-border/50"
-                    }`}>
-                    <section className="flex flex-col items-end space-y-1.5">
-                      {isCompleted && (
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
-                          <span className="size-1.5 rounded-full bg-emerald-500 shrink-0" />
-                          Concluído
-                        </span>
-                      )}
-                      {isReviewNeeded && (
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20">
-                          <span className="size-1.5 rounded-full bg-amber-500 shrink-0" />
-                          Aguardando Revisão
-                        </span>
-                      )}
-                      {isProcessing && (
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
-                          <span className="size-1.5 rounded-full bg-primary animate-pulse shrink-0" />
-                          Processando
-                        </span>
-                      )}
-                      {isFailed && (
-                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-destructive/10 text-destructive border border-destructive/20">
-                          <span className="size-1.5 rounded-full bg-destructive shrink-0" />
-                          Falhou
-                        </span>
-                      )}
-                      <div className="flex items-center justify-between w-full">
-                        <div className="flex items-center gap-3 min-w-0">
-                          <div className="size-9 rounded-xl bg-muted/60 flex items-center justify-center shrink-0 border border-border/40">
-                            <FileSpreadsheet className="h-4 w-4 text-primary" />
-                          </div>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-2 flex-wrap">
-                              <span className="font-bold text-sm text-foreground tracking-tight truncate">
-                                {job.sourcePlatform}
-                              </span>
-                            </div>
-                            <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
-                              <Clock className="size-3" />
-                              <span>{new Date(job.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-1.5 shrink-0">
-                          {isReviewNeeded && (
-                            <Link href={`/personal/clients/migrate/${job.id}`}>
-                              <Button size="sm" className="h-8 px-3.5 rounded-xl text-xs font-bold gap-1 shadow-2xs">
-                                Revisar <ChevronRight className="h-3.5 w-3.5" />
-                              </Button>
-                            </Link>
-                          )}
-                          {isCompleted && (
-                            <Link href={`/personal/clients/migrate/${job.id}`}>
-                              <Button variant="outline" size="sm" className="h-8 px-3 rounded-xl text-xs font-semibold gap-1 border-border/60 hover:bg-muted/40">
-                                Ver Resumo <ChevronRight className="h-3.5 w-3.5" />
-                              </Button>
-                            </Link>
-                          )}
-                          {isFailed && (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              className="h-8 px-3 rounded-xl text-xs font-semibold gap-1 border-border/60"
-                              disabled={reprocessingJobId === job.id}
-                              onClick={() => handleRetryJob(job.id)}
-                            >
-                              {reprocessingJobId === job.id ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <RefreshCw className="h-3 w-3" />
-                              )}
-                              Tentar Novamente
-                            </Button>
-                          )}
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-8 w-8 rounded-lg text-muted-foreground/70 hover:text-destructive hover:bg-destructive/10 transition-colors"
-                            onClick={() => setDeletingJobId(job.id)}
-                          >
-                            <Trash2 className="h-3.5 w-3.5" />
-                          </Button>
-                        </div>
-                      </div>
-                    </section>
-
-                    {isProcessing && (
-                      <div className="space-y-2 p-3 rounded-xl bg-primary/5 border border-primary/15">
-                        <div className="flex items-center justify-between text-xs gap-2">
-                          <span className="font-medium text-foreground flex items-center gap-1.5 truncate text-[11px]">
-                            <Loader2 className="h-3.5 w-3.5 text-primary animate-spin shrink-0" />
-                            <span className="truncate">
-                              {job.progressMessage ||
-                                (job.processingStep === "PARSING" && "Lendo arquivos...") ||
-                                (job.processingStep === "EXTRACTING" && "Extraindo dados...") ||
-                                (job.processingStep === "NORMALIZING" && "Normalizando dados...") ||
-                                (job.processingStep === "MATCHING" && "Buscando equivalências...") ||
-                                (job.processingStep === "PREPARING_REVIEW" && "Finalizando preparação...") ||
-                                "Processando..."}
-                            </span>
+                return (
+                  <motion.div key={job.id} initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }}>
+                    <Card className={`border rounded-2xl p-4 sm:p-5 bg-card/80 backdrop-blur-xs transition-all space-y-4 hover:border-border ${isProcessing ? "border-primary/40 shadow-xs" : "border-border/50"
+                      }`}>
+                      <section className="flex flex-col items-end space-y-1.5">
+                        {isCompleted && (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20">
+                            <span className="size-1.5 rounded-full bg-emerald-500 shrink-0" />
+                            Concluído
                           </span>
-                          <div className="flex items-center gap-2 shrink-0 text-[11px]">
-                            <span className="text-muted-foreground font-mono">
-                              ⏱️ {formatEstimatedTime(getEstimatedSecondsRemaining(job))}
-                            </span>
-                            <span className="font-bold text-primary">{progress}%</span>
+                        )}
+                        {isReviewNeeded && (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-500 border border-amber-500/20">
+                            <span className="size-1.5 rounded-full bg-amber-500 shrink-0" />
+                            Aguardando Revisão
+                          </span>
+                        )}
+                        {isProcessing && (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-primary/10 text-primary border border-primary/20">
+                            <span className="size-1.5 rounded-full bg-primary animate-pulse shrink-0" />
+                            Processando
+                          </span>
+                        )}
+                        {isFailed && (
+                          <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-destructive/10 text-destructive border border-destructive/20">
+                            <span className="size-1.5 rounded-full bg-destructive shrink-0" />
+                            Falhou
+                          </span>
+                        )}
+                        <div className="flex items-center justify-between w-full">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className="size-9 rounded-xl bg-muted/60 flex items-center justify-center shrink-0 border border-border/40">
+                              <FileSpreadsheet className="h-4 w-4 text-primary" />
+                            </div>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2 flex-wrap">
+                                <span className="font-bold text-sm text-foreground tracking-tight truncate">
+                                  {job.sourcePlatform}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5">
+                                <Clock className="size-3" />
+                                <span>{new Date(job.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}</span>
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {isReviewNeeded && (
+                              <Link href={`/personal/clients/migrate/${job.id}`}>
+                                <Button size="sm" className="h-8 px-3.5 rounded-xl text-xs font-bold gap-1 shadow-2xs">
+                                  Revisar <ChevronRight className="h-3.5 w-3.5" />
+                                </Button>
+                              </Link>
+                            )}
+                            {isCompleted && (
+                              <Link href={`/personal/clients/migrate/${job.id}`}>
+                                <Button variant="outline" size="sm" className="h-8 px-3 rounded-xl text-xs font-semibold gap-1 border-border/60 hover:bg-muted/40">
+                                  Ver Resumo <ChevronRight className="h-3.5 w-3.5" />
+                                </Button>
+                              </Link>
+                            )}
+                            {isFailed && (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                className="h-8 px-3 rounded-xl text-xs font-semibold gap-1 border-border/60"
+                                disabled={reprocessingJobId === job.id}
+                                onClick={() => handleRetryJob(job.id)}
+                              >
+                                {reprocessingJobId === job.id ? (
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                ) : (
+                                  <RefreshCw className="h-3 w-3" />
+                                )}
+                                Tentar Novamente
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 rounded-lg text-muted-foreground/70 hover:text-destructive hover:bg-destructive/10 transition-colors"
+                              onClick={() => setDeletingJobId(job.id)}
+                            >
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </Button>
                           </div>
                         </div>
-                        <div className="h-1.5 w-full bg-muted/60 rounded-full overflow-hidden">
-                          <div
-                            className="h-full bg-primary transition-all duration-500 rounded-full"
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
-                      </div>
-                    )}
+                      </section>
 
-                    {isFailed && job.safeErrorMessage && (
-                      <div className="p-2.5 rounded-xl bg-destructive/10 text-destructive text-[11px] font-medium flex items-center gap-2 border border-destructive/20">
-                        <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
-                        <span>{job.safeErrorMessage}</span>
-                      </div>
-                    )}
+                      {isProcessing && (
+                        <div className="space-y-2 p-3 rounded-xl bg-primary/5 border border-primary/15">
+                          <div className="flex items-center justify-between text-xs gap-2">
+                            <span className="font-medium text-foreground flex items-center gap-1.5 truncate text-[11px]">
+                              <Loader2 className="h-3.5 w-3.5 text-primary animate-spin shrink-0" />
+                              <span className="truncate">
+                                {job.progressMessage ||
+                                  (job.processingStep === "PARSING" && "Lendo arquivos...") ||
+                                  (job.processingStep === "EXTRACTING" && "Extraindo dados...") ||
+                                  (job.processingStep === "NORMALIZING" && "Normalizando dados...") ||
+                                  (job.processingStep === "MATCHING" && "Buscando equivalências...") ||
+                                  (job.processingStep === "PREPARING_REVIEW" && "Finalizando preparação...") ||
+                                  "Processando..."}
+                              </span>
+                            </span>
+                            <div className="flex items-center gap-2 shrink-0 text-[11px]">
+                              <span className="text-muted-foreground font-mono">
+                                ⏱️ {formatEstimatedTime(getEstimatedSecondsRemaining(job))}
+                              </span>
+                              <span className="font-bold text-primary">{progress}%</span>
+                            </div>
+                          </div>
+                          <div className="h-1.5 w-full bg-muted/60 rounded-full overflow-hidden">
+                            <div
+                              className="h-full bg-primary transition-all duration-500 rounded-full"
+                              style={{ width: `${progress}%` }}
+                            />
+                          </div>
+                        </div>
+                      )}
 
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border-t border-border/30">
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/15 border border-border/30">
-                        <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="font-bold text-xs text-foreground">{job.totalStudents}</span>
-                          <span className="text-[10px] text-muted-foreground">Alunos</span>
+                      {isFailed && job.safeErrorMessage && (
+                        <div className="p-2.5 rounded-xl bg-destructive/10 text-destructive text-[11px] font-medium flex items-center gap-2 border border-destructive/20">
+                          <AlertTriangle className="h-3.5 w-3.5 shrink-0" />
+                          <span>{job.safeErrorMessage}</span>
+                        </div>
+                      )}
+
+                      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 border-t border-border/30">
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/15 border border-border/30">
+                          <Users className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="font-bold text-xs text-foreground">{job.totalStudents}</span>
+                            <span className="text-[10px] text-muted-foreground">Alunos</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/15 border border-border/30">
+                          <Dumbbell className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="font-bold text-xs text-foreground">{job.totalWorkouts}</span>
+                            <span className="text-[10px] text-muted-foreground">Treinos</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/15 border border-border/30">
+                          <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="font-bold text-xs text-foreground">{job.totalAssessments}</span>
+                            <span className="text-[10px] text-muted-foreground">Avaliações</span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/15 border border-border/30">
+                          <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                          <div className="flex items-baseline gap-1.5">
+                            <span className="font-bold text-xs text-foreground">{job.totalMeasurements}</span>
+                            <span className="text-[10px] text-muted-foreground">Medidas</span>
+                          </div>
                         </div>
                       </div>
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/15 border border-border/30">
-                        <Dumbbell className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="font-bold text-xs text-foreground">{job.totalWorkouts}</span>
-                          <span className="text-[10px] text-muted-foreground">Treinos</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/15 border border-border/30">
-                        <CheckCircle2 className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="font-bold text-xs text-foreground">{job.totalAssessments}</span>
-                          <span className="text-[10px] text-muted-foreground">Avaliações</span>
-                        </div>
-                      </div>
-                      <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-muted/15 border border-border/30">
-                        <Info className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
-                        <div className="flex items-baseline gap-1.5">
-                          <span className="font-bold text-xs text-foreground">{job.totalMeasurements}</span>
-                          <span className="text-[10px] text-muted-foreground">Medidas</span>
-                        </div>
-                      </div>
-                    </div>
-                  </Card>
-                </motion.div>
-              );
-            })}
-          </div>
-        )}
+                    </Card>
+                  </motion.div>
+                );
+              })}
+            </div>
+          )}
+        </section>
       </div>
 
       {/* CONFIRMAÇÃO DE DELEÇÃO */}

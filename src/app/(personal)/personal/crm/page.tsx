@@ -1214,7 +1214,7 @@ export default function CRMPage() {
   const COLORS = ["hsl(var(--primary))", "hsl(var(--primary)/0.85)", "hsl(var(--primary)/0.7)", "hsl(var(--primary)/0.55)", "hsl(var(--primary)/0.4)", "hsl(var(--primary)/0.25)", "hsl(var(--muted-foreground)/0.3)"];
 
   return (
-    <div className="flex-1 min-w-0 w-full max-w-full overflow-x-hidden space-y-8 p-4 md:p-8 animate-in fade-in duration-300 select-none">
+    <div className="flex-1 min-w-0 w-full overflow-x-hidden space-y-8 p-4 md:p-8 animate-in fade-in duration-300 select-none max-w-400 mx-auto">
       <div className="flex flex-col items-end gap-4">
         <div className="w-full">
           <h2 className="text-3xl font-extrabold tracking-tight">CRM</h2>
@@ -2803,7 +2803,7 @@ export default function CRMPage() {
       </Dialog>
 
       <Dialog open={isCustomFieldsSettingsOpen} onOpenChange={setIsCustomFieldsSettingsOpen}>
-        <DialogContent className="sm:max-w-md rounded-2xl border-border/40 bg-card p-6 select-none">
+        <DialogContent className="sm:max-w-md rounded-2xl! border-border/40 bg-card p-6 select-none">
           <DialogHeader>
             <div className="flex items-center gap-2.5">
               <div className="p-2 rounded-xl bg-primary/10 border border-primary/20 shrink-0">
@@ -2817,7 +2817,6 @@ export default function CRMPage() {
           </DialogHeader>
 
           <div className="space-y-5 py-4">
-            {/* Seção Novo Campo */}
             <div className="space-y-3 p-4 bg-secondary/15 rounded-2xl border border-border/30">
               <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground ml-1">Novo Campo Extra</span>
               <div className="space-y-3">

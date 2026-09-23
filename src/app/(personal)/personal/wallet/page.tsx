@@ -359,7 +359,7 @@ export default function PersonalWalletPage() {
   }
 
   return (
-    <div className="flex-1 space-y-8 p-4 md:p-8 pt-6 max-w-[1400px] mx-auto select-none bg-background min-h-screen">
+    <div className="flex-1 space-y-8 p-4 md:p-8 pt-6 max-w-400 mx-auto select-none bg-background min-h-screen">
       <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between border-b border-border pb-6">
         <div>
           <div className="flex items-center gap-3">

@@ -237,7 +237,7 @@ export default function AssessmentsPage() {
   );
 
   return (
-    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 overflow-x-hidden relative">
+    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 overflow-x-hidden relative max-w-400 mx-auto">
       <div className="absolute top-0 right-1/4 w-96 h-96 rounded-full bg-orange-500/5 blur-[120px] pointer-events-none" />
       <div className="absolute top-1/3 left-10 w-96 h-96 rounded-full bg-primary/3 blur-[120px] pointer-events-none" />
 

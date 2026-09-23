@@ -470,7 +470,7 @@ export default function OrganizationPage() {
 
   if (isLoading) {
     return (
-      <div className="flex-1 space-y-8 p-4 md:p-8 pt-6 overflow-hidden w-full bg-background">
+      <div className="flex-1 space-y-8 p-4 md:p-8 pt-6 overflow-hidden w-full bg-background max-w-400 mx-auto">
         <div className="flex items-center justify-between">
           <div>
             <h2 className="text-3xl font-bold tracking-tight text-white">Organização</h2>
@@ -514,8 +514,7 @@ export default function OrganizationPage() {
   const highPriorityStudents = intelligentStudentsList.filter((s) => s.priority === "Alta").length;
 
   return (
-    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 w-full bg-background min-h-screen md:pb-8">
-      {/* Page Header */}
+    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 w-full bg-background min-h-screen md:pb-8 max-w-400 mx-auto">
       <div className="flex items-center justify-between pb-2">
         <div>
           <h2 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">Organização</h2>
@@ -577,9 +576,7 @@ export default function OrganizationPage() {
         </Card>
       </div>
 
-      {/* ----------------- MOBILE LAYOUT (Tabs-based to avoid endless scrolling) ----------------- */}
       <div className="md:hidden space-y-6">
-        {/* Quick Actions (Horizontal scrollable pill strip) */}
         <div className="flex items-center gap-2 overflow-x-auto pb-3 -mx-4 px-4 scrollbar-none">
           <Button
             variant="outline"
@@ -891,11 +888,8 @@ export default function OrganizationPage() {
         </Tabs>
       </div>
 
-      {/* ----------------- DESKTOP LAYOUT (Structured Bento Command Center) ----------------- */}
       <div className="hidden md:grid grid-cols-12 gap-8 items-start">
-        {/* Main Operational Panel (cols-span-8) */}
         <div className="col-span-8 space-y-6">
-          {/* Quick Actions (Bar layout) */}
           <Card className="bg-card border-border/50 p-4 shadow-xs">
             <div className="flex items-center justify-between flex-wrap gap-4">
               <span className="text-xs font-extrabold uppercase tracking-widest text-muted-foreground">Atalhos Rápidos</span>

@@ -350,7 +350,7 @@ export default function CreditsManagementPage() {
   };
 
   return (
-    <div className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-10 max-w-[1400px] mx-auto animate-in fade-in duration-700">
+    <div className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-10 max-w-400 mx-auto animate-in fade-in duration-700">
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 border-b border-border/40 pb-6 md:pb-8">
         <div className="space-y-1">
           <div className="flex items-center gap-2 text-primary text-[10px] font-black uppercase tracking-[0.2em] mb-2">

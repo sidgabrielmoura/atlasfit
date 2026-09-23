@@ -553,8 +553,7 @@ export default function NewWorkoutPage() {
   };
 
   return (
-    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 max-w-4xl mx-auto">
-      {/* Header */}
+    <div className="flex-1 space-y-6 p-4 md:p-8 pt-6 max-w-400 mx-auto">
       <div className="flex items-center gap-4">
         <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" asChild>
           <Link href="/personal/workouts">
@@ -1294,7 +1293,6 @@ export default function NewWorkoutPage() {
           </CardContent>
         </Card>
 
-        {/* Botoes de Acao */}
         <div className="flex flex-col-reverse sm:flex-row items-center justify-end gap-2 sm:gap-3 pt-2">
           <Button variant="outline" type="button" className="h-11 w-full sm:w-auto px-6 text-sm" asChild>
             <Link href="/personal/workouts">Cancelar</Link>

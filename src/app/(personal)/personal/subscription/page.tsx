@@ -128,7 +128,7 @@ export default function SubscriptionPage() {
       }
 
       const result = await response.json();
-      
+
       if (result.checkoutUrl) {
         toast.success("Link de pagamento gerado! Redirecionando de forma segura...");
         // Pequena pausa para garantir a leitura do toast
@@ -398,13 +398,13 @@ export default function SubscriptionPage() {
   const formattedDate = subscription.isTestAccount
     ? "Não vence"
     : (subscription.nextBillingDate
-      ? (subscription.nextBillingDate.includes("-") 
-         ? subscription.nextBillingDate.split("-").reverse().join("/") 
-         : subscription.nextBillingDate)
+      ? (subscription.nextBillingDate.includes("-")
+        ? subscription.nextBillingDate.split("-").reverse().join("/")
+        : subscription.nextBillingDate)
       : "");
 
   return (
-    <div className="flex-1 space-y-8 p-4 md:p-8 pt-6 w-full animate-in fade-in duration-300">
+    <div className="flex-1 space-y-8 p-4 md:p-8 pt-6 w-full animate-in fade-in duration-300 max-w-400 mx-auto">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Assinatura</h2>
@@ -427,7 +427,7 @@ export default function SubscriptionPage() {
         {/* Active Subscription Details (Spotify style) */}
         <section className="space-y-6">
           <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-                 {/* Box 1: Left - Subscription Information Control Panel */}
+            {/* Box 1: Left - Subscription Information Control Panel */}
             <Card className="lg:col-span-7 border-border bg-card overflow-hidden shadow-none rounded-2xl relative">
               <div className="absolute top-0 left-0 w-1.5 h-full bg-primary" />
               <CardHeader className="pb-4 border-b border-border/50">
@@ -436,15 +436,15 @@ export default function SubscriptionPage() {
                     <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Plano Contratado</span>
                     <CardTitle className="text-2xl font-bold flex items-center gap-2">
                       {subscription.status === "trial" ? "Período de Teste" : subscription.planName}
-                      <Badge 
-                        variant="outline" 
+                      <Badge
+                        variant="outline"
                         className={cn(
                           "ml-2 text-[10px] font-bold px-2 py-0.5 uppercase tracking-wide",
-                          subscription.status === "active" 
-                            ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" 
+                          subscription.status === "active"
+                            ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
                             : subscription.status === "trial"
-                            ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
-                            : "bg-red-500/10 text-red-500 border-red-500/20 animate-pulse"
+                              ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                              : "bg-red-500/10 text-red-500 border-red-500/20 animate-pulse"
                         )}
                       >
                         {subscription.status === "active" ? "Ativo" : subscription.status === "trial" ? "Free Trial" : "Atrasado / Vencido"}
@@ -459,7 +459,7 @@ export default function SubscriptionPage() {
                   )}
                 </div>
               </CardHeader>
-              
+
               <CardContent className="pt-6 space-y-6">
                 {/* Meta details list */}
                 <div className="grid grid-cols-2 gap-4">
@@ -641,7 +641,7 @@ export default function SubscriptionPage() {
                       <span className="text-sm font-bold text-muted-foreground ml-1">dias</span>
                     </div>
                     <p className="text-xs text-muted-foreground max-w-[200px] font-medium leading-normal">
-                      {subscription.status === "trial" 
+                      {subscription.status === "trial"
                         ? "restantes do período de teste gratuito do seu painel."
                         : "restantes de uso total autorizado do portal de personal trainer."}
                     </p>
@@ -783,69 +783,69 @@ export default function SubscriptionPage() {
                       </CardDescription>
                     </CardHeader>
 
-                  <CardContent className="flex-1">
-                    <ul className="space-y-3">
-                      {visibleFeatures.map((feature, idx) => (
-                        <li key={idx} className="flex items-start gap-2.5">
-                          <CheckCircle2 className="size-4 text-primary shrink-0 mt-0.5" />
-                          <span className="text-xs font-medium text-foreground/80">{feature}</span>
-                        </li>
-                      ))}
-                    </ul>
+                    <CardContent className="flex-1">
+                      <ul className="space-y-3">
+                        {visibleFeatures.map((feature, idx) => (
+                          <li key={idx} className="flex items-start gap-2.5">
+                            <CheckCircle2 className="size-4 text-primary shrink-0 mt-0.5" />
+                            <span className="text-xs font-medium text-foreground/80">{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
 
-                    {hasMoreFeatures && (
+                      {hasMoreFeatures && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleExpandPlan(plan.id)}
+                          className="mt-3 w-full h-8 text-xs font-semibold text-primary hover:text-primary/90 hover:bg-primary/5 flex items-center justify-center gap-1 rounded-xl transition-colors"
+                        >
+                          {isExpanded ? (
+                            <>
+                              <span>Recolher vantagens</span>
+                              <ChevronUp className="size-3.5" />
+                            </>
+                          ) : (
+                            <>
+                              <span>Exibir mais (+{plan.features.length - 3} vantagens)</span>
+                              <ChevronDown className="size-3.5" />
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </CardContent>
+
+                    <CardFooter className="pt-6">
                       <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => toggleExpandPlan(plan.id)}
-                        className="mt-3 w-full h-8 text-xs font-semibold text-primary hover:text-primary/90 hover:bg-primary/5 flex items-center justify-center gap-1 rounded-xl transition-colors"
+                        onClick={() => handlePlanAction(plan.id, plan.name, plan.isCurrent)}
+                        className={cn(
+                          "w-full cursor-pointer transition-all duration-200",
+                          plan.highlight
+                            ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                            : "hover:bg-accent hover:text-accent-foreground"
+                        )}
+                        variant={plan.highlight ? "default" : "outline"}
+                        disabled={plan.isCurrent || isAnyProcessing}
                       >
-                        {isExpanded ? (
+                        {isPlanProcessing ? (
                           <>
-                            <span>Recolher vantagens</span>
-                            <ChevronUp className="size-3.5" />
+                            <Loader2 className="mr-2 size-4 animate-spin" />
+                            Processando...
                           </>
                         ) : (
                           <>
-                            <span>Exibir mais (+{plan.features.length - 3} vantagens)</span>
-                            <ChevronDown className="size-3.5" />
+                            {plan.highlight && !plan.isCurrent && <Zap className="mr-2 size-4" />}
+                            {plan.isCurrent
+                              ? "Seu Plano Atual"
+                              : subscription.status === "trial"
+                                ? "Garantir Pré-Assinatura"
+                                : plan.buttonText}
                           </>
                         )}
                       </Button>
-                    )}
-                  </CardContent>
-
-                  <CardFooter className="pt-6">
-                    <Button
-                      onClick={() => handlePlanAction(plan.id, plan.name, plan.isCurrent)}
-                      className={cn(
-                        "w-full cursor-pointer transition-all duration-200",
-                        plan.highlight
-                          ? "bg-primary text-primary-foreground hover:bg-primary/90"
-                          : "hover:bg-accent hover:text-accent-foreground"
-                      )}
-                      variant={plan.highlight ? "default" : "outline"}
-                      disabled={plan.isCurrent || isAnyProcessing}
-                    >
-                      {isPlanProcessing ? (
-                        <>
-                          <Loader2 className="mr-2 size-4 animate-spin" />
-                          Processando...
-                        </>
-                      ) : (
-                        <>
-                          {plan.highlight && !plan.isCurrent && <Zap className="mr-2 size-4" />}
-                          {plan.isCurrent 
-                            ? "Seu Plano Atual" 
-                            : subscription.status === "trial" 
-                            ? "Garantir Pré-Assinatura" 
-                            : plan.buttonText}
-                        </>
-                      )}
-                    </Button>
-                  </CardFooter>
-                </Card>
+                    </CardFooter>
+                  </Card>
                 );
               });
             })()}
@@ -887,15 +887,15 @@ export default function SubscriptionPage() {
                           R$ {invoice.amount.toFixed(2)}
                         </td>
                         <td className="p-4 whitespace-nowrap text-right">
-                          <Badge 
-                            variant="outline" 
+                          <Badge
+                            variant="outline"
                             className={cn(
                               "text-[9px] font-bold px-2 py-0.5 uppercase tracking-wide shrink-0",
-                              invoice.status === "APPROVED" 
-                                ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" 
+                              invoice.status === "APPROVED"
+                                ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
                                 : invoice.status === "PENDING"
-                                ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
-                                : "bg-red-500/10 text-red-500 border-red-500/20"
+                                  ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                                  : "bg-red-500/10 text-red-500 border-red-500/20"
                             )}
                           >
                             {invoice.status === "APPROVED" ? "Pago" : invoice.status === "PENDING" ? "Pendente" : "Falhou"}
