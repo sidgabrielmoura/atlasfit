@@ -82,6 +82,7 @@ import { PhysicalEvaluationFormModal } from "@/components/application/physical-e
 import { ExercisePreviewModal } from "@/components/application/exercise-preview-modal";
 import { PhysicalEvaluationDetailModal } from "@/components/application/physical-evaluation-detail-modal";
 import { DuplicateWorkoutModal } from "@/components/application/duplicate-workout-modal";
+import { CreateCustomExerciseDialog } from "@/components/workouts/create-custom-exercise-dialog";
 import {
   ResponsiveContainer,
   AreaChart,
@@ -346,6 +347,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
   const [exerciseDialogOpen, setExerciseDialogOpen] = useState(false);
   const [tempSelected, setTempSelected] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
+  const [isCreateCustomOpen, setIsCreateCustomOpen] = useState(false);
 
   const [selectedWorkoutToEdit, setSelectedWorkoutToEdit] = useState<any>(null);
   const [selectedLogForDetail, setSelectedLogForDetail] = useState<any>(null);
@@ -847,6 +849,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
           muscleGroup: ex.exercise.muscleGroups && ex.exercise.muscleGroups.length > 0
             ? ex.exercise.muscleGroups.map((g: any) => g.name).join(", ")
             : (ex.exercise.muscleGroup?.name || "Geral"),
+          isCustom: !ex.exercise.isOfficial || ex.exercise.status === "PENDING",
           sets: ex.sets,
           reps: repsStr,
           rest: restStr,
@@ -979,7 +982,8 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
       exerciseId: exercise.id,
       name: exercise.name,
       videoUrl: exercise.videoUrl,
-      muscleGroup: muscleGroups.find((g) => g.id === selectedMuscleGroupId)?.name || "Geral",
+      muscleGroup: muscleGroups.find((g) => g.id === (exercise.muscleGroupId || selectedMuscleGroupId))?.name || exercise.muscleGroup?.name || "Geral",
+      isCustom: !exercise.isOfficial || exercise.status === "PENDING",
       sets: 4,
       reps: "10",
       rest: "01:00",
@@ -5141,111 +5145,47 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
 
         {/* ==================== TAB 7: STUDENT SETTINGS / CONFIGURAÇÕES ==================== */}
         <TabsContent value="configuracoes" className="space-y-6 outline-none focus-visible:ring-0">
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 border-b border-border/30 pb-4">
-            <div>
-              <h2 className="text-xl font-bold tracking-tight text-foreground flex items-center gap-2">
-                <Settings className="size-5 text-primary" /> Configurações do Aluno
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Personalize as regras de execução, permissões e restrições de treinamento exclusivas para este aluno no seu workspace.
-              </p>
-            </div>
+          <div className="border-b border-border/40 pb-4">
+            <h2 className="text-xl font-bold tracking-tight text-foreground">
+              Configurações do Aluno
+            </h2>
+            <p className="text-sm text-muted-foreground mt-1">
+              Personalize regras de execução e preferências de treinamento para este aluno.
+            </p>
           </div>
 
           {loadingProfile ? (
-            <div className="space-y-4">
-              <Skeleton className="h-44 w-full rounded-2xl bg-muted/40 border border-border/40" />
-              <Skeleton className="h-28 w-full rounded-2xl bg-muted/40 border border-border/40" />
+            <div className="space-y-3">
+              <Skeleton className="h-24 w-full rounded-2xl" />
             </div>
           ) : (
-            <div className="space-y-6">
-              {/* Card 1: Regras de Execução de Treino */}
-              <Card className="border border-border/60 bg-card rounded-2xl shadow-sm overflow-hidden">
-                <CardHeader className="border-b border-border/40 bg-muted/20 pb-4">
-                  <div className="flex items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <CardTitle className="text-base font-bold flex items-center gap-2 text-foreground">
-                        <Dumbbell className="size-4.5 text-primary" />
-                        Regras de Execução de Treinos
-                      </CardTitle>
-                      <CardDescription className="text-xs">
-                        Defina como o aluno pode acessar e iniciar as planilhas semanais no aplicativo.
-                      </CardDescription>
-                    </div>
-                    <Badge
-                      variant="outline"
-                      className={cn(
-                        "text-[11px] font-extrabold uppercase px-2.5 py-1 gap-1.5 transition-colors shrink-0",
-                        (student?.canDoAnyWorkoutDay ?? false)
-                          ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/30 ring-1 ring-emerald-500/10"
-                          : "bg-amber-500/10 text-amber-500 border-amber-500/30 ring-1 ring-amber-500/10"
-                      )}
-                    >
-                      {(student?.canDoAnyWorkoutDay ?? false) ? (
-                        <>
-                          <Unlock className="size-3.5" /> Liberado pelo Personal
-                        </>
-                      ) : (
-                        <>
-                          <Lock className="size-3.5" /> Modo Restrito (Padrão)
-                        </>
-                      )}
-                    </Badge>
-                  </div>
-                </CardHeader>
-                <CardContent className="p-6 space-y-6">
-                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 p-4 rounded-xl border border-border/50 bg-secondary/15 hover:bg-secondary/25 transition-colors">
-                    <div className="space-y-2 flex-1">
-                      <div className="flex items-center gap-2">
-                        <Label htmlFor="workout-day-toggle" className="text-sm font-bold text-foreground cursor-pointer">
-                          Liberar qualquer treino da semana
-                        </Label>
-                        {(student?.canDoAnyWorkoutDay ?? false) ? (
-                          <Badge variant="secondary" className="bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border-none text-[10px] font-bold">
-                            Liberado
-                          </Badge>
-                        ) : (
-                          <Badge variant="secondary" className="bg-amber-500/15 text-amber-600 dark:text-amber-400 border-none text-[10px] font-bold">
-                            Restrito ao dia (Padrão)
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-muted-foreground leading-relaxed">
-                        {(student?.canDoAnyWorkoutDay ?? false)
-                          ? "Você liberou este aluno para iniciar e registrar qualquer treino cadastrado na semana em qualquer dia que desejar."
-                          : "Padrão ativo: o aluno só pode iniciar o treino agendado para o dia da semana atual. Nos outros dias, ele consegue navegar, consultar todos os exercícios e vídeos, mas não pode iniciar a execução."}
-                      </p>
-                    </div>
+            <div className="space-y-4">
+              <div className="p-5 rounded-2xl border border-border/60 bg-card/60 flex flex-col sm:flex-row sm:items-center justify-between gap-4 transition-colors">
+                <div className="space-y-1 pr-2">
+                  <Label htmlFor="workout-day-toggle" className="text-sm font-semibold text-foreground cursor-pointer block">
+                    Liberar qualquer treino da semana
+                  </Label>
+                  <p className="text-xs text-muted-foreground leading-relaxed max-w-2xl">
+                    Permite que o aluno inicie qualquer treino da semana em qualquer dia. Quando desativado, apenas o treino agendado para o dia atual poderá ser iniciado (padrão).
+                  </p>
+                </div>
 
-                    <div className="flex items-center gap-3 self-end md:self-center shrink-0">
-                      {updatingSettings && (
-                        <div className="flex items-center gap-1.5 text-xs text-muted-foreground animate-pulse font-medium">
-                          <Loader2 className="size-3.5 animate-spin text-primary" />
-                          <span>Salvando...</span>
-                        </div>
-                      )}
-                      <Switch
-                        id="workout-day-toggle"
-                        checked={student?.canDoAnyWorkoutDay ?? false}
-                        disabled={updatingSettings || loadingProfile}
-                        onCheckedChange={handleToggleWorkoutDayRule}
-                        className="data-[state=checked]:bg-emerald-600 cursor-pointer"
-                      />
+                <div className="flex items-center gap-3 shrink-0 self-end sm:self-center">
+                  {updatingSettings && (
+                    <div className="flex items-center gap-1.5 text-xs text-muted-foreground animate-pulse font-medium">
+                      <Loader2 className="size-3.5 animate-spin text-primary" />
+                      <span>Salvando...</span>
                     </div>
-                  </div>
-
-                  {/* Informative Callout */}
-                  <div className="flex items-start gap-3 p-4 rounded-xl border border-primary/20 bg-primary/5 text-foreground text-xs leading-relaxed">
-                    <Info className="size-4.5 text-primary shrink-0 mt-0.5" />
-                    <div className="space-y-1">
-                      <p className="font-bold text-primary">Regra Padrão do Sistema</p>
-                      <p className="text-muted-foreground">
-                        Por padrão, todos os alunos funcionam no <strong>modo restrito</strong> (podem iniciar apenas o treino do dia atual). Se você desejar conceder liberdade para este aluno adiantar ou fazer qualquer treino em outros dias, basta ativar a chave acima. O aluno sempre poderá navegar e consultar os exercícios de todos os dias da semana.
-                      </p>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
+                  )}
+                  <Switch
+                    id="workout-day-toggle"
+                    checked={student?.canDoAnyWorkoutDay ?? false}
+                    disabled={updatingSettings || loadingProfile}
+                    onCheckedChange={handleToggleWorkoutDayRule}
+                    className="data-[state=checked]:bg-primary cursor-pointer"
+                  />
+                </div>
+              </div>
             </div>
           )}
         </TabsContent>
@@ -5517,6 +5457,12 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                     <Badge variant="secondary" className="text-[9px] bg-secondary/80 text-muted-foreground px-1.5 py-0">
                                       {ex.muscleGroup}
                                     </Badge>
+
+                                    {ex.isCustom && (
+                                      <Badge variant="outline" className="text-[9px] font-semibold border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5 rounded-md px-1.5 py-0 shrink-0">
+                                        Fora do catálogo
+                                      </Badge>
+                                    )}
 
                                     {ex.methodType === "DROPSET" && (
                                       <Badge className="bg-amber-500/10 text-amber-400 border border-amber-500/20 text-[9px] font-bold px-1.5 py-0">
@@ -6076,6 +6022,12 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                                   {ex.muscleGroup}
                                 </Badge>
 
+                                {ex.isCustom && (
+                                  <Badge variant="outline" className="text-[9px] font-semibold border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5 rounded-md px-1.5 py-0 shrink-0">
+                                    Fora do catálogo
+                                  </Badge>
+                                )}
+
                                 {ex.groupId && (
                                   <Badge className="bg-primary/10 text-primary border border-primary/20 text-[9px] font-bold gap-1 pr-1 px-1.5 py-0">
                                     🔗 {getEditGroupLabel(ex.groupId)}
@@ -6438,9 +6390,20 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
             </div>
 
             <div className="space-y-2">
-              <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
-                Exercícios Disponíveis
-              </span>
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground block">
+                  Exercícios Disponíveis
+                </span>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="h-7 text-[11px] font-semibold gap-1 rounded-lg border-dashed border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10 shrink-0"
+                  onClick={() => setIsCreateCustomOpen(true)}
+                >
+                  <Plus className="h-3 w-3" /> Criar Personalizado
+                </Button>
+              </div>
               <Input
                 type="text"
                 placeholder="Pesquisar exercício pelo nome..."
@@ -6448,7 +6411,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="h-9 bg-card border-border text-xs mb-2"
               />
-              <div className="border border-border rounded-lg bg-background max-h-50 overflow-y-auto p-2 space-y-1">
+              <div className="border border-border rounded-lg bg-background max-h-[38dvh] sm:max-h-60 overflow-y-auto p-2 space-y-1">
                 {loadingExercises ? (
                   <div className="space-y-1 py-2">
                     {[1, 2, 3, 4].map((n) => (
@@ -6458,10 +6421,21 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                 ) : dbExercises.filter((ex) =>
                   ex.name.toLowerCase().includes(searchQuery.toLowerCase())
                 ).length === 0 ? (
-                  <div className="py-10 text-center text-xs text-muted-foreground">
-                    {searchQuery
-                      ? "Nenhum exercício corresponde à sua pesquisa."
-                      : "Nenhum exercício registrado para este grupo."}
+                  <div className="py-10 text-center text-xs text-muted-foreground space-y-2">
+                    <p>
+                      {searchQuery
+                        ? "Nenhum exercício corresponde à sua pesquisa."
+                        : "Nenhum exercício registrado para este grupo."}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="text-xs gap-1.5 rounded-xl border-dashed border-amber-500/40 text-amber-600 dark:text-amber-400 hover:bg-amber-500/10"
+                      onClick={() => setIsCreateCustomOpen(true)}
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Criar "{searchQuery || "Exercício"}"
+                    </Button>
                   </div>
                 ) : (
                   dbExercises
@@ -6473,6 +6447,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                       const currentList = isEdit ? editExercises : customExercises;
                       const isAdded = currentList.some((ex: any) => ex.exerciseId === exercise.id);
                       const isChecked = tempSelected.some((ex) => ex.id === exercise.id);
+                      const isCustom = !exercise.isOfficial || exercise.status === "PENDING";
                       return (
                         <div
                           key={exercise.id}
@@ -6489,9 +6464,14 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                             type="button"
                             disabled={isAdded}
                             onClick={() => handleToggleTempSelected(exercise)}
-                            className="flex-1 text-left font-medium min-w-0 truncate disabled:cursor-not-allowed"
+                            className="flex-1 text-left font-medium min-w-0 flex items-center gap-1.5 truncate disabled:cursor-not-allowed"
                           >
-                            {exercise.name}
+                            <span className="line-clamp-1 max-w-100">{exercise.name}</span>
+                            {isCustom && (
+                              <Badge variant="outline" className="text-[9px] font-semibold border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/5 rounded-md px-1.5 py-0 shrink-0">
+                                Fora do catálogo
+                              </Badge>
+                            )}
                           </button>
                           <div className="flex items-center gap-1.5 shrink-0">
                             {exercise.videoUrl && (
@@ -6513,7 +6493,7 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
                               type="button"
                               disabled={isAdded}
                               onClick={() => handleToggleTempSelected(exercise)}
-                              className="shrink-0 flex items-center justify-center size-5 rounded-md border border-neutral-700 bg-neutral-950 disabled:cursor-not-allowed"
+                              className="shrink-0 flex items-center justify-center size-5 rounded-md border border-border bg-card disabled:cursor-not-allowed"
                             >
                               {(isAdded || isChecked) && (
                                 <Check className={cn("size-3.5", isAdded ? "text-muted-foreground" : "text-primary")} />
@@ -8146,6 +8126,20 @@ export default function ClientProfilePage({ params }: ClientProfilePageProps) {
         exercise={previewExercise}
         open={isPreviewModalOpen}
         onOpenChange={setIsPreviewModalOpen}
+      />
+
+      <CreateCustomExerciseDialog
+        open={isCreateCustomOpen}
+        onOpenChange={setIsCreateCustomOpen}
+        muscleGroups={muscleGroups}
+        defaultMuscleGroupId={selectedMuscleGroupId}
+        onExerciseCreated={(newEx) => {
+          setDbExercises((prev) => [newEx, ...prev.filter((e: any) => e.id !== newEx.id)]);
+          setTempSelected((prev) => [...prev.filter((e: any) => e.id !== newEx.id), newEx]);
+          if (newEx.muscleGroupId && newEx.muscleGroupId !== selectedMuscleGroupId) {
+            setSelectedMuscleGroupId(newEx.muscleGroupId);
+          }
+        }}
       />
 
       {/* ==================== DIALOG: DETAILED WORKOUT LOG DETAILS ==================== */}

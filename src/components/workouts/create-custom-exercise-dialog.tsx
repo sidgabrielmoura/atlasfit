@@ -123,12 +123,9 @@ export function CreateCustomExerciseDialog({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-md w-[95%] rounded-2xl">
+        <DialogContent className="max-w-md w-[95%] rounded-2xl!">
           <DialogHeader>
             <div className="flex items-center gap-2">
-              <div className="p-2 rounded-lg bg-primary/10 text-primary">
-                <Sparkles className="h-5 w-5" />
-              </div>
               <div>
                 <DialogTitle className="text-lg font-bold">Novo Exercício Personalizado</DialogTitle>
                 <DialogDescription className="text-xs">
