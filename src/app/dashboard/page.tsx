@@ -43,9 +43,19 @@ export default async function DashboardPage() {
     if (guardian) redirect("/guardian/dependents");
   }
 
-  // 3. User with no memberships
+  // 3. User with no active memberships
   if (globalRole === "TRAINER") {
-    redirect("/personal-onboarding");
+    const hasAnyMembership = await prisma.workspaceMember.findFirst({
+      where: { userId: session.user.id },
+      select: { id: true },
+    });
+    const user = await prisma.user.findUnique({
+      where: { id: session.user.id },
+      select: { onboarded: true },
+    });
+    if (!hasAnyMembership && !user?.onboarded) {
+      redirect("/personal-onboarding");
+    }
   }
 
   redirect("/select-workspace");

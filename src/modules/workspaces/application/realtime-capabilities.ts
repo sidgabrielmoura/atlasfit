@@ -33,8 +33,8 @@ export async function resolveRealtimeCapabilities(userId: string, selectedWorksp
       } catch (error) { if (error instanceof WorkspaceAccessError) continue; throw error; }
     } else capability[`workspace:${membership.workspaceId}:presence`] = ["subscribe", "presence"];
     allowedWorkspaces.add(membership.workspaceId);
+    capability[`workspace:${membership.workspaceId}`] = ["subscribe"];
     if (membership.workspace.type === "PERSONAL") {
-      if (owner || roles.some(role => ["TRAINER", "ASSISTANT"].includes(role))) capability[`workspace:${membership.workspaceId}`] = ["subscribe"];
       if (owner || roles.includes("TRAINER")) capability[`migration:${membership.workspaceId}`] = ["subscribe"];
     } else {
       if (owner || capabilities.has("reports.finance")) capability[`workspace:${membership.workspaceId}:finance`] = ["subscribe"];

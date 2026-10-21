@@ -19,12 +19,11 @@ export default async function SelectWorkspacePage({ searchParams }: { searchPara
     redirect("/superadmin/dashboard");
   }
 
-  // Busca todas as associações ativas de workspaces do usuário autenticado
+  // Busca todas as associações de workspaces do usuário autenticado (incluindo workspaces suspensos)
   const members = await prisma.workspaceMember.findMany({
     where: {
       userId: session.user.id,
       isActive: true,
-      workspace: { isActive: true },
     },
     include: {
       workspace: {
@@ -39,8 +38,13 @@ export default async function SelectWorkspacePage({ searchParams }: { searchPara
     },
   });
 
-  // Se for TRAINER sem workspaces, direciona para o onboarding de personal
-  if (members.length === 0 && role === "TRAINER") {
+  // Se for TRAINER sem NENHUM workspace e que ainda não concluiu onboarding
+  const user = await prisma.user.findUnique({
+    where: { id: session.user.id },
+    select: { onboarded: true },
+  });
+
+  if (members.length === 0 && role === "TRAINER" && !user?.onboarded) {
     redirect("/personal-onboarding");
   }
 
@@ -52,6 +56,7 @@ export default async function SelectWorkspacePage({ searchParams }: { searchPara
       const defaultRoute = calculateDefaultRoute(ws.type, effectiveRoles);
 
       let planName = "Plano Padrão";
+      let ownerIsBlocked = false;
       if (ws.type === "GYM") {
         planName = ws.subscription?.plan?.name || "Plano Academia";
       } else {
@@ -60,9 +65,11 @@ export default async function SelectWorkspacePage({ searchParams }: { searchPara
           select: {
             subscription: { select: { plan: { select: { name: true } } } },
             freeTrial: true,
+            isBlocked: true,
           },
         });
         planName = owner?.subscription?.plan?.name || (owner?.freeTrial?.isActive ? "Free Trial" : "Personal");
+        ownerIsBlocked = Boolean(owner?.isBlocked);
       }
 
       const logo = ws.name
@@ -71,6 +78,8 @@ export default async function SelectWorkspacePage({ searchParams }: { searchPara
         .join("")
         .slice(0, 2)
         .toUpperCase();
+
+      const isSuspended = !ws.isActive || (ws.type === "PERSONAL" && ownerIsBlocked);
 
       return {
         id: ws.id,
@@ -84,14 +93,22 @@ export default async function SelectWorkspacePage({ searchParams }: { searchPara
         roles: effectiveRoles,
         unitsCount: ws.units.length,
         defaultRoute,
+        isSuspended,
       };
     })
   );
+
+  const supportSetting = await prisma.systemSetting.findUnique({
+    where: { key: "support_email" },
+  });
+  const supportEmail = supportSetting?.value || "suporte@atlasfit.app";
 
   return (
     <SelectWorkspaceClient
       workspaces={userWorkspaces}
       user={session.user}
+      userRole={role}
+      supportEmail={supportEmail}
       preferredWorkspaceId={(await searchParams).academy === "1" ? await getDefaultAffiliatedGymId(session.user.id) : null}
     />
   );

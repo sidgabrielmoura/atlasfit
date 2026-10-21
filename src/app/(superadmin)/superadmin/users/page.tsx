@@ -26,7 +26,8 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Trash2,
-  Pencil
+  Pencil,
+  CheckCircle2
 } from "lucide-react";
 import { EditUserDialog } from "@/components/superadmin/edit-user-dialog";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
@@ -132,6 +133,41 @@ function UsersContent() {
       toast.error(error.message || "Erro ao deletar usuário.");
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const [userToBlock, setUserToBlock] = useState<any | null>(null);
+  const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
+  const [isBlocking, setIsBlocking] = useState(false);
+
+  const handleToggleBlockConfirm = async () => {
+    if (!userToBlock) return;
+    setIsBlocking(true);
+    const willBlock = !userToBlock.isBlocked;
+    const toastId = toast.loading(willBlock ? "Bloqueando acesso do usuário..." : "Desbloqueando acesso...");
+    try {
+      const res = await fetch(`/api/superadmin/users/${userToBlock.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isBlocked: willBlock }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Erro ao atualizar status de bloqueio.");
+      }
+      toast.success(
+        willBlock
+          ? "Usuário bloqueado com sucesso! Workspaces vinculados foram suspensos e alunos desconectados."
+          : "Acesso do usuário restabelecido com sucesso!",
+        { id: toastId }
+      );
+      setIsBlockDialogOpen(false);
+      setUserToBlock(null);
+      await superAdminActions.fetchUsers();
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao alterar status de acesso do usuário.", { id: toastId });
+    } finally {
+      setIsBlocking(false);
     }
   };
 
@@ -523,12 +559,20 @@ function UsersContent() {
                             </div>
                           </td>
                           <td className="px-6 py-4">
-                            <span className={cn(
-                              "text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider border",
-                              user.role === "SUPERADMIN" ? "bg-rose-500/10 border-rose-500/20 text-rose-600" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-600"
-                            )}>
-                              {user.role}
-                            </span>
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <span className={cn(
+                                "text-[10px] font-bold px-2 py-0.5 rounded-md uppercase tracking-wider border",
+                                user.role === "SUPERADMIN" ? "bg-rose-500/10 border-rose-500/20 text-rose-600" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-600"
+                              )}>
+                                {user.role}
+                              </span>
+                              {user.isBlocked && (
+                                <span className="text-[10px] font-black px-2 py-0.5 rounded-md uppercase tracking-wider border bg-rose-500/15 border-rose-500/30 text-rose-600 flex items-center gap-1">
+                                  <Ban className="size-2.5" />
+                                  Bloqueado
+                                </span>
+                              )}
+                            </div>
                           </td>
                           <td className="px-6 py-4 text-xs font-bold text-muted-foreground">
                             {user.workspaces?.length || 0} ativo(s)
@@ -557,9 +601,29 @@ function UsersContent() {
                                   <Pencil className="size-3.5 text-primary" />
                                   <span>Editar Dados</span>
                                 </DropdownMenuItem>
-                                <DropdownMenuItem className="h-9 rounded-lg gap-2 cursor-pointer text-rose-600 focus:text-rose-600 focus:bg-rose-500/10 font-semibold text-xs">
-                                  <Ban className="size-3.5" />
-                                  <span>Bloquear Acesso</span>
+                                <DropdownMenuItem
+                                  onClick={() => {
+                                    setUserToBlock(user);
+                                    setIsBlockDialogOpen(true);
+                                  }}
+                                  className={cn(
+                                    "h-9 rounded-lg gap-2 cursor-pointer font-semibold text-xs",
+                                    user.isBlocked
+                                      ? "text-emerald-600 focus:text-emerald-600 focus:bg-emerald-500/10"
+                                      : "text-rose-600 focus:text-rose-600 focus:bg-rose-500/10"
+                                  )}
+                                >
+                                  {user.isBlocked ? (
+                                    <>
+                                      <CheckCircle2 className="size-3.5" />
+                                      <span>Desbloquear Acesso</span>
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Ban className="size-3.5" />
+                                      <span>Bloquear Acesso</span>
+                                    </>
+                                  )}
                                 </DropdownMenuItem>
                                 <DropdownMenuSeparator />
                                 <DropdownMenuItem
@@ -679,6 +743,88 @@ function UsersContent() {
                 <>
                   <Trash2 className="size-3.5" />
                   Deletar
+                </>
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      <AlertDialog open={isBlockDialogOpen} onOpenChange={(open) => { if (!open && !isBlocking) { setIsBlockDialogOpen(false); setUserToBlock(null); } }}>
+        <AlertDialogContent className="rounded-2xl border-border/40">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-xl font-bold tracking-tight flex items-center gap-2">
+              {userToBlock?.isBlocked ? (
+                <>
+                  <CheckCircle2 className="size-5 text-emerald-600" />
+                  Desbloquear Acesso do Usuário?
+                </>
+              ) : (
+                <>
+                  <Ban className="size-5 text-rose-600" />
+                  Bloquear Acesso do Usuário?
+                </>
+              )}
+            </AlertDialogTitle>
+            <AlertDialogDescription className="space-y-2 text-xs font-semibold text-muted-foreground">
+              {userToBlock?.isBlocked ? (
+                <>
+                  <span className="block">
+                    O usuário <strong className="text-foreground">"{userToBlock?.name || userToBlock?.email}"</strong> voltará a ter permissão para acessar o sistema.
+                  </span>
+                  <span className="block">
+                    Nota: Os workspaces dele que foram suspensos deverão ser reativados individualmente se necessário.
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span className="block text-rose-600 font-bold">
+                    Atenção: Esta ação interrompe imediatamente o acesso de {userToBlock?.name || userToBlock?.email}.
+                  </span>
+                  <span className="block">
+                    1. A sessão atual do usuário será invalidada e ele será desconectado da plataforma.
+                  </span>
+                  <span className="block">
+                    2. Caso seja um Personal Trainer, todos os seus workspaces serão automaticamente suspensos e todos os alunos vinculados serão deslogados em tempo real.
+                  </span>
+                  <span className="block">
+                    3. O usuário não poderá logar na aplicação enquanto estiver bloqueado.
+                  </span>
+                </>
+              )}
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isBlocking} className="rounded-xl font-bold">
+              Cancelar
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleToggleBlockConfirm();
+              }}
+              disabled={isBlocking}
+              className={cn(
+                "font-bold rounded-xl gap-2",
+                userToBlock?.isBlocked
+                  ? "bg-emerald-600 hover:bg-emerald-700 text-white"
+                  : "bg-rose-600 hover:bg-rose-700 text-white"
+              )}
+            >
+              {isBlocking ? (
+                <>
+                  <Loader2 className="size-3.5 animate-spin" />
+                  {userToBlock?.isBlocked ? "Desbloqueando..." : "Bloqueando..."}
+                </>
+              ) : userToBlock?.isBlocked ? (
+                <>
+                  <CheckCircle2 className="size-3.5" />
+                  Confirmar Desbloqueio
+                </>
+              ) : (
+                <>
+                  <Ban className="size-3.5" />
+                  Bloquear Acesso Imediatamente
                 </>
               )}
             </AlertDialogAction>

@@ -33,6 +33,12 @@ export const workspaceActions = {
     workspaceStore.activeWorkspace = workspaceStore.workspaces.find(workspace => workspace.id === id) ?? null;
   },
   setLoading(loading: boolean) { workspaceStore.isLoading = loading; },
+  clearActiveWorkspace() {
+    chatActions.resetWorkspace();
+    workoutActions.cancelWorkout();
+    workspaceStore.activeWorkspaceId = null;
+    workspaceStore.activeWorkspace = null;
+  },
   clear() {
     chatActions.resetWorkspace();
     workoutActions.cancelWorkout();

@@ -24,7 +24,8 @@ import {
   Phone,
   Calendar,
   Lock,
-  Shield
+  Shield,
+  CheckCircle2
 } from "lucide-react";
 import { EditUserDialog } from "@/components/superadmin/edit-user-dialog";
 import {
@@ -72,6 +73,36 @@ export default function UserDeepViewPage({ params }: { params: Promise<{ id: str
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [isTogglingRole, setIsTogglingRole] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isBlockDialogOpen, setIsBlockDialogOpen] = useState(false);
+  const [isBlocking, setIsBlocking] = useState(false);
+
+  const handleToggleBlock = async () => {
+    if (!user) return;
+    setIsBlocking(true);
+    const willBlock = !user.isBlocked;
+    const toastId = toast.loading(willBlock ? "Bloqueando acesso do usuário..." : "Desbloqueando acesso...");
+    try {
+      const res = await fetch(`/api/superadmin/users/${user.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ isBlocked: willBlock })
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Erro ao atualizar status de bloqueio");
+      setUser({ ...user, isBlocked: willBlock });
+      toast.success(
+        willBlock
+          ? "Usuário bloqueado com sucesso! Workspaces vinculados foram suspensos e alunos desconectados."
+          : "Acesso do usuário restabelecido com sucesso!",
+        { id: toastId }
+      );
+      setIsBlockDialogOpen(false);
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao alterar status de acesso do usuário.", { id: toastId });
+    } finally {
+      setIsBlocking(false);
+    }
+  };
 
   useEffect(() => {
     async function fetchUser() {
@@ -227,7 +258,7 @@ export default function UserDeepViewPage({ params }: { params: Promise<{ id: str
               {user.name?.substring(0, 2) || user.email?.substring(0, 2)}
             </div>
             <div>
-              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3">
                 <h1 className="text-3xl font-black tracking-tight">{user.name || "Sem Nome"}</h1>
                 <Badge className={cn(
                   "font-bold uppercase tracking-wider border",
@@ -235,6 +266,12 @@ export default function UserDeepViewPage({ params }: { params: Promise<{ id: str
                 )}>
                   {user.role}
                 </Badge>
+                {user.isBlocked && (
+                  <Badge className="font-bold uppercase tracking-wider border bg-rose-500/15 text-rose-600 border-rose-500/30 flex items-center gap-1">
+                    <Ban className="size-3" />
+                    Bloqueado
+                  </Badge>
+                )}
               </div>
               <p className="text-muted-foreground text-sm font-medium mt-1">{user.email}</p>
             </div>
@@ -250,6 +287,111 @@ export default function UserDeepViewPage({ params }: { params: Promise<{ id: str
             <Pencil className="size-4 text-primary" />
             Editar Dados
           </Button>
+
+          <Button
+            variant="outline"
+            onClick={() => setIsBlockDialogOpen(true)}
+            className={cn(
+              "h-11 rounded-xl font-bold gap-2 shadow-sm border cursor-pointer",
+              user.isBlocked
+                ? "text-emerald-600 hover:text-emerald-700 hover:bg-emerald-500/10 border-emerald-500/30"
+                : "text-rose-600 hover:text-rose-700 hover:bg-rose-500/10 border-rose-500/30"
+            )}
+          >
+            {user.isBlocked ? (
+              <>
+                <CheckCircle2 className="size-4" />
+                Desbloquear Acesso
+              </>
+            ) : (
+              <>
+                <Ban className="size-4" />
+                Bloquear Acesso
+              </>
+            )}
+          </Button>
+
+          <AlertDialog open={isBlockDialogOpen} onOpenChange={(open) => { if (!open && !isBlocking) setIsBlockDialogOpen(false); }}>
+            <AlertDialogContent className="rounded-2xl border-border/50">
+              <AlertDialogHeader>
+                <AlertDialogTitle className="font-black text-xl flex items-center gap-2">
+                  {user.isBlocked ? (
+                    <>
+                      <CheckCircle2 className="size-5 text-emerald-600" />
+                      Desbloquear Acesso do Usuário?
+                    </>
+                  ) : (
+                    <>
+                      <Ban className="size-5 text-rose-600" />
+                      Bloquear Acesso do Usuário?
+                    </>
+                  )}
+                </AlertDialogTitle>
+                <AlertDialogDescription className="text-sm font-medium leading-relaxed space-y-2">
+                  {user.isBlocked ? (
+                    <>
+                      <span className="block">
+                        O usuário <strong>{user.name || user.email}</strong> voltará a ter permissão para acessar o sistema.
+                      </span>
+                      <span className="block text-xs text-muted-foreground">
+                        Nota: Os workspaces dele que foram suspensos deverão ser reativados individualmente se desejado.
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="block text-rose-600 font-bold">
+                        Atenção: Esta ação interrompe imediatamente o acesso de {user.name || user.email}.
+                      </span>
+                      <span className="block">
+                        1. A sessão atual do usuário será encerrada imediatamente.
+                      </span>
+                      <span className="block">
+                        2. Se for um Personal Trainer, todos os seus workspaces serão automaticamente suspensos e os alunos vinculados serão desconectados em tempo real.
+                      </span>
+                      <span className="block">
+                        3. O usuário não conseguirá mais realizar login na plataforma enquanto estiver bloqueado.
+                      </span>
+                    </>
+                  )}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter className="mt-6 gap-2">
+                <AlertDialogCancel disabled={isBlocking} className="rounded-xl font-bold h-11">
+                  Cancelar
+                </AlertDialogCancel>
+                <AlertDialogAction
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handleToggleBlock();
+                  }}
+                  disabled={isBlocking}
+                  className={cn(
+                    "rounded-xl h-11 font-black gap-2 text-white",
+                    user.isBlocked
+                      ? "bg-emerald-600 hover:bg-emerald-700"
+                      : "bg-rose-600 hover:bg-rose-700"
+                  )}
+                >
+                  {isBlocking ? (
+                    <>
+                      <Loader2 className="size-4 animate-spin" />
+                      {user.isBlocked ? "Desbloqueando..." : "Bloqueando..."}
+                    </>
+                  ) : user.isBlocked ? (
+                    <>
+                      <CheckCircle2 className="size-4" />
+                      Confirmar Desbloqueio
+                    </>
+                  ) : (
+                    <>
+                      <Ban className="size-4" />
+                      Bloquear Acesso Imediatamente
+                    </>
+                  )}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
 
           <AlertDialog>
             <AlertDialogTrigger asChild>

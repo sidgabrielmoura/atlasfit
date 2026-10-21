@@ -45,7 +45,11 @@ O **Ably** é a espinha dorsal de comunicação em tempo real da plataforma Atla
 - **Autenticação Segura via Token Scoped:**
   - O cliente frontend **nunca** recebe a chave mestra do Ably.
   - Ao iniciar, o cliente solicita um token efêmero ao endpoint `/api/ably/token?workspaceId=...`.
-  - O backend gera uma *capability* estrita permitindo apenas inscrição (*subscribe*) e presença nos canais que pertencem especificamente ao usuário autenticado e ao workspace ativo.
+  - O backend ([`src/modules/workspaces/application/realtime-capabilities.ts`](file:///c:/Users/gabriel/development/atlasfit/src/modules/workspaces/application/realtime-capabilities.ts)) gera uma *capability* estrita permitindo apenas inscrição (*subscribe*) e presença nos canais que pertencem especificamente ao usuário autenticado e ao workspace ativo.
+  - Membros ativos recebem permissão de leitura nos canais `workspace:<workspaceId>` para acompanhar o ciclo de vida do workspace (ex: suspensões).
+- **Assinaturas Globais de Ciclo de Vida e Segurança:**
+  - `user:<userId>`: Escuta o evento `user:blocked`. Ao ser disparado, desconecta o usuário em tempo real via `signOut({ callbackUrl: "/auth/student?blocked=1" })`.
+  - `workspace:<activeWorkspaceId>`: Escuta o evento `workspace:suspended`. Ao ser disparado, invalida os cookies de contexto do workspace ativo e redireciona imediatamente todos os alunos e instrutores para `/select-workspace`.
 
 ### 3.2. Presença (Presence)
 - Canais de presença no formato `workspace:<workspaceId>:presence`.
@@ -61,7 +65,9 @@ A tabela abaixo lista todos os canais e eventos utilizados no AtlasFit:
 | Canal | Evento | Origem / Publicador | Destinatário / Consumidor | Finalidade |
 | :--- | :--- | :--- | :--- | :--- |
 | `user:<userId>:notifications` | `notification:new` | [`src/lib/delivery/worker.ts`](file:///c:/Users/gabriel/development/atlasfit/src/lib/delivery/worker.ts) | Sino de Notificações / Toasts | Exibe novas notificações in-app para alunos, personais e superadmins. |
+| `user:<userId>` | `user:blocked` | [`src/lib/auth/admin-user-service.ts`](file:///c:/Users/gabriel/development/atlasfit/src/lib/auth/admin-user-service.ts) | [`src/providers/ably-provider.tsx`](file:///c:/Users/gabriel/development/atlasfit/src/providers/ably-provider.tsx) | Encerra a sessão do usuário em tempo real ao ser bloqueado pelo superadmin, deslogando-o para a tela de login. |
 | `user:<userId>` | `wallet:updated` | Webhooks Asaas/AbacatePay / PaymentService | Painel da Carteira (Personal) | Atualiza saldo disponível, saldo pendente e histórico de faturamento sem recarregar a tela. |
+| `workspace:<workspaceId>` | `workspace:suspended` | [`src/modules/workspaces/application/workspace-administration.ts`](file:///c:/Users/gabriel/development/atlasfit/src/modules/workspaces/application/workspace-administration.ts) / [`admin-user-service.ts`](file:///c:/Users/gabriel/development/atlasfit/src/lib/auth/admin-user-service.ts) | [`src/providers/ably-provider.tsx`](file:///c:/Users/gabriel/development/atlasfit/src/providers/ably-provider.tsx) | Desconecta em tempo real todos os alunos e membros do workspace suspenso, redirecionando para `/select-workspace`. |
 | `workspace:<workspaceId>` / `:finance` | `financial:updated` | Webhooks / GymFinancialService / PaymentService | Dashboards Financeiros | Recalcula métricas e gráficos de faturamento de academias e personais. |
 | `conversation:<conversationId>` | `message:new` | `/api/chat/messages` | Interface de Chat | Entrega nova mensagem enviada na conversa aberta. |
 | `conversation:<conversationId>` | `message:update` | `/api/chat/messages/[id]` | Interface de Chat | Atualiza texto de mensagem editada. |

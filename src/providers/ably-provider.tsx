@@ -4,12 +4,14 @@ import { runRealtimeOperation } from "@/lib/realtime-operation";
 
 import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import * as Ably from "ably";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
+import { useRouter } from "next/navigation";
 import { useSnapshot } from "valtio";
-import { workspaceStore } from "@/stores/workspace.store";
+import { workspaceStore, workspaceActions } from "@/stores/workspace.store";
 import { chatActions, chatStore } from "@/stores/chat.store";
 import { playRestChimeSound } from "@/lib/audio/sound-alert";
 import { toast } from "sonner";
+import { clearActiveWorkspace } from "@/modules/workspaces/application/actions";
 
 const AblyContext = createContext<Ably.Realtime | null>(null);
 
@@ -68,6 +70,7 @@ interface AblyProviderProps {
 }
 
 export function AblyProvider({ children }: AblyProviderProps) {
+  const router = useRouter();
   const { data: session } = useSession();
   const workspaceSnap = useSnapshot(workspaceStore);
   const chatSnap = useSnapshot(chatStore);
@@ -356,6 +359,60 @@ export function AblyProvider({ children }: AblyProviderProps) {
       void runRealtimeOperation(() => migrationChannel.detach());
     };
   }, [ablyClient, capability, activeWorkspaceId]);
+
+  // 5. Workspace Suspended Realtime Listener
+  useEffect(() => {
+    const client = ablyClient;
+    if (!client || !activeWorkspaceId) return;
+
+    const channelName = `workspace:${activeWorkspaceId}`;
+    if (!canSubscribe(capability, channelName)) return;
+    const wsChannel = client.channels.get(channelName);
+    let disposed = false;
+
+    const handleSuspended = () => {
+      if (disposed || ablyRef.current !== client) return;
+      toast.error("O workspace em que você estava foi suspenso pela administração.");
+      workspaceActions.clearActiveWorkspace();
+      void clearActiveWorkspace();
+      router.push("/select-workspace");
+      router.refresh();
+    };
+
+    runRealtimeOperation(() => wsChannel.subscribe("workspace:suspended", handleSuspended));
+
+    return () => {
+      disposed = true;
+      wsChannel.unsubscribe("workspace:suspended", handleSuspended);
+      void runRealtimeOperation(() => wsChannel.detach());
+    };
+  }, [ablyClient, capability, activeWorkspaceId, router]);
+
+  // 6. User Blocked Realtime Listener
+  useEffect(() => {
+    const client = ablyClient;
+    if (!client || !userId) return;
+
+    const channelName = `user:${userId}`;
+    if (!canSubscribe(capability, channelName)) return;
+    const userChannel = client.channels.get(channelName);
+    let disposed = false;
+
+    const handleBlocked = () => {
+      if (disposed || ablyRef.current !== client) return;
+      toast.error("Seu acesso foi bloqueado pela administração.");
+      workspaceActions.clear();
+      void signOut({ callbackUrl: "/auth/student?blocked=1" });
+    };
+
+    runRealtimeOperation(() => userChannel.subscribe("user:blocked", handleBlocked));
+
+    return () => {
+      disposed = true;
+      userChannel.unsubscribe("user:blocked", handleBlocked);
+      void runRealtimeOperation(() => userChannel.detach());
+    };
+  }, [ablyClient, capability, userId]);
 
   return (
     <AblyContext.Provider value={ablyClient}>

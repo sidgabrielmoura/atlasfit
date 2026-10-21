@@ -50,6 +50,7 @@ model User {
   twoFactorBackupCodes String[]          @default([])
   threeFactorEnabled   Boolean?          @default(false)
   isTestAccount        Boolean           @default(false)
+  isBlocked            Boolean           @default(false)
   objective            String?
   gender               String?
   birthDate            DateTime?

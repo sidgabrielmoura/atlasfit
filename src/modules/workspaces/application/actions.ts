@@ -27,10 +27,13 @@ export async function selectActiveWorkspace(workspaceId: string) {
       userId: session.user.id,
       workspaceId: workspaceId.trim(),
       isActive: true,
-      workspace: { isActive: true },
     },
     include: {
-      workspace: { include: { units: { where: { isActive: true }, select: { id: true } } } },
+      workspace: {
+        include: {
+          units: { where: { isActive: true }, select: { id: true } },
+        },
+      },
       roleGrants: {
         select: { role: true, unitId: true, revokedAt: true },
       },
@@ -39,6 +42,20 @@ export async function selectActiveWorkspace(workspaceId: string) {
 
   if (!membership) {
     return { error: "Acesso negado: você não possui vínculo ativo com este workspace." };
+  }
+
+  if (membership.workspace.isActive === false) {
+    return { error: "Este workspace está suspenso. Procure o suporte para regularizar o acesso." };
+  }
+
+  if (membership.workspace.type === "PERSONAL" && membership.workspace.ownerId) {
+    const owner = await prisma.user.findUnique({
+      where: { id: membership.workspace.ownerId },
+      select: { isBlocked: true },
+    });
+    if (owner?.isBlocked) {
+      return { error: "Este workspace está suspenso. Procure o suporte para regularizar o acesso." };
+    }
   }
   if (membership.workspace.type === "GYM") {
     try { await assertGymOperationalWorkspace(membership.workspaceId); }

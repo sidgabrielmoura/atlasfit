@@ -13,8 +13,13 @@ import {
   Building2,
   Dumbbell,
   ShieldCheck,
+  ShieldAlert,
   Loader2,
   MapPin,
+  Lock,
+  Ban,
+  HelpCircle,
+  AlertTriangle,
 } from "lucide-react";
 import Image from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -36,6 +41,7 @@ interface WorkspaceItem {
   roles: string[];
   unitsCount: number;
   defaultRoute: string;
+  isSuspended?: boolean;
 }
 
 interface SelectWorkspaceClientProps {
@@ -46,6 +52,8 @@ interface SelectWorkspaceClientProps {
     email?: string | null;
     image?: string | null;
   };
+  userRole?: string;
+  supportEmail?: string;
 }
 
 const ROLE_LABELS: Record<string, string> = {
@@ -58,12 +66,16 @@ const ROLE_LABELS: Record<string, string> = {
   STUDENT: "Aluno",
 };
 
-export default function SelectWorkspaceClient({ workspaces, user, preferredWorkspaceId }: SelectWorkspaceClientProps) {
+export default function SelectWorkspaceClient({ workspaces, user, preferredWorkspaceId, userRole, supportEmail = "suporte@atlasfit.app" }: SelectWorkspaceClientProps) {
   const router = useRouter();
   const [selectingId, setSelectingId] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   useEffect(() => { setReady(true); }, []);
   const attemptedAutomaticSelection = useRef(false);
+
+  const activeWorkspaces = workspaces.filter(w => !w.isSuspended);
+  const suspendedWorkspaces = workspaces.filter(w => w.isSuspended);
+  const isTrainerOrOwner = userRole === "TRAINER" || workspaces.some(w => w.roles.includes("OWNER") || w.roles.includes("TRAINER"));
 
   const userInitials = user.name
     ? user.name
@@ -80,7 +92,7 @@ export default function SelectWorkspaceClient({ workspaces, user, preferredWorks
   };
 
   const handleSelectWorkspace = async (workspace: WorkspaceItem) => {
-    if (selectingId) return;
+    if (selectingId || workspace.isSuspended) return;
 
     setSelectingId(workspace.id);
     const toastId = toast.loading(`Acessando ${workspace.name}...`);
@@ -108,12 +120,25 @@ export default function SelectWorkspaceClient({ workspaces, user, preferredWorks
   };
 
   useEffect(() => {
-    const preferred = workspaces.find(workspace => workspace.id === preferredWorkspaceId);
-    if ((preferred || workspaces.length === 1) && !attemptedAutomaticSelection.current) {
+    // ONLY auto-select if there is an active preferred workspace or exactly 1 active workspace and NO suspended workspaces
+    const preferred = activeWorkspaces.find(workspace => workspace.id === preferredWorkspaceId);
+    if (preferred && !attemptedAutomaticSelection.current) {
       attemptedAutomaticSelection.current = true;
-      void handleSelectWorkspace(preferred || workspaces[0]);
+      void handleSelectWorkspace(preferred);
+      return;
+    }
+
+    if (activeWorkspaces.length === 1 && suspendedWorkspaces.length === 0 && !attemptedAutomaticSelection.current) {
+      attemptedAutomaticSelection.current = true;
+      void handleSelectWorkspace(activeWorkspaces[0]);
     }
   }, [workspaces, preferredWorkspaceId]);
+
+  const supportMailtoUrl = `mailto:${encodeURIComponent(supportEmail)}?subject=${encodeURIComponent(
+    `Workspace Suspenso: ${suspendedWorkspaces[0]?.name || "Suporte AtlasFit"}`
+  )}&body=${encodeURIComponent(
+    `Olá equipe de suporte,\n\nMeu workspace (${suspendedWorkspaces[0]?.name || ""}) está suspenso e gostaria de solicitar informações e instruções para regularizar o acesso.\n\nE-mail da conta: ${user.email || ""}`
+  )}`;
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center relative overflow-hidden">
@@ -149,7 +174,43 @@ export default function SelectWorkspaceClient({ workspaces, user, preferredWorks
           </div>
         </div>
 
-        {workspaces.length === 0 ? (
+        {/* Cenário A: Personal com workspace suspenso e SEM outros workspaces ativos */}
+        {isTrainerOrOwner && activeWorkspaces.length === 0 && suspendedWorkspaces.length > 0 ? (
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            className="text-center py-12 px-6 max-w-lg mx-auto border border-rose-500/30 bg-card/60 backdrop-blur-md rounded-3xl shadow-xl shadow-rose-500/5 space-y-6"
+          >
+            <div className="p-4 size-20 mx-auto rounded-3xl bg-rose-500/10 border border-rose-500/20 text-rose-500 flex items-center justify-center shadow-inner">
+              <ShieldAlert className="size-10" />
+            </div>
+            <div className="space-y-3">
+              <Badge variant="outline" className="bg-rose-500/10 text-rose-500 border-rose-500/30 font-bold uppercase text-[11px] px-3 py-1 rounded-full">
+                Workspace Suspenso
+              </Badge>
+              <h2 className="text-2xl md:text-3xl font-black tracking-tight text-foreground">
+                Seu workspace foi suspenso
+              </h2>
+              <p className="text-sm font-bold text-primary">
+                {suspendedWorkspaces[0]?.name}
+              </p>
+              <p className="text-sm text-muted-foreground leading-relaxed max-w-md mx-auto">
+                O acesso a este workspace foi temporariamente suspenso pela administração da plataforma.
+                Para regularizar a situação e restabelecer o acesso completo aos seus alunos, treinos e dados, entre em contato com nossa equipe de suporte.
+              </p>
+            </div>
+            <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+              <Button asChild className="h-12 px-6 rounded-xl font-bold gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-lg shadow-primary/20 w-full sm:w-auto">
+                <a href={supportMailtoUrl}>
+                  <HelpCircle className="size-4" /> Entrar em contato com o suporte
+                </a>
+              </Button>
+              <Button onClick={handleLogout} variant="outline" className="h-12 px-6 rounded-xl font-bold gap-2 w-full sm:w-auto">
+                <LogOut className="size-4" /> Sair da conta
+              </Button>
+            </div>
+          </motion.div>
+        ) : workspaces.length === 0 ? (
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -169,116 +230,192 @@ export default function SelectWorkspaceClient({ workspaces, user, preferredWorks
             </Button>
           </motion.div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl mx-auto">
-            {workspaces.map((workspace, index) => {
-              const isSelected = selectingId === workspace.id;
-              const isGym = workspace.type === "GYM";
-
-              return (
-                <motion.div
-                  key={workspace.id}
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: index * 0.08 }}
-                >
-                  <div
-                    role="button"
-                    tabIndex={!ready || selectingId ? -1 : 0}
-                    aria-label={`Acessar ${workspace.name}`}
-                    aria-disabled={!ready || Boolean(selectingId)}
-                    onKeyDown={event => { if ((event.key === "Enter" || event.key === " ") && ready && !selectingId) { event.preventDefault(); void handleSelectWorkspace(workspace); } }}
-                    onClick={() => ready && !selectingId && handleSelectWorkspace(workspace)}
-                    className={`h-full cursor-pointer transition-all ${
-                      selectingId && !isSelected ? "opacity-50 pointer-events-none" : ""
-                    }`}
-                  >
-                    <Card className={`h-full transition-all duration-300 group overflow-hidden border-border/50 bg-card/60 backdrop-blur-sm flex flex-col hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 ${
-                      isSelected ? "border-primary ring-2 ring-primary/20" : ""
-                    }`}>
-                      <CardContent className="p-6 flex flex-col gap-4 flex-1">
-                        <div className="flex items-start justify-between gap-3">
-                          <div
-                            className="flex aspect-square size-14 items-center justify-center rounded-2xl text-white font-bold text-xl shadow-md transition-transform group-hover:scale-105 duration-300 overflow-hidden shrink-0"
-                            style={{ backgroundColor: workspace.primaryColor }}
-                          >
-                            {workspace.logoUrl ? (
-                              <img
-                                src={workspace.logoUrl}
-                                alt={workspace.name}
-                                className="size-full object-cover"
-                              />
-                            ) : (
-                              workspace.logo
-                            )}
-                          </div>
-
-                          <div className="flex flex-col items-end gap-1">
-                            <Badge
-                              variant="outline"
-                              className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1 ${
-                                isGym
-                                  ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20"
-                                  : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
-                              }`}
-                            >
-                              {isGym ? (
-                                <>
-                                  <Building2 className="size-3" /> Academia
-                                </>
-                              ) : (
-                                <>
-                                  <Dumbbell className="size-3" /> Personal
-                                </>
-                              )}
-                            </Badge>
-
-                            {isGym && workspace.unitsCount > 0 && (
-                              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 font-medium">
-                                <MapPin className="size-2.5" /> {workspace.unitsCount} {workspace.unitsCount === 1 ? "unidade" : "unidades"}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="space-y-1.5 flex-1 min-w-0">
-                          <p className="font-bold text-lg truncate group-hover:text-primary transition-colors">
-                            {workspace.name}
-                          </p>
-                          <div className="flex flex-wrap gap-1">
-                            {workspace.roles.map((role) => (
-                              <span
-                                key={role}
-                                className="text-[10px] font-semibold text-muted-foreground bg-secondary/80 px-2 py-0.5 rounded-md"
-                              >
-                                {ROLE_LABELS[role] || role}
-                              </span>
-                            ))}
-                          </div>
-                        </div>
-
-                        <div className="pt-3 border-t border-border/40 flex items-center justify-between text-xs text-muted-foreground">
-                          <span className="font-medium text-[11px] truncate max-w-[150px]">
-                            {workspace.plan}
-                          </span>
-
-                          <div className="flex items-center gap-1 font-semibold text-primary text-xs">
-                            {isSelected ? (
-                              <>
-                                <Loader2 className="size-3.5 animate-spin" /> Entrando...
-                              </>
-                            ) : (
-                              <>
-                                Acessar <ChevronRight className="size-3.5 group-hover:translate-x-0.5 transition-transform" />
-                              </>
-                            )}
-                          </div>
-                        </div>
-                      </CardContent>
-                    </Card>
+          <div className="space-y-8 max-w-5xl mx-auto">
+            {/* Aviso superior para personal quando possui workspaces suspensos e outros ativos */}
+            {isTrainerOrOwner && suspendedWorkspaces.length > 0 && activeWorkspaces.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-5 rounded-2xl border border-rose-500/30 bg-rose-500/5 backdrop-blur-sm flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-500 border border-rose-500/20 shrink-0">
+                    <ShieldAlert className="size-5" />
                   </div>
-                </motion.div>
-              );
-            })}
+                  <div>
+                    <h4 className="text-sm font-bold text-rose-600 dark:text-rose-400">Seu workspace foi suspenso</h4>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      O workspace <strong>"{suspendedWorkspaces.map(w => w.name).join(", ")}"</strong> foi temporariamente suspenso pela administração. Seus outros workspaces continuam disponíveis abaixo.
+                    </p>
+                  </div>
+                </div>
+                <Button asChild size="sm" variant="outline" className="border-rose-500/40 text-rose-600 dark:text-rose-400 hover:bg-rose-500/10 rounded-xl font-bold gap-1.5 shrink-0">
+                  <a href={supportMailtoUrl}>
+                    <HelpCircle className="size-3.5" /> Falar com o suporte
+                  </a>
+                </Button>
+              </motion.div>
+            )}
+
+            {/* Aviso para aluno quando seu único workspace está suspenso */}
+            {!isTrainerOrOwner && activeWorkspaces.length === 0 && suspendedWorkspaces.length > 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="p-5 rounded-2xl border border-amber-500/30 bg-amber-500/5 backdrop-blur-sm flex items-center gap-3 mb-4"
+              >
+                <div className="p-2.5 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 shrink-0">
+                  <AlertTriangle className="size-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-amber-600 dark:text-amber-400">Acesso temporariamente bloqueado</h4>
+                  <p className="text-xs text-muted-foreground mt-0.5">
+                    O workspace do seu treinador/academia está temporariamente suspenso. Procure o responsável pelo seu acompanhamento para regularização.
+                  </p>
+                </div>
+              </motion.div>
+            )}
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              {workspaces.map((workspace, index) => {
+                const isSelected = selectingId === workspace.id;
+                const isGym = workspace.type === "GYM";
+                const isSuspended = Boolean(workspace.isSuspended);
+
+                return (
+                  <motion.div
+                    key={workspace.id}
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ delay: index * 0.08 }}
+                  >
+                    <div
+                      role="button"
+                      tabIndex={isSuspended || !ready || selectingId ? -1 : 0}
+                      aria-label={`Acessar ${workspace.name}`}
+                      aria-disabled={isSuspended || !ready || Boolean(selectingId)}
+                      onKeyDown={event => {
+                        if (!isSuspended && (event.key === "Enter" || event.key === " ") && ready && !selectingId) {
+                          event.preventDefault();
+                          void handleSelectWorkspace(workspace);
+                        }
+                      }}
+                      onClick={() => !isSuspended && ready && !selectingId && handleSelectWorkspace(workspace)}
+                      className={`h-full transition-all ${
+                        isSuspended
+                          ? "cursor-not-allowed select-none"
+                          : selectingId && !isSelected
+                          ? "opacity-50 pointer-events-none cursor-pointer"
+                          : "cursor-pointer"
+                      }`}
+                    >
+                      <Card className={`h-full transition-all duration-300 group overflow-hidden flex flex-col ${
+                        isSuspended
+                          ? "opacity-45 grayscale bg-muted/20 border-dashed border-border/80"
+                          : `border-border/50 bg-card/60 backdrop-blur-sm hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 ${
+                              isSelected ? "border-primary ring-2 ring-primary/20" : ""
+                            }`
+                      }`}>
+                        <CardContent className="p-6 flex flex-col gap-4 flex-1">
+                          <div className="flex items-start justify-between gap-3">
+                            <div
+                              className={`flex aspect-square size-14 items-center justify-center rounded-2xl text-white font-bold text-xl shadow-md transition-transform duration-300 overflow-hidden shrink-0 ${
+                                isSuspended ? "" : "group-hover:scale-105"
+                              }`}
+                              style={{ backgroundColor: isSuspended ? "#64748b" : workspace.primaryColor }}
+                            >
+                              {workspace.logoUrl ? (
+                                <img
+                                  src={workspace.logoUrl}
+                                  alt={workspace.name}
+                                  className="size-full object-cover"
+                                />
+                              ) : (
+                                workspace.logo
+                              )}
+                            </div>
+
+                            <div className="flex flex-col items-end gap-1">
+                              {isSuspended ? (
+                                <Badge
+                                  variant="outline"
+                                  className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1 bg-rose-500/10 text-rose-600 dark:text-rose-400 border-rose-500/30"
+                                >
+                                  <Ban className="size-3" /> Suspenso
+                                </Badge>
+                              ) : (
+                                <Badge
+                                  variant="outline"
+                                  className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                                    isGym
+                                      ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20"
+                                      : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
+                                  }`}
+                                >
+                                  {isGym ? (
+                                    <>
+                                      <Building2 className="size-3" /> Academia
+                                    </>
+                                  ) : (
+                                    <>
+                                      <Dumbbell className="size-3" /> Personal
+                                    </>
+                                  )}
+                                </Badge>
+                              )}
+
+                              {isGym && workspace.unitsCount > 0 && !isSuspended && (
+                                <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 font-medium">
+                                  <MapPin className="size-2.5" /> {workspace.unitsCount} {workspace.unitsCount === 1 ? "unidade" : "unidades"}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="space-y-1.5 flex-1 min-w-0">
+                            <p className={`font-bold text-lg truncate transition-colors ${isSuspended ? "text-muted-foreground" : "group-hover:text-primary"}`}>
+                              {workspace.name}
+                            </p>
+                            <div className="flex flex-wrap gap-1">
+                              {workspace.roles.map((role) => (
+                                <span
+                                  key={role}
+                                  className="text-[10px] font-semibold text-muted-foreground bg-secondary/80 px-2 py-0.5 rounded-md"
+                                >
+                                  {ROLE_LABELS[role] || role}
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+
+                          <div className="pt-3 border-t border-border/40 flex items-center justify-between text-xs text-muted-foreground">
+                            <span className="font-medium text-[11px] truncate max-w-[150px]">
+                              {isSuspended ? "Indisponível" : workspace.plan}
+                            </span>
+
+                            <div className="flex items-center gap-1 font-semibold text-xs">
+                              {isSuspended ? (
+                                <span className="text-rose-500 flex items-center gap-1 font-bold">
+                                  <Lock className="size-3" /> Bloqueado
+                                </span>
+                              ) : isSelected ? (
+                                <span className="text-primary flex items-center gap-1 font-semibold">
+                                  <Loader2 className="size-3.5 animate-spin" /> Entrando...
+                                </span>
+                              ) : (
+                                <span className="text-primary flex items-center gap-1 font-semibold">
+                                  Acessar <ChevronRight className="size-3.5 group-hover:translate-x-0.5 transition-transform" />
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    </div>
+                  </motion.div>
+                );
+              })}
+            </div>
           </div>
         )}
 

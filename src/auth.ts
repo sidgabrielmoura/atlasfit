@@ -28,6 +28,7 @@ export const { handlers: { GET, POST }, auth: uncachedAuth, signIn, signOut } = 
       if (!email || typeof credentials.password !== "string") return null;
       const user = await prisma.user.findUnique({ where: { email }, include: { _count: { select: { totpDevices: true } } } });
       if (!user?.password || !await bcrypt.compare(credentials.password, user.password)) return null;
+      if (user.isBlocked) return null;
       if (!await permitsOwnAccount(user.id)) return null;
       const maintenance = await prisma.systemSetting.findUnique({ where: { key: "maintenance_mode" } });
       if (maintenance?.value === "true" && user.role !== "SUPERADMIN") return null;
@@ -57,8 +58,8 @@ export const { handlers: { GET, POST }, auth: uncachedAuth, signIn, signOut } = 
         token.originalAdminSessionVersion = user.originalAdminSessionVersion;
       }
       if (!token.id || token.sessionVersion === undefined) return null;
-      const current = await prisma.user.findUnique({ where: { id: token.id }, select: { role: true, sessionVersion: true, password: true } });
-      if (!current || current.sessionVersion !== token.sessionVersion) return null;
+      const current = await prisma.user.findUnique({ where: { id: token.id }, select: { role: true, sessionVersion: true, password: true, isBlocked: true } });
+      if (!current || current.sessionVersion !== token.sessionVersion || current.isBlocked) return null;
       if (!token.isImpersonated && !current.password) return null;
       if (!await permitsOwnAccount(token.id)) return null;
       token.role = current.role;

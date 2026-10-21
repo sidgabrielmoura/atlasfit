@@ -19,7 +19,7 @@ export async function updateWorkspaceAdministration(workspaceId: string, raw: un
   const parsed = workspaceAdministrationSchema.safeParse(raw);
   if (!parsed.success) throw new WorkspaceAccessError(400, "INVALID_REQUEST", parsed.error.issues[0].message);
   const input = parsed.data;
-  return idempotentSerializableTransaction(async tx => {
+  const result = await idempotentSerializableTransaction(async tx => {
     await assertSuperadmin(tx, actorUserId);
     const before = await tx.workspace.findUnique({ where: { id: workspaceId }, select: { id: true, ownerId: true, type: true, isActive: true } });
     if (!before) throw new WorkspaceAccessError(404, "WORKSPACE_NOT_FOUND", "Workspace não encontrado.");
@@ -39,4 +39,15 @@ export async function updateWorkspaceAdministration(workspaceId: string, raw: un
     } });
     return updated;
   });
+
+  if (input.isActive === false) {
+    try {
+      const { publishToChannel } = await import("@/lib/ably");
+      await publishToChannel(`workspace:${workspaceId}`, "workspace:suspended", { workspaceId });
+    } catch (e) {
+      console.warn("Could not publish workspace:suspended event to Ably:", e);
+    }
+  }
+
+  return result;
 }
