@@ -40,7 +40,7 @@ export async function issueStudentInvitation(principal: { id: string; sessionVer
   if (!parsed.success) throw new WorkspaceAccessError(400, "INVALID_REQUEST", "Confirme a emissão e escolha a entrega do convite.");
   if (principal.isImpersonated) throw new WorkspaceAccessError(403, "FORBIDDEN_RESOURCE", "Emita convites de credenciais na própria conta.");
   const data = parsed.data;
-  return idempotentSerializableTransaction(async tx => {
+  const result = await idempotentSerializableTransaction(async tx => {
     const student = await authorizeGymStudent(data.workspaceId, memberId, principal.id, "students.manage", {}, tx);
     await lockUsers(tx, [principal.id, student.userId]);
     const target = await tx.user.findUniqueOrThrow({ where: { id: student.userId }, select: selectUser });
