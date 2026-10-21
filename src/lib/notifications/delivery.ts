@@ -2,6 +2,7 @@ import { createHash, randomUUID } from "node:crypto";
 import { z } from "zod";
 import type { Prisma } from "@prisma/client";
 import { enqueueDelivery, DeliveryError } from "@/lib/delivery/outbox";
+import { triggerOutboxProcessing } from "@/lib/delivery/worker";
 import { serializableTransaction, type GymTransactionClient } from "@/modules/workspaces/application/transaction";
 import { normalizeNotificationPreferences } from "./preferences";
 import { getAppBaseUrl, renderBaseEmailLayout } from "@/lib/emails/templates/base-layout";
@@ -62,8 +63,10 @@ export async function enqueueNotification(tx: GymTransactionClient, raw: Notific
   return { dispatchId: intent.id, notificationId: notification?.id, pushSent: false, devicesCount, successCount: 0, deliveryStatus: channelCount ? "QUEUED" as const : "SKIPPED" as const };
 }
 
-export function sendDurableNotification(input: NotificationInput) {
-  return serializableTransaction(tx => enqueueNotification(tx, input));
+export async function sendDurableNotification(input: NotificationInput) {
+  const result = await serializableTransaction(tx => enqueueNotification(tx, input));
+  triggerOutboxProcessing();
+  return result;
 }
 
 export async function notificationDeliveryStatus(tx: GymTransactionClient, userId: string, id: string) {

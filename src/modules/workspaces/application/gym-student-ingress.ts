@@ -10,6 +10,7 @@ import { publishedSetupDocuments } from "@/lib/auth/password-setup-service";
 import { isValidCPF } from "@/lib/cpf-validator";
 import { validateAgeEligibility } from "@/lib/privacy/age-validator";
 import { enqueueDelivery } from "@/lib/delivery/outbox";
+import { triggerOutboxProcessing } from "@/lib/delivery/worker";
 import { hasStudentMembership } from "../domain/student-membership";
 import { gymStudentInvitationSchema } from "../domain/gym-student-ingress";
 import { WorkspaceAccessError } from "../domain/types";
@@ -70,6 +71,10 @@ export async function issueStudentInvitation(principal: { id: string; sessionVer
     await tx.auditLog.create({ data: { userId: principal.id, action: "GYM_STUDENT_INVITATION_ISSUED", entity: "WORKSPACE", entityId: data.workspaceId, metadata: { memberId, delivery: data.delivery, deliveryId: job?.id } } });
     return job ? { delivery: "EMAIL" as const, deliveryId: job.id, status: job.status, expiresAt: expires.toISOString() } : { delivery: "MANUAL_LINK" as const, invitationPath: path, expiresAt: expires.toISOString() };
   });
+  if (result.delivery === "EMAIL") {
+    triggerOutboxProcessing();
+  }
+  return result;
 }
 
 export async function getStudentInvitationInfo(token: string) {

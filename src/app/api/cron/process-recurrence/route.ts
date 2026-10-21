@@ -6,7 +6,7 @@ import { isCronAuthorized } from "@/lib/cron-authorization";
 
 export async function GET(req: Request) {
   if (!isCronAuthorized(req)) {
-    return new NextResponse("Não autorizado.", { status: 401 });
+    return NextResponse.json({ error: { code: "UNAUTHORIZED", message: "Não autorizado." } }, { status: 401 });
   }
 
   const started = Date.now();

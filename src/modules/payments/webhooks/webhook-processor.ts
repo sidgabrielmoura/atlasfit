@@ -12,6 +12,7 @@ import { resolveGymLegacyWebhookScope } from "./gym-legacy-scope";
 import type { NormalizedFinancialEvent } from "../domain/types";
 import { serializableTransaction } from "@/modules/workspaces/application/transaction";
 import { applyPersonalWebhookEffects, WebhookReviewRequired } from "./personal-webhook-effects";
+import { triggerOutboxProcessing } from "@/lib/delivery/worker";
 
 export class WebhookIngressError extends Error {
   constructor(public readonly statusCode: 400 | 503, message: string) { super(message); }
@@ -103,7 +104,7 @@ export class WebhookProcessor {
   private async processRetainedEvent(webhookId: string, normalized: NormalizedFinancialEvent) {
     const now = new Date();
     try {
-      return await serializableTransaction(async tx => {
+      const result = await serializableTransaction(async tx => {
         await tx.$queryRaw`SELECT id FROM "PaymentWebhookEvent" WHERE id = ${webhookId} FOR UPDATE`;
         const event = await tx.paymentWebhookEvent.findUniqueOrThrow({ where: { id: webhookId } });
         if (event.processingStatus === "PROCESSED") return { status: "DUPLICATE", eventId: webhookId };
@@ -117,6 +118,10 @@ export class WebhookProcessor {
         await tx.paymentWebhookEvent.update({ where: { id: webhookId }, data: { processingStatus: "PROCESSED", processedAt: now, processingStartedAt: null, nextRetryAt: null } });
         return { status: "PROCESSED", eventId: webhookId };
       });
+      if (result.status === "PROCESSED") {
+        triggerOutboxProcessing();
+      }
+      return result;
     } catch (error) {
       const code = error instanceof WebhookReviewRequired ? error.message : error instanceof Error && safeProcessingFailures.has(error.message) ? error.message : "PROCESSING_FAILED";
       // A second worker may have completed while this transaction rolled back. Never regress it.

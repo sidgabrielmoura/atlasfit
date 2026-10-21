@@ -2,12 +2,12 @@ import { withAuditedRequest } from "@/lib/audited-request";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { requireGymWorkspaceAccess, handleWorkspaceAccessError, gymEnrollmentService } from "@/modules/workspaces";
+import { isCronAuthorized } from "@/lib/cron-authorization";
 
 const bodySchema = z.object({ workspaceId: z.string().trim().min(1).max(100) }).strict();
 export const POST = withAuditedRequest(async function POST(req: Request) {
   try {
-    const secret = process.env.CRON_SECRET;
-    const authorizedCron = Boolean(secret && req.headers.get("authorization") === `Bearer ${secret}`);
+    const authorizedCron = isCronAuthorized(req);
     let workspaceId: string | undefined;
     if (!authorizedCron) {
       const parsed = bodySchema.safeParse(await req.json());

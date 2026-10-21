@@ -1,6 +1,7 @@
 import { jobRetryAt } from "@/lib/job-retry";
 import prisma from "./prisma";
 import { enqueueNotification } from "@/lib/notifications/delivery";
+import { triggerOutboxProcessing } from "@/lib/delivery/worker";
 import { serializableTransaction } from "@/modules/workspaces/application/transaction";
 
 
@@ -94,6 +95,9 @@ export async function processRecurringPayments(workspaceId?: string) {
   for (const member of members) {
     try { await processRecurringPaymentsForMember(member.id); if (member.billingFailureCount) await prisma.workspaceMember.update({ where: { id: member.id }, data: { billingRetryAt: null, billingFailureCount: 0 } }); processed++; }
     catch { failed++; await prisma.workspaceMember.update({ where: { id: member.id }, data: { billingRetryAt: jobRetryAt(member.billingFailureCount, now, 60 * 60_000), billingFailureCount: { increment: 1 } } }); }
+  }
+  if (processed > 0) {
+    triggerOutboxProcessing();
   }
   return { processed, failed, hasMore: members.length === 100 };
 }

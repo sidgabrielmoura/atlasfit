@@ -3,7 +3,7 @@ import prisma from "@/lib/prisma";
 import { ablyRest } from "@/lib/ably";
 import { resend } from "@/lib/resend";
 import { paymentService } from "@/modules/payments/application/payment-service";
-import { DeliveryError, type DeliveryHandler } from "./outbox";
+import { DeliveryError, processDeliveryBatch, type DeliveryHandler } from "./outbox";
 import { currentStudentInvitation } from "@/modules/workspaces/application/gym-student-ingress";
 import { WorkspaceAccessError } from "@/modules/workspaces/domain/types";
 import { normalizeNotificationPreferences } from "@/lib/notifications/preferences";
@@ -113,3 +113,43 @@ export const deliveryHandler: DeliveryHandler = async job => {
   }
   throw new DeliveryError("DELIVERY_CHANNEL_UNSUPPORTED", true);
 };
+
+let isDraining = false;
+
+/**
+ * Dispara de forma assíncrona e reativa o processamento de entregas pendentes
+ * (Ably, e-mail, push) logo após o commit da transação, evitando dependência
+ * de polling de alta frequência via cron.
+ */
+export function triggerOutboxProcessing() {
+  const drain = async () => {
+    if (isDraining) return;
+    isDraining = true;
+    try {
+      const batch = await processDeliveryBatch(deliveryHandler, new Date(), 25);
+      if (batch.hasMore) {
+        await processDeliveryBatch(deliveryHandler, new Date(), 25);
+      }
+    } catch (error) {
+      console.error("[Outbox Worker] Erro no disparo reativo de entregas:", error);
+    } finally {
+      isDraining = false;
+    }
+  };
+
+  try {
+    // Em contexto de requisição do Next.js (App Router), utiliza after() para garantir
+    // que lambdas/serverless terminem o trabalho em background após responder ao cliente.
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { after } = require("next/server");
+    if (typeof after === "function") {
+      after(drain);
+      return;
+    }
+  } catch {
+    // Fora de escopo de requisição do Next.js (testes, scripts, tarefas locais)
+  }
+
+  setImmediate(drain);
+}
+

@@ -1,4 +1,5 @@
 import { enqueueNotification } from "@/lib/notifications/delivery";
+import { triggerOutboxProcessing } from "@/lib/delivery/worker";
 import { serializableTransaction } from "@/modules/workspaces/application/transaction";
 import prisma from "@/lib/prisma";
 import { NotificationService } from "@/lib/notifications/service";
@@ -601,6 +602,10 @@ export class EngagePushService {
       console.warn("[EngagePushService] Cleanup warning:", cleanErr);
     }
 
+    if (dispatchedCount > 0) {
+      triggerOutboxProcessing();
+    }
+
     return {
       processedCampaigns: activeNotifications.length,
       dispatchedCount,
@@ -949,7 +954,7 @@ export class EngagePushService {
       trainerName: "AtlasFit Admin"
     });
 
-    return serializableTransaction(async tx => {
+    const txResult = await serializableTransaction(async tx => {
     // 4. Create EngagePushLog entry if linked to a notification campaign
     let logId: string | undefined;
     if (notificationId) {
@@ -1004,5 +1009,7 @@ export class EngagePushService {
       deliveryStatus: result.deliveryStatus
     };
     });
+    triggerOutboxProcessing();
+    return txResult;
   }
 }
