@@ -12,14 +12,16 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { login } from "./actions";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
+import { gymInvitationReturn } from "@/lib/auth/invitation-return";
 
 interface AuthFormProps {
-  type: "student" | "trainer" | "admin";
+  type: "student" | "trainer" | "admin" | "gym";
   title: string;
   subtitle: string;
+  returnTo?: string;
 }
 
-export function AuthForm({ type, title, subtitle }: AuthFormProps) {
+export function AuthForm({ type, title, subtitle, returnTo }: AuthFormProps) {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [requires2FA, setRequires2FA] = useState(false);
@@ -44,9 +46,7 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
 
   const callbackUrl = type === "admin"
     ? "/superadmin/dashboard"
-    : type === "student"
-      ? "/select-workspace"
-      : "/personal/dashboard";
+    : gymInvitationReturn(returnTo) ?? "/dashboard";
 
   // Auto-submit OTP when 6 digits are entered
   useEffect(() => {
@@ -95,9 +95,7 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
           toast.success(is3FA ? "Acesso 3FA autorizado com sucesso!" : "Acesso autorizado! Bem-vindo de volta.", { id: toastId });
           const realCallbackUrl = result.role === "SUPERADMIN"
             ? "/superadmin/dashboard"
-            : result.role === "TRAINER"
-              ? "/personal/dashboard"
-              : "/select-workspace";
+            : callbackUrl;
 
           window.location.href = realCallbackUrl;
         } catch (error) {
@@ -162,9 +160,7 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
         toast.success(is3FA ? "Acesso 3FA autorizado com sucesso!" : "Acesso autorizado!");
         const realCallbackUrl = result.role === "SUPERADMIN"
           ? "/superadmin/dashboard"
-          : result.role === "TRAINER"
-            ? "/personal/dashboard"
-            : "/select-workspace";
+          : callbackUrl;
 
         window.location.href = realCallbackUrl;
         return;
@@ -214,9 +210,7 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
       toast.success("Bem-vindo de volta!");
       const realCallbackUrl = result.role === "SUPERADMIN"
         ? "/superadmin/dashboard"
-        : result.role === "TRAINER"
-          ? "/personal/dashboard"
-          : "/select-workspace";
+        : callbackUrl;
 
       window.location.href = realCallbackUrl;
     } catch (error) {
@@ -277,7 +271,7 @@ export function AuthForm({ type, title, subtitle }: AuthFormProps) {
                 {is3FA ? (
                   <span className="block mt-1 text-muted-foreground">Após validar seu e-mail, será solicitado o código do Google Authenticator.</span>
                 ) : (
-                  <> Este código permanece válido por <strong>7 dias</strong>.</>
+                  <> Este código permanece válido por <strong>10 minutos</strong> e pode ser usado uma vez.</>
                 )}
               </>
             )}

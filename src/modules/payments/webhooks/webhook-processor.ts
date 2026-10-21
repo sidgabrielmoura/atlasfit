@@ -3,464 +3,148 @@ import { AsaasAdapter } from "../providers/asaas/asaas-adapter";
 import {
   PaymentProvider,
   ProviderEnvironment,
-  WebhookProcessingStatus,
-  StudentBillingStatus,
-  WalletPayoutStatus,
-  LedgerEntryType,
-  LedgerDirection
+  WebhookProcessingStatus
 } from "@prisma/client";
 import crypto from "crypto";
-import { publishToChannel } from "@/lib/ably";
-import { paymentService } from "../application/payment-service";
-import { EmailService } from "@/lib/emails/service";
+import { z } from "zod";
+import { encryptSubAccountApiKey, decryptSubAccountApiKey } from "../providers/asaas/subaccount-crypto";
+import { resolveGymLegacyWebhookScope } from "./gym-legacy-scope";
+import type { NormalizedFinancialEvent } from "../domain/types";
+import { serializableTransaction } from "@/modules/workspaces/application/transaction";
+import { applyPersonalWebhookEffects, WebhookReviewRequired } from "./personal-webhook-effects";
+
+export class WebhookIngressError extends Error {
+  constructor(public readonly statusCode: 400 | 503, message: string) { super(message); }
+}
+const safeProcessingFailures = new Set([
+  "TRANSFER_AMBIGUOUS_LINK_REVIEW_REQUIRED", "TRANSFER_UNLINKED_REVIEW_REQUIRED",
+  "GYM_LEGACY_RECONCILIATION_REQUIRED", "RECOVERY_CONFLICT_REVIEW_REQUIRED",
+  "RECOVERY_RESERVATION_REVIEW_REQUIRED", "PAYOUT_CONFLICT_REVIEW_REQUIRED",
+  "PAYOUT_RESERVATION_REVIEW_REQUIRED", "BILLING_OWNER_REVIEW_REQUIRED",
+  "BILLING_WORKSPACE_REVIEW_REQUIRED",
+  "TRANSFER_ACCOUNT_REVIEW_REQUIRED",
+]);
+function retainedOccurrence(event: NormalizedFinancialEvent, receivedAt: Date): NormalizedFinancialEvent {
+  const payload=z.object({dateCreated:z.string().optional()}).passthrough().parse(event.rawPayload);
+  // An absent provider timestamp uses the first receipt, consistently on every replay.
+  return payload.dateCreated ? event : {...event,occurredAt:receivedAt};
+}
 
 export class WebhookProcessor {
   private adapter = new AsaasAdapter();
 
   async receiveWebhook(headers: Record<string, string>, rawBody: string) {
-    const isValid = await this.adapter.verifyWebhook(headers, rawBody);
-    if (!isValid) {
-      throw new Error("Assinatura do webhook inválida");
-    }
-
-    const normalized = await this.adapter.normalizeWebhook(rawBody);
-    const payloadHash = crypto.createHash("sha256").update(rawBody).digest("hex");
-
-    const providerEnv = (process.env.ASAAS_ENVIRONMENT || "sandbox") === "production"
-      ? ProviderEnvironment.PRODUCTION
-      : ProviderEnvironment.SANDBOX;
-
-    const existingEvent = await prisma.paymentWebhookEvent.findUnique({
-      where: {
-        provider_environment_providerEventId: {
-          provider: PaymentProvider.ASAAS,
-          environment: providerEnv,
-          providerEventId: normalized.providerEventId
-        }
-      }
-    });
-
-    if (existingEvent) {
-      return { status: "DUPLICATE", eventId: existingEvent.id };
-    }
-
-    const webhookEvent = await prisma.paymentWebhookEvent.create({
-      data: {
-        provider: PaymentProvider.ASAAS,
-        environment: providerEnv,
-        providerEventId: normalized.providerEventId,
-        eventType: normalized.eventType,
-        resourceType: normalized.resourceType,
-        resourceId: normalized.resourceId,
-        authenticityValidated: true,
-        payloadHash,
-        processingStatus: WebhookProcessingStatus.QUEUED,
-        queuedAt: new Date()
-      }
-    });
-
-    try {
-      await this.processEvent(webhookEvent.id, normalized);
-    } catch (err: unknown) {
-      const errMsg = err instanceof Error ? err.message : String(err);
-      await prisma.paymentWebhookEvent.update({
-        where: { id: webhookEvent.id },
-        data: {
-          processingStatus: WebhookProcessingStatus.FAILED_RETRYABLE,
-          lastErrorSanitized: errMsg,
-          processingAttempts: { increment: 1 }
-        }
-      });
-    }
-
-    return { status: "PROCESSED", eventId: webhookEvent.id };
+    if (!await this.adapter.verifyWebhook(headers, rawBody)) throw new WebhookIngressError(400, "Autenticação do webhook inválida.");
+    let normalized: NormalizedFinancialEvent;
+    try { normalized = await this.adapter.normalizeWebhook(rawBody); }
+    catch { throw new WebhookIngressError(400, "Payload do webhook inválido."); }
+    return this.retainVerifiedEvent(normalized, rawBody);
   }
 
-  private async processEvent(webhookId: string, normalized: ReturnType<typeof this.adapter.normalizeWebhook> extends Promise<infer T> ? T : never) {
-    await prisma.paymentWebhookEvent.update({
-      where: { id: webhookId },
-      data: { processingStatus: WebhookProcessingStatus.PROCESSING }
-    });
+  /** Server-only reconciliation of a successful provider GET, using the same reducer. */
+  async recordProviderPaymentSnapshot(input: { billingId: string; providerAccountId: string; payment: unknown }) {
+    const payment = z.object({ id: z.string().min(1), status: z.enum(["RECEIVED", "CONFIRMED", "DUNNING_RECEIVED", "RECEIVED_IN_CASH"]), paymentDate: z.string().nullable().optional(), confirmedDate: z.string().nullable().optional() }).parse(input.payment);
+    const billing = await prisma.studentBilling.findUniqueOrThrow({ where: { id: input.billingId }, include: { account: true } });
+    const environment = process.env.ASAAS_ENVIRONMENT === "production" ? "PRODUCTION" : "SANDBOX";
+    if (billing.providerAccountId !== input.providerAccountId || billing.providerBillingId !== payment.id || billing.account.environment !== environment || !billing.account.personalUserId) throw new WebhookIngressError(400, "Cobrança externa incompatível com a conta.");
+    const eventType = `PAYMENT_${payment.status}`;
+    const dateCreated = payment.status === "CONFIRMED" ? payment.confirmedDate : payment.paymentDate;
+    const snapshot = { event: eventType, ...(dateCreated ? { dateCreated } : {}), payment: { id: payment.id, status: payment.status } };
+    const id = `API_SNAPSHOT_${crypto.createHash("sha256").update(JSON.stringify([billing.id, snapshot])).digest("hex")}`;
+    const rawBody = JSON.stringify({ id, ...snapshot });
+    return this.retainVerifiedEvent(await this.adapter.normalizeWebhook(rawBody), rawBody);
+  }
 
-    const eventType = normalized.eventType;
-    const resourceId = normalized.resourceId;
-
-    if (eventType === "PAYMENT_CONFIRMED" || eventType === "PAYMENT_RECEIVED") {
-      const billing = await prisma.studentBilling.findFirst({
-        where: { providerBillingId: resourceId }
-      });
-
-      if (billing) {
-        const isSettled = eventType === "PAYMENT_RECEIVED";
-        const newStatus = isSettled ? StudentBillingStatus.SETTLED : StudentBillingStatus.CONFIRMED;
-
-        await prisma.$transaction(async (tx) => {
-          await tx.studentBilling.update({
-            where: { id: billing.id },
-            data: {
-              status: newStatus,
-              confirmedAt: billing.confirmedAt || new Date(),
-              settledAt: isSettled ? new Date() : billing.settledAt,
-              paidAt: billing.paidAt || new Date()
-            }
-          });
-
-          await tx.walletLedgerEntry.upsert({
-            where: { idempotencyKey: `LEDGER_CONFIRM_${billing.id}_${eventType}` },
-            create: {
-              providerAccountId: billing.providerAccountId,
-              billingId: billing.id,
-              idempotencyKey: `LEDGER_CONFIRM_${billing.id}_${eventType}`,
-              type: isSettled ? LedgerEntryType.PAYMENT_SETTLED : LedgerEntryType.PAYMENT_CONFIRMED,
-              direction: LedgerDirection.CREDIT,
-              amountInCents: billing.personalNetEstimatedInCents,
-              occurredAt: normalized.occurredAt,
-              description: `Pagamento ${isSettled ? "liquidado" : "confirmado"} para ${billing.title}`
-            },
-            update: {}
-          });
-
-        });
-
-        if (isSettled) {
-          await paymentService.processActivationFeeRecovery(
-            billing.providerAccountId,
-            billing.personalNetEstimatedInCents,
-            billing.id
-          );
-        }
-
-        const studentMember = await prisma.workspaceMember.findFirst({
-          where: { userId: billing.studentUserId, role: "STUDENT" }
-        });
-
-        if (studentMember) {
-          await prisma.workspacePayment.updateMany({
-            where: {
-              workspaceId: studentMember.workspaceId,
-              status: "pendente"
-            },
-            data: {
-              status: "pago"
-            }
-          });
-
-          await publishToChannel(`workspace:${studentMember.workspaceId}`, "financial:updated", {
-            type: "FINANCIAL_PAYMENT_UPDATED",
-            workspaceId: studentMember.workspaceId,
-            billingId: billing.id,
-            timestamp: new Date().toISOString()
-          });
-        }
-
-        const account = await prisma.paymentProviderAccount.findFirst({
-          where: { providerAccountId: billing.providerAccountId }
-        });
-        if (account?.personalUserId) {
-          await publishToChannel(`user:${account.personalUserId}`, "wallet:updated", {
-            type: "BALANCE_UPDATED",
-            eventType,
-            billingId: billing.id,
-            timestamp: new Date().toISOString()
-          });
-        }
-
-        if (billing.studentUserId) {
-          await publishToChannel(`user:${billing.studentUserId}`, "wallet:updated", {
-            type: "BALANCE_UPDATED",
-            eventType,
-            billingId: billing.id,
-            timestamp: new Date().toISOString()
-          });
-        }
-
-        // Dispatch transactional emails asynchronously
-        try {
-          const [studentUser, trainerUser] = await Promise.all([
-            billing.studentUserId ? prisma.user.findUnique({ where: { id: billing.studentUserId }, select: { name: true, email: true } }) : null,
-            account?.personalUserId ? prisma.user.findUnique({ where: { id: account.personalUserId }, select: { name: true, email: true } }) : null,
-          ]);
-
-          const amountFormatted = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
-            Number(billing.grossAmountInCents) / 100
-          );
-          const netAmountFormatted = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
-            Number(billing.personalNetEstimatedInCents) / 100
-          );
-          const paidAtFormatted = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
-            new Date(billing.paidAt || Date.now())
-          );
-
-          if (studentUser?.email) {
-            EmailService.sendPaymentReceiptStudent({
-              to: studentUser.email,
-              studentName: studentUser.name || "Aluno(a)",
-              trainerName: trainerUser?.name || "Seu Personal",
-              planName: billing.title || "Consultoria",
-              amountFormatted,
-              paymentMethod: billing.paymentMethod || "PIX",
-              paidAtFormatted,
-            }).catch((err) => console.warn("[WebhookReceipt] Student email error:", err));
-          }
-
-          if (trainerUser?.email) {
-            EmailService.sendPaymentConfirmedTrainer({
-              to: trainerUser.email,
-              trainerName: trainerUser.name || "Personal",
-              studentName: studentUser?.name || "Aluno(a)",
-              amountFormatted,
-              netAmountFormatted,
-              paymentMethod: billing.paymentMethod || "PIX",
-            }).catch((err) => console.warn("[WebhookReceipt] Trainer email error:", err));
-          }
-        } catch (emailErr) {
-          console.warn("[WebhookProcessor] Email trigger error:", emailErr);
-        }
-      }
-    } else if (eventType.startsWith("TRANSFER_")) {
-      const rawPayload = normalized.rawPayload as any;
-      const transferObj = rawPayload?.transfer || rawPayload;
-      const extRef = transferObj?.externalReference as string | undefined;
-      const opIdFromExt = extRef && extRef.startsWith("atlas_activation_fee_")
-        ? extRef.replace("atlas_activation_fee_", "")
-        : undefined;
-
-      const recoveryOp = await prisma.activationFeeRecoveryOperation.findFirst({
-        where: {
-          OR: [
-            { providerTransferId: resourceId },
-            ...(extRef ? [{ externalReference: extRef }] : []),
-            ...(opIdFromExt ? [{ id: opIdFromExt }] : [])
-          ]
-        }
-      });
-
-      if (recoveryOp) {
-        if (eventType === "TRANSFER_DONE") {
-          if (recoveryOp.status !== "COMPLETED") {
-            await prisma.$transaction(async (tx) => {
-              const currentOp = await tx.activationFeeRecoveryOperation.findUnique({
-                where: { id: recoveryOp.id }
-              });
-              if (currentOp?.status === "COMPLETED") return;
-
-              await tx.activationFeeRecoveryOperation.update({
-                where: { id: recoveryOp.id },
-                data: {
-                  status: "COMPLETED",
-                  providerTransferId: currentOp?.providerTransferId || resourceId
-                }
-              });
-
-              const account = await tx.paymentProviderAccount.findUnique({
-                where: { id: recoveryOp.providerAccountId }
-              });
-
-              if (account) {
-                const newRecovered = account.activationFeeRecoveredInCents + recoveryOp.amountInCents;
-                const newReserved = account.activationFeeReservedInCents > recoveryOp.amountInCents
-                  ? account.activationFeeReservedInCents - recoveryOp.amountInCents
-                  : BigInt(0);
-                const isFullyRecovered = newRecovered >= account.activationFeeTotalInCents;
-
-                await tx.paymentProviderAccount.update({
-                  where: { id: account.id },
-                  data: {
-                    activationFeeRecoveredInCents: newRecovered,
-                    activationFeeReservedInCents: newReserved,
-                    activationFeeStatus: isFullyRecovered ? "COMPLETED" : "PARTIALLY_RECOVERED"
-                  }
-                });
-
-                await tx.walletLedgerEntry.upsert({
-                  where: { idempotencyKey: `LEDGER_ACTIVATION_RECOVERY_DONE_${recoveryOp.id}` },
-                  create: {
-                    providerAccountId: account.id,
-                    billingId: recoveryOp.billingId,
-                    idempotencyKey: `LEDGER_ACTIVATION_RECOVERY_DONE_${recoveryOp.id}`,
-                    type: LedgerEntryType.ACTIVATION_FEE_RECOVERY,
-                    direction: LedgerDirection.DEBIT,
-                    amountInCents: recoveryOp.amountInCents,
-                    occurredAt: normalized.occurredAt,
-                    description: `Recuperação efetiva da taxa de abertura de conta financeira (R$ ${(Number(recoveryOp.amountInCents) / 100).toFixed(2)})`
-                  },
-                  update: {}
-                });
-              }
-            });
-          }
-        } else if (eventType === "TRANSFER_FAILED" || eventType === "TRANSFER_CANCELLED") {
-          if (recoveryOp.status !== "FAILED" && recoveryOp.status !== "CANCELLED") {
-            await prisma.$transaction(async (tx) => {
-              await tx.activationFeeRecoveryOperation.update({
-                where: { id: recoveryOp.id },
-                data: {
-                  status: eventType === "TRANSFER_CANCELLED" ? "CANCELLED" : "FAILED",
-                  providerTransferId: recoveryOp.providerTransferId || resourceId
-                }
-              });
-
-              const account = await tx.paymentProviderAccount.findUnique({
-                where: { id: recoveryOp.providerAccountId }
-              });
-
-              if (account) {
-                const newReserved = account.activationFeeReservedInCents > recoveryOp.amountInCents
-                  ? account.activationFeeReservedInCents - recoveryOp.amountInCents
-                  : BigInt(0);
-
-                await tx.paymentProviderAccount.update({
-                  where: { id: account.id },
-                  data: {
-                    activationFeeReservedInCents: newReserved
-                  }
-                });
-              }
-            });
-          }
-        } else if (eventType === "TRANSFER_BLOCKED") {
-          await prisma.activationFeeRecoveryOperation.update({
-            where: { id: recoveryOp.id },
-            data: {
-              status: "BLOCKED",
-              providerTransferId: recoveryOp.providerTransferId || resourceId
-            }
-          });
-        }
-      }
-
-      const payout = await prisma.walletPayoutRequest.findFirst({
-        where: { providerTransferId: resourceId }
-      });
-
-      if (payout) {
-        const isCompleted = eventType === "TRANSFER_DONE";
-        await prisma.walletPayoutRequest.update({
-          where: { id: payout.id },
-          data: {
-            status: isCompleted ? WalletPayoutStatus.COMPLETED : WalletPayoutStatus.PROCESSING,
-            completedAt: isCompleted ? new Date() : payout.completedAt
-          }
-        });
-
-        const account = await prisma.paymentProviderAccount.findFirst({
-          where: { providerAccountId: payout.providerAccountId }
-        });
-        if (account?.personalUserId) {
-          await publishToChannel(`user:${account.personalUserId}`, "wallet:updated", {
-            type: "BALANCE_UPDATED",
-            eventType,
-            payoutId: payout.id,
-            timestamp: new Date().toISOString()
-          });
-
-          if (isCompleted) {
-            prisma.user.findUnique({
-              where: { id: account.personalUserId },
-              select: { name: true, email: true },
-            }).then((u) => {
-              if (u?.email) {
-                const amountFormatted = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
-                  Number(payout.amountInCents) / 100
-                );
-                const completedAtFormatted = new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(
-                  new Date()
-                );
-                EmailService.sendPayoutCompletedTrainer({
-                  to: u.email,
-                  trainerName: u.name || "Personal",
-                  amountFormatted,
-                  pixKeyMasked: payout.destinationMasked || "Chave PIX",
-                  completedAtFormatted,
-                }).catch((err) => console.warn("[PayoutCompletedEmail] Dispatch failed:", err));
-              }
-            }).catch((err) => console.warn("[WebhookProcessor] Error finding trainer user:", err));
-          }
-        }
-      }
-    } else if (eventType === "TRANSFER_FAILED" || eventType === "TRANSFER_CANCELLED") {
-      const recoveryOp = await prisma.activationFeeRecoveryOperation.findFirst({
-        where: { providerTransferId: resourceId }
-      });
-
-      if (recoveryOp && recoveryOp.status !== "FAILED") {
-        await prisma.$transaction(async (tx) => {
-          await tx.activationFeeRecoveryOperation.update({
-            where: { id: recoveryOp.id },
-            data: { status: "FAILED" }
-          });
-
-          const account = await tx.paymentProviderAccount.findUnique({
-            where: { id: recoveryOp.providerAccountId }
-          });
-
-          if (account) {
-            const newReserved = account.activationFeeReservedInCents > recoveryOp.amountInCents
-              ? account.activationFeeReservedInCents - recoveryOp.amountInCents
-              : BigInt(0);
-
-            await tx.paymentProviderAccount.update({
-              where: { id: account.id },
-              data: {
-                activationFeeReservedInCents: newReserved
-              }
-            });
-          }
-        });
-      }
-
-      const payout = await prisma.walletPayoutRequest.findFirst({
-        where: { providerTransferId: resourceId }
-      });
-
-      if (payout) {
-        await prisma.$transaction(async (tx) => {
-          await tx.walletPayoutRequest.update({
-            where: { id: payout.id },
-            data: {
-              status: WalletPayoutStatus.FAILED_FINAL,
-              failedAt: new Date()
-            }
-          });
-
-          await tx.walletLedgerEntry.upsert({
-            where: { idempotencyKey: `LEDGER_REVERSAL_PAYOUT_${payout.id}` },
-            create: {
-              providerAccountId: payout.providerAccountId,
-              payoutId: payout.id,
-              idempotencyKey: `LEDGER_REVERSAL_PAYOUT_${payout.id}`,
-              type: LedgerEntryType.ADJUSTMENT,
-              direction: LedgerDirection.CREDIT,
-              amountInCents: payout.amountInCents,
-              occurredAt: new Date(),
-              description: `Estorno de saque falhado ID ${payout.id}`
-            },
-            update: {}
-          });
-        });
-
-        const account = await prisma.paymentProviderAccount.findFirst({
-          where: { providerAccountId: payout.providerAccountId }
-        });
-        if (account?.personalUserId) {
-          await publishToChannel(`user:${account.personalUserId}`, "wallet:updated", {
-            type: "BALANCE_UPDATED",
-            eventType,
-            payoutId: payout.id,
-            timestamp: new Date().toISOString()
-          });
-        }
-      }
+  private async retainVerifiedEvent(normalized: NormalizedFinancialEvent, rawBody: string) {
+    const payloadHash = crypto.createHash("sha256").update(rawBody).digest("hex");
+    const providerEnv = (process.env.ASAAS_ENVIRONMENT || "sandbox") === "production" ? ProviderEnvironment.PRODUCTION : ProviderEnvironment.SANDBOX;
+    const gymScope = await resolveGymLegacyWebhookScope(normalized);
+    let payloadEncrypted: string;
+    try { payloadEncrypted = encryptSubAccountApiKey(rawBody).encrypted; }
+    catch { throw new WebhookIngressError(503, "Armazenamento seguro do webhook indisponível."); }
+    await prisma.paymentWebhookEvent.createMany({ skipDuplicates: true, data: [{ provider: PaymentProvider.ASAAS, environment: providerEnv, providerEventId: normalized.providerEventId, eventType: normalized.eventType, resourceType: normalized.resourceType, resourceId: normalized.resourceId, authenticityValidated: true, payloadHash, payloadEncrypted, processingStatus: WebhookProcessingStatus.QUEUED, queuedAt: new Date(), gymWorkspaceId: gymScope?.workspaceId }] });
+    const event = await prisma.paymentWebhookEvent.findUniqueOrThrow({ where: { provider_environment_providerEventId: { provider: PaymentProvider.ASAAS, environment: providerEnv, providerEventId: normalized.providerEventId } } });
+    if (event.payloadHash !== payloadHash) throw new WebhookIngressError(400, "Identificador de evento reutilizado com conteúdo divergente.");
+    if (event.processingStatus === WebhookProcessingStatus.PROCESSED) return { status: "DUPLICATE", eventId: event.id };
+    if (event.processingStatus === WebhookProcessingStatus.REVIEW_REQUIRED) return { status: "REVIEW_REQUIRED", eventId: event.id };
+    if (gymScope) {
+      // Retain the complete event and local linkage; no invoices, payouts, cash or access are changed.
+      await prisma.paymentWebhookEvent.update({ where: { id: event.id }, data: { gymWorkspaceId: gymScope.workspaceId, payloadEncrypted: event.payloadEncrypted || payloadEncrypted, processingStatus: WebhookProcessingStatus.REVIEW_REQUIRED, lastErrorSanitized: gymScope.reason, processedAt: null } });
+      return { status: "REVIEW_REQUIRED", eventId: event.id };
     }
+    return this.processRetainedEvent(event.id, retainedOccurrence(normalized,event.receivedAt));
+  }
 
-    await prisma.paymentWebhookEvent.update({
-      where: { id: webhookId },
-      data: {
-        processingStatus: WebhookProcessingStatus.PROCESSED,
-        processedAt: new Date()
-      }
-    });
+  async replayEvent(webhookId: string) {
+    const event = await prisma.paymentWebhookEvent.findUnique({ where: { id: webhookId } });
+    if (!event) throw new WebhookIngressError(400, "Evento não encontrado.");
+    if (event.processingStatus === WebhookProcessingStatus.REVIEW_REQUIRED || event.gymWorkspaceId) return { status: "REVIEW_REQUIRED", eventId: event.id };
+    if (event.processingStatus === WebhookProcessingStatus.PROCESSED) return { status: "DUPLICATE", eventId: event.id };
+    let normalized: NormalizedFinancialEvent;
+    try {
+      if (!event.payloadEncrypted || !event.authenticityValidated) throw new Error("UNRECOVERABLE_EVENT");
+      const rawBody = decryptSubAccountApiKey(event.payloadEncrypted);
+      if (crypto.createHash("sha256").update(rawBody).digest("hex") !== event.payloadHash) throw new Error("UNRECOVERABLE_EVENT");
+      normalized = await this.adapter.normalizeWebhook(rawBody);
+      if (normalized.providerEventId !== event.providerEventId || normalized.eventType !== event.eventType || normalized.resourceId !== event.resourceId) throw new Error("UNRECOVERABLE_EVENT");
+    } catch {
+      await prisma.paymentWebhookEvent.updateMany({ where: { id: event.id, processingStatus: { notIn: ["PROCESSED", "REVIEW_REQUIRED"] } }, data: { processingStatus: "REVIEW_REQUIRED", processingStartedAt: null, nextRetryAt: null, lastErrorSanitized: "WEBHOOK_PAYLOAD_REVIEW_REQUIRED" } });
+      const current = await prisma.paymentWebhookEvent.findUniqueOrThrow({ where: { id: event.id }, select: { processingStatus: true } });
+      return { status: current.processingStatus === "PROCESSED" ? "DUPLICATE" : current.processingStatus, eventId: event.id };
+    }
+    const gymScope = await resolveGymLegacyWebhookScope(normalized);
+    if (gymScope) {
+      await prisma.paymentWebhookEvent.update({ where: { id: event.id }, data: { gymWorkspaceId: gymScope.workspaceId, processingStatus: WebhookProcessingStatus.REVIEW_REQUIRED, lastErrorSanitized: gymScope.reason, processedAt: null } });
+      return { status: "REVIEW_REQUIRED", eventId: event.id };
+    }
+    return this.processRetainedEvent(event.id, retainedOccurrence(normalized,event.receivedAt));
+  }
+
+  private async processRetainedEvent(webhookId: string, normalized: NormalizedFinancialEvent) {
+    const now = new Date();
+    try {
+      return await serializableTransaction(async tx => {
+        await tx.$queryRaw`SELECT id FROM "PaymentWebhookEvent" WHERE id = ${webhookId} FOR UPDATE`;
+        const event = await tx.paymentWebhookEvent.findUniqueOrThrow({ where: { id: webhookId } });
+        if (event.processingStatus === "PROCESSED") return { status: "DUPLICATE", eventId: webhookId };
+        if (event.processingStatus === "REVIEW_REQUIRED" || event.gymWorkspaceId) return { status: "REVIEW_REQUIRED", eventId: webhookId };
+        if (!event.authenticityValidated) throw new WebhookReviewRequired("WEBHOOK_AUTHENTICITY_REVIEW_REQUIRED");
+        if (event.processingStatus === "FAILED_FINAL") return { status: "FAILED_FINAL", eventId: webhookId };
+        if (event.processingStatus === "PROCESSING" && event.processingStartedAt && event.processingStartedAt > new Date(now.getTime() - 300_000)) return { status: "PROCESSING", eventId: webhookId };
+        if (event.nextRetryAt && event.nextRetryAt > now) return { status: event.processingStatus, eventId: webhookId };
+        await tx.paymentWebhookEvent.update({ where: { id: webhookId }, data: { processingStatus: "PROCESSING", processingStartedAt: now, processingAttempts: { increment: 1 }, lastErrorSanitized: null } });
+        await applyPersonalWebhookEffects(tx, webhookId, event.environment, normalized);
+        await tx.paymentWebhookEvent.update({ where: { id: webhookId }, data: { processingStatus: "PROCESSED", processedAt: now, processingStartedAt: null, nextRetryAt: null } });
+        return { status: "PROCESSED", eventId: webhookId };
+      });
+    } catch (error) {
+      const code = error instanceof WebhookReviewRequired ? error.message : error instanceof Error && safeProcessingFailures.has(error.message) ? error.message : "PROCESSING_FAILED";
+      // A second worker may have completed while this transaction rolled back. Never regress it.
+      return serializableTransaction(async tx => {
+        await tx.$queryRaw`SELECT id FROM "PaymentWebhookEvent" WHERE id = ${webhookId} FOR UPDATE`;
+        const current = await tx.paymentWebhookEvent.findUniqueOrThrow({ where: { id: webhookId } });
+        if (["PROCESSED", "REVIEW_REQUIRED", "FAILED_FINAL"].includes(current.processingStatus)) return { status: current.processingStatus === "PROCESSED" ? "DUPLICATE" : current.processingStatus, eventId: webhookId };
+        const attempts = current.processingAttempts + 1;
+        const review = error instanceof WebhookReviewRequired || attempts >= 12;
+        const status = review ? "REVIEW_REQUIRED" as const : "FAILED_RETRYABLE" as const;
+        await tx.paymentWebhookEvent.update({ where: { id: webhookId }, data: { processingStatus: status, processingAttempts: attempts, processingStartedAt: null, lastErrorSanitized: code, processedAt: null, nextRetryAt: review ? null : new Date(now.getTime() + Math.min(3_600_000, 30_000 * 2 ** Math.min(attempts - 1, 7))) } });
+        return { status, eventId: webhookId };
+      });
+    }
+  }
+
+  async processRetryBatch(now = new Date(), limit = 100) {
+    if(!Number.isFinite(now.getTime()) || !Number.isSafeInteger(limit) || limit<1 || limit>100) throw new Error("INVALID_WEBHOOK_RETRY_BATCH");
+    const events = await prisma.paymentWebhookEvent.findMany({ where: { gymWorkspaceId: null, OR: [
+      { processingStatus: { in: ["QUEUED", "RECEIVED", "FAILED_RETRYABLE"] }, OR: [{ nextRetryAt: null }, { nextRetryAt: { lte: now } }] },
+      { processingStatus: "PROCESSING", OR: [{ processingStartedAt: null }, { processingStartedAt: { lte: new Date(now.getTime() - 300_000) } }] },
+    ] }, select: { id: true }, orderBy: [{ receivedAt: "asc" }, { id: "asc" }], take: Math.max(1, Math.min(100, limit)) });
+    const results = [];
+    for (const event of events) {
+      try { results.push(await this.replayEvent(event.id)); }
+      catch { results.push({ status: "REPLAY_UNAVAILABLE", eventId: event.id }); }
+    }
+    return { results, hasMore: events.length === Math.max(1, Math.min(100, limit)) };
   }
 }
-
 export const webhookProcessor = new WebhookProcessor();

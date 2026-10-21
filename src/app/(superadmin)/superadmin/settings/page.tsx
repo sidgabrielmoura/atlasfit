@@ -1,4 +1,5 @@
 "use client";
+import { useMfaReauthentication } from "@/components/auth/mfa-reauthentication-dialog";
 
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -40,6 +41,7 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
+import { signOut } from "next-auth/react";
 import { useSnapshot } from "valtio";
 import { superAdminStore, superAdminActions } from "@/stores/superadmin.store";
 import { toast } from "sonner";
@@ -106,6 +108,7 @@ function SettingsSection({ title, icon: Icon, description, children, className, 
 }
 
 export default function SuperAdminSettingsPage() {
+  const mfaReauthentication = useMfaReauthentication();
   const snap = useSnapshot(superAdminStore);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState<Record<string, string>>({});
@@ -190,6 +193,7 @@ export default function SuperAdminSettingsPage() {
     if (verificationOtp.length !== 6 || !setupData) return;
     setIsVerifyingTotp(true);
     try {
+      const reauthenticationProof = await mfaReauthentication.authenticate();
       const res = await fetch("/api/superadmin/security/totp/devices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -197,6 +201,7 @@ export default function SuperAdminSettingsPage() {
           deviceName: newDeviceName,
           secret: setupData.secret,
           token: verificationOtp,
+          reauthenticationProof,
         }),
       });
       const data = await res.json();
@@ -205,7 +210,6 @@ export default function SuperAdminSettingsPage() {
       }
       toast.success(data.message || "Aparelho conectado com sucesso!");
       setBackupCodes(data.backupCodes || []);
-      fetchTotpStatus();
     } catch (err: any) {
       toast.error(err.message || "Código inválido");
     } finally {
@@ -217,8 +221,11 @@ export default function SuperAdminSettingsPage() {
     if (!deviceToDelete) return;
     setIsDeletingDevice(true);
     try {
+      const reauthenticationProof = await mfaReauthentication.authenticate();
       const res = await fetch(`/api/superadmin/security/totp/devices/${deviceToDelete.id}`, {
         method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reauthenticationProof }),
       });
       const data = await res.json();
       if (!res.ok || data.error) {
@@ -226,7 +233,7 @@ export default function SuperAdminSettingsPage() {
       }
       toast.success(data.message || "Aparelho removido com sucesso.");
       setDeviceToDelete(null);
-      fetchTotpStatus();
+      await signOut({ callbackUrl: "/auth/admin" });
     } catch (err: any) {
       toast.error(err.message || "Erro ao remover aparelho");
     } finally {
@@ -237,13 +244,16 @@ export default function SuperAdminSettingsPage() {
   const handleDisableTotp = async () => {
     setIsDisablingTotp(true);
     try {
+      const reauthenticationProof = await mfaReauthentication.authenticate();
       const res = await fetch("/api/superadmin/security/totp/disable", {
         method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ reauthenticationProof }),
       });
       if (!res.ok) throw new Error("Erro ao desativar");
       toast.success("Google Authenticator desativado com sucesso.");
       setIsDisableModalOpen(false);
-      fetchTotpStatus();
+      await signOut({ callbackUrl: "/auth/admin" });
     } catch (err: any) {
       toast.error(err.message || "Erro ao desativar");
     } finally {
@@ -265,10 +275,11 @@ export default function SuperAdminSettingsPage() {
 
     setIsToggling3FA(true);
     try {
+      const reauthenticationProof = await mfaReauthentication.authenticate();
       const res = await fetch("/api/superadmin/security/totp/toggle-3fa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: true }),
+        body: JSON.stringify({ enabled: true, reauthenticationProof }),
       });
       const data = await res.json();
       if (!res.ok || data.error) {
@@ -279,7 +290,7 @@ export default function SuperAdminSettingsPage() {
         return;
       }
       toast.success("Autenticação em Três Fatores (3FA) ativada com sucesso!");
-      fetchTotpStatus();
+      await signOut({ callbackUrl: "/auth/admin" });
     } catch (err: any) {
       toast.error(err.message || "Erro ao ativar 3FA");
     } finally {
@@ -290,10 +301,11 @@ export default function SuperAdminSettingsPage() {
   const handleConfirmDisable3FA = async () => {
     setIsToggling3FA(true);
     try {
+      const reauthenticationProof = await mfaReauthentication.authenticate();
       const res = await fetch("/api/superadmin/security/totp/toggle-3fa", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ enabled: false }),
+        body: JSON.stringify({ enabled: false, reauthenticationProof }),
       });
       const data = await res.json();
       if (!res.ok || data.error) {
@@ -301,7 +313,7 @@ export default function SuperAdminSettingsPage() {
       }
       toast.success("Autenticação em Três Fatores (3FA) desativada.");
       setIsDisable3FAModalOpen(false);
-      fetchTotpStatus();
+      await signOut({ callbackUrl: "/auth/admin" });
     } catch (err: any) {
       toast.error(err.message || "Erro ao desativar 3FA");
     } finally {
@@ -456,6 +468,7 @@ export default function SuperAdminSettingsPage() {
 
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-12 max-w-[1200px] mx-auto animate-in fade-in duration-500">
+      {mfaReauthentication.dialog}
       {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 sm:gap-6 border-b border-border/40 pb-6 md:pb-8">
         <div className="space-y-1">
@@ -991,6 +1004,7 @@ export default function SuperAdminSettingsPage() {
       <Dialog open={isSetupModalOpen} onOpenChange={(open) => {
         if (!open) {
           setIsSetupModalOpen(false);
+          if (backupCodes !== null) void signOut({ callbackUrl: "/auth/admin" });
           setBackupCodes(null);
           setVerificationOtp("");
         }
@@ -1003,7 +1017,7 @@ export default function SuperAdminSettingsPage() {
                   Authenticator Ativado
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground">
-                  Guarde seus códigos de backup para emergências.
+                  {backupCodes.length ? "Guarde seus novos códigos de recuperação." : "Os códigos de recuperação existentes foram preservados."} Entre novamente ao concluir.
                 </DialogDescription>
               </div>
 
@@ -1030,6 +1044,7 @@ export default function SuperAdminSettingsPage() {
                   onClick={() => {
                     setIsSetupModalOpen(false);
                     setBackupCodes(null);
+                    void signOut({ callbackUrl: "/auth/admin" });
                   }}
                   className="flex-1 h-10 rounded-xl text-xs font-semibold bg-primary text-primary-foreground shadow-sm cursor-pointer"
                 >

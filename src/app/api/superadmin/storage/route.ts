@@ -1,10 +1,12 @@
+import { withRequestMemo } from "@/lib/request-memo";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { storageService } from "@/lib/storage.service";
-import { getAllPersonalsStorageMetrics } from "@/lib/storage-quota.service";
+import { getPersonalStorageDashboard } from "@/lib/personal-storage-dashboard";
+import { personalStorageQuerySchema } from "@/modules/workspaces/domain/personal-storage";
 import { logSystemError } from "@/lib/logger";
 
-export async function GET() {
+async function handleGET(request: Request) {
   const session = await auth();
 
   if (session?.user?.role !== "SUPERADMIN") {
@@ -12,26 +14,21 @@ export async function GET() {
   }
 
   try {
-    const [bucketStats, personalsMetrics] = await Promise.all([
-      storageService.getBucketStats(),
-      getAllPersonalsStorageMetrics(),
+    const parameters = new URL(request.url).searchParams;
+    if ([...parameters.keys()].some(key => parameters.getAll(key).length !== 1)) return NextResponse.json({ error: "Parâmetros inválidos." }, { status: 400 });
+    const parsed = personalStorageQuerySchema.safeParse(Object.fromEntries(parameters));
+    if (!parsed.success) return NextResponse.json({ error: "Filtros de armazenamento inválidos." }, { status: 400 });
+    const [bucketStats, dashboard] = await Promise.all([
+      parsed.data.includeBucket === "true" ? storageService.getBucketStats() : Promise.resolve(null),
+      getPersonalStorageDashboard(parsed.data),
     ]);
-
-    const summary = {
-      totalPersonals: personalsMetrics.length,
-      warningCount: personalsMetrics.filter((p) => p.status === "WARNING").length,
-      exceededCount: personalsMetrics.filter((p) => p.status === "EXCEEDED").length,
-      normalCount: personalsMetrics.filter((p) => p.status === "NORMAL").length,
-      totalPersonalStorageMb: personalsMetrics.reduce((acc, p) => acc + p.totalUsedMb, 0),
-    };
-
     return NextResponse.json({
       bucketStats,
-      personalsMetrics,
-      summary,
-    });
+      ...dashboard,
+    }, { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     await logSystemError({ action: "GET_SUPERADMIN_STORAGE", error, entity: "STORAGE" });
     return new NextResponse("Internal Server Error", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);

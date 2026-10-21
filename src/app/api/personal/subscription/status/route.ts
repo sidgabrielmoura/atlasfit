@@ -1,9 +1,12 @@
+import { withRequestMemo } from "@/lib/request-memo";
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { logSystemError } from "@/lib/logger";
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
+  const restricted = await personalCommercialContextResponse({ allowExpired: true }); if (restricted) return restricted;
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -18,7 +21,8 @@ export async function GET(req: Request) {
     }
 
     const transaction = await prisma.transaction.findUnique({
-      where: { id: transactionId }
+      where: { id: transactionId, userId: session.user.id },
+      select: { status: true }
     });
 
     if (!transaction) {
@@ -31,3 +35,4 @@ export async function GET(req: Request) {
     return new NextResponse("Erro interno.", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);

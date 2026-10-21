@@ -101,7 +101,7 @@ export default function PersonalCreditsPage() {
     if (!workspaceId) return;
     (async () => {
       try {
-        const res = await fetch(`/api/personal/credits/balance?workspaceId=${workspaceId}`);
+        const res = await fetch(`/api/personal/credits/balance?workspaceId=${workspaceId}`, { method: new URLSearchParams(window.location.search).get("status") === "success" ? "POST" : "GET" });
         if (res.ok) setBalance(await res.json());
       } finally {
         setIsLoadingBalance(false);

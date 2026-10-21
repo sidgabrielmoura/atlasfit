@@ -1,8 +1,12 @@
+import { assertChatWorkspace } from "@/modules/workspaces/application/chat-authority";
+import { handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
+import { withAuditedRequest } from "@/lib/audited-request";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { getGymChatContacts } from "@/modules/workspaces/application/gym-chat-contacts";
 
-export async function GET(req: Request) {
+export const GET = withAuditedRequest(async function GET(req: Request) {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -17,6 +21,8 @@ export async function GET(req: Request) {
     }
 
     const userId = session.user.id;
+    await assertChatWorkspace(workspaceId, userId);
+    if ((await prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { type: true } })).type === "GYM") return NextResponse.json(await getGymChatContacts(workspaceId, userId));
 
     // Get current user's membership
     const userMember = await prisma.workspaceMember.findFirst({
@@ -62,7 +68,8 @@ export async function GET(req: Request) {
 
     return NextResponse.json(contacts);
   } catch (error) {
+    const denied = handleWorkspaceAccessError(error); if (denied) return denied;
     console.error("[API Chat Contacts GET] Error:", error);
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
-}
+});

@@ -1,0 +1,764 @@
+{
+  "recordedAt": "2026-10-09T19:24:14.028Z",
+  "configuredDatabaseChanged": false,
+  "productionDeployed": false,
+  "integration": {
+    "startedAt": "2026-10-09T19:13:00.969Z",
+    "finishedAt": "2026-10-09T19:14:21.800Z",
+    "command": "node node_modules/vitest/vitest.mjs run --config vitest.gym.config.ts --reporter=json --outputFile=.tmp/gym-stabilization/integracao-integridade-agregacao-69bbe344-0e87-42bf-b785-878c69cbc715-raw.json",
+    "exitCode": 0,
+    "passed": 295,
+    "failed": 0,
+    "skipped": 0,
+    "success": true,
+    "rawFile": ".tmp/gym-stabilization/integracao-integridade-agregacao-69bbe344-0e87-42bf-b785-878c69cbc715-raw.json"
+  },
+  "tenant": {
+    "startedAt": "2026-10-09T19:04:06.769Z",
+    "finishedAt": "2026-10-09T19:04:10.358Z",
+    "command": "node node_modules/vitest/vitest.mjs run --config vitest.gym.config.ts tests/gym/tenant-constraints.integration.ts --reporter=json --outputFile=.tmp/gym-stabilization/tenant-constraints-ac542dcc-1378-4a3d-920b-6d4cbb3f1746-raw.json",
+    "exitCode": 0,
+    "passed": 9,
+    "failed": 0,
+    "skipped": 0,
+    "success": true,
+    "rawFile": ".tmp/gym-stabilization/tenant-constraints-ac542dcc-1378-4a3d-920b-6d4cbb3f1746-raw.json"
+  },
+  "reports": {
+    "startedAt": "2026-10-09T19:12:35.597Z",
+    "finishedAt": "2026-10-09T19:12:40.151Z",
+    "command": "node node_modules/vitest/vitest.mjs run --config vitest.gym.config.ts tests/gym/report-scope.integration.ts tests/gym/report-temporal.integration.ts --reporter=json --outputFile=.tmp/gym-stabilization/reports-aggregates-f4875dc5-e36f-44ab-8f1e-0a1b1a21565d-raw.json",
+    "exitCode": 0,
+    "passed": 7,
+    "failed": 0,
+    "skipped": 0,
+    "success": true,
+    "rawFile": ".tmp/gym-stabilization/reports-aggregates-f4875dc5-e36f-44ab-8f1e-0a1b1a21565d-raw.json"
+  },
+  "deploy": {
+    "startedAt": "2026-10-09T19:08:16.080Z",
+    "disposableDatabase": "atlasfit_tenant_deploy_3d278a0c244a403b93cbc6bc8d39cf6f",
+    "configuredDatabaseChanged": false,
+    "checks": [
+      {
+        "label": "fresh",
+        "exitCode": 0,
+        "output": "Datasource \"db\": PostgreSQL database \"atlasfit_tenant_deploy_3d278a0c244a403b93cbc6bc8d39cf6f\", schema \"public\" at \"127.0.0.1:56432\"\n\n2 migrations found in prisma/migrations\n\nApplying migration `0_atlasfit_20261007`\nApplying migration `20261009000000_gym_tenant_relations`\n\nThe following migration(s) have been applied:\n\nmigrations/\n  └─ 0_atlasfit_20261007/\n    └─ migration.sql\n  └─ 20261009000000_gym_tenant_relations/\n    └─ migration.sql\n\nAll migrations have been successfully applied.\nLoaded Prisma config from prisma.baseline.config.ts.\n\nPrisma schema loaded from prisma\\schema.prisma.\n"
+      },
+      {
+        "label": "repeat",
+        "exitCode": 0,
+        "output": "Datasource \"db\": PostgreSQL database \"atlasfit_tenant_deploy_3d278a0c244a403b93cbc6bc8d39cf6f\", schema \"public\" at \"127.0.0.1:56432\"\n\n2 migrations found in prisma/migrations\n\n\nNo pending migrations to apply.\nLoaded Prisma config from prisma.baseline.config.ts.\n\nPrisma schema loaded from prisma\\schema.prisma.\n"
+      },
+      {
+        "label": "status",
+        "exitCode": 0,
+        "output": "Datasource \"db\": PostgreSQL database \"atlasfit_tenant_deploy_3d278a0c244a403b93cbc6bc8d39cf6f\", schema \"public\" at \"127.0.0.1:56432\"\n\n2 migrations found in prisma/migrations\n\nDatabase schema is up to date!\nLoaded Prisma config from prisma.baseline.config.ts.\n\nPrisma schema loaded from prisma\\schema.prisma.\n"
+      },
+      {
+        "label": "schema",
+        "exitCode": 0,
+        "output": "No difference detected.\n\nLoaded Prisma config from prisma.baseline.config.ts.\n\n"
+      }
+    ],
+    "migration": {
+      "file": "prisma/baseline-migrations/20261009000000_gym_tenant_relations/migration.sql",
+      "sha256": "70d5ab9d885276ad84c0bbb8817ed2262bc74684bab4f813a3c9313abe4843a7"
+    },
+    "appliedMigrations": [
+      "0_atlasfit_20261007",
+      "20261009000000_gym_tenant_relations"
+    ],
+    "relationTriggers": 35,
+    "immutableTenantTriggers": 48,
+    "inheritedTenantTriggers": 3,
+    "success": true,
+    "finishedAt": "2026-10-09T19:08:40.491Z"
+  },
+  "preflight": {
+    "startedAt": "2026-10-09T19:11:25.777Z",
+    "readOnly": true,
+    "target": "CONFIGURED",
+    "targetFingerprint": "6686efe8f8b6de82ea731d3713ed8e828aa1f85233c4e05f9f10b00b41a6ac6c",
+    "relations": [
+      {
+        "table": "WorkspaceMember",
+        "field": "unitId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "WorkspaceMember",
+        "field": "assignedStaffId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "WorkoutLog",
+        "field": "workoutId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "Notification",
+        "field": "dispatchId",
+        "status": "SCHEMA_UNAVAILABLE",
+        "code": "42P01",
+        "applicableGymRecords": "0"
+      },
+      {
+        "table": "StudentBilling",
+        "field": "workspacePaymentId",
+        "status": "SCHEMA_UNAVAILABLE",
+        "code": "42703",
+        "applicableGymRecords": "0"
+      },
+      {
+        "table": "StudentBilling",
+        "field": "providerAccountId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "StudentBilling",
+        "field": "enrollmentId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "WorkspaceInvitation",
+        "field": "unitId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymStudentProfile",
+        "field": "memberId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymGuardian",
+        "field": "studentMemberId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymEnrollment",
+        "field": "studentMemberId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymEnrollment",
+        "field": "planVersionId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymEnrollment",
+        "field": "scheduledPlanVersionId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymEnrollment",
+        "field": "supersedesEnrollmentId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymEnrollment",
+        "field": "unitId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymEnrollment",
+        "field": "billingPayerGuardianId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymContractAcceptance",
+        "field": "enrollmentId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymEnrollmentEvent",
+        "field": "enrollmentId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymInvoice",
+        "field": "studentMemberId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymInvoice",
+        "field": "enrollmentId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymInvoice",
+        "field": "billingId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymPayment",
+        "field": "cashDrawerSessionId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymPayment",
+        "field": "financialAccountId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymFinancialAccount",
+        "field": "unitId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymAccountTransfer",
+        "field": "fromAccountId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymAccountTransfer",
+        "field": "toAccountId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymExpense",
+        "field": "unitId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymExpense",
+        "field": "supplierId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymExpense",
+        "field": "categoryId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymExpense",
+        "field": "financialAccountId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymCashDrawerSession",
+        "field": "unitId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymCashDrawerSession",
+        "field": "financialAccountId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "WorkspaceRoleGrant",
+        "field": "unitId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymPaymentAllocation",
+        "field": "invoiceId",
+        "status": "READ",
+        "count": "0"
+      },
+      {
+        "table": "GymExpensePayment",
+        "field": "financialAccountId",
+        "status": "READ",
+        "count": "0"
+      }
+    ],
+    "gymWorkspaces": "1",
+    "success": true,
+    "readyToMigrate": false,
+    "finishedAt": "2026-10-09T19:11:37.746Z"
+  },
+  "volume": {
+    "recordedAt": "2026-10-09T19:17:31.257Z",
+    "synthetic": true,
+    "invoices": 5000,
+    "payments": 1000,
+    "durationMs": 269.6175000000003,
+    "paymentMethodRowsReturned": 2,
+    "success": true,
+    "limitation": "Single disposable PostgreSQL sample; operational volume and lifecycle history require separate validation."
+  },
+  "typecheck": {
+    "recordedAt": "2026-10-09T19:18:28.936Z",
+    "exitCode": 0,
+    "output": ""
+  },
+  "a11y": {
+    "file": ".tmp/gym-stabilization/settings-a11y-1791573670287/report.json",
+    "startedAt": "2026-10-09T19:21:10.288Z",
+    "synthetic": true,
+    "samples": [
+      {
+        "width": 390,
+        "theme": "light",
+        "screenshot": "docs/audits/academias/estabilizacao/configuracao-a11y/390-light.png",
+        "overflow": false,
+        "controlNames": [
+          "Importação de alunos",
+          "Alunos",
+          "Equipe",
+          "Unidades",
+          "Armazenamento (MB)",
+          "Tolerância de atraso (dias)",
+          "Desconto máximo da recepção (%)",
+          "Desconto máximo da recepção (centavos)"
+        ],
+        "reviewed": [
+          {
+            "id": "aria-valid-attr-value",
+            "target": "notifications",
+            "popupReferenceResolved": true,
+            "escapeReturnsFocus": true
+          }
+        ],
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "aria-valid-attr-value",
+            "nodes": [
+              {
+                "target": [
+                  ".hover\\:bg-neutral-400\\/10"
+                ],
+                "html": "<button data-slot=\"popover-trigger\" data-variant=\"ghost\" data-size=\"icon\" class=\"group/button inline-...\" aria-label=\"Abrir notificações\" type=\"button\" aria-haspopup=\"dialog\" aria-expanded=\"false\" aria-controls=\"radix-_R_1kqitpevelb...\" data-state=\"closed\">",
+                "summary": "Fix all of the following:\n  Unable to determine if aria-controls referenced ID exists on the page while using aria-haspopup: aria-controls=\"radix-_R_1kqitpevelb_\""
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "width": 390,
+        "theme": "dark",
+        "screenshot": "docs/audits/academias/estabilizacao/configuracao-a11y/390-dark.png",
+        "overflow": false,
+        "controlNames": [
+          "Importação de alunos",
+          "Alunos",
+          "Equipe",
+          "Unidades",
+          "Armazenamento (MB)",
+          "Tolerância de atraso (dias)",
+          "Desconto máximo da recepção (%)",
+          "Desconto máximo da recepção (centavos)"
+        ],
+        "reviewed": [
+          {
+            "id": "aria-valid-attr-value",
+            "target": "notifications",
+            "popupReferenceResolved": true,
+            "escapeReturnsFocus": true
+          }
+        ],
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "aria-valid-attr-value",
+            "nodes": [
+              {
+                "target": [
+                  ".hover\\:bg-neutral-400\\/10"
+                ],
+                "html": "<button data-slot=\"popover-trigger\" data-variant=\"ghost\" data-size=\"icon\" class=\"group/button inline-...\" aria-label=\"Abrir notificações\" type=\"button\" aria-haspopup=\"dialog\" aria-expanded=\"false\" aria-controls=\"radix-_R_1kqitpevelb...\" data-state=\"closed\">",
+                "summary": "Fix all of the following:\n  Unable to determine if aria-controls referenced ID exists on the page while using aria-haspopup: aria-controls=\"radix-_R_1kqitpevelb_\""
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "width": 1280,
+        "theme": "light",
+        "screenshot": "docs/audits/academias/estabilizacao/configuracao-a11y/1280-light.png",
+        "overflow": false,
+        "controlNames": [
+          "Importação de alunos",
+          "Alunos",
+          "Equipe",
+          "Unidades",
+          "Armazenamento (MB)",
+          "Tolerância de atraso (dias)",
+          "Desconto máximo da recepção (%)",
+          "Desconto máximo da recepção (centavos)"
+        ],
+        "reviewed": [
+          {
+            "id": "color-contrast",
+            "target": "Atlas Engage",
+            "result": "passed after scrolling the sidebar"
+          },
+          {
+            "id": "color-contrast",
+            "target": "shortcut glyph",
+            "computedRatio": 18.23914355669436
+          },
+          {
+            "id": "aria-valid-attr-value",
+            "target": "notifications",
+            "popupReferenceResolved": true,
+            "escapeReturnsFocus": true
+          }
+        ],
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "aria-valid-attr-value",
+            "nodes": [
+              {
+                "target": [
+                  ".hover\\:bg-neutral-400\\/10"
+                ],
+                "html": "<button data-slot=\"popover-trigger\" data-variant=\"ghost\" data-size=\"icon\" class=\"group/button inline-...\" aria-label=\"Abrir notificações\" type=\"button\" aria-haspopup=\"dialog\" aria-expanded=\"false\" aria-controls=\"radix-_R_1kqitpevelb...\" data-state=\"closed\">",
+                "summary": "Fix all of the following:\n  Unable to determine if aria-controls referenced ID exists on the page while using aria-haspopup: aria-controls=\"radix-_R_1kqitpevelb_\""
+              }
+            ]
+          },
+          {
+            "id": "color-contrast",
+            "nodes": [
+              {
+                "target": [
+                  "a[href$=\"engage\"] > .font-semibold.text-xs"
+                ],
+                "html": "<span class=\"text-xs font-semibold\">Atlas Engage</span>",
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              },
+              {
+                "target": [
+                  "kbd > span"
+                ],
+                "html": "<span>⌘</span>",
+                "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "width": 1280,
+        "theme": "dark",
+        "screenshot": "docs/audits/academias/estabilizacao/configuracao-a11y/1280-dark.png",
+        "overflow": false,
+        "controlNames": [
+          "Importação de alunos",
+          "Alunos",
+          "Equipe",
+          "Unidades",
+          "Armazenamento (MB)",
+          "Tolerância de atraso (dias)",
+          "Desconto máximo da recepção (%)",
+          "Desconto máximo da recepção (centavos)"
+        ],
+        "reviewed": [
+          {
+            "id": "color-contrast",
+            "target": "Atlas Engage",
+            "result": "passed after scrolling the sidebar"
+          },
+          {
+            "id": "color-contrast",
+            "target": "shortcut glyph",
+            "computedRatio": 16.85730904004334
+          },
+          {
+            "id": "aria-valid-attr-value",
+            "target": "notifications",
+            "popupReferenceResolved": true,
+            "escapeReturnsFocus": true
+          }
+        ],
+        "violations": [],
+        "incomplete": [
+          {
+            "id": "aria-valid-attr-value",
+            "nodes": [
+              {
+                "target": [
+                  ".hover\\:bg-neutral-400\\/10"
+                ],
+                "html": "<button data-slot=\"popover-trigger\" data-variant=\"ghost\" data-size=\"icon\" class=\"group/button inline-...\" aria-label=\"Abrir notificações\" type=\"button\" aria-haspopup=\"dialog\" aria-expanded=\"false\" aria-controls=\"radix-_R_1kqitpevelb...\" data-state=\"closed\">",
+                "summary": "Fix all of the following:\n  Unable to determine if aria-controls referenced ID exists on the page while using aria-haspopup: aria-controls=\"radix-_R_1kqitpevelb_\""
+              }
+            ]
+          },
+          {
+            "id": "color-contrast",
+            "nodes": [
+              {
+                "target": [
+                  ".p-2[data-slot=\"sidebar-group\"][data-sidebar=\"group\"]:nth-child(1) > .h-8.transition-\\[margin\\,opacity\\].group-data-\\[collapsible\\=icon\\]\\:-mt-8"
+                ],
+                "html": "<div data-slot=\"sidebar-group-label\" data-sidebar=\"group-label\" class=\"flex h-8 shrink-0 it...\">",
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              },
+              {
+                "target": [
+                  "a[href$=\"dashboard\"] > .font-semibold.text-xs"
+                ],
+                "html": "<span class=\"text-xs font-semibold\">Dashboard Global</span>",
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              },
+              {
+                "target": [
+                  ".p-2[data-slot=\"sidebar-group\"][data-sidebar=\"group\"]:nth-child(3) > .h-8.transition-\\[margin\\,opacity\\].group-data-\\[collapsible\\=icon\\]\\:-mt-8"
+                ],
+                "html": "<div data-slot=\"sidebar-group-label\" data-sidebar=\"group-label\" class=\"flex h-8 shrink-0 it...\">",
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              },
+              {
+                "target": [
+                  "a[href$=\"users\"] > .font-semibold.text-xs"
+                ],
+                "html": "<span class=\"text-xs font-semibold\">Usuários</span>",
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              },
+              {
+                "target": [
+                  "a[href$=\"workspaces\"] > .font-semibold.text-xs"
+                ],
+                "html": "<span class=\"text-xs font-semibold\">Workspaces</span>",
+                "summary": "Fix any of the following:\n  Element's background color could not be determined because it's partially obscured by another element"
+              },
+              {
+                "target": [
+                  "kbd > span"
+                ],
+                "html": "<span>⌘</span>",
+                "summary": "Fix any of the following:\n  Element content contains only non-text characters"
+              }
+            ]
+          }
+        ]
+      }
+    ],
+    "errors": [],
+    "manualScreenReader": false,
+    "keyboard": true,
+    "success": true,
+    "finishedAt": "2026-10-09T19:22:15.759Z"
+  },
+  "browser": {
+    "startedAt": "2026-10-09T19:21:50.531Z",
+    "synthetic": true,
+    "configuredDatabaseChanged": false,
+    "samples": [
+      {
+        "width": 390,
+        "overflow": false,
+        "noticeVisible": true,
+        "screenshot": "docs/audits/academias/estabilizacao/relatorios-agregacao/390.png"
+      },
+      {
+        "width": 1280,
+        "overflow": false,
+        "noticeVisible": true,
+        "screenshot": "docs/audits/academias/estabilizacao/relatorios-agregacao/1280.png"
+      }
+    ],
+    "errors": [],
+    "http": {
+      "status": 200,
+      "historyCoverage": {
+        "legacyPaidExpensesCount": 4,
+        "unallocatedPaymentsCount": 4,
+        "complete": false
+      }
+    },
+    "success": true,
+    "finishedAt": "2026-10-09T19:22:37.231Z"
+  },
+  "intermediateBrowserFailures": [
+    {
+      "file": ".tmp/gym-stabilization/reports-browser-1791573333722/report.json",
+      "startedAt": "2026-10-09T19:15:33.723Z",
+      "finishedAt": "2026-10-09T19:17:50.387Z",
+      "failure": "locator.waitFor: Timeout 120000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Histórico financeiro precisa de conferência', { exact: true }) to be visible\u001b[22m\n"
+    },
+    {
+      "file": ".tmp/gym-stabilization/settings-a11y-1791571551787/report.json",
+      "startedAt": "2026-10-09T18:45:51.813Z",
+      "finishedAt": "2026-10-09T18:46:28.951Z"
+    },
+    {
+      "file": ".tmp/gym-stabilization/settings-a11y-1791571712247/report.json",
+      "startedAt": "2026-10-09T18:48:32.267Z",
+      "finishedAt": "2026-10-09T18:49:11.184Z"
+    },
+    {
+      "file": ".tmp/gym-stabilization/settings-a11y-1791573495436/report.json",
+      "startedAt": "2026-10-09T19:18:15.437Z",
+      "finishedAt": "2026-10-09T19:18:26.890Z",
+      "failure": "Expected values to be strictly equal:\n\nfalse !== true\n"
+    },
+    {
+      "file": ".tmp/gym-stabilization/settings-a11y-1791573646260/report.json",
+      "startedAt": "2026-10-09T19:20:46.261Z",
+      "finishedAt": "2026-10-09T19:20:46.845Z",
+      "failure": "apiRequestContext.get: connect ECONNREFUSED 127.0.0.1:31174\nCall log:\n\u001b[2m  - → GET http://127.0.0.1:31174/api/auth/csrf\u001b[22m\n\u001b[2m    - user-agent: Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) HeadlessChrome/154.0.0.0 Safari/537.36\u001b[22m\n\u001b[2m    - accept: */*\u001b[22m\n\u001b[2m    - accept-encoding: gzip,deflate,br\u001b[22m\n"
+    }
+  ],
+  "schemaValidation": {
+    "command": "node node_modules/prisma/build/index.js validate",
+    "exitCode": 0,
+    "output": "The schema at prisma\\schema.prisma is valid 🚀\nLoaded Prisma config from prisma.config.ts.\n\nPrisma schema loaded from prisma\\schema.prisma.\n"
+  },
+  "sources": [
+    {
+      "file": ".gitignore",
+      "sha256": "8bc018d9c68abbb363c1ff062a988c8027cfb6102ee33d0f5be16d8f2019b5f1"
+    },
+    {
+      "file": "prisma/gym-tenant-integrity.json",
+      "sha256": "440c8ada37773b60269af74d733541b45feb2ae8e605fb1925ed2d1a91f60810"
+    },
+    {
+      "file": "prisma/baseline-migrations/20261009000000_gym_tenant_relations/migration.sql",
+      "sha256": "70d5ab9d885276ad84c0bbb8817ed2262bc74684bab4f813a3c9313abe4843a7"
+    },
+    {
+      "file": "prisma/migrations/20261009000000_gym_tenant_relations/migration.sql",
+      "sha256": "70d5ab9d885276ad84c0bbb8817ed2262bc74684bab4f813a3c9313abe4843a7"
+    },
+    {
+      "file": "scripts/gym-generate-tenant-integrity.cjs",
+      "sha256": "2f68c8008d0df5b9459d5f9dc18818e48a6ed75521201a7125629678498eeb9d"
+    },
+    {
+      "file": "scripts/gym-tenant-preflight.cjs",
+      "sha256": "a73638ea9e20b9aad2a767985675e871d5717fe1aa1d1167966580ec1750bfc3"
+    },
+    {
+      "file": "scripts/gym-test-tenant-constraints.cjs",
+      "sha256": "132e21fd7a0028527caa047d479a160a1bb4910cff5f109c9a18612037420e4c"
+    },
+    {
+      "file": "scripts/gym-verify-tenant-deploy.cjs",
+      "sha256": "fd400ceef85f909595a42923667e137ac59f66cd1f53b6703185e884779da94f"
+    },
+    {
+      "file": "scripts/gym-settings-a11y.cjs",
+      "sha256": "25532a50f5430f5cbcd403c44354f9202519b8765c6325e39348b4d4f82425a8"
+    },
+    {
+      "file": "scripts/gym-report-aggregation-browser.cjs",
+      "sha256": "9a2bf8eebedfc83fd08fa2e9c443779a5dccf41980c254cd152b2837784ccb36"
+    },
+    {
+      "file": "scripts/gym-record-integrity-aggregation.cjs",
+      "sha256": "718d62ae1ae62e4ac1927af8f07db49472e34cc7f0125e8621e63af7cadde543"
+    },
+    {
+      "file": "scripts/gym-remaining-report.cjs",
+      "sha256": "ab3273413456a65d58c9789cffdcd14325f74d632c21422199a1947ecdd80aa1"
+    },
+    {
+      "file": "src/modules/workspaces/application/gym-report-financial-aggregates.ts",
+      "sha256": "f24aff027c1b1e86f7313df7aa3c412ba29517ecd85811ca34e3623d0f92176f"
+    },
+    {
+      "file": "src/modules/workspaces/application/gym-analytics-service.ts",
+      "sha256": "e3ef43c5ffde99a8935fe622262fb41402367a41e1036639ec2b5004c601da73"
+    },
+    {
+      "file": "src/app/(gym)/gym/finance/finance-client.tsx",
+      "sha256": "9bca552b8ee5721ba64a8b00dd8f51ec4037bf571d64b412f5c571cd27fbddb3"
+    },
+    {
+      "file": "src/app/layout.tsx",
+      "sha256": "12940f08e5b224c5510908e39f6fc4da7e61c32f012e2f77c75fd5dc149a2574"
+    },
+    {
+      "file": "src/components/application/command-menu.tsx",
+      "sha256": "046c986a15e79053ed05abe2d486a9d2526f6b60c68f6746f9607c3d2c413450"
+    },
+    {
+      "file": "src/components/application/notification-bell.tsx",
+      "sha256": "aa0bb1af8af303b640f26df82cd14f35d4c76e88ce68bc989eea28e9f41908b5"
+    },
+    {
+      "file": "src/components/application/superadmin-sidebar.tsx",
+      "sha256": "13566364cc971edfb658b0ea74dc40c0155f465474b323932f09625bf43eb9ad"
+    },
+    {
+      "file": "src/components/application/superadmin-breadcrumbs.tsx",
+      "sha256": "b8fdce93f115b0e0e7214f219d82bd6079f91c220bc23728a6fd77801ea0b887"
+    },
+    {
+      "file": "tests/gym/tenant-constraints.integration.ts",
+      "sha256": "01d136efda54ad65db50f6e4147aeae4664cba3d3be40c499cc0989f65ada0e6"
+    },
+    {
+      "file": "tests/gym/report-scope.integration.ts",
+      "sha256": "f1d3b45756420f985161ab8867108b8ffd3d1129c05b22c81c7fa7722fbeb938"
+    },
+    {
+      "file": "tests/gym/report-temporal.integration.ts",
+      "sha256": "3d533e950ab43eedb595c826de91feb87ad473c8fe3f3490be780e4335c24e06"
+    },
+    {
+      "file": "docs/audits/academias/estabilizacao/integridade-agregacao-acessibilidade.md",
+      "sha256": "f5343a58505f0d208cb75bed5487426fac20830c2d874e6a8c089442bd8bfb71"
+    },
+    {
+      "file": "docs/audits/academias/estabilizacao/configuracao-a11y/390-light.png",
+      "sha256": "a2372bb484ee68b493c74400db1737a68d3f41f0ab73878aa4dd97d82ac78663"
+    },
+    {
+      "file": "docs/audits/academias/estabilizacao/configuracao-a11y/390-dark.png",
+      "sha256": "1e3a5eccc5edac5ce7de623575c3bd3eb91bb3249d8efe5a090b3c52d0f23d31"
+    },
+    {
+      "file": "docs/audits/academias/estabilizacao/configuracao-a11y/1280-light.png",
+      "sha256": "d56b62c623783becea02530afd7b72772c9a7de4ec4a0b09b7a0cc97f36eefe4"
+    },
+    {
+      "file": "docs/audits/academias/estabilizacao/configuracao-a11y/1280-dark.png",
+      "sha256": "2cb4792278581839b4f5c777300a570943caf9ed736fb2b5d3e6d0eb2f2d5734"
+    },
+    {
+      "file": "docs/audits/academias/estabilizacao/relatorios-agregacao/390.png",
+      "sha256": "7ee28bd3dfa97471d8cebaafa94fff410bf300246c85ed7dd90a19064842ef77"
+    },
+    {
+      "file": "docs/audits/academias/estabilizacao/relatorios-agregacao/1280.png",
+      "sha256": "daaf7a305f44748d7c5e9b03d1343c281937e79128776678a95ce68792d02141"
+    }
+  ],
+  "limitations": [
+    "Two configured relations require the future schema; deployment readiness remains false.",
+    "Indirect identity/unit history, documented backfills and operational performance remain open.",
+    "Automated accessibility and browser samples do not verify a real screen reader or other surfaces.",
+    "Historical PERSONAL/HTTP suites and old failing mock suites were not rerun in this batch."
+  ]
+}

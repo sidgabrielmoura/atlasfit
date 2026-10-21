@@ -1,11 +1,14 @@
+import { withRequestMemo } from "@/lib/request-memo";
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 
-export async function GET(
+async function handleGET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -45,11 +48,13 @@ export async function GET(
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -211,6 +216,7 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });

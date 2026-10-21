@@ -1,0 +1,12 @@
+const fs = require('node:fs');
+const file = 'src/modules/workspaces/application/cash-mutations.ts';
+let source = fs.readFileSync(file, 'utf8');
+const declaration = '    const transfer = await tx.gymAccountTransfer.create({ data: { ...data, idempotencyKey: key, requestFingerprint: hash, amountInCents: data.amountInCents } });';
+if (!source.includes(declaration)) throw new Error('Declaração de transferência não encontrada');
+source = source.replace(declaration + '\n', '').replace(declaration + '\r\n', '');
+source = source.replace('    const recordCashSide = async', declaration + '\n    const recordCashSide = async');
+source = source.replace('sessionId: session.id, movementType: outgoing ?', 'sessionId: session.id, accountTransferId: transfer.id, movementType: outgoing ?');
+const bleed = '      await tx.gymAccountTransfer.create({ data: { workspaceId: data.workspaceId, fromAccountId: cashAccount.id, toAccountId: destination.id, amountInCents: data.amountInCents, referenceId: movement.id, description: "Sangria de caixa", performedByUserId: data.performedByUserId } });';
+if (!source.includes(bleed)) throw new Error('Transferência de sangria não encontrada');
+source = source.replace(bleed, bleed.replace('await tx.', 'const transfer = await tx.') + '\n      await tx.gymCashDrawerMovement.update({ where: { id: movement.id }, data: { accountTransferId: transfer.id } });');
+fs.writeFileSync(file, source);

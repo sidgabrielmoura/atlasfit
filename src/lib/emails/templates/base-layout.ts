@@ -2,6 +2,7 @@
  * Base Layout for AtlasFit Transactional Emails.
  * Responsive, dark-mode optimized, bulletproof table structure for Gmail, Apple Mail, Outlook and mobile clients.
  */
+import { validateApplicationOrigin } from "@/lib/auth/application-origin";
 
 export interface EmailBaseLayoutOptions {
   title?: string;
@@ -20,7 +21,7 @@ export interface EmailBaseLayoutOptions {
 
 export function getAppBaseUrl(): string {
   const domain = process.env.NEXT_PUBLIC_APP_URL || process.env.APP_URL || "https://app.atlasfit.site";
-  return domain.replace(/\/$/, "");
+  return validateApplicationOrigin(domain);
 }
 
 export function getLogoUrl(): string {

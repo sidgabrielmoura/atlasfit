@@ -1,0 +1,65 @@
+{
+  "startedAt": "2026-10-10T01:40:50.544Z",
+  "synthetic": true,
+  "configuredDatabaseChanged": false,
+  "checks": [
+    {
+      "name": "cron process-recurrence unauthorized",
+      "passed": true
+    },
+    {
+      "name": "cron gym-recurrence unauthorized",
+      "passed": true
+    },
+    {
+      "name": "cron deliveries unauthorized",
+      "passed": true
+    },
+    {
+      "name": "cron engage-push unauthorized",
+      "passed": true
+    },
+    {
+      "name": "health anonymous denied",
+      "passed": true
+    },
+    {
+      "name": "health owner denied",
+      "passed": true
+    },
+    {
+      "name": "health administrator",
+      "passed": true
+    },
+    {
+      "name": "scheduler never claimed operational",
+      "passed": true
+    },
+    {
+      "name": "health no provider content",
+      "passed": true
+    },
+    {
+      "name": "receipt anonymous denied",
+      "passed": true
+    },
+    {
+      "name": "receipt other user hidden",
+      "passed": true
+    },
+    {
+      "name": "receipt own counts",
+      "passed": true
+    },
+    {
+      "name": "invoice conflicting identity rejected",
+      "passed": true
+    },
+    {
+      "name": "invoice rejection has no write",
+      "passed": true
+    }
+  ],
+  "success": true,
+  "finishedAt": "2026-10-10T01:41:47.228Z"
+}

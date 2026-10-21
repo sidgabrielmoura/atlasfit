@@ -1,3 +1,4 @@
+import { withRequestMemo } from "@/lib/request-memo";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
@@ -6,7 +7,7 @@ import { StudentBillingStatus, WalletPayoutStatus, FinancialAccountStatus, Walle
 
 const adapter = new AsaasAdapter();
 
-export async function GET() {
+async function handleGET() {
   try {
     const session = await auth();
     if (!session?.user?.id || session.user.role !== "SUPERADMIN") {
@@ -23,7 +24,7 @@ export async function GET() {
       }
     });
 
-    const userIds = Array.from(new Set(accounts.map((a) => a.personalUserId)));
+    const userIds = Array.from(new Set(accounts.map((a) => a.personalUserId).filter((id): id is string => Boolean(id))));
     const users = await prisma.user.findMany({
       where: { id: { in: userIds } },
       select: { id: true, name: true, email: true }
@@ -38,7 +39,7 @@ export async function GET() {
     let totalPayoutsProcessingInCents = BigInt(0);
 
     const subaccountsList = accounts.map((acc) => {
-      const user = userMap.get(acc.personalUserId);
+      const user = acc.personalUserId ? userMap.get(acc.personalUserId) : null;
       const paidBillings = acc.billings.filter(
         (b) => b.status === StudentBillingStatus.SETTLED || b.status === StudentBillingStatus.CONFIRMED
       );
@@ -227,3 +228,4 @@ export async function GET() {
     return NextResponse.json({ error: message }, { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);

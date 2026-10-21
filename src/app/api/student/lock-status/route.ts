@@ -1,22 +1,32 @@
+import { withRequestMemo } from "@/lib/request-memo";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { getStudentWorkspaceMember } from "@/lib/student-auth";
+import { personalStudentBillingScope } from "@/lib/student-billing-scope";
 
-export async function GET() {
+async function handleGET() {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
-    const studentUserId = session.user.id;
+    const member = await getStudentWorkspaceMember(session.user.id);
+    if (!member) return NextResponse.json({ error: "Selecione um vínculo estudantil ativo." }, { status: 409 });
+
+    // Manual GYM obligations never drive the legacy PERSONAL wallet/workout lock.
+    // Physical access continues to be evaluated by the academy's access policy.
+    if (member.workspace.type === "GYM") return NextResponse.json({ kind: "GYM_MANUAL", workspaceId: member.workspaceId, status: "OK", daysUntilLock: null, overdueBilling: null });
 
     const pendingBillings = await prisma.studentBilling.findMany({
       where: {
-        studentUserId,
+        ...personalStudentBillingScope(session.user.id, member.workspaceId, member.workspace.ownerId),
         status: { in: ["PENDING", "OVERDUE"] }
       },
-      orderBy: { dueDate: "asc" }
+      orderBy: { dueDate: "asc" },
+      take: 1,
+      select: { id: true, title: true, grossAmountInCents: true, dueDate: true, hostedInvoiceUrl: true, pixPayloadEncrypted: true },
     });
 
     if (pendingBillings.length === 0) {
@@ -78,7 +88,8 @@ export async function GET() {
       }
     });
   } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : "Erro ao checar pendências";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    console.error("[StudentLockStatus]", { errorType: err instanceof Error ? err.name : "UnknownError" });
+    return NextResponse.json({ error: "Não foi possível consultar as pendências." }, { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);

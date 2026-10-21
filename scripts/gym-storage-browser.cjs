@@ -1,0 +1,39 @@
+const fs = require('node:fs'), assert = require('node:assert/strict');
+const { chromium } = require('../.tmp/gym-visual-runner/node_modules/playwright'), { expect: base } = require('../.tmp/gym-visual-runner/node_modules/playwright/test'); const expect = base.configure({ timeout: 120000 });
+const origin = 'http://127.0.0.1:31173', fixture = JSON.parse(fs.readFileSync('.tmp/gym-stabilization/storage-browser-fixture.json', 'utf8'));
+const folder = '.tmp/gym-stabilization/storage-browser-' + Date.now(); fs.mkdirSync(folder, { recursive: true });
+const report = { startedAt: new Date().toISOString(), scenarios: [], errors: [], screenshots: [], requests: [], synthetic: true }; let browser, page;
+function scenario(label) { report.scenarios.push(label); console.log('Storage: ' + label); }
+async function shot(name) { const file = folder + '/' + name + '.png'; await page.screenshot({ path: file, fullPage: true }); report.screenshots.push(file); }
+async function run() {
+  browser = await chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true }); report.browser = browser.version();
+  const context = await browser.newContext({ viewport: { width: 1440, height: 1000 }, locale: 'pt-BR', timezoneId: 'America/Sao_Paulo' });
+  await context.route('**/*', route => new URL(route.request().url()).origin === origin ? route.continue() : route.abort());
+  const csrf = await (await context.request.get(origin + '/api/auth/csrf', { timeout: 120000 })).json();
+  await context.request.post(origin + '/api/auth/callback/credentials', { form: { email: fixture.user.email, password: fixture.password, csrfToken: csrf.csrfToken, authenticationProof: fixture.user.proof, callbackUrl: origin + '/superadmin/storage' }, headers: { 'X-Auth-Return-Redirect': '1' }, timeout: 120000 });
+  assert.equal((await (await context.request.get(origin + '/api/auth/session')).json()).user.id, fixture.user.id);
+  for (const route of ['/superadmin/storage', '/api/superadmin/storage?includeBucket=false', '/api/notifications']) { const response = await context.request.get(origin + route, { timeout: 180000 }); assert(response.status() < 500, 'Warm-up failed: ' + route); console.log('Storage: rota compilada ' + route); }
+  page = await context.newPage(); page.setDefaultTimeout(120000); page.setDefaultNavigationTimeout(120000); page.on('pageerror', error => report.errors.push(error.message));
+  page.on('request', request => { const url = new URL(request.url()); if (url.pathname === '/api/superadmin/storage') report.requests.push({ page: url.searchParams.get('page'), includeBucket: url.searchParams.get('includeBucket') }); });
+  await page.goto(origin + '/superadmin/storage'); const search = page.getByPlaceholder('Buscar por nome, e-mail ou plano...'); await expect(search).toBeVisible();
+  await search.fill(fixture.prefix); const nav = page.getByRole('navigation', { name: 'Paginação de personais' });
+  await expect(nav).toContainText('40 resultados · Página 1 de 2'); await expect(page.locator('table').first().locator('tbody tr')).toHaveCount(25);
+  await page.getByRole('button', { name: 'Próxima página de personais' }).click(); await expect(nav).toContainText('40 resultados · Página 2 de 2'); await expect(page.locator('table').first().locator('tbody tr')).toHaveCount(15); await expect(page.getByText(fixture.prefix + ' 039', { exact: true })).toBeVisible(); await shot('paginacao-desktop');
+  scenario('Busca no servidor, 25/15 registros por página e navegação alcançam o quadragésimo registro.');
+  let delayedDone; const delayed = new Promise(resolve => { delayedDone = resolve; });
+  await page.route('**/api/superadmin/storage?**', async route => { if (new URL(route.request().url()).searchParams.get('search') !== fixture.prefix + ' 000') return route.continue(); try { const response = await route.fetch(); await new Promise(resolve => setTimeout(resolve, 1500)); await route.fulfill({ response }).catch(() => {}); } finally { delayedDone(); } });
+  const started = page.waitForRequest(request => new URL(request.url()).searchParams.get('search') === fixture.prefix + ' 000'); await search.fill(fixture.prefix + ' 000'); await started;
+  await search.fill(fixture.prefix + ' 039'); await expect(nav).toContainText('1 resultados · Página 1 de 1'); await expect(page.getByText(fixture.prefix + ' 039', { exact: true })).toBeVisible(); await delayed; await expect(page.getByText(fixture.prefix + ' 039', { exact: true })).toBeVisible(); await expect(page.getByText(fixture.prefix + ' 000', { exact: true })).toHaveCount(0); await expect(page.getByRole('button', { name: 'Próxima página de personais' })).toBeDisabled();
+  scenario('Resposta atrasada do filtro anterior não substitui o resultado da busca atual.');
+  await search.fill(fixture.prefix); await expect(nav).toContainText('40 resultados'); await page.getByRole('button', { name: /^Contas Teste/ }).click(); await expect(nav).toContainText('2 resultados'); await expect(page.locator('table').first().locator('tbody tr')).toHaveCount(2);
+  scenario('Busca encontra registro fora da primeira página e filtro de teste é aplicado a todos os resultados.');
+  await page.getByRole('button', { name: /^Todos \(/ }).first().click(); await expect(nav).toContainText('40 resultados');
+  let fail = true; await page.route('**/api/superadmin/storage?**', async route => { if (fail) { fail = false; return route.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({ error: 'Falha sintética' }) }); } return route.continue(); });
+  const alert = page.getByRole('alert').filter({ hasText: 'Falha ao carregar' });
+  await page.getByRole('button', { name: 'Atualizar Dados R2' }).click(); await expect(alert).toContainText('Falha ao carregar'); await expect(page.getByText('Nenhum personal trainer encontrado com os filtros selecionados.')).toHaveCount(0); await page.getByRole('button', { name: 'Tentar novamente', exact: true }).click(); await expect(nav).toContainText('40 resultados'); await expect(alert).toHaveCount(0);
+  scenario('Falha HTTP aparece como erro, não como lista vazia, e retry restaura os dados.');
+  await page.setViewportSize({ width: 390, height: 844 }); const next = page.getByRole('button', { name: 'Próxima página de personais' }); await expect(next).toBeEnabled(); await next.focus(); await page.keyboard.press('Enter'); await expect(nav).toContainText('Página 2 de 2'); await expect(page.locator('table').first().locator('tbody tr')).toHaveCount(15); await expect(page.getByText(fixture.prefix + ' 039', { exact: true })).toBeVisible(); await expect(page.getByText('Falha ao carregar dados de armazenamento.', { exact: true })).toHaveCount(0); await shot('paginacao-mobile');
+  scenario('Navegação de paginação funciona por teclado no viewport celular.');
+  assert(report.requests.some(row => row.includeBucket === 'true')); assert(report.requests.filter(row => row.page === '2').every(row => row.includeBucket === 'false')); assert.deepEqual(report.errors, []); report.success = true;
+}
+run().catch(async error => { report.success = false; report.failure = error.message.split('\nCall log:')[0]; if (page) { const file = folder + '/failure.png'; await page.screenshot({ path: file }).catch(() => {}); report.screenshots.push(file); } process.exitCode = 1; }).finally(async () => { if (browser) await browser.close(); report.finishedAt = new Date().toISOString(); fs.writeFileSync(folder + '/report.json', JSON.stringify(report, null, 2) + '\n'); fs.writeFileSync('docs/audits/academias/estabilizacao/verificacoes-storage-browser.json', JSON.stringify({ file: folder + '/report.json', ...report }, null, 2) + '\n'); console.log(JSON.stringify({ success: report.success, scenarios: report.scenarios.length, failure: report.failure, file: folder + '/report.json' })); });

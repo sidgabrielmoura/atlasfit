@@ -1,3 +1,4 @@
+import { withRequestMemo } from "@/lib/request-memo";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
@@ -7,7 +8,7 @@ import {
   generateQRCodeDataURL,
 } from "@/lib/auth/totp";
 
-export async function GET() {
+async function handleGET() {
   const session = await auth();
 
   if (session?.user?.role !== "SUPERADMIN" || !session?.user?.id) {
@@ -39,3 +40,4 @@ export async function GET() {
     return new NextResponse("Internal Error", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);

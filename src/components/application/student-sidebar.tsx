@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import {
@@ -21,10 +21,14 @@ import {
   FolderOpen,
   ChevronsUpDown,
   Check,
+  FileText,
+  type LucideIcon,
 } from "lucide-react";
 import { useSnapshot } from "valtio";
 import { workspaceStore, workspaceActions } from "@/stores/workspace.store";
-import { getPersonalWorkspaces } from "@/components/application/actions";
+import { getStudentWorkspaces } from "@/components/application/actions";
+import { selectActiveWorkspace } from "@/modules/workspaces/application/actions";
+import { toast } from "sonner";
 import {
   Sidebar,
   SidebarContent,
@@ -55,7 +59,7 @@ import { layoutStore } from "@/stores/layout";
 export interface StudentNavItemDef {
   title: string;
   href: string;
-  icon: any;
+  icon: LucideIcon;
 }
 
 const overviewNavItems: StudentNavItemDef[] = [
@@ -82,6 +86,7 @@ const preferencesNavItems: StudentNavItemDef[] = [
 ];
 
 export function StudentSidebar() {
+  const router = useRouter();
   const pathname = usePathname();
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -92,7 +97,19 @@ export function StudentSidebar() {
   const user = session?.user;
   const { isMobile, setOpenMobile } = useSidebar();
 
-  const [workspaces, setWorkspaces] = useState<any[]>([]);
+  const [workspaces, setWorkspaces] = useState<Awaited<ReturnType<typeof getStudentWorkspaces>>>([]);
+  const [switching, setSwitching] = useState(false);
+  async function changeWorkspace(workspace: Awaited<ReturnType<typeof getStudentWorkspaces>>[number]) {
+    if (switching || workspace.id === activeWs?.id) return;
+    setSwitching(true);
+    try {
+      const result = await selectActiveWorkspace(workspace.id);
+      if (!result.success || !result.workspace) throw new Error(result.error || "Não foi possível selecionar a academia ou assessoria.");
+      workspaceActions.setActiveWorkspace({ ...workspace, ...result.workspace });
+      router.push("/student/dashboard"); router.refresh();
+    } catch (error) { toast.error(error instanceof Error ? error.message : "Não foi possível alternar o vínculo."); }
+    finally { setSwitching(false); }
+  }
 
   useEffect(() => {
     if (isMobile) {
@@ -104,22 +121,12 @@ export function StudentSidebar() {
     setMounted(true);
     async function loadWorkspaces() {
       try {
-        const res = await getPersonalWorkspaces();
+        const res = await getStudentWorkspaces();
         setWorkspaces(res);
 
         if (res && res.length > 0) {
           workspaceActions.setWorkspaces(res);
-          const cookieVal = document.cookie
-            .split("; ")
-            .find((row) => row.startsWith("student_active_workspace_id="))
-            ?.split("=")[1];
-
-          const active = res.find((w) => w.id === cookieVal) || res[0];
-          workspaceActions.setActiveWorkspace(active);
-
-          if (!cookieVal) {
-            document.cookie = `student_active_workspace_id=${active.id}; path=/; max-age=31536000; SameSite=Lax`;
-          }
+          // SSR membership and its canonical cookie own the selection.
         }
       } catch (err) {
         console.error("Erro ao buscar workspaces do aluno:", err);
@@ -231,19 +238,14 @@ export function StudentSidebar() {
                 sideOffset={4}
               >
                 <DropdownMenuLabel className="text-xs text-muted-foreground font-semibold uppercase tracking-wider text-[10px] px-2.5 py-2">
-                  Minhas Assessorias
+                  Meus vínculos
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 {workspaces.map((ws) => (
                   <DropdownMenuItem
                     key={ws.id}
-                    onClick={() => {
-                      if (ws.id === activeWs?.id) return;
-                      document.cookie = `student_active_workspace_id=${ws.id}; path=/; max-age=31536000; SameSite=Lax`;
-                      workspaceActions.setWorkspaces(workspaces);
-                      workspaceActions.setActiveWorkspace(ws);
-                      window.location.reload();
-                    }}
+                    disabled={switching}
+                    onClick={() => { void changeWorkspace(ws); }}
                     className="gap-2 p-2 rounded-xl cursor-pointer"
                   >
                     <div
@@ -279,7 +281,7 @@ export function StudentSidebar() {
         {renderNavSection("Treinamento e Saúde", trainingNavItems)}
         <SidebarSeparator className="max-w-[90%] mx-auto opacity-40" />
 
-        {renderNavSection("Pagamentos e Anexos", financeNavItems)}
+        {renderNavSection("Pagamentos e Anexos", activeWs?.type === "GYM" ? [...financeNavItems, { title: "Contratos", href: "/student/contracts", icon: FileText }] : financeNavItems)}
         <SidebarSeparator className="max-w-[90%] mx-auto opacity-40" />
 
         {renderNavSection("Histórico e Preferências", preferencesNavItems)}

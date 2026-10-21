@@ -36,6 +36,9 @@ export class ErasureService {
       throw new Error(`Usuário ${targetUserId} não encontrado para exclusão.`);
     }
 
+    // GYM records require controller-specific review; never cascade across academies.
+    if (user.workspaces.some(member => member.workspace.type === "GYM") || await prisma.workspace.count({ where: { ownerId: targetUserId, type: "GYM" } })) throw new Error("GYM_DATA_RETENTION_REQUIRED: encaminhe os vínculos de academia para revisão de privacidade por controlador antes de excluir a conta global.");
+
     // 1. Find all workspaces owned by this user
     const ownedWorkspaces = await prisma.workspace.findMany({
       where: { ownerId: targetUserId },

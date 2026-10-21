@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
+import type { PersonalStoragePagination, PersonalStorageSummary } from "@/modules/workspaces/domain/personal-storage";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -79,22 +80,23 @@ interface StorageDataResponse {
     totalObjects: number;
     files: CloudflareFile[];
     liveCloudflare: boolean;
+    isTruncated?: boolean;
     error?: string;
   };
   personalsMetrics: PersonalStorageMetric[];
-  summary: {
-    totalPersonals: number;
-    warningCount: number;
-    exceededCount: number;
-    normalCount: number;
-    totalPersonalStorageMb: number;
-  };
+  summary: PersonalStorageSummary;
+  pagination: PersonalStoragePagination;
 }
 
 export default function SuperAdminStoragePage() {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [data, setData] = useState<StorageDataResponse | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [personalPage, setPersonalPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const requestRef = useRef<AbortController | null>(null);
+  const bucketRef = useRef<StorageDataResponse["bucketStats"] | null>(null);
 
   // Filters & Search for Personals Table
   const [searchTerm, setSearchTerm] = useState("");
@@ -109,39 +111,43 @@ export default function SuperAdminStoragePage() {
   // File Preview Modal
   const [selectedFile, setSelectedFile] = useState<CloudflareFile | null>(null);
 
-  const fetchStorageData = async (isRefresh = false) => {
+  const fetchStorageData = useCallback(async (isRefresh = false) => {
+    requestRef.current?.abort();
+    const controller = new AbortController(); requestRef.current = controller;
     if (isRefresh) setRefreshing(true);
     else setLoading(true);
+    setError(null);
 
     try {
-      const res = await fetch("/api/superadmin/storage");
+      const query = new URLSearchParams({ page: String(personalPage), pageSize: "25", search: searchQuery, status: statusFilter, includeBucket: String(isRefresh || bucketRef.current === null) });
+      const res = await fetch(`/api/superadmin/storage?${query}`, { signal: controller.signal, cache: "no-store" });
       if (!res.ok) throw new Error("Falha ao carregar dados de armazenamento.");
       const json = await res.json();
-      setData(json);
+      if (controller.signal.aborted || requestRef.current !== controller) return;
+      if (json.bucketStats) bucketRef.current = json.bucketStats;
+      setData({ ...json, bucketStats: bucketRef.current });
       if (isRefresh) toast.success("Dados de armazenamento atualizados com sucesso!");
     } catch (err: any) {
-      toast.error(err.message || "Erro ao buscar métricas de armazenamento.");
+      if (controller.signal.aborted || requestRef.current !== controller) return;
+      const message = err.message || "Erro ao buscar métricas de armazenamento.";
+      setError(message); toast.error(message);
     } finally {
-      setLoading(false);
-      setRefreshing(false);
+      if (requestRef.current === controller) { setLoading(false); setRefreshing(false); }
     }
-  };
+  }, [personalPage, searchQuery, statusFilter]);
 
   useEffect(() => {
     fetchStorageData();
-  }, []);
+    return () => requestRef.current?.abort();
+  }, [fetchStorageData]);
 
-  const filteredPersonals = (data?.personalsMetrics || []).filter((p) => {
-    const matchesSearch =
-      p.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      p.planName.toLowerCase().includes(searchTerm.toLowerCase());
+  useEffect(() => {
+    const timer = setTimeout(() => { setPersonalPage(1); setSearchQuery(searchTerm.trim()); }, 300);
+    return () => clearTimeout(timer);
+  }, [searchTerm]);
 
-    if (!matchesSearch) return false;
-    if (statusFilter === "ALL") return true;
-    if (statusFilter === "TEST") return p.isTestAccount || p.isFreeTrial;
-    return p.status === statusFilter;
-  });
+  const filteredPersonals = data?.personalsMetrics || [];
+  const selectStatus = (status: typeof statusFilter) => { setPersonalPage(1); setStatusFilter(status); };
 
   const isImageFile = (key: string) => {
     const k = key.toLowerCase();
@@ -201,11 +207,13 @@ export default function SuperAdminStoragePage() {
         </Button>
       </div>
 
+      {error && <div role="alert" className="rounded-xl border border-destructive/40 p-4 text-sm text-destructive">{error} <Button variant="outline" onClick={() => fetchStorageData()} disabled={loading || refreshing}>Tentar novamente</Button></div>}
+
       {/* 4 Cards de Métricas Principais */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <Card className="border-border/40 bg-card/60 backdrop-blur-md p-5 sm:p-6 space-y-4 shadow-sm relative overflow-hidden group">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Uso Cloudflare R2</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Uso R2 · amostra de até 100 objetos</span>
             <div className="size-9 rounded-xl bg-blue-500/10 text-blue-500 flex items-center justify-center border border-blue-500/20">
               <Cloud className="size-4" />
             </div>
@@ -215,7 +223,7 @@ export default function SuperAdminStoragePage() {
           ) : (
             <div>
               <p className="text-2xl font-black tracking-tight font-mono text-foreground">
-                {data?.bucketStats.totalGb ? `${data.bucketStats.totalGb} GB` : `${data?.bucketStats.totalMb || 0} MB`}
+                {data?.bucketStats.liveCloudflare === false ? "Indisponível" : data?.bucketStats.totalGb ? `${data.bucketStats.totalGb} GB` : `${data?.bucketStats.totalMb || 0} MB`}
               </p>
               <p className="text-[11px] text-muted-foreground mt-1 font-medium flex items-center gap-1">
                 <Database className="size-3 text-primary" />
@@ -227,7 +235,7 @@ export default function SuperAdminStoragePage() {
 
         <Card className="border-border/40 bg-card/60 backdrop-blur-md p-5 sm:p-6 space-y-4 shadow-sm relative overflow-hidden group">
           <div className="flex items-center justify-between">
-            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Total de Arquivos</span>
+            <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Arquivos na amostra R2</span>
             <div className="size-9 rounded-xl bg-purple-500/10 text-purple-500 flex items-center justify-center border border-purple-500/20">
               <Layers className="size-4" />
             </div>
@@ -237,10 +245,10 @@ export default function SuperAdminStoragePage() {
           ) : (
             <div>
               <p className="text-2xl font-black tracking-tight font-mono text-foreground">
-                {data?.bucketStats.totalObjects || 0}
+                {data?.bucketStats.liveCloudflare === false ? "Indisponível" : data?.bucketStats.totalObjects || 0}
               </p>
               <p className="text-[11px] text-muted-foreground mt-1 font-medium">
-                Arquivos armazenados no Cloudflare R2
+                Objetos retornados pela consulta R2
               </p>
             </div>
           )}
@@ -321,15 +329,15 @@ export default function SuperAdminStoragePage() {
                   <Button
                     size="sm"
                     variant={statusFilter === "ALL" ? "secondary" : "ghost"}
-                    onClick={() => setStatusFilter("ALL")}
+                    onClick={() => selectStatus("ALL")}
                     className="h-8 text-xs font-bold rounded-lg"
                   >
-                    Todos ({data?.personalsMetrics.length || 0})
+                    Todos ({data?.summary.totalPersonals || 0})
                   </Button>
                   <Button
                     size="sm"
                     variant={statusFilter === "NORMAL" ? "secondary" : "ghost"}
-                    onClick={() => setStatusFilter("NORMAL")}
+                    onClick={() => selectStatus("NORMAL")}
                     className="h-8 text-xs font-bold rounded-lg text-emerald-500"
                   >
                     Normais
@@ -337,7 +345,7 @@ export default function SuperAdminStoragePage() {
                   <Button
                     size="sm"
                     variant={statusFilter === "WARNING" ? "secondary" : "ghost"}
-                    onClick={() => setStatusFilter("WARNING")}
+                    onClick={() => selectStatus("WARNING")}
                     className="h-8 text-xs font-bold rounded-lg text-amber-500"
                   >
                     Alerta
@@ -345,7 +353,7 @@ export default function SuperAdminStoragePage() {
                   <Button
                     size="sm"
                     variant={statusFilter === "EXCEEDED" ? "secondary" : "ghost"}
-                    onClick={() => setStatusFilter("EXCEEDED")}
+                    onClick={() => selectStatus("EXCEEDED")}
                     className="h-8 text-xs font-bold rounded-lg text-rose-500"
                   >
                     Lotados
@@ -353,10 +361,10 @@ export default function SuperAdminStoragePage() {
                   <Button
                     size="sm"
                     variant={statusFilter === "TEST" ? "secondary" : "ghost"}
-                    onClick={() => setStatusFilter("TEST")}
+                    onClick={() => selectStatus("TEST")}
                     className="h-8 text-xs font-bold rounded-lg text-indigo-500"
                   >
-                    Contas Teste ({data?.personalsMetrics.filter((p) => p.isTestAccount || p.isFreeTrial).length || 0})
+                    Contas Teste ({data?.summary.testCount || 0})
                   </Button>
                 </div>
               </div>
@@ -384,6 +392,8 @@ export default function SuperAdminStoragePage() {
                         <TableCell><Skeleton className="h-4 w-16 ml-auto" /></TableCell>
                       </TableRow>
                     ))
+                  ) : error ? (
+                    <TableRow><TableCell colSpan={5} className="py-12 text-center">Não foi possível atualizar esta listagem. Tente novamente.</TableCell></TableRow>
                   ) : filteredPersonals.length === 0 ? (
                     <TableRow>
                       <TableCell colSpan={5} className="py-12 text-center text-muted-foreground italic">
@@ -464,6 +474,13 @@ export default function SuperAdminStoragePage() {
                 </TableBody>
               </Table>
             </div>
+            <nav aria-label="Paginação de personais" className="flex flex-wrap items-center justify-between gap-3 pt-4 text-sm">
+              <span aria-live="polite">{data?.pagination.total || 0} resultados · Página {personalPage} de {data?.pagination.totalPages || 1}</span>
+              <div className="flex gap-2">
+                <Button variant="outline" aria-label="Página anterior de personais" disabled={loading || refreshing || !!error || personalPage <= 1} onClick={() => setPersonalPage(page => page - 1)}><ChevronLeft className="size-4" />Anterior</Button>
+                <Button variant="outline" aria-label="Próxima página de personais" disabled={loading || refreshing || !!error || personalPage >= (data?.pagination.totalPages || 1)} onClick={() => setPersonalPage(page => page + 1)}>Próxima<ChevronRight className="size-4" /></Button>
+              </div>
+            </nav>
           </Card>
         </TabsContent>
 
@@ -471,10 +488,12 @@ export default function SuperAdminStoragePage() {
           <Card className="border-border/40 bg-card/50 shadow-sm overflow-hidden p-4 space-y-1">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div>
-                <h3 className="text-base font-bold tracking-tight">Últimos Arquivos & Exportações no C.R2</h3>
+                <h3 className="text-base font-bold tracking-tight">Amostra de arquivos e exportações R2</h3>
                 <p className="text-xs text-muted-foreground mt-0.5">
                   Visualização ao vivo dos arquivos armazenados diretamente no bucket do Cloudflare R2.
                 </p>
+                {data?.bucketStats.isTruncated && <p className="text-xs text-muted-foreground mt-1">Amostra limitada a 100 objetos. Os valores exibidos referem-se a essa amostra; há outros arquivos no bucket.</p>}
+                {data?.bucketStats.error && <p role="status" className="text-xs text-destructive mt-1">Consulta R2 indisponível. Atualize para tentar novamente.</p>}
               </div>
               <Badge variant="outline" className="font-mono text-[10px] border-primary/30 text-primary bg-primary/5 px-2 py-0.5 self-start sm:self-auto">
                 R2 Live Bucket: {data?.bucketStats.bucketName}

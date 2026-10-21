@@ -2,28 +2,37 @@
 
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { calculateDefaultRoute } from "@/modules/workspaces/application/context-service";
+import { resolveNavigationRoles } from "@/modules/workspaces/domain/access-roles";
+import { normalizeWorkspaceColor } from "@/modules/workspaces/domain/branding";
+import { activeStudentMembershipWhere } from "@/lib/student-auth";
 
 export async function getPersonalWorkspaces() {
   const session = await auth();
   if (!session?.user) return [];
 
   const members = await prisma.workspaceMember.findMany({
-    where: { userId: session.user.id },
+    where: {
+      userId: session.user.id,
+      isActive: true,
+      workspace: { isActive: true },
+    },
     include: {
-      workspace: true,
+      workspace: { include: { units: { where: { isActive: true }, select: { id: true } }, subscription: { select: { plan: { select: { name: true } } } } } },
+      roleGrants: { select: { role: true, unitId: true, revokedAt: true } },
     },
   });
 
-  const colors = ["#2B4FCC", "#0ea5e9", "#10b981", "#f59e0b", "#ec4899", "#8b5cf6"];
-
   return await Promise.all(
-    members.map(async (member, index) => {
+    members.map(async (member) => {
       const ws = member.workspace;
+      const roles = resolveNavigationRoles(member.role, member.roleGrants, ws.units.map(unit => unit.id));
+      if (ws.ownerId === session.user.id && !roles.includes("OWNER")) roles.push("OWNER");
 
       // Find the owner of the workspace and their active subscription
-      let owner: any = null;
+      let owner: { subscription: { plan: { name: string } } | null } | null = null;
       try {
-        owner = await prisma.user.findUnique({
+        if (ws.type === "PERSONAL") owner = await prisma.user.findUnique({
           where: { id: ws.ownerId },
           select: {
             id: true,
@@ -49,18 +58,29 @@ export async function getPersonalWorkspaces() {
 
       return {
         id: ws.id,
+        type: ws.type,
+        roles,
+        defaultRoute: calculateDefaultRoute(ws.type, roles),
         name: ws.name,
         slug: ws.slug,
         logo,
         logoUrl: ws.logoUrl,
-        primaryColor: ws.primaryColor || "#2B4FCC",
-        plan: owner?.subscription?.plan?.name || "Free Trial",
+        primaryColor: normalizeWorkspaceColor(ws.primaryColor),
+        plan: ws.type === "GYM" ? ws.subscription?.plan?.name || "Academia" : owner?.subscription?.plan?.name || "Free Trial",
         slogan: ws.slogan,
         watermarkUrl: ws.watermarkUrl,
         workoutCoverUrl: ws.workoutCoverUrl,
       };
     })
   );
+}
+
+export async function getStudentWorkspaces() {
+  const session = await auth();
+  if (!session?.user?.id) return [];
+  const memberships = await prisma.workspaceMember.findMany({ where: { ...activeStudentMembershipWhere(), userId: session.user.id }, select: { workspaceId: true } });
+  const ids = new Set(memberships.map(member => member.workspaceId));
+  return (await getPersonalWorkspaces()).filter(workspace => ids.has(workspace.id));
 }
 
 function slugify(text: string) {
@@ -87,144 +107,21 @@ export async function getAvailablePlans() {
 }
 
 export async function getTrainerWorkspaceLimit() {
-  const session = await auth();
-  if (!session?.user) return null;
-
-  const user = await prisma.user.findUnique({
-    where: { id: session.user.id },
-    select: { isTestAccount: true },
+  const session = await auth(); if (!session?.user?.id) return null;
+  const { getPersonalWorkspaceAllowance } = await import("@/modules/workspaces/application/personal-affiliation");
+  const allowance = await getPersonalWorkspaceAllowance(session.user.id).catch(error => {
+    if (error instanceof Error && "statusCode" in error && error.statusCode === 403) return { current: 0, limit: 0, isTestAccount: false, entitled: false, firstTrialEligible: false, planName: "Assessoria própria" };
+    throw error;
   });
-
-  const isTestAccount = user?.isTestAccount || false;
-
-  const sub = await prisma.subscription.findUnique({
-    where: { userId: session.user.id },
-    include: { plan: true },
-  });
-
-  const count = await prisma.workspace.count({
-    where: { ownerId: session.user.id },
-  });
-
-  const domainSetting = await prisma.systemSetting.findUnique({
-    where: { key: "primary_domain" }
-  });
-
-  return {
-    current: count,
-    limit: isTestAccount ? 999999 : (sub?.plan?.maxWorkspaces || 1),
-    isTestAccount,
-    planName: isTestAccount ? "Conta de Teste" : (sub?.plan?.name || "Free Trial"),
-    primaryDomain: domainSetting?.value || "atlasfit.app",
-  };
+  const domain = await prisma.systemSetting.findUnique({ where: { key: "primary_domain" } });
+  return { ...allowance, primaryDomain: domain?.value || "atlasfit.app" };
 }
 
-export async function createWorkspace(data: {
-  name: string;
-  slug?: string;
-}) {
-  const session = await auth();
-  if (!session?.user) {
-    return { error: "Não autorizado. Por favor, faça login." };
-  }
-
-  const name = data.name.trim();
-  if (!name) {
-    return { error: "O nome do workspace é obrigatório." };
-  }
-
-  const generatedSlug = data.slug?.trim() || slugify(name);
-  if (!generatedSlug) {
-    return { error: "Não foi possível gerar um endereço (slug) válido para o workspace." };
-  }
-
+export async function createWorkspace(data: { name: string; slug?: string }) {
+  const session = await auth(); if (!session?.user?.id) return { error: "Não autorizado. Por favor, faça login." };
   try {
-    // Check if slug is unique
-    const existing = await prisma.workspace.findUnique({
-      where: { slug: generatedSlug.toLowerCase() },
-    });
-    if (existing) {
-      return { error: "Este endereço (slug) já está em uso por outro workspace." };
-    }
-
-    const user = await prisma.user.findUnique({
-      where: { id: session.user.id },
-      select: { isTestAccount: true },
-    });
-
-    const isTestAccount = user?.isTestAccount || false;
-
-    // Query active user subscription and limit
-    const sub = await prisma.subscription.findUnique({
-      where: { userId: session.user.id },
-      include: { plan: true },
-    });
-
-    const freeTrial = await prisma.freeTrial.findUnique({
-      where: { userId: session.user.id }
-    });
-
-    const isTrialActive = freeTrial && new Date() < new Date(freeTrial.endDate);
-    const maxWorkspaces = isTrialActive ? 1 : (sub?.plan?.maxWorkspaces || 1);
-
-    const ownedCount = await prisma.workspace.count({
-      where: { ownerId: session.user.id },
-    });
-
-    if (!isTestAccount && ownedCount >= maxWorkspaces) {
-      if (isTrialActive) {
-        return { error: "Durante o período de Free Trial, você só pode criar no máximo 1 workspace." };
-      }
-      return { error: `Limite de workspaces atingido para o seu plano (${maxWorkspaces}). Faça o upgrade para criar mais.` };
-    }
-
-    const newWorkspace = await prisma.$transaction(async (tx) => {
-      // Create Workspace
-      const ws = await tx.workspace.create({
-        data: {
-          name,
-          slug: generatedSlug.toLowerCase(),
-          ownerId: session.user.id,
-        },
-      });
-
-      // Create Workspace Member as OWNER
-      await tx.workspaceMember.create({
-        data: {
-          userId: session.user.id,
-          workspaceId: ws.id,
-          role: "OWNER",
-        },
-      });
-
-      return ws;
-    });
-
-    const logo = newWorkspace.name
-      .split(" ")
-      .map((w) => w[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase();
-
-    return {
-      success: true,
-      workspace: {
-        id: newWorkspace.id,
-        name: newWorkspace.name,
-        slug: newWorkspace.slug,
-        logo,
-        logoUrl: newWorkspace.logoUrl,
-        primaryColor: newWorkspace.primaryColor || "#2B4FCC",
-        plan: sub?.plan?.name || "Free Trial",
-        slogan: newWorkspace.slogan,
-        watermarkUrl: newWorkspace.watermarkUrl,
-        workoutCoverUrl: newWorkspace.workoutCoverUrl,
-      },
-    };
-  } catch (error) {
-    console.error("Failed to create workspace:", error);
-    return { error: "Ocorreu um erro ao criar o workspace. Tente novamente." };
-  }
+    const { createPrivatePersonalWorkspace } = await import("@/modules/workspaces/application/personal-affiliation");
+    const { workspace, planName } = await createPrivatePersonalWorkspace(session.user.id, { name: data.name, slug: data.slug?.trim() || slugify(data.name) });
+    return { success: true, workspace: { id: workspace.id, type: workspace.type, roles: ["OWNER" as const], defaultRoute: "/personal/dashboard", name: workspace.name, slug: workspace.slug, logo: workspace.name.slice(0, 2).toUpperCase(), logoUrl: workspace.logoUrl, primaryColor: normalizeWorkspaceColor(workspace.primaryColor), plan: planName, slogan: workspace.slogan, watermarkUrl: workspace.watermarkUrl, workoutCoverUrl: workspace.workoutCoverUrl } };
+  } catch (error) { return { error: error instanceof Error ? error.message : "Não foi possível criar a assessoria." }; }
 }
-

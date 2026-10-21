@@ -1,3 +1,7 @@
+import { withRequestMemo } from "@/lib/request-memo";
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
+import { assertPersonalImportJobAccess } from "@/lib/migration/access";
+import { requirePersonalWorkspaceAccess, handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
@@ -15,6 +19,8 @@ async function handlePreview(
   const { id: jobId } = await params;
 
   try {
+    await assertPersonalImportJobAccess(jobId);
+
     const job = await prisma.importJob.findUnique({
       where: { id: jobId },
     });
@@ -26,20 +32,25 @@ async function handlePreview(
     const preview = await generateCommitPreview(jobId, job.workspaceId);
     return NextResponse.json(preview);
   } catch (error: any) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
+
     return new NextResponse(error.message || "Erro ao gerar preview de confirmação.", { status: 500 });
   }
 }
 
-export async function GET(
+async function handleGET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   return handlePreview(req, params);
 }
+export const GET = withRequestMemo(handleGET);
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   return handlePreview(req, params);
 }

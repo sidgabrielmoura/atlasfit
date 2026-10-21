@@ -5,7 +5,7 @@ const ASSETS_TO_CACHE = [
   OFFLINE_URL,
   "/logos_atlasfit/atlasfit (4).png",
   "/logos_atlasfit/atlasfit (5).png",
-  "/logos_atlasfit/favicon.ico",
+  "/favicon.ico",
 ];
 
 self.addEventListener("install", (event) => {
@@ -33,7 +33,12 @@ self.addEventListener("activate", (event) => {
 });
 
 self.addEventListener("fetch", (event) => {
-  // Only handle page navigations to offline fallback
+  // Never intercept non-GET requests or API routes
+  if (event.request.method !== "GET" || event.request.url.includes("/api/")) {
+    return;
+  }
+
+  // Handle page navigations to offline fallback
   if (event.request.mode === "navigate") {
     event.respondWith(
       fetch(event.request).catch(() => {
@@ -43,15 +48,13 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // For other requests, try cache first, fallback to network
+  // For static assets, try cache first, fallback to network
   event.respondWith(
     caches.match(event.request).then((cachedResponse) => {
       if (cachedResponse) {
         return cachedResponse;
       }
-      return fetch(event.request).catch(() => {
-        return new Response(null, { status: 408 });
-      });
+      return fetch(event.request);
     })
   );
 });

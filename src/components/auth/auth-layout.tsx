@@ -21,6 +21,7 @@ export function AuthLayout({ children, backgroundImage, role }: AuthLayoutProps)
           src={backgroundImage}
           alt={`AtlasFit ${role}`}
           fill
+          sizes="(max-width: 768px) 100vw, 50vw"
           className="object-cover"
           priority
         />
@@ -32,8 +33,10 @@ export function AuthLayout({ children, backgroundImage, role }: AuthLayoutProps)
           <Image
             src="/logos_atlasfit/atlasfit (4).png"
             alt="AtlasFit"
-            width={250}
-            height={250}
+            width={200}
+            height={200}
+            className="absolute top-10 right-10"
+            priority
           />
           <h1 className="text-5xl font-black uppercase tracking-tight leading-none mb-4">
             Maximize sua <br /> <span className="text-primary underline decoration-4 underline-offset-8">Performance.</span>
@@ -57,6 +60,7 @@ export function AuthLayout({ children, backgroundImage, role }: AuthLayoutProps)
               alt="AtlasFit"
               width={150}
               height={100}
+              className="w-auto h-auto"
             />
             <span className="text-xl font-bold tracking-tight">Espaço <span className="text-muted-foreground font-normal">| {role}</span></span>
           </div>

@@ -2277,8 +2277,8 @@ export function PushNotificationsStudio() {
                   <span>{testResult.message}</span>
                 </div>
                 <div className="text-[11px] text-muted-foreground pl-6 space-y-0.5">
-                  <p>• Pushes enviados ao FCM: <strong>{testResult.devicesCount} dispositivo(s)</strong></p>
-                  <p>• Notificação no aplicativo: <strong>{testResult.inAppDelivered ? "Gravada e transmitida" : "Pendente"}</strong></p>
+                  <p>• Pushes enfileirados: <strong>{testResult.devicesCount} dispositivo(s)</strong></p>
+                  <p>• Notificação no aplicativo: <strong>{testResult.inAppDelivered ? "Gravada" : "Pendente"}</strong></p>
                 </div>
               </div>
             )}

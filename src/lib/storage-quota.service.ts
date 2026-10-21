@@ -1,4 +1,6 @@
 import prisma from "@/lib/prisma";
+import { gymStorageUsage } from "@/modules/workspaces/application/gym-storage";
+import { WorkspaceAccessError } from "@/modules/workspaces/domain/types";
 
 export interface PersonalStorageMetric {
   userId: string;
@@ -31,31 +33,20 @@ export interface StorageCheckResult {
  * Calculates current total storage used by a workspace (in bytes)
  */
 export async function getWorkspaceStorageBytes(workspaceId: string): Promise<{ totalBytes: number; fileCount: number }> {
-  // 1. Files uploaded in StudentFile
-  const studentFiles = await prisma.studentFile.findMany({
-    where: { workspaceId },
-    select: { size: true },
-  });
+  return getStorageBytesForWorkspaces([workspaceId]);
+}
 
-  // 2. Progress Photos uploaded in StudentProgressPhoto
-  const progressPhotos = await prisma.studentProgressPhoto.findMany({
-    where: { workspaceId },
-    select: { size: true },
-  });
-
-  let totalBytes = 0;
-  let fileCount = 0;
-
-  for (const f of studentFiles) {
-    fileCount++;
-    totalBytes += f.size || 0;
-  }
-
-  for (const p of progressPhotos) {
-    fileCount++;
-    totalBytes += p.size || 0;
-  }
-
+async function getStorageBytesForWorkspaces(workspaceIds: string[]): Promise<{ totalBytes: number; fileCount: number }> {
+  if (workspaceIds.length === 0) return { totalBytes: 0, fileCount: 0 };
+  const where = { workspaceId: { in: workspaceIds } };
+  const [files, photos, imports] = await Promise.all([
+    prisma.studentFile.aggregate({ where, _sum: { size: true }, _count: { _all: true } }),
+    prisma.studentProgressPhoto.aggregate({ where, _sum: { size: true }, _count: { _all: true } }),
+    prisma.importSource.aggregate({ where: { importJob: { workspaceId: { in: workspaceIds } }, storageKey: { not: null } }, _sum: { sizeBytes: true }, _count: { _all: true } }),
+  ]);
+  const totalBytes = (files._sum.size ?? 0) + (photos._sum.size ?? 0) + (imports._sum.sizeBytes ?? 0);
+  const fileCount = files._count._all + photos._count._all + imports._count._all;
+  if (!Number.isSafeInteger(totalBytes) || totalBytes < 0 || !Number.isSafeInteger(fileCount)) throw new Error("Métrica de armazenamento fora do intervalo seguro.");
   return { totalBytes, fileCount };
 }
 
@@ -76,6 +67,7 @@ export async function getPersonalTrainerStorageMetrics(userId: string): Promise<
           select: { isActive: true },
         },
         workspaces: {
+          where: { workspace: { type: "PERSONAL" } },
           select: { workspaceId: true },
         },
         subscription: {
@@ -97,6 +89,7 @@ export async function getPersonalTrainerStorageMetrics(userId: string): Promise<
           select: { isActive: true },
         },
         workspaces: {
+          where: { workspace: { type: "PERSONAL" } },
           select: { workspaceId: true },
         },
         subscription: {
@@ -126,18 +119,9 @@ export async function getPersonalTrainerStorageMetrics(userId: string): Promise<
   }
 
   const workspaceIds = user.workspaces ? user.workspaces.map((w: any) => w.workspaceId) : [];
-  let totalUsedBytes = 0;
-  let totalFiles = 0;
-
-  for (const wsId of workspaceIds) {
-    try {
-      const usage = await getWorkspaceStorageBytes(wsId);
-      totalUsedBytes += usage.totalBytes;
-      totalFiles += usage.fileCount;
-    } catch (wsErr) {
-      console.warn(`[Storage Quota] Erro ao buscar espaço do workspace ${wsId}:`, wsErr);
-    }
-  }
+  // Two aggregates cover every PERSONAL workspace without loading each file or
+  // issuing two queries per workspace. A failed read must not lower the quota.
+  const { totalBytes: totalUsedBytes, fileCount: totalFiles } = await getStorageBytesForWorkspaces(workspaceIds);
 
   const plan = user.subscription?.plan;
   let planName = plan?.name;
@@ -191,46 +175,6 @@ export async function getPersonalTrainerStorageMetrics(userId: string): Promise<
 }
 
 /**
- * Calculates storage metrics for all Personal Trainers (for Superadmin Storage Dashboard)
- */
-export async function getAllPersonalsStorageMetrics(): Promise<PersonalStorageMetric[]> {
-  try {
-    const trainers = await prisma.user.findMany({
-      where: {
-        OR: [
-          { role: "TRAINER" },
-          { role: "USER" },
-          { isTestAccount: true },
-          { workspaces: { some: {} } },
-        ],
-        NOT: {
-          role: "STUDENT",
-        },
-      },
-      select: { id: true },
-    });
-
-    console.log(`[Storage Quota] Personais encontrados na busca: ${trainers.length}`);
-
-    const results: PersonalStorageMetric[] = [];
-    for (const t of trainers) {
-      try {
-        const metric = await getPersonalTrainerStorageMetrics(t.id);
-        results.push(metric);
-      } catch (e) {
-        console.error(`[Storage Quota Error] Falha ao gerar métricas para usuário ${t.id}:`, e);
-      }
-    }
-
-    console.log(`[Storage Quota] Métricas processadas com sucesso: ${results.length}`);
-    return results;
-  } catch (err) {
-    console.error("[Storage Quota Fatal Error] Falha na consulta de personais:", err);
-    return [];
-  }
-}
-
-/**
  * Checks storage quota before performing uploads or imports.
  * Automatically generates notifications when reaching 80% and 100%.
  */
@@ -239,6 +183,25 @@ export async function checkStorageQuota(
   userId?: string,
   fileSizeBytesToAdd: number = 0
 ): Promise<StorageCheckResult> {
+  if (!Number.isSafeInteger(fileSizeBytesToAdd) || fileSizeBytesToAdd < 0) throw new Error("Tamanho de arquivo inválido.");
+  const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId }, select: { type: true, isActive: true, subscription: { select: { storageLimitMb: true, status: true, trialEndsAt: true, endDate: true } } } });
+  if (!workspace) throw new Error("Workspace não encontrado.");
+  if (workspace.type === "GYM") {
+    const subscription = workspace.subscription;
+    const now = new Date();
+    const entitled = workspace.isActive && Boolean(subscription && (!subscription.endDate || subscription.endDate > now) && (subscription.status === "ACTIVE" || (subscription.status === "TRIAL" && subscription.trialEndsAt && subscription.trialEndsAt > now)));
+    const limitMb = subscription?.storageLimitMb ?? 0;
+    let usage: bigint;
+    try { usage = await gymStorageUsage(prisma, workspaceId); }
+    catch (error) {
+      if (!(error instanceof WorkspaceAccessError)) throw error;
+      return { allowed: false, reason: "STORAGE_EXCEEDED", message: error.message, currentUsedMb: 0, limitMb, percentageUsed: 100 };
+    }
+    const currentUsedMb = Number(usage) / (1024 * 1024);
+    const percentageUsed = limitMb > 0 ? currentUsedMb / limitMb * 100 : 100;
+    const allowed = entitled && usage + BigInt(fileSizeBytesToAdd) <= BigInt(limitMb) * BigInt(1024 * 1024);
+    return { allowed, reason: allowed ? "OK" : "STORAGE_EXCEEDED", message: allowed ? undefined : "Licença ou armazenamento da academia indisponível.", currentUsedMb, limitMb, percentageUsed };
+  }
   // Find owner/trainer of the workspace if userId not provided
   let targetUserId = userId;
 

@@ -1,0 +1,40 @@
+const fs = require('node:fs'), path = require('node:path'), http = require('node:http'), assert = require('node:assert/strict');
+const esbuild = require('../.tmp/gym-realtime-runner/node_modules/esbuild');
+const { chromium } = require('../.tmp/gym-visual-runner/node_modules/playwright'), { expect } = require('../.tmp/gym-visual-runner/node_modules/playwright/test');
+const folder = '.tmp/gym-stabilization/advanced-workout-browser-' + Date.now(); fs.mkdirSync(folder, { recursive: true });
+const report = { startedAt: new Date().toISOString(), scenarios: [], errors: [], screenshots: [], transport: 'Controlado; formulário React/Radix real. Endpoint e transação PostgreSQL verificados separadamente.' };
+let server, browser, requests = [], mode = 'valid';
+const exercises = [0, 1, 2].map(index => ({ id: 'row-' + index, sets: 3, reps: '10', rest: '60s', load: null, description: null, order: index, methodType: 'NONE', methodConfig: null, groupId: null, allowRepsModification: null }));
+async function run() {
+  const bundle = await esbuild.build({ entryPoints: ['tests/gym/advanced-workout-browser.fixture.tsx'], bundle: true, platform: 'browser', format: 'iife', write: false, jsx: 'automatic', define: { 'process.env.NODE_ENV': '"development"' }, alias: { '@': path.resolve('src') } });
+  server = http.createServer((request, response) => { if (request.url === '/fixture.js') { response.setHeader('Content-Type', 'text/javascript'); return response.end(bundle.outputFiles[0].text); } response.setHeader('Content-Type', 'text/html'); response.end('<html lang="pt-BR"><body><div id="root"></div><script src="/fixture.js"></script></body></html>'); });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve)); const origin = 'http://127.0.0.1:' + server.address().port;
+  browser = await chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true });
+  const page = await browser.newPage({ viewport: { width: 390, height: 844 } }); page.on('pageerror', error => report.errors.push(error.message)); report.browser = browser.version();
+  await page.route('**/api/gym/workouts/templates/*/advanced*', async route => {
+    const respond = (body, status = 200) => route.fulfill({ status, contentType: 'application/json', body: JSON.stringify(body) });
+    if (route.request().method() === 'GET') return respond({ data: { revision: 'a'.repeat(64), exercises, groups: [] } });
+    const input = route.request().postDataJSON(); requests.push(input);
+    if (mode === 'conflict') return respond({ error: { message: 'O modelo foi alterado. Reabra o editor para conferir os dados atuais.' } }, 409);
+    return respond({ success: true, workout: { id: 'synthetic-template', name: 'Ficha sintética', goal: 'Força', duration: '40 min', difficulty: 'Intermediário', muscleGroupLabel: null, restBetweenExercises: '60s', creatorId: 'owner', creator: null, allowRepsModification: true, allowCompleteView: false, allowSkipExercises: false, _count: { exercises: 3 }, exercises: input.exercises.map((row, index) => ({ ...row, exerciseId: 'exercise-' + index, methodType: row.method.type, methodConfig: row.method.config, exercise: { name: 'Exercício ' + (index + 1), muscleGroup: { name: 'Grupo' } } })) } });
+  });
+  await page.goto(origin); await page.getByRole('button', { name: 'Abrir editor avançado' }).click(); const dialog = page.getByRole('dialog');
+  await expect(dialog.getByLabel('Método do exercício 1')).toBeVisible(); await dialog.getByLabel('Método do exercício 1').selectOption('DROPSET'); await dialog.getByLabel('Reduções do dropset 1').fill('3'); await dialog.getByLabel('Percentual do dropset 1').fill('25');
+  await dialog.getByLabel('Método do exercício 2').selectOption('REST_PAUSE'); await dialog.getByLabel('Pausa do rest-pause 2').fill('20'); await dialog.getByLabel('Rodadas do rest-pause 2').fill('3');
+  await dialog.getByRole('button', { name: 'Adicionar grupo' }).click(); await dialog.getByLabel('Tipo do grupo 1').selectOption('TRISET'); await dialog.getByLabel('Grupo do exercício 1').selectOption({ label: '1. TRISET' });
+  await dialog.getByRole('button', { name: 'Salvar métodos e grupos' }).click(); await expect(dialog.getByRole('alert')).toContainText('TRISET exige 3 exercícios'); assert.equal(requests.length, 0);
+  report.scenarios.push('Triset incompleto apresenta erro e não envia mutação.');
+  for (const index of [2, 3]) await dialog.getByLabel('Grupo do exercício ' + index).selectOption({ label: '1. TRISET' });
+  await dialog.getByLabel('Rodadas do grupo 1').fill('4'); await dialog.getByLabel('Descanso do grupo 1').fill('60'); await dialog.getByLabel('Séries avançadas 1').fill('5');
+  await page.keyboard.press('Tab'); assert(await dialog.evaluate(node => node.contains(document.activeElement)));
+  await dialog.getByRole('button', { name: 'Salvar métodos e grupos' }).click(); await expect(page.locator('#saved')).toHaveText('1'); assert.equal(requests.length, 1);
+  assert.equal(requests[0].exercises[0].sets, 5); assert.deepEqual(requests[0].exercises[0].method, { type: 'DROPSET', config: { drops: 3, reduction: 25 } }); assert.deepEqual(requests[0].exercises[1].method, { type: 'REST_PAUSE', config: { pause: 20, rounds: 3 } }); assert.equal(requests[0].groups[0].type, 'TRISET');
+  report.scenarios.push('Mobile/teclado: métodos, parâmetros e triset completos geram uma solicitação validada e confirmação após resposta.');
+  mode = 'conflict'; await page.getByRole('button', { name: 'Abrir editor avançado' }).click(); await expect(dialog.getByLabel('Método do exercício 1')).toBeVisible(); await dialog.getByRole('button', { name: 'Salvar métodos e grupos' }).click(); await expect(dialog.getByRole('alert')).toContainText('O modelo foi alterado'); await expect(page.locator('#saved')).toHaveText('1');
+  await dialog.getByRole('button', { name: 'Recarregar modelo' }).click(); await expect(dialog.getByRole('alert')).toHaveCount(0); await expect(dialog.getByLabel('Séries avançadas 1')).toHaveValue('3');
+  report.scenarios.push('Conflito não confirma sucesso; recarga obtém novo estado e descarta edição antiga.');
+  const count = requests.length; await dialog.getByRole('button', { name: 'Cancelar' }).click(); assert.equal(requests.length, count);
+  report.scenarios.push('Cancelar preserva o modelo sem enviar alteração.');
+  const shot = folder + '/advanced-mobile.png'; await page.screenshot({ path: shot, fullPage: true }); report.screenshots.push(shot); assert.deepEqual(report.errors, []); report.success = true;
+}
+run().catch(error => { report.success = false; report.failure = error.message; process.exitCode = 1; }).finally(async () => { if (browser) await browser.close(); if (server) await new Promise(resolve => server.close(resolve)); report.finishedAt = new Date().toISOString(); fs.writeFileSync(folder + '/report.json', JSON.stringify(report, null, 2)); fs.writeFileSync('docs/audits/academias/estabilizacao/verificacoes-treinos-browser.json', JSON.stringify({ file: folder + '/report.json', ...report }, null, 2)); console.log(JSON.stringify({ success: report.success, scenarios: report.scenarios.length, failure: report.failure, file: folder + '/report.json' })); });

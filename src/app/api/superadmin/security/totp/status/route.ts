@@ -1,8 +1,9 @@
+import { withRequestMemo } from "@/lib/request-memo";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 
-export async function GET() {
+async function handleGET() {
   const session = await auth();
 
   if (session?.user?.role !== "SUPERADMIN" || !session?.user?.id) {
@@ -35,25 +36,8 @@ export async function GET() {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
-    let devices = user.totpDevices;
-
-    // Migração transparente: se possui secret legado mas nenhum registro em totpDevices
-    if (user.twoFactorSecret && devices.length === 0) {
-      const migrated = await prisma.userTotpDevice.create({
-        data: {
-          userId: user.id,
-          deviceName: "Celular Principal",
-          secret: user.twoFactorSecret,
-        },
-        select: {
-          id: true,
-          deviceName: true,
-          createdAt: true,
-          lastUsedAt: true,
-        },
-      });
-      devices = [migrated];
-    }
+    // Reading status cannot register a factor without the protected mutation flow.
+    const devices = user.totpDevices;
 
     const hasTotpSecret = Boolean(user.twoFactorSecret) || devices.length > 0;
     const threeFactorEnabled = Boolean(user.threeFactorEnabled);
@@ -73,3 +57,4 @@ export async function GET() {
     return new NextResponse("Internal Error", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);

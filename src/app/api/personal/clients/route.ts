@@ -1,3 +1,6 @@
+import { withRequestMemo } from "@/lib/request-memo";
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
+import { newSetupTokenExpiry } from "@/lib/auth/setup-token-policy";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
@@ -7,94 +10,79 @@ import { batchVerifyAndDecayStreaks } from "@/lib/streak-helper";
 import { EmailService } from "@/lib/emails/service";
 import { validateAgeEligibility } from "@/lib/privacy/age-validator";
 import { ErasureService } from "@/lib/privacy/erasure.service";
+import {
+  requirePersonalWorkspaceAccess as requireWorkspaceAccess,
+  handleWorkspaceAccessError,
+  sanitizeStudentListItem,
+} from "@/modules/workspaces";
 
 // GET: Fetch all students of a given workspace
-export async function GET(req: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return new NextResponse("Não autorizado.", { status: 401 });
-  }
-
-  const { searchParams } = new URL(req.url);
-  let workspaceId = searchParams.get("workspaceId");
-
-  if (!workspaceId) {
-    const userMember = await prisma.workspaceMember.findFirst({
-      where: { userId: session.user.id }
-    });
-    workspaceId = userMember?.workspaceId || null;
-  }
-
-  if (!workspaceId) {
-    return new NextResponse("O ID do workspace é obrigatório.", { status: 400 });
-  }
-
+async function handleGET(req: Request) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   try {
-    // Verify that the logged-in trainer/owner belongs to this workspace
-    const memberCheck = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        workspaceId,
-      },
+    const { searchParams } = new URL(req.url);
+    let workspaceId = searchParams.get("workspaceId");
+
+    if (!workspaceId) {
+      const session = await auth();
+      if (!session?.user?.id) {
+        return new NextResponse("Não autorizado.", { status: 401 });
+      }
+      const userMember = await prisma.workspaceMember.findFirst({
+        where: { userId: session.user.id },
+      });
+      workspaceId = userMember?.workspaceId || null;
+    }
+
+    if (!workspaceId) {
+      return new NextResponse("O ID do workspace é obrigatório.", { status: 400 });
+    }
+
+    // Verify workspace access and capability
+    const context = await requireWorkspaceAccess({
+      workspaceId,
+      capability: "students.read",
     });
 
-    if (!memberCheck) {
-      return new NextResponse("Acesso negado a este workspace.", { status: 403 });
+    if (searchParams.get("projection") === "finance") {
+      const members = await prisma.workspaceMember.findMany({ where: { workspaceId: context.workspaceId, role: "STUDENT" }, select: { user: { select: { id: true, name: true, email: true, whatsapp: true } } }, orderBy: [{ createdAt: "desc" }, { id: "desc" }] });
+      return NextResponse.json(members.map(member => member.user));
     }
 
     // Verify and decay streaks in batch before loading the list
-    await batchVerifyAndDecayStreaks(workspaceId);
+    await batchVerifyAndDecayStreaks(context.workspaceId);
 
     // Fetch all student members
     const members = await prisma.workspaceMember.findMany({
       where: {
-        workspaceId,
+        workspaceId: context.workspaceId,
         role: "STUDENT",
       },
       include: {
-        user: true,
+        user: { select: { id: true, name: true, email: true, whatsapp: true, image: true, password: true } },
       },
       orderBy: {
         createdAt: "desc",
       },
     });
 
-    const students = members.map((m) => {
-      const nameParts = m.user.name?.split(" ") || [];
-      const fallback = nameParts.length > 1
-        ? `${nameParts[0][0]}${nameParts[1][0]}`.toUpperCase()
-        : (m.user.name?.[0] || m.user.email?.[0] || "A").toUpperCase();
-
-      return {
-        id: m.user.id,
-        name: m.user.name || "Sem Nome",
-        email: m.user.email || "",
-        whatsapp: m.user.whatsapp || "",
-        isActive: m.isActive,
-        plan: m.plan,
-        modality: m.modality,
-        streak: m.streak,
-        bestStreak: m.bestStreak,
-        image: m.user.image,
-        progress: m.progress,
-        avatarFallback: fallback,
-        lastActive: m.lastActive
-          ? new Date(m.lastActive).toLocaleDateString("pt-BR")
-          : "Não acessou",
-        setupToken: m.user.setupToken,
-        hasPassword: m.user.password !== null,
-      };
-    });
+    // Security Rule #29 & D01: Return sanitized DTO omitting setupToken and secrets
+    const students = members.map((m) => sanitizeStudentListItem(m));
 
     return NextResponse.json(students);
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error);
+    if (accessError) return accessError;
+
     console.error("GET students error:", error);
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 // POST: Create a new student and associate with workspace
 export async function POST(req: Request) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -119,16 +107,10 @@ export async function POST(req: Request) {
       validatedBirthDate = ageResult.birthDate || null;
     }
 
-    const memberCheck = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        workspaceId,
-      },
+    await requireWorkspaceAccess({
+      workspaceId,
+      capability: "students.manage",
     });
-
-    if (!memberCheck) {
-      return NextResponse.json({ error: "Acesso negado a este workspace." }, { status: 403 });
-    }
 
     let studentUser = await prisma.user.findUnique({
       where: { email },
@@ -176,11 +158,12 @@ export async function POST(req: Request) {
       let tokenToEmail: string | null = null;
 
       if (!studentUser.password) {
-        if (!studentUser.setupToken) {
+        if (!studentUser.setupToken || !studentUser.setupTokenExpiresAt || studentUser.setupTokenExpiresAt <= new Date()) {
           tokenToEmail = crypto.randomUUID();
           await prisma.user.update({
             where: { id: studentUser.id },
-            data: { setupToken: tokenToEmail },
+            data: { setupTokenExpiresAt: newSetupTokenExpiry(),
+setupToken: tokenToEmail },
           });
         } else {
           tokenToEmail = studentUser.setupToken;
@@ -210,7 +193,8 @@ export async function POST(req: Request) {
             name,
             email,
             password: null,
-            setupToken,
+            setupTokenExpiresAt: newSetupTokenExpiry(),
+setupToken,
             role: "STUDENT",
             whatsapp,
             cpfCnpj: cleanCpfCnpj,
@@ -247,6 +231,9 @@ export async function POST(req: Request) {
 
     return new NextResponse("Aluno cadastrado com sucesso.", { status: 201 });
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error);
+    if (accessError) return accessError;
+
     console.error("POST student error:", error);
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }
@@ -254,11 +241,7 @@ export async function POST(req: Request) {
 
 // PUT: Update student details, plan, or active status
 export async function PUT(req: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return new NextResponse("Não autorizado.", { status: 401 });
-  }
-
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   try {
     const body = await req.json();
     const { userId, workspaceId, name, email, whatsapp, plan, modality, isActive } = body;
@@ -267,17 +250,11 @@ export async function PUT(req: Request) {
       return new NextResponse("ID do usuário e ID do workspace são obrigatórios.", { status: 400 });
     }
 
-    // Verify workspace membership of the logged-in trainer
-    const memberCheck = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        workspaceId,
-      },
+    // Verify workspace access and management capability
+    await requireWorkspaceAccess({
+      workspaceId,
+      capability: "students.manage",
     });
-
-    if (!memberCheck) {
-      return new NextResponse("Acesso negado a este workspace.", { status: 403 });
-    }
 
     // Verify student exists in workspace
     const studentMember = await prisma.workspaceMember.findUnique({
@@ -328,6 +305,9 @@ export async function PUT(req: Request) {
 
     return new NextResponse("Aluno atualizado com sucesso.", { status: 200 });
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error);
+    if (accessError) return accessError;
+
     console.error("PUT student error:", error);
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }
@@ -335,11 +315,7 @@ export async function PUT(req: Request) {
 
 // DELETE: Delete student from workspace
 export async function DELETE(req: Request) {
-  const session = await auth();
-  if (!session?.user) {
-    return new NextResponse("Não autorizado.", { status: 401 });
-  }
-
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const { searchParams } = new URL(req.url);
   const userId = searchParams.get("userId");
   const workspaceId = searchParams.get("workspaceId");
@@ -349,17 +325,11 @@ export async function DELETE(req: Request) {
   }
 
   try {
-    // Verify logged-in user belongs to workspace
-    const memberCheck = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        workspaceId,
-      },
+    // Verify workspace access and management capability
+    await requireWorkspaceAccess({
+      workspaceId,
+      capability: "students.manage",
     });
-
-    if (!memberCheck) {
-      return new NextResponse("Acesso negado a este workspace.", { status: 403 });
-    }
 
     // Check if member is associated as STUDENT
     const targetMember = await prisma.workspaceMember.findUnique({
@@ -403,13 +373,17 @@ export async function DELETE(req: Request) {
     // Cleanup physical R2 files asynchronously outside transaction
     const remainingMemberships = await prisma.workspaceMember.count({ where: { userId } });
     if (remainingMemberships === 0) {
-      await ErasureService.executeCompleteErasure(userId, session.user.id).catch((e) => {
+      const session = await auth();
+      await ErasureService.executeCompleteErasure(userId, session?.user?.id || "system").catch((e) => {
         console.warn("[StudentDelete] ErasureService cleanup handled:", e.message);
       });
     }
 
     return NextResponse.json({ success: true, message: "Aluno excluído com sucesso." });
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error);
+    if (accessError) return accessError;
+
     console.error("DELETE student error:", error);
     return NextResponse.json({ error: "Erro interno do servidor." }, { status: 500 });
   }

@@ -1,12 +1,16 @@
+import { withRequestMemo } from "@/lib/request-memo";
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { requirePersonalWorkspaceAccess, handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
 
 // GET /api/personal/workouts/[id]
-export async function GET(
+async function handleGET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -56,6 +60,7 @@ export async function GET(
     if (!workout) {
       return new NextResponse("Treino não encontrado.", { status: 404 });
     }
+    if (workout.workspaceId) await requirePersonalWorkspaceAccess({ workspaceId: workout.workspaceId, capability: "workouts.read" });
 
     const formattedWorkout = {
       ...workout,
@@ -75,16 +80,19 @@ export async function GET(
 
     return NextResponse.json(formattedWorkout);
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
     console.error("Error fetching workout details:", error);
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 // PUT /api/personal/workouts/[id]
 export async function PUT(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -110,6 +118,7 @@ export async function PUT(
     if (!existingWorkout) {
       return new NextResponse("Treino não encontrado ou não autorizado.", { status: 404 });
     }
+    if (existingWorkout.workspaceId) await requirePersonalWorkspaceAccess({ workspaceId: existingWorkout.workspaceId, capability: "workouts.manage.assigned" });
 
     // Perform atomic transaction to delete old exercises and create new ones
     const updatedWorkout = await prisma.$transaction(async (tx) => {
@@ -221,6 +230,7 @@ export async function PUT(
 
     return NextResponse.json(updatedWorkout);
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
     console.error("Error updating workout:", error);
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
@@ -231,6 +241,7 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -255,6 +266,7 @@ export async function DELETE(
     if (!existingWorkout) {
       return new NextResponse("Treino não encontrado ou não autorizado.", { status: 404 });
     }
+    if (existingWorkout.workspaceId) await requirePersonalWorkspaceAccess({ workspaceId: existingWorkout.workspaceId, capability: "workouts.manage.assigned" });
 
     const exerciseIds = existingWorkout.exercises.map(ex => ex.exerciseId);
 
@@ -274,6 +286,7 @@ export async function DELETE(
 
     return new NextResponse(null, { status: 204 });
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
     console.error("Error deleting workout:", error);
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }

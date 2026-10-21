@@ -1,3 +1,7 @@
+import { withRequestMemo } from "@/lib/request-memo";
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
+import { authorizePersonalStudent } from "@/modules/workspaces/application/personal-student-authority";
+import { handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
@@ -9,7 +13,8 @@ interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-export async function GET(req: Request, { params }: RouteParams) {
+async function handleGET(req: Request, { params }: RouteParams) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -25,6 +30,8 @@ export async function GET(req: Request, { params }: RouteParams) {
 
   try {
     // Verify trainer has access to workspace
+    
+    await authorizePersonalStudent(workspaceId, studentId, session.user.id, "health.read.assigned");
     const trainerCheck = await prisma.workspaceMember.findFirst({
       where: { userId: session.user.id, workspaceId }
     });
@@ -49,12 +56,16 @@ export async function GET(req: Request, { params }: RouteParams) {
 
     return NextResponse.json(evaluations);
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
+
     console.error("GET student evaluations error:", error);
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 export async function POST(req: Request, { params }: RouteParams) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -86,6 +97,8 @@ export async function POST(req: Request, { params }: RouteParams) {
     }
 
     // Verify trainer
+    
+    await authorizePersonalStudent(workspaceId, studentId, session.user.id, "health.manage.assigned");
     const trainerCheck = await prisma.workspaceMember.findFirst({
       where: { userId: session.user.id, workspaceId }
     });
@@ -282,6 +295,8 @@ export async function POST(req: Request, { params }: RouteParams) {
 
     return NextResponse.json(evaluation);
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
+
     console.error("POST student evaluation error:", error);
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }

@@ -1,0 +1,1 @@
+require('./gym-check-runner.cjs')('http-retirement', ['--config', 'vitest.gym-http.config.ts', '--testNamePattern', 'módulos retirados|SSR da recepção|configuração global confirma'], { GYM_HTTP_ORIGIN: 'http://127.0.0.1:31173' });

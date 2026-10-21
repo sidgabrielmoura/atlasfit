@@ -1,0 +1,13 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const { spawn } = require('node:child_process');
+const root = path.resolve(__dirname, '..'), app = path.join(root, '.tmp', 'gym-final-build');
+const report = JSON.parse(fs.readFileSync(path.join(root, 'docs/audits/academias/estabilizacao/verificacoes-final-build.json')));
+if (!report.success || !fs.existsSync(path.join(app, '.next', 'BUILD_ID'))) throw new Error('A successful isolated production build is required.');
+if (fs.readdirSync(app).some(file => file === '.env' || file.startsWith('.env.'))) throw new Error('Production QA must not load configured credentials.');
+const allowed = ['PATH', 'Path', 'SystemRoot', 'WINDIR', 'TEMP', 'TMP', 'COMSPEC', 'PATHEXT', 'USERPROFILE', 'LOCALAPPDATA', 'APPDATA'];
+const env = Object.fromEntries(allowed.filter(key => process.env[key]).map(key => [key, process.env[key]]));
+Object.assign(env, { DATABASE_URL: 'postgresql://atlasfit_test@127.0.0.1:56432/atlasfit_gym_stabilization_20261001', AUTH_SECRET: 'isolated-gym-test-secret-not-for-production', AUTH_URL: 'http://127.0.0.1:31173', NEXTAUTH_URL: 'http://127.0.0.1:31173', AUTH_TRUST_HOST: 'true', NEXT_TELEMETRY_DISABLED: '1', NODE_ENV: 'production', NODE_OPTIONS: '--max-old-space-size=8192' });
+const child = spawn(process.execPath, [path.join(root, 'node_modules/next/dist/bin/next'), 'start', '--hostname', '127.0.0.1', '--port', '31173'], { cwd: app, env, stdio: 'inherit', windowsHide: true });
+child.on('error', error => { console.error(error.message); process.exitCode = 1; });
+child.on('exit', code => { process.exitCode = code ?? 1; });

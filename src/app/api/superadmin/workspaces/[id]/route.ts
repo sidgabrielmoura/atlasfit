@@ -1,18 +1,28 @@
+import { isGymLicenseCurrent } from "@/modules/workspaces/application/gym-license";
+import { withAuditedRequest } from "@/lib/audited-request";
+import { updateWorkspaceAdministration } from "@/modules/workspaces/application/workspace-administration";
+import { handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
+import { readJsonRequest, JsonRequestError } from "@/lib/http/read-json";
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { serializableTransaction } from "@/modules/workspaces/application/transaction";
+import { assertSuperadmin } from "@/modules/workspaces/application/gym-provisioning";
+import { GymAnalyticsService } from "@/modules/workspaces/application/gym-analytics-service";
+import { WorkspaceAccessError } from "@/modules/workspaces/domain/types";
 import { auth } from "@/auth";
 import { logSystemError } from "@/lib/logger";
+import { serializeGymData } from "@/modules/workspaces/domain/gym-config";
 
-export async function GET(
+export const GET = withAuditedRequest(async function GET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const session = await auth();
 
-  if (session?.user?.role !== "SUPERADMIN") {
+  if (session?.user?.role !== "SUPERADMIN" || !session.user.id) {
     return new NextResponse("Unauthorized", { status: 401 });
   }
 
+  const actorUserId = session.user.id;
   const { id } = await params;
 
   try {
@@ -20,155 +30,78 @@ export async function GET(
       return new NextResponse("Missing workspace ID", { status: 400 });
     }
 
-    const workspace = await prisma.workspace.findUnique({
-      where: { id },
-      include: {
-        members: {
-          include: {
-            user: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                image: true
-              }
-            }
-          }
+    const result = await serializableTransaction(async tx => {
+      await assertSuperadmin(tx, actorUserId);
+      const workspace = await tx.workspace.findUnique({
+        where: { id },
+        include: {
+          settings: true,
+          units: { orderBy: { createdAt: "asc" } },
+          subscription: {
+            include: { plan: true },
+          },
+          members: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  name: true,
+                  email: true,
+                  image: true,
+                },
+              },
+              studentProfile: { select: { id: true } },
+              staffProfile: { select: { id: true } },
+              roleGrants: {
+                select: { role: true, revokedAt: true },
+              },
+            },
+          },
+          plans: true,
+          workouts: {
+            orderBy: { createdAt: "desc" },
+            take: 5,
+            include: {
+              student: { select: { name: true } },
+              creator: { select: { name: true } },
+            },
+          },
+          payments: true,
         },
-        plans: true,
-        workouts: {
-          orderBy: { createdAt: 'desc' },
-          take: 5,
-          include: {
-            student: { select: { name: true } },
-            creator: { select: { name: true } }
-          }
-        },
-        payments: true
-      }
+      });
+
+      if (!workspace) throw new WorkspaceAccessError(404, "WORKSPACE_NOT_FOUND", "Workspace não encontrado.");
+      const activeMembers = workspace.members.filter(member => member.isActive);
+      const studentsCount = activeMembers.filter(m => m.studentProfile || m.roleGrants.some(g => g.role === "STUDENT" && !g.revokedAt) || (m.roleGrants.length === 0 && m.role === "STUDENT")).length;
+      const staffCount = activeMembers.filter(m => (workspace.type === "GYM" ? m.userId === workspace.ownerId : Boolean(m.staffProfile)) || m.roleGrants.some(g => g.role !== "STUDENT" && !g.revokedAt) || (m.roleGrants.length === 0 && m.role !== "STUDENT")).length;
+      const gymFinancialOverview = workspace.type === "GYM" && workspace.isActive && isGymLicenseCurrent(workspace.subscription) ? await GymAnalyticsService.getOverviewInTransaction(tx, { workspaceId: id, actorUserId: actorUserId }) : null;
+      const registeredPlansCount = workspace.type === "GYM" ? await tx.gymPlan.count({ where: { workspaceId: id } }) : workspace.plans.length;
+      const registeredWorkoutsCount = await tx.workout.count({ where: { workspaceId: id } });
+      return { ...workspace, owner: workspace.members.find(m => m.userId === workspace.ownerId)?.user || null,
+        studentsCount, staffCount, registeredPlansCount, registeredWorkoutsCount, gymFinancialOverview, mrr: gymFinancialOverview ? gymFinancialOverview.executive.mrrInCents / 100 : null };
     });
-
-    if (!workspace) {
-      return new NextResponse("Workspace not found", { status: 404 });
-    }
-
-    const owner = workspace.members.find(m => m.role === "OWNER")?.user || null;
-    const studentsCount = workspace.members.filter(m => m.role === "STUDENT").length;
-    const mrr = workspace.payments.reduce((acc, curr) => acc + curr.amount, 0) / 12; // estimativa se for anual, vamos assumir soma do ultimo mes idealmente. Como é demo, faremos a soma.
-    const mrrReal = workspace.payments.reduce((acc, curr) => acc + curr.amount, 0);
-
-    return NextResponse.json({
-      ...workspace,
-      owner,
-      studentsCount,
-      mrr: mrrReal
-    }, { status: 200 });
+    return NextResponse.json(serializeGymData(result));
   } catch (error) {
+    const access = handleWorkspaceAccessError(error); if (access) return access;
     await logSystemError({ action: "GET_WORKSPACE_BY_ID", error, entity: "WORKSPACE", entityId: id });
     return new NextResponse("Internal Error", { status: 500 });
   }
-}
+});
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: Promise<{ id: string }> }
-) {
+export const PATCH = withAuditedRequest(async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth();
-
-  if (session?.user?.role !== "SUPERADMIN") {
-    return new NextResponse("Unauthorized", { status: 401 });
-  }
-
+  if (session?.user?.role !== "SUPERADMIN" || !session.user.id) return NextResponse.json({ error: { code: "UNAUTHORIZED", message: "Acesso administrativo necessário." } }, { status: 401 });
   const { id } = await params;
-
   try {
-    const body = await req.json();
-    const { name, slug, ownerId, isActive } = body;
-
-    if (!id) {
-      return new NextResponse("Missing workspace ID", { status: 400 });
-    }
-
-    const existingWorkspace = await prisma.workspace.findUnique({
-      where: { id },
-      include: { members: true }
-    });
-
-    if (!existingWorkspace) {
-      return new NextResponse("Workspace not found", { status: 404 });
-    }
-
-    if (slug && slug.toLowerCase() !== existingWorkspace.slug) {
-      const existingSlug = await prisma.workspace.findUnique({
-        where: { slug: slug.toLowerCase() }
-      });
-
-      if (existingSlug) {
-        return new NextResponse("Slug already in use", { status: 400 });
-      }
-    }
-
-    let updatedWorkspace;
-
-    if (ownerId && ownerId !== existingWorkspace.ownerId) {
-      updatedWorkspace = await prisma.$transaction(async (tx) => {
-        const oldOwnerMember = existingWorkspace.members.find(m => m.userId === existingWorkspace.ownerId);
-        if (oldOwnerMember) {
-          await tx.workspaceMember.delete({
-            where: { id: oldOwnerMember.id }
-          });
-        }
-
-        const newOwnerMember = existingWorkspace.members.find(m => m.userId === ownerId);
-        if (newOwnerMember) {
-          await tx.workspaceMember.update({
-            where: { id: newOwnerMember.id },
-            data: { role: "OWNER" }
-          });
-        } else {
-          await tx.workspaceMember.create({
-            data: {
-              userId: ownerId,
-              workspaceId: id,
-              role: "OWNER",
-            }
-          });
-        }
-
-        return await tx.workspace.update({
-          where: { id },
-          data: {
-            name: name ?? existingWorkspace.name,
-            slug: slug ? slug.toLowerCase() : existingWorkspace.slug,
-            ownerId,
-            isActive: isActive !== undefined ? isActive : existingWorkspace.isActive
-          }
-        });
-      });
-    } else {
-      updatedWorkspace = await prisma.workspace.update({
-        where: { id },
-        data: {
-          name: name !== undefined ? name : undefined,
-          slug: slug !== undefined ? slug.toLowerCase() : undefined,
-          isActive: isActive !== undefined ? isActive : undefined
-        }
-      });
-    }
-
-    await prisma.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: "WORKSPACE_UPDATE",
-        entity: "WORKSPACE",
-        entityId: id,
-        severity: "success"
-      }
-    });
-
-    return NextResponse.json(updatedWorkspace, { status: 200 });
+    if (!id || id.length > 100) return NextResponse.json({ error: { code: "INVALID_REQUEST", message: "Workspace obrigatório." } }, { status: 400 });
+    const actorUserId = session.user.isImpersonated ? session.user.originalAdminUserId : session.user.id;
+    if (!actorUserId) return NextResponse.json({ error: { code: "UNAUTHORIZED", message: "Ator administrativo indisponível." } }, { status: 403 });
+    const updated = await updateWorkspaceAdministration(id, await readJsonRequest(req, 16_384), actorUserId, session.user.id);
+    return NextResponse.json(serializeGymData(updated));
   } catch (error) {
+    const access = handleWorkspaceAccessError(error); if (access) return access;
+    if (error instanceof JsonRequestError) return NextResponse.json({ error: { code: "INVALID_REQUEST", message: error.message } }, { status: error.statusCode });
     await logSystemError({ action: "PATCH_WORKSPACE_BY_ID", error, entity: "WORKSPACE", entityId: id });
-    return new NextResponse("Internal Error", { status: 500 });
+    return NextResponse.json({ error: { code: "INTERNAL_ERROR", message: "Não foi possível atualizar o workspace." } }, { status: 500 });
   }
-}
+});

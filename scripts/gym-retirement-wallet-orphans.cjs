@@ -1,0 +1,9 @@
+const fs=require('node:fs'),path=require('node:path'),crypto=require('node:crypto');
+const root=path.resolve(__dirname,'..'),removed=['src/app/(gym)/gym/finance/components/wallet-tab.tsx','src/app/(gym)/gym/finance/components/reconciliation-tab.tsx','src/modules/workspaces/application/gym-wallet-reconciliation-service.ts','src/modules/workspaces/__tests__/gym-044.test.ts'];
+const records=[];
+for(const relative of removed){const file=path.resolve(root,relative);if(!file.startsWith(root+path.sep))throw new Error('Outside workspace');const content=fs.readFileSync(file);const backup=path.resolve(root,'.tmp/gym-retired-sources',relative);if(!backup.startsWith(root+path.sep))throw new Error('Invalid backup');fs.mkdirSync(path.dirname(backup),{recursive:true});if(!fs.existsSync(backup))fs.writeFileSync(backup,content);records.push({path:relative,sha256:crypto.createHash('sha256').update(content).digest('hex')});fs.unlinkSync(file);}
+const index=path.join(root,'src/modules/workspaces/index.ts');fs.writeFileSync(index,fs.readFileSync(index,'utf8').replace(/^export \* from "\.\/application\/gym-wallet-reconciliation-service";\r?\n/m,''));
+const roles=path.join(root,'src/modules/workspaces/domain/roles.ts');fs.writeFileSync(roles,fs.readFileSync(roles,'utf8').replace(/^.*"wallet\.(read|withdraw)".*\r?\n/gm,''));
+const test=path.join(root,'tests/gym/manual-finance.integration.ts');fs.writeFileSync(test,fs.readFileSync(test,'utf8').replace(/^import \{ gymWalletReconciliationService \}[^\n]*\n/m,'').replace(/^.*await expect\(gymWalletReconciliationService\.requestWorkspacePayout[^\n]*\n/m,''));
+fs.writeFileSync(path.join(root,'docs/audits/academias/estabilizacao/retirada-wallet-orfaos.json'),JSON.stringify({removed,records,preserved:'API legado somente leitura; endpoints retirados respondem 410; pagamentos PERSONAL e eventos externos preservados.'},null,2)+'\n');
+console.log('Wallet GYM orphan components/services removed; shared payments preserved.');

@@ -1,3 +1,5 @@
+import { withRequestMemo } from "@/lib/request-memo";
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
@@ -30,7 +32,8 @@ function sanitizeBlocks(blocks: any[]): any[] {
   });
 }
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user?.id) {
     return new NextResponse("Unauthorized", { status: 401 });
@@ -147,8 +150,10 @@ export async function GET(req: Request) {
     return new NextResponse("Internal Error", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 export async function POST(req: Request) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user?.id) {
     return new NextResponse("Unauthorized", { status: 401 });

@@ -496,7 +496,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
   const sendTypingStatus = async (typing: boolean) => {
     if (!ably || !activeConversationId) return;
     try {
-      const channelName = `conversation:${activeConversationId}`;
+      const channelName = `conversation:${activeConversationId}:typing`;
       const channel = ably.channels.get(channelName);
       await channel.publish("typing", {
         userId: currentUserId,

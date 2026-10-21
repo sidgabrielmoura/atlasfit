@@ -1,0 +1,18 @@
+const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict'), { createHash } = require('node:crypto');
+const folder = 'docs/audits/academias/estabilizacao', read = file => JSON.parse(fs.readFileSync(file, 'utf8'));
+const hash = file => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+const report = read(folder + '/verificacoes-isoladas.json')['storage-aggregation'];
+assert.equal(report.success, true); assert.equal(report.passed, 24); assert.equal(report.failed, 0);
+assert.equal(read(folder + '/typecheck-contexto-final.json').exitCode, 0);
+const target = folder + '/storage-agregacao'; fs.mkdirSync(target, { recursive: true });
+const artifacts = [report.rawFile, folder + '/typecheck-contexto-final.json'].map(source => { const file = target + '/' + path.basename(source); fs.copyFileSync(source, file); return { file, sha256: hash(file) }; });
+const sources = ['src/lib/storage-quota.service.ts', 'tests/gym/storage-aggregation.integration.ts', 'tests/gym/operation-authority.integration.ts', folder + '/storage-agregacao.md'];
+const manifest = folder + '/verificacoes-storage-agregacao.json';
+fs.writeFileSync(manifest, JSON.stringify({ recordedAt: new Date().toISOString(), success: true, passed: 24, failed: 0, typescript: { exitCode: 0 }, artifacts, sources: sources.map(file => ({ file, sha256: hash(file) })), limitations: ['Conclusão parcial do achado 052; não encerra paginação, administração global ou desempenho representativo.', 'Metadados sintéticos no PostgreSQL descartável; sem upload real ou alteração de clientes.', 'Conjunto de vínculos PERSONAL preservado; não afirma migração de política de ownership nem reservas concorrentes PERSONAL.'] }, null, 2) + '\n');
+const file = folder + '/tratamento.json', states = read(file), state = states['GYM-AUD-052'];
+assert.equal(state.state, 'Pendente');
+if (!state.correction.includes('Agregação de armazenamento PERSONAL')) state.correction += ' Agregação de armazenamento PERSONAL usa duas somas/contagens no banco para todo o conjunto de assessorias, sem hidratar arquivos nem consultar cada workspace. Falha de leitura não reduz o consumo para liberar upload. Totais/isolamento e falha passaram em 24 testes; a administração global e os demais catálogos/indicadores continuam pendentes.';
+state.files = [...new Set([...state.files, ...sources, manifest])];
+const validation = '08/10/2026: 24 testes PostgreSQL, incluindo 2400 arquivos e falha de quota; verificacoes-storage-agregacao.json. Conclusão parcial; achado 052 permanece pendente.';
+if (!state.validation.includes(validation)) state.validation.push(validation);
+fs.writeFileSync(file, JSON.stringify(states, null, 2) + '\n'); console.log(JSON.stringify({ partial: ['052'], passed: 24 }));

@@ -1,7 +1,9 @@
+import { enqueueNotification } from "@/lib/notifications/delivery";
+import { serializableTransaction } from "@/modules/workspaces/application/transaction";
 import prisma from "@/lib/prisma";
 import { NotificationService } from "@/lib/notifications/service";
 import { NotificationCategory, NotificationPriority, NotificationType } from "@/lib/notifications/types";
-import { PushTriggerType } from "@prisma/client";
+import { type Prisma, PushTriggerType } from "@prisma/client";
 
 export interface PushMetricsSummary {
   totalSent: number;
@@ -36,6 +38,25 @@ function chunkArray<T>(array: T[], size: number): T[][] {
 }
 
 export class EngagePushService {
+  /** Bounded audience pages and three dispatches in flight fit the shared pg pool. */
+  static async *targetUserBatches(where: Prisma.UserWhereInput, notificationId?: string, force = false) {
+    let cursor: string | undefined;
+    for (;;) {
+      const users = await prisma.user.findMany({ where, select: { id: true, name: true, role: true, email: true }, take: 100, orderBy: { id: "asc" }, ...(cursor ? { cursor: { id: cursor }, skip: 1 } : {}) });
+      if (!users.length) return;
+      const ids = users.map(user => user.id);
+      const { startOfToday } = this.getBrasiliaTime();
+      const daily = !force && notificationId ? await prisma.engagePushLog.groupBy({ by: ["userId"], where: { userId: { in: ids }, notificationId, sentAt: { gte: startOfToday } }, _count: { _all: true } }) : [];
+      const fatigue = !force ? await prisma.engagePushLog.groupBy({ by: ["userId"], where: { userId: { in: ids }, sentAt: { gte: new Date(Date.now() - 86400000) } }, _count: { _all: true } }) : [];
+      const sent = new Set(daily.map(row => row.userId));
+      const counts = new Map(fatigue.map(row => [row.userId, row._count._all]));
+      const page = users.map(user => ({ ...user, receivedToday: sent.has(user.id), pushesIn24Hours: counts.get(user.id) || 0 }));
+      for (let i = 0; i < page.length; i += 3) yield page.slice(i, i + 3);
+      cursor = users[users.length - 1].id;
+      if (users.length < 100) return;
+    }
+  }
+
   /**
    * Helper to get current Brasília (America/Sao_Paulo) hour, minute, day of week and startOfToday
    */
@@ -249,8 +270,9 @@ export class EngagePushService {
     category?: string;
     priority?: string;
     inactivityDays?: number;
+    streakDays?: number;
     trainerName?: string | null;
-  }): Promise<{ success: boolean; logId?: string; error?: string }> {
+  }): Promise<{ success: boolean; logId?: string; error?: string; queued?: boolean }> {
     const {
       notificationId,
       user,
@@ -275,7 +297,7 @@ export class EngagePushService {
       const activeBodyTemplate = selectedVariant === "B" && bodyTemplateB ? bodyTemplateB : bodyTemplate;
 
       // 2. Calculate variables and interpolate
-      const streak = await this.calculateUserStreak(user.id);
+      const streak = params.streakDays ?? (/{streak_dias}/i.test(activeTitleTemplate + activeBodyTemplate) ? await this.calculateUserStreak(user.id) : 0);
       const title = this.interpolateTemplate(activeTitleTemplate, {
         name: user.name,
         firstName: user.name?.split(" ")[0],
@@ -291,55 +313,19 @@ export class EngagePushService {
         trainerName
       });
 
-      // 3. Create initial log
-      const log = await prisma.engagePushLog.create({
-        data: {
-          notificationId,
-          userId: user.id,
-          variant: selectedVariant,
-          status: "SENT",
-        }
+      const { startOfToday } = this.getBrasiliaTime();
+      return await serializableTransaction(async tx => {
+        const claim = notificationId + ":" + user.id + ":" + startOfToday.toISOString();
+        await tx.$queryRaw`SELECT 1 AS locked FROM pg_advisory_xact_lock(hashtext('engage-daily'), hashtext(${claim}))`;
+        const retained = await tx.engagePushLog.findFirst({ where: { notificationId, userId: user.id, sentAt: { gte: startOfToday }, errorReason: { startsWith: "dispatch:" } }, select: { id: true } });
+        if(retained) return { success: true, logId: retained.id, queued: false };
+        const log = await tx.engagePushLog.create({ data: { notificationId, userId: user.id, variant: selectedVariant, status: "QUEUED" } });
+        const trackedLink = deepLink + (deepLink.includes("?") ? "&" : "?") + "engage_push_log=" + log.id;
+        const receipt = await enqueueNotification(tx, { userId: user.id, requestKey: "engage:" + log.id, type: NotificationType.CAMPAIGN, category, title, description, image: imageUrl || undefined, priority, deepLink: trackedLink, source: "Atlas Engage Push", payload: { engagePushLogId: log.id, notificationId, variant: selectedVariant } });
+        await tx.engagePushLog.update({ where: { id: log.id }, data: { status: receipt.deliveryStatus, errorReason: "dispatch:" + receipt.dispatchId } });
+        await tx.engagePushNotification.update({ where: { id: notificationId }, data: selectedVariant === "B" ? { sentCountB: { increment: 1 } } : { sentCount: { increment: 1 } } });
+        return { success: true, logId: log.id, queued: receipt.deliveryStatus === "QUEUED" };
       });
-
-      // Construct deepLink with logId for attribution tracking
-      const separator = deepLink.includes("?") ? "&" : "?";
-      const trackedLink = `${deepLink}${separator}engage_push_log=${log.id}`;
-
-      // 4. Dispatch via system NotificationService (which respects LGPD preferences, FCM Push, In-App & Email)
-      await NotificationService.sendNotification({
-        userId: user.id,
-        type: NotificationType.CAMPAIGN,
-        category: (category as NotificationCategory) || NotificationCategory.TRAINING,
-        title,
-        description,
-        image: imageUrl || undefined,
-        priority: (priority as NotificationPriority) || NotificationPriority.HIGH,
-        deepLink: trackedLink,
-        source: "Atlas Engage Push",
-        payload: {
-          engagePushLogId: log.id,
-          notificationId,
-          variant: selectedVariant
-        }
-      });
-
-      // 5. Update notification aggregated sentCount and log status
-      const incrementField = selectedVariant === "B"
-        ? { sentCountB: { increment: 1 } }
-        : { sentCount: { increment: 1 }, deliveredCount: { increment: 1 } };
-
-      await prisma.$transaction([
-        prisma.engagePushNotification.update({
-          where: { id: notificationId },
-          data: incrementField
-        }),
-        prisma.engagePushLog.update({
-          where: { id: log.id },
-          data: { status: "DELIVERED" }
-        })
-      ]);
-
-      return { success: true, logId: log.id };
     } catch (err: any) {
       console.error(`[EngagePushService] Dispatch error for user ${user.id}:`, err);
       return { success: false, error: err.message };
@@ -352,6 +338,7 @@ export class EngagePushService {
   static async runAutomatedPushCycle(force = false): Promise<{
     processedCampaigns: number;
     dispatchedCount: number;
+    failedCount: number;
     skippedCount: number;
     cleanedLogsCount?: number;
     details: any[];
@@ -363,6 +350,7 @@ export class EngagePushService {
       return {
         processedCampaigns: 0,
         dispatchedCount: 0,
+        failedCount: 0,
         skippedCount: 0,
         details: [{ message: "Quiet hours active (22:00 - 07:00 Brasilia Time). Automated pushes paused." }]
       };
@@ -376,6 +364,11 @@ export class EngagePushService {
     });
 
     let dispatchedCount = 0;
+    let failedCount = 0;
+    async function accountForFailures<T>(tasks: Promise<T>[]) {
+      const results = await Promise.allSettled(tasks);
+      failedCount += results.filter(result => result.status === "rejected").length;
+    }
     let skippedCount = 0;
     const details: any[] = [];
 
@@ -415,23 +408,19 @@ export class EngagePushService {
             ? {} 
             : { role: notification.targetRole as any };
 
-          const users = await prisma.user.findMany({
-            where: {
+          const userChunks = this.targetUserBatches({
               ...roleFilter,
               onboarded: true
-            },
-            select: { id: true, name: true, role: true, email: true }
-          });
+            }, notification.id, force);
 
           // Process users in chunks of 50
-          const userChunks = chunkArray(users, 50);
 
-          for (const chunk of userChunks) {
-            await Promise.allSettled(
+          for await (const chunk of userChunks) {
+            await accountForFailures(
               chunk.map(async (user) => {
                 // Anti-duplication: check if already received this notification today
                 if (!force) {
-                  const alreadySent = await this.hasUserReceivedNotificationToday(user.id, notification.id);
+                  const alreadySent = user.receivedToday;
                   if (alreadySent) {
                     skippedCount++;
                     return;
@@ -470,7 +459,7 @@ export class EngagePushService {
                 }
 
                 // Fatigue capping
-                const underCap = await this.isUserUnderFatigueCap(user.id);
+                const underCap = user.pushesIn24Hours < 2;
                 if (!underCap && !force) {
                   skippedCount++;
                   return;
@@ -489,7 +478,8 @@ export class EngagePushService {
                   priority: notification.priority
                 });
 
-                if (res.success) dispatchedCount++;
+                if (res.success && res.queued) dispatchedCount++;
+                else if (!res.success) failedCount++;
               })
             );
           }
@@ -501,8 +491,7 @@ export class EngagePushService {
           cutoffDate.setDate(cutoffDate.getDate() - daysThreshold);
 
           // Find students whose latest workout is older than cutoffDate or who never logged
-          const inactiveStudents = await prisma.user.findMany({
-            where: {
+          const studentChunks = this.targetUserBatches({
               role: "STUDENT",
               onboarded: true,
               OR: [
@@ -512,23 +501,19 @@ export class EngagePushService {
                   }
                 }
               ]
-            },
-            select: { id: true, name: true, role: true, email: true }
-          });
+            }, notification.id, force);
 
-          const studentChunks = chunkArray(inactiveStudents, 50);
-
-          for (const chunk of studentChunks) {
-            await Promise.allSettled(
+          for await (const chunk of studentChunks) {
+            await accountForFailures(
               chunk.map(async (student) => {
                 if (!force) {
-                  const alreadySent = await this.hasUserReceivedNotificationToday(student.id, notification.id);
+                  const alreadySent = student.receivedToday;
                   if (alreadySent) {
                     skippedCount++;
                     return;
                   }
 
-                  const underCap = await this.isUserUnderFatigueCap(student.id, 1);
+                  const underCap = student.pushesIn24Hours < 1;
                   if (!underCap) {
                     skippedCount++;
                     return;
@@ -549,24 +534,20 @@ export class EngagePushService {
                   inactivityDays: daysThreshold
                 });
 
-                if (res.success) dispatchedCount++;
+                if (res.success && res.queued) dispatchedCount++;
+                else if (!res.success) failedCount++;
               })
             );
           }
 
-          details.push({ id: notification.id, title: notification.title, type: "INACTIVITY", count: inactiveStudents.length });
+          details.push({ id: notification.id, title: notification.title, type: "INACTIVITY", status: "executed" });
         } else if (notification.triggerType === "STREAK_SAVER") {
           // Late afternoon/evening check in Brasilia Time (between 17h and 21h)
           if ((currentHour >= 17 && currentHour <= 21) || force) {
-            const activeStudents = await prisma.user.findMany({
-              where: { role: "STUDENT", onboarded: true },
-              select: { id: true, name: true, role: true, email: true }
-            });
+            const studentChunks = this.targetUserBatches({ role: "STUDENT", onboarded: true }, notification.id, force);
 
-            const studentChunks = chunkArray(activeStudents, 50);
-
-            for (const chunk of studentChunks) {
-              await Promise.allSettled(
+            for await (const chunk of studentChunks) {
+              await accountForFailures(
                 chunk.map(async (student) => {
                   const alreadyTrained = await this.hasUserTrainedToday(student.id);
                   if (alreadyTrained) return;
@@ -574,16 +555,17 @@ export class EngagePushService {
                   const streak = await this.calculateUserStreak(student.id);
                   if (streak >= 2) {
                     if (!force) {
-                      const alreadySent = await this.hasUserReceivedNotificationToday(student.id, notification.id);
+                      const alreadySent = student.receivedToday;
                       if (alreadySent) return;
 
-                      const underCap = await this.isUserUnderFatigueCap(student.id, 1);
+                      const underCap = student.pushesIn24Hours < 1;
                       if (!underCap) return;
                     }
 
                     const res = await this.dispatchPushToUser({
                       notificationId: notification.id,
                       user: student,
+                      streakDays: streak,
                       titleTemplate: notification.title,
                       bodyTemplate: notification.body,
                       titleTemplateB: notification.titleB,
@@ -594,7 +576,8 @@ export class EngagePushService {
                       priority: notification.priority
                     });
 
-                    if (res.success) dispatchedCount++;
+                    if (res.success && res.queued) dispatchedCount++;
+                else if (!res.success) failedCount++;
                   }
                 })
               );
@@ -604,14 +587,16 @@ export class EngagePushService {
         }
       } catch (err: any) {
         console.error(`[EngagePushService] Error processing campaign ${notification.id}:`, err);
-        details.push({ id: notification.id, error: err.message });
+        failedCount++;
+        details.push({ id: notification.id, error: "CAMPAIGN_PROCESSING_FAILED" });
       }
     }
 
     // Auto-cleanup logs older than 90 days for LGPD compliance and DB performance
     let cleanedLogsCount = 0;
     try {
-      cleanedLogsCount = await this.cleanupOldLogs(90);
+      // One bounded cleanup window a day instead of every active cron tick.
+      if (currentHour === 7 && currentMinute < 15) cleanedLogsCount = await this.cleanupOldLogs(90);
     } catch (cleanErr) {
       console.warn("[EngagePushService] Cleanup warning:", cleanErr);
     }
@@ -619,6 +604,7 @@ export class EngagePushService {
     return {
       processedCampaigns: activeNotifications.length,
       dispatchedCount,
+      failedCount,
       skippedCount,
       cleanedLogsCount,
       details
@@ -641,20 +627,15 @@ export class EngagePushService {
       ? {}
       : { role: notification.targetRole as any };
 
-    const targetUsers = await prisma.user.findMany({
-      where: {
+    const userChunks = this.targetUserBatches({
         ...roleFilter,
         onboarded: true
-      },
-      select: { id: true, name: true, role: true, email: true }
-    });
+      }, undefined, true);
 
     let sent = 0;
     let errors = 0;
 
-    const userChunks = chunkArray(targetUsers, 50);
-
-    for (const chunk of userChunks) {
+    for await (const chunk of userChunks) {
       const results = await Promise.allSettled(
         chunk.map((user) =>
           this.dispatchPushToUser({
@@ -773,11 +754,9 @@ export class EngagePushService {
     const cutoffDate = new Date();
     cutoffDate.setDate(cutoffDate.getDate() - retentionDays);
 
-    const deleteResult = await prisma.engagePushLog.deleteMany({
-      where: {
-        sentAt: { lt: cutoffDate }
-      }
-    });
+    const rows = await prisma.engagePushLog.findMany({ where: { sentAt: { lt: cutoffDate }, status: { notIn: ["QUEUED", "PROCESSING", "RETRY"] } }, orderBy: [{ sentAt: "asc" }, { id: "asc" }], take: 500, select: { id: true } });
+    if (!rows.length) return 0;
+    const deleteResult = await prisma.engagePushLog.deleteMany({ where: { id: { in: rows.map(row => row.id) }, sentAt: { lt: cutoffDate } } });
 
     return deleteResult.count;
   }
@@ -801,7 +780,7 @@ export class EngagePushService {
     });
 
     const totalSent = notifications.reduce((acc: number, n: any) => acc + (n.sentCount + (n.sentCountB || 0)), 0);
-    const totalDelivered = notifications.reduce((acc: number, n: any) => acc + (n.deliveredCount + (n.sentCountB || 0)), 0);
+    const totalDelivered = notifications.reduce((acc: number, n: any) => acc + n.deliveredCount, 0);
     const totalClicked = notifications.reduce((acc: number, n: any) => acc + (n.clickCount + (n.clickCountB || 0)), 0);
     const totalConverted = notifications.reduce((acc: number, n: any) => acc + (n.conversionCount + (n.conversionCountB || 0)), 0);
 
@@ -910,6 +889,8 @@ export class EngagePushService {
     devicesCount?: number;
     pushSent?: boolean;
     inAppDelivered?: boolean;
+    dispatchId?: string;
+    deliveryStatus?: "QUEUED" | "SKIPPED";
     error?: string;
   }> {
     const { notificationId, targetUserId, variant = "A", customPayload } = params;
@@ -968,15 +949,16 @@ export class EngagePushService {
       trainerName: "AtlasFit Admin"
     });
 
+    return serializableTransaction(async tx => {
     // 4. Create EngagePushLog entry if linked to a notification campaign
     let logId: string | undefined;
     if (notificationId) {
-      const log = await prisma.engagePushLog.create({
+      const log = await tx.engagePushLog.create({
         data: {
           notificationId,
           userId: targetUser.id,
           variant,
-          status: "SENT",
+          status: "QUEUED",
         }
       });
       logId = log.id;
@@ -986,7 +968,7 @@ export class EngagePushService {
     const trackedLink = logId ? `${deepLink}${separator}engage_push_log=${logId}&is_test=true` : deepLink;
 
     // 5. Direct dispatch via NotificationService (Quiet hours & fatigue caps bypassed)
-    const result = await NotificationService.sendNotification({
+    const result = await enqueueNotification(tx, {
       userId: targetUser.id,
       type: NotificationType.CAMPAIGN,
       category: (category as NotificationCategory) || NotificationCategory.TRAINING,
@@ -1005,9 +987,9 @@ export class EngagePushService {
     });
 
     if (logId) {
-      await prisma.engagePushLog.update({
+      await tx.engagePushLog.update({
         where: { id: logId },
-        data: { status: "DELIVERED" }
+        data: { status: result.deliveryStatus, errorReason: "dispatch:" + result.dispatchId }
       });
     }
 
@@ -1017,7 +999,10 @@ export class EngagePushService {
       user: targetUser,
       devicesCount: result.devicesCount,
       pushSent: result.pushSent,
-      inAppDelivered: !!result.notificationId
+      inAppDelivered: !!result.notificationId,
+      dispatchId: result.dispatchId,
+      deliveryStatus: result.deliveryStatus
     };
+    });
   }
 }

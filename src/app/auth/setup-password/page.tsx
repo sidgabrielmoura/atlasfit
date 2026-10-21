@@ -13,6 +13,8 @@ import { Eye, EyeOff, Lock, ArrowRight, CheckCircle2, Calendar } from "lucide-re
 import { motion } from "framer-motion";
 import { isValidCPF, formatCPF } from "@/lib/cpf-validator";
 import Link from "next/link";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function SetupPasswordForm() {
   const searchParams = useSearchParams();
@@ -25,28 +27,34 @@ function SetupPasswordForm() {
   const [birthDate, setBirthDate] = useState("");
   const [needsCpf, setNeedsCpf] = useState(false);
   const [needsBirthDate, setNeedsBirthDate] = useState(false);
+  const [needsEmail, setNeedsEmail] = useState(false);
+  const [email, setEmail] = useState("");
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [acceptedPrivacy, setAcceptedPrivacy] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const [infoLoading, setInfoLoading] = useState(true);
+  const [infoError, setInfoError] = useState<string | null>(null);
+  const [infoRevision, setInfoRevision] = useState(0);
+  const [documents, setDocuments] = useState<{ termsDocumentId: string; privacyDocumentId: string; termsDocumentHash: string; privacyDocumentHash: string; terms: { version: string; content: string }; privacy: { version: string; content: string } } | null>(null);
+  const [documentOpen, setDocumentOpen] = useState<"terms" | "privacy" | null>(null);
 
   useEffect(() => {
-    if (token) {
-      getSetupInfo(token).then((res) => {
-        if (res.success) {
-          if (res.needsCpf) setNeedsCpf(true);
-          if (res.needsBirthDate) setNeedsBirthDate(true);
-        }
-      });
-    }
-  }, [token]);
+    let active = true; setInfoLoading(true); setInfoError(null); setDocuments(null); setAcceptedTerms(false); setAcceptedPrivacy(false);
+    getSetupInfo(token).then(res => {
+      if (!active) return;
+      if ("success" in res && res.success) { setNeedsCpf(res.needsCpf); setNeedsBirthDate(res.needsBirthDate); setNeedsEmail("needsEmail" in res && res.needsEmail === true); setDocuments(res); }
+      else setInfoError(res.error || "Não foi possível validar o convite.");
+    }).catch(() => { if (active) setInfoError("Não foi possível validar o convite. Tente novamente."); }).finally(() => { if (active) setInfoLoading(false); });
+    return () => { active = false; };
+  }, [token, infoRevision]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!token) {
+    if (!token || !documents || infoLoading) {
       toast.error("Token de acesso inválido ou expirado.");
       return;
     }
@@ -91,10 +99,15 @@ function SetupPasswordForm() {
         needsCpf ? cpfCnpj : undefined,
         needsBirthDate ? birthDate : undefined,
         acceptedTerms,
-        acceptedPrivacy
+        acceptedPrivacy,
+        documents.termsDocumentId,
+        documents.privacyDocumentId,
+        needsEmail ? email : undefined,
+        documents.termsDocumentHash,
+        documents.privacyDocumentHash
       );
 
-      if (result.error) {
+      if ("error" in result && result.error) {
         toast.error(result.error);
         setIsLoading(false);
         return;
@@ -128,8 +141,16 @@ function SetupPasswordForm() {
     );
   }
 
+  if (infoLoading) return <div className="w-full max-w-sm space-y-4" aria-label="Validando convite"><Skeleton className="h-8 w-48" /><Skeleton className="h-48 w-full" /></div>;
+  if (infoError) return <div className="max-w-sm space-y-4"><p role="alert" className="text-sm">{infoError}</p><Button variant="outline" onClick={() => setInfoRevision(value => value + 1)}>Tentar novamente</Button><Link href="/auth/student" className="block text-sm underline">Ir para login</Link></div>;
   return (
     <div className="space-y-6 w-full max-w-sm mx-auto">
+      <Dialog open={documentOpen !== null} onOpenChange={open => { if (!open) setDocumentOpen(null); }}>
+        <DialogContent className="max-h-[85dvh] overflow-y-auto sm:max-w-2xl">
+          <DialogHeader><DialogTitle>{documentOpen === "terms" ? "Termos de Uso" : "Política de Privacidade"}</DialogTitle><DialogDescription>Versão {documentOpen && documents?.[documentOpen].version}</DialogDescription></DialogHeader>
+          <div className="whitespace-pre-wrap text-sm leading-relaxed">{documentOpen && documents?.[documentOpen].content}</div>
+        </DialogContent>
+      </Dialog>
       <div className="space-y-2 text-center md:text-left">
         <h2 className="text-3xl font-extrabold tracking-tight">Crie sua Senha</h2>
         <p className="text-muted-foreground text-xs">
@@ -180,6 +201,7 @@ function SetupPasswordForm() {
             </div>
           )}
 
+          {needsEmail && <div className="space-y-1.5"><Label htmlFor="setup-email">Seu e-mail para login</Label><Input id="setup-email" type="email" required maxLength={254} value={email} onChange={event => setEmail(event.target.value)} disabled={isLoading} autoComplete="email" /></div>}
           <div className="space-y-1.5">
             <Label htmlFor="password">Nova Senha</Label>
             <div className="relative">
@@ -246,9 +268,9 @@ function SetupPasswordForm() {
             />
             <label htmlFor="acceptedTerms" className="leading-snug cursor-pointer select-none">
               Li e concordo com os{" "}
-              <Link href="/termos-de-uso" target="_blank" className="font-semibold text-primary hover:underline">
+              <button type="button" onClick={() => setDocumentOpen("terms")} className="font-semibold text-primary hover:underline">
                 Termos de Uso
-              </Link>{" "}
+              </button>{" "}
               do AtlasFit.
             </label>
           </div>
@@ -262,9 +284,9 @@ function SetupPasswordForm() {
             />
             <label htmlFor="acceptedPrivacy" className="leading-snug cursor-pointer select-none">
               Estou ciente do tratamento dos meus dados conforme a{" "}
-              <Link href="/politica-de-privacidade" target="_blank" className="font-semibold text-primary hover:underline">
+              <button type="button" onClick={() => setDocumentOpen("privacy")} className="font-semibold text-primary hover:underline">
                 Política de Privacidade
-              </Link>
+              </button>
               .
             </label>
           </div>
@@ -272,7 +294,7 @@ function SetupPasswordForm() {
 
         <Button
           type="submit"
-          disabled={isLoading || !token || !acceptedTerms || !acceptedPrivacy}
+          disabled={isLoading || !token || !documents || !acceptedTerms || !acceptedPrivacy}
           className="w-full h-12 rounded-xl text-base font-bold shadow-lg shadow-primary/20 gap-2 group overflow-hidden relative"
         >
           {isLoading ? (

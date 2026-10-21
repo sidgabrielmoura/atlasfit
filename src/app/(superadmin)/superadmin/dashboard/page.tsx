@@ -25,6 +25,9 @@ import { AreaChart, Area, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 
 const container = {
@@ -103,7 +106,10 @@ export default function SuperAdminDashboardPage() {
     superAdminActions.fetchMetrics();
   }, []);
 
-  if (!snap.metrics && snap.isLoading) {
+  if (!snap.metrics && snap.metricsError) {
+    return <div className="p-6 space-y-4"><Alert variant="destructive"><AlertDescription>{snap.metricsError}</AlertDescription></Alert><Button disabled={snap.metricsLoading} onClick={() => void superAdminActions.fetchMetrics()}>{snap.metricsLoading && <Loader2 className="size-4 animate-spin" />} Tentar novamente</Button></div>;
+  }
+  if (!snap.metrics) {
     return (
       <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-border/60 pb-5">
@@ -134,18 +140,13 @@ export default function SuperAdminDashboardPage() {
   }
 
   // Deep-clone the entire metrics object to escape Valtio's frozen proxy
-  const metrics = deepClone(snap.metrics) || {
-    users: { total: 0, active: 0, growth: 0, newRecent: 0, engagement: 0 },
-    workspaces: { total: 0, growth: 0 },
-    workouts: { total: 0, avgFrequency: 0 },
-    financial: { mrr: 0, arr: 0 }
-  };
+  const metrics = deepClone(snap.metrics);
 
   const userGrowthData: any[] = deepClone(metrics.userGrowthData) || [];
-  const financialGrowthData: any[] = deepClone(metrics.financialGrowthData) || [];
 
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-10 max-w-400 mx-auto animate-in fade-in duration-700">
+      {snap.metricsError && <Alert variant="destructive"><AlertDescription>{snap.metricsError} Os valores exibidos são da última consulta concluída. <Button variant="outline" disabled={snap.metricsLoading} onClick={() => void superAdminActions.fetchMetrics()}>{snap.metricsLoading && <Loader2 className="size-4 animate-spin" />} Tentar novamente</Button></AlertDescription></Alert>}
       {/* 1. Cabeçalho Principal */}
       <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 border-b border-border/40 pb-6 md:pb-8">
         <div className="space-y-1">
@@ -170,9 +171,9 @@ export default function SuperAdminDashboardPage() {
       {/* 2. Estatísticas Gerais (Bento-Grid de Cards) */}
       <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
         <StatCard title="Total de Usuários" value={metrics.users.total.toLocaleString()} change={metrics.users.growth} icon={Users} description="Alunos e Personals" />
-        <StatCard title="Usuários Ativos" value={metrics.users.active.toLocaleString()} icon={Activity} description="Ativos nos últimos 30 dias" />
-        <StatCard title="Workspaces Ativos" value={metrics.workspaces.total.toLocaleString()} change={metrics.workspaces.growth} icon={Building2} description="Assessorias e Equipes" />
-        <StatCard title="MRR Global" value={new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(metrics.financial.mrr)} icon={DollarSign} description="Faturamento Recorrente Mensal" />
+        <StatCard title="Contas com sessão válida" value={metrics.users.active.toLocaleString()} icon={Activity} description="Sessões persistidas ainda não expiradas" />
+        <StatCard title="Workspaces cadastrados" value={metrics.workspaces.total.toLocaleString()} change={metrics.workspaces.growth} icon={Building2} description="Assessorias e Equipes" />
+        <StatCard title="Referência mensal SaaS" value={metrics.financial.mrr == null ? "Indisponível" : new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(metrics.financial.mrr)} icon={DollarSign} description="Catálogo atual normalizado por ciclo" />
       </motion.div>
 
       {/* 3. Área de Gráficos Comparativos (Padrão Aluno/Personal) */}
@@ -181,30 +182,12 @@ export default function SuperAdminDashboardPage() {
         <Card className="lg:col-span-7 border-border/40 bg-card/50 shadow-sm overflow-hidden flex flex-col justify-between">
           <CardHeader className="p-6 pb-2">
             <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-              <BarChart3 className="size-4 text-primary" /> Crescimento de Receita (MRR)
+              <BarChart3 className="size-4 text-primary" /> Histórico de receita recorrente
             </CardTitle>
-            <CardDescription className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Evolução do faturamento recorrente global da plataforma</CardDescription>
+            <CardDescription className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Disponibilidade dos dados SaaS</CardDescription>
           </CardHeader>
           <CardContent className="pt-4 flex-1">
-            <div className="h-[280px] w-full min-w-0">
-              {mounted && (
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={financialGrowthData} margin={{ top: 10, right: 10, left: -10, bottom: 0 }}>
-                    <defs>
-                      <linearGradient id="fillMRR" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.3} />
-                        <stop offset="100%" stopColor="var(--primary)" stopOpacity={0.02} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border/30" />
-                    <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} className="text-[10px] font-bold text-muted-foreground" />
-                    <YAxis tickLine={false} axisLine={false} tickFormatter={(v) => `R$ ${v}`} className="text-[10px] font-bold text-muted-foreground" />
-                    <Tooltip contentStyle={{ background: "rgba(9, 9, 11, 0.95)", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: "12px", fontSize: "11px" }} />
-                    <Area type="monotone" dataKey="mrr" name="Faturamento" stroke="var(--primary)" strokeWidth={2.5} fill="url(#fillMRR)" />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
-            </div>
+            <Empty><EmptyHeader><EmptyTitle>Histórico indisponível</EmptyTitle><EmptyDescription>As assinaturas SaaS não preservam preço contratado nem histórico completo de vigência e cancelamento.</EmptyDescription></EmptyHeader></Empty>
           </CardContent>
         </Card>
 
@@ -240,15 +223,15 @@ export default function SuperAdminDashboardPage() {
           <SectionHeader title="Usuários & Engajamento" icon={Users} description="Métricas de adesão individual" />
           <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             <StatCard title="Novos (7 dias)" value={`+${metrics.users.newRecent || 0}`} icon={UserPlus} description="Cadastros recentes" />
-            <StatCard title="Retenção Técnica" value={`${metrics.users.engagement || 0}%`} icon={Target} description="Fator de atividade diária" />
+            <StatCard title="Contas com sessão válida (%)" value={`${metrics.users.engagement}%`} icon={Target} description="Proporção de contas com sessão persistida não expirada" />
           </motion.div>
         </section>
 
         <section>
           <SectionHeader title="Performance Financeira" icon={DollarSign} description="Volume econômico estimado" />
           <motion.div variants={container} initial="hidden" animate="show" className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <StatCard title="MRR Estimado" value={new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(metrics.financial.mrr)} icon={TrendingUp} description="Saúde mensal recorrente" />
-            <StatCard title="ARR Estimado" value={new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }).format(metrics.financial.arr)} icon={BarChart3} description="Projeção anual recorrente" />
+            <StatCard title="Referência mensal SaaS" value={metrics.financial.mrr == null ? "Indisponível" : new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(metrics.financial.mrr)} icon={TrendingUp} description="Catálogo atual; sem preço contratado preservado" />
+            <StatCard title="Referência anual SaaS" value={metrics.financial.arr == null ? "Indisponível" : new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(metrics.financial.arr)} icon={BarChart3} description="Referência mensal multiplicada por 12" />
           </motion.div>
         </section>
       </div>

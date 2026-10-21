@@ -1,5 +1,6 @@
 import { initializeApp, getApp, getApps } from "firebase/app";
-import { getAnalytics, isSupported } from "firebase/analytics";
+import type { Analytics } from "firebase/analytics";
+import { initializeOptionalAnalytics } from "./firebase-analytics";
 
 const firebaseConfig = {
   apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
@@ -13,14 +14,10 @@ const firebaseConfig = {
 
 const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
 
-let analytics: any = null;
+let analytics: Analytics | null = null;
 
 if (typeof window !== "undefined") {
-  isSupported().then((supported) => {
-    if (supported) {
-      analytics = getAnalytics(app);
-    }
-  });
+  void initializeOptionalAnalytics(app).then(value => { analytics = value; });
 }
 
 export { app, analytics };

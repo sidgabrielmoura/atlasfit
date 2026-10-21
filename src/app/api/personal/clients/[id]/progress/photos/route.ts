@@ -1,13 +1,18 @@
+import { withRequestMemo } from "@/lib/request-memo";
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
+import { authorizePersonalStudent } from "@/modules/workspaces/application/personal-student-authority";
+import { handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 
 // GET /api/personal/clients/[id]/progress/photos
 // Retorna o histórico de fotos de evolução visual do aluno
-export async function GET(
+async function handleGET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -23,6 +28,8 @@ export async function GET(
 
   try {
     // Validar se o personal trainer pertence ao workspace
+    
+    await authorizePersonalStudent(workspaceId, studentId, session.user.id, "health.read.assigned");
     const trainerMember = await prisma.workspaceMember.findFirst({
       where: {
         userId: session.user.id,
@@ -47,10 +54,13 @@ export async function GET(
 
     return NextResponse.json(photos);
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
+
     console.error("GET progress photos error:", error);
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 // POST /api/personal/clients/[id]/progress/photos
 // Adiciona uma nova foto à linha do tempo
@@ -58,6 +68,7 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -78,6 +89,8 @@ export async function POST(
     }
 
     // Validar se o personal trainer pertence ao workspace
+    
+    await authorizePersonalStudent(workspaceId, studentId, session.user.id, "health.manage.assigned");
     const trainerMember = await prisma.workspaceMember.findFirst({
       where: {
         userId: session.user.id,
@@ -103,6 +116,8 @@ export async function POST(
 
     return NextResponse.json(newPhoto);
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
+
     console.error("POST progress photo error:", error);
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }

@@ -1,4 +1,6 @@
 "use client";
+import { useSession } from "next-auth/react";
+import { useAbly } from "@/providers/ably-provider";
 
 import { motion, AnimatePresence } from "framer-motion";
 import { Card, CardContent } from "@/components/ui/card";
@@ -18,6 +20,10 @@ function PaymentPendingContent() {
 
   const [status, setStatus] = useState<"PENDING" | "APPROVED" | "FAILED" | "UNKNOWN">("PENDING");
   const [attempts, setAttempts] = useState(0);
+  const [pollingPaused, setPollingPaused] = useState(false);
+  const [pollCycle, setPollCycle] = useState(0);
+  const { data: session } = useSession();
+  const ably = useAbly();
 
   useEffect(() => {
     if (!transactionId) {
@@ -25,40 +31,39 @@ function PaymentPendingContent() {
       return;
     }
 
+    if (status !== "PENDING") return;
+    let disposed = false, inFlight = false, checks = 0;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const expiresAt = Date.now() + 10 * 60_000;
+    setPollingPaused(false);
     const checkStatus = async () => {
+      if (disposed || inFlight || document.visibilityState === "hidden") return;
+      if (Date.now() >= expiresAt) { setPollingPaused(true); return; }
+      inFlight = true;
+      let terminal = false;
       try {
-        const res = await fetch(`/api/personal/subscription/status?transactionId=${transactionId}`);
-        if (!res.ok) throw new Error();
+        if (timer) clearTimeout(timer);
+        setAttempts(previous => previous + 1);
+        const res = await fetch(`/api/personal/subscription/status?transactionId=${encodeURIComponent(transactionId)}`);
+        if ([401,403,404].includes(res.status)) { terminal = true; if (!disposed) setStatus("UNKNOWN"); return; }
+        if (!res.ok) return;
         const data = await res.json();
-
-        if (data.status === "APPROVED") {
-          setStatus("APPROVED");
-          toast.success("Pagamento confirmado com sucesso! 🎉");
-        } else if (data.status === "FAILED") {
-          setStatus("FAILED");
-          toast.error("O pagamento foi cancelado ou falhou.");
-        }
-      } catch (err) {
-        console.error("Erro ao verificar status do pagamento:", err);
+        if (!disposed && data.status === "APPROVED") { terminal = true; setStatus("APPROVED"); toast.success("Pagamento confirmado com sucesso!"); }
+        else if (!disposed && data.status === "FAILED") { terminal = true; setStatus("FAILED"); }
+      } catch { /* A bounded fallback retries transient failures. */ }
+      finally {
+        inFlight = false; checks++;
+        if (!disposed && !terminal) timer = setTimeout(() => { void checkStatus(); }, checks < 5 ? 5000 : checks < 15 ? 15000 : 30000);
       }
     };
-
-    // Poll status every 3 seconds if pending
-    let intervalId: NodeJS.Timeout;
-    if (status === "PENDING") {
-      intervalId = setInterval(() => {
-        setAttempts((prev) => prev + 1);
-        checkStatus();
-      }, 3000);
-
-      // Call immediately on mount
-      checkStatus();
-    }
-
-    return () => {
-      if (intervalId) clearInterval(intervalId);
-    };
-  }, [transactionId, status]);
+    const visible = () => { if (document.visibilityState === "visible") void checkStatus(); };
+    document.addEventListener("visibilitychange", visible);
+    const channel = ably && session?.user?.id ? ably.channels.get(`user:${session.user.id}`) : null;
+    const changed = () => { void checkStatus(); };
+    if (channel) void channel.subscribe("wallet:updated", changed);
+    void checkStatus();
+    return () => { disposed = true; if (timer) clearTimeout(timer); document.removeEventListener("visibilitychange", visible); channel?.unsubscribe("wallet:updated", changed); };
+  }, [transactionId, status, pollCycle, ably, session?.user?.id]);
 
   const handleReturnToDashboard = () => {
     toast.success("Bem-vindo de volta! Redirecionando...");
@@ -97,6 +102,7 @@ function PaymentPendingContent() {
                     </div>
                   </div>
 
+                  {pollingPaused && <Button onClick={() => setPollCycle(cycle => cycle + 1)}>Verificar novamente</Button>}
                   <div className="space-y-2">
                     <h2 className="text-2xl font-black tracking-tight text-white">Aguardando Pagamento</h2>
                     <p className="text-[10px] text-muted-foreground font-black uppercase tracking-widest">Processando PIX Automático</p>

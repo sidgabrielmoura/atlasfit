@@ -1,10 +1,11 @@
+import { withRequestMemo } from "@/lib/request-memo";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
 import { AbacatePay, resolvePublicImageUrl } from "@/lib/abacatepay";
 import { logSystemError } from "@/lib/logger";
 
-export async function GET() {
+async function handleGET() {
   const session = await auth();
 
   if (session?.user?.role !== "SUPERADMIN") {
@@ -47,6 +48,7 @@ export async function GET() {
     return new NextResponse("Internal Error", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 export async function POST(req: Request) {
   const session = await auth();

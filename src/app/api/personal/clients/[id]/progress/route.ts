@@ -1,13 +1,16 @@
+import { withRequestMemo } from "@/lib/request-memo";
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 
 // GET /api/personal/clients/[id]/progress
 // Retorna a evolução de medidas corporais e composição do aluno
-export async function GET(
+async function handleGET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -51,6 +54,7 @@ export async function GET(
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 // POST /api/personal/clients/[id]/progress
 // Registra uma nova avaliação antropométrica
@@ -58,6 +62,7 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });

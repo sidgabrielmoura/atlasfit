@@ -1,0 +1,17 @@
+const fs = require('node:fs'); const path = require('node:path');
+const folder = 'docs/audits/academias/estabilizacao'; const checks = JSON.parse(fs.readFileSync(`${folder}/verificacoes-isoladas.json`, 'utf8'));
+const check = checks['existing-unit-all']; const token = check.command.split(' ').find(item => item.startsWith('--outputFile='));
+if (!token) throw Error('Artefato da suíte existente não localizado.');
+const raw = JSON.parse(fs.readFileSync(token.slice('--outputFile='.length), 'utf8'));
+const escape = value => value.replaceAll('|', '\\|').replaceAll('\n', ' ');
+const rows = []; let count = 0;
+for (const suite of raw.testResults) for (const test of suite.assertionResults) if (test.status === 'failed') {
+  const message = test.failureMessages.join('\n').replace(/\u001b\[[0-9;]*m/g, '');
+  const missing = message.match(/TypeError: ([A-Za-z0-9_.$]+) is not a function/);
+  let symptom = missing ? `Método ausente: ${missing[1]}` : message.includes('Cannot read properties') ? 'Leitura de propriedade em valor ausente' : message.includes('WorkspaceAccessError') ? 'Recusa de domínio/autorização/validação' : message.includes('AssertionError') ? 'Expectativa de retorno/estado/spies divergente' : 'Falha de execução; inspeção específica necessária';
+  let hypothesis = missing ? 'Mock possivelmente não representa dependência atual; confirmar caller antes de alterar fixture.' : message.includes('Cannot read properties') ? 'Fixture ou código pode omitir pré-condição; origem ainda não decidida.' : message.includes('WorkspaceAccessError') ? 'Pode faltar dado/ator/grant/licença na fixture ou haver regressão; comparar regra esperada.' : 'Não atribuir automaticamente à fixture. Revisar implementação e expectativa.';
+  rows.push(`| EXIST-${String(++count).padStart(3, '0')} | ${escape(path.relative(process.cwd(), suite.name).replaceAll('\\', '/'))} | ${escape(test.fullName)} | ${symptom} | ${hypothesis} | Pendente |`);
+}
+if (count !== check.failed) throw Error('Contagem de falhas incompatível com a execução.');
+fs.writeFileSync(`${folder}/falhas-suite-existente.md`, `# Falhas individuais da suíte existente\n\nExecução ${check.finishedAt}. **${check.passed} aprovações, ${check.failed} falhas, ${check.skipped} skips**. Cada linha identifica um teste executado; a categoria é o sintoma observado, não uma conclusão de causa. Os IDs EXIST são locais desta execução e não substituem GYM-AUD. Não houve flexibilização de guards, skips ou alteração de expectativa para aceitar acesso indevido.\n\nA fixture antiga de responsável em gym-032 usa CPF inválido, não demonstra autoridade atual e espera marcar aluno menor sem nascimento. O DTO agora exige ausência de CPF; essa única expectativa de tipo foi atualizada, mas as pré-condições restantes continuam falhando e exigem reconstrução fiel ao domínio. Aceites anteriores sem documento/digest/consentimento não são mantidos como caminhos alternativos permissivos. Os testes de PostgreSQL/HTTP adicionais verificam fluxos válidos e recusas, sem substituir a correção da suíte antiga.\n\n| Caso | Arquivo | Teste | Sintoma observado | Hipótese/ação necessária | Estado |\n|---|---|---|---|---|---|\n${rows.join('\n')}\n\nO artefato sanitizado verificacoes-isoladas.json preserva todos os 412 nomes/status/durações. Traces completos permanecem somente em .tmp no ambiente isolado. Não se declara que todas as falhas são mocks obsoletos ou que o módulo está homologado.\n`);
+console.log(`${count} falhas inventariadas individualmente, sem conclusão genérica de causa.`);

@@ -1,0 +1,684 @@
+{
+  "recordedAt": "2026-10-10T15:47:39.704Z",
+  "targetRemaining": 5,
+  "closed": [
+    "GYM-AUD-011",
+    "GYM-AUD-019",
+    "GYM-AUD-031",
+    "GYM-AUD-052",
+    "GYM-AUD-057"
+  ],
+  "remaining": [
+    "GYM-AUD-029",
+    "GYM-AUD-030",
+    "GYM-AUD-046",
+    "GYM-AUD-047",
+    "GYM-AUD-050"
+  ],
+  "configuredDatabaseChanged": false,
+  "productionDeployed": false,
+  "externalDeliveryPerformed": false,
+  "humanScreenReader": false,
+  "realLegalIdentityVerified": false,
+  "retentionPolicy": "PURGE_WITHIN_ONE_CALENDAR_MONTH",
+  "verification": {
+    "integration": {
+      "label": "cinco-integracao-aprovada",
+      "passed": 333,
+      "failed": 0,
+      "skipped": 0,
+      "finishedAt": "2026-10-10T03:29:21.924Z"
+    },
+    "personal": {
+      "label": "cinco-personal-regressao",
+      "passed": 77,
+      "failed": 0,
+      "skipped": 0
+    },
+    "freshSchema": {
+      "startedAt": "2026-10-10T15:38:02.394Z",
+      "synthetic": true,
+      "configuredDatabaseChanged": false,
+      "disposableDatabase": "atlasfit_completion_tests_eac94c5568a2498c985f283fbcec2113",
+      "checks": [
+        {
+          "name": "full baseline deploy",
+          "exitCode": 0,
+          "output": "Datasource \"db\": PostgreSQL database \"atlasfit_completion_tests_eac94c5568a2498c985f283fbcec2113\", schema \"public\" at \"127.0.0.1:56432\"\n\n7 migrations found in prisma/migrations\n\nApplying migration `0_atlasfit_20261007`\nApplying migration `20261009000000_gym_tenant_relations`\nApplying migration `20261009100000_notification_delivery`\nApplying migration `20261009200000_gym_reference_identity`\nApplying migration `20261009210000_bounded_queries`\nApplying migration `20261009220000_gym_retention_hold`\nApplying migration `20261009230000_gym_scheduled_purge`\n\nThe following migration(s) have been applied:\n\nmigrations/\n  └─ 0_atlasfit_20261007/\n    └─ migration.sql\n  └─ 20261009000000_gym_tenant_relations/\n    └─ migration.sql\n  └─ 20261009100000_notification_delivery/\n    └─ migration.sql\n  └─ 20261009200000_gym_reference_identity/\n    └─ migration.sql\n  └─ 20261009210000_bounded_queries/\n    └─ migration.sql\n  └─ 20261009220000_gym_retention_hold/\n    └─ migration.sql\n  └─ 20261009230000_gym_scheduled_purge/\n    └─ migration.sql\n\nAll migrations have been successfully applied.\nLoaded Prisma config from prisma.baseline.config.ts.\n\nPrisma schema loaded from prisma\\schema.prisma.\n"
+        },
+        {
+          "name": "fresh schema business journeys",
+          "exitCode": 0,
+          "passed": 48,
+          "failed": 0,
+          "skipped": 0,
+          "rawFile": ".tmp/gym-stabilization/completion-fresh-07e0d598-8418-4704-af2b-b100b272c611.json"
+        }
+      ],
+      "success": true,
+      "finishedAt": "2026-10-10T15:38:40.744Z"
+    },
+    "deploy": {
+      "startedAt": "2026-10-10T15:34:34.271Z",
+      "disposableDatabase": "atlasfit_tenant_deploy_038d587931d143d9ab5ecb2b43859c11",
+      "configuredDatabaseChanged": false,
+      "checks": [
+        {
+          "label": "fresh",
+          "exitCode": 0,
+          "output": "Datasource \"db\": PostgreSQL database \"atlasfit_tenant_deploy_038d587931d143d9ab5ecb2b43859c11\", schema \"public\" at \"127.0.0.1:56432\"\n\n7 migrations found in prisma/migrations\n\nApplying migration `0_atlasfit_20261007`\nApplying migration `20261009000000_gym_tenant_relations`\nApplying migration `20261009100000_notification_delivery`\nApplying migration `20261009200000_gym_reference_identity`\nApplying migration `20261009210000_bounded_queries`\nApplying migration `20261009220000_gym_retention_hold`\nApplying migration `20261009230000_gym_scheduled_purge`\n\nThe following migration(s) have been applied:\n\nmigrations/\n  └─ 0_atlasfit_20261007/\n    └─ migration.sql\n  └─ 20261009000000_gym_tenant_relations/\n    └─ migration.sql\n  └─ 20261009100000_notification_delivery/\n    └─ migration.sql\n  └─ 20261009200000_gym_reference_identity/\n    └─ migration.sql\n  └─ 20261009210000_bounded_queries/\n    └─ migration.sql\n  └─ 20261009220000_gym_retention_hold/\n    └─ migration.sql\n  └─ 20261009230000_gym_scheduled_purge/\n    └─ migration.sql\n\nAll migrations have been successfully applied.\nLoaded Prisma config from prisma.baseline.config.ts.\n\nPrisma schema loaded from prisma\\schema.prisma.\n"
+        },
+        {
+          "label": "repeat",
+          "exitCode": 0,
+          "output": "Datasource \"db\": PostgreSQL database \"atlasfit_tenant_deploy_038d587931d143d9ab5ecb2b43859c11\", schema \"public\" at \"127.0.0.1:56432\"\n\n7 migrations found in prisma/migrations\n\n\nNo pending migrations to apply.\nLoaded Prisma config from prisma.baseline.config.ts.\n\nPrisma schema loaded from prisma\\schema.prisma.\n"
+        },
+        {
+          "label": "status",
+          "exitCode": 0,
+          "output": "Datasource \"db\": PostgreSQL database \"atlasfit_tenant_deploy_038d587931d143d9ab5ecb2b43859c11\", schema \"public\" at \"127.0.0.1:56432\"\n\n7 migrations found in prisma/migrations\n\nDatabase schema is up to date!\nLoaded Prisma config from prisma.baseline.config.ts.\n\nPrisma schema loaded from prisma\\schema.prisma.\n"
+        },
+        {
+          "label": "schema",
+          "exitCode": 0,
+          "output": "No difference detected.\n\nLoaded Prisma config from prisma.baseline.config.ts.\n\n"
+        }
+      ],
+      "migration": {
+        "file": "prisma/baseline-migrations/20261009000000_gym_tenant_relations/migration.sql",
+        "sha256": "70d5ab9d885276ad84c0bbb8817ed2262bc74684bab4f813a3c9313abe4843a7"
+      },
+      "appliedMigrations": [
+        "0_atlasfit_20261007",
+        "20261009000000_gym_tenant_relations",
+        "20261009100000_notification_delivery",
+        "20261009200000_gym_reference_identity",
+        "20261009210000_bounded_queries",
+        "20261009220000_gym_retention_hold",
+        "20261009230000_gym_scheduled_purge"
+      ],
+      "relationTriggers": 35,
+      "immutableTenantTriggers": 48,
+      "inheritedTenantTriggers": 3,
+      "identityTriggers": 3,
+      "invoiceItemScopeTriggers": 1,
+      "historicalReferenceTriggers": 7,
+      "memberIdentityTriggers": 1,
+      "deletionGuards": 1,
+      "closureWriteGuards": 94,
+      "closureImmutability": 1,
+      "boundedQueryIndexes": 4,
+      "success": true,
+      "finishedAt": "2026-10-10T15:34:54.658Z"
+    },
+    "browser": {
+      "startedAt": "2026-10-10T03:30:11.920Z",
+      "synthetic": true,
+      "configuredDatabaseChanged": false,
+      "checks": [
+        {
+          "name": "synthetic account legal prerequisite",
+          "passed": true
+        },
+        {
+          "name": "catalogue anonymous denied",
+          "passed": true
+        },
+        {
+          "name": "catalogue invalid page denied",
+          "passed": true
+        },
+        {
+          "name": "HTTP catalogue bounded and complete",
+          "passed": true
+        },
+        {
+          "name": "HTTP history page and current version",
+          "passed": true
+        },
+        {
+          "name": "browser catalogue pagination",
+          "passed": true
+        },
+        {
+          "name": "browser searches beyond initial page",
+          "passed": true
+        },
+        {
+          "name": "editing fetches current full conditions",
+          "passed": true
+        },
+        {
+          "name": "browser catalogue failure and retry",
+          "passed": true
+        },
+        {
+          "name": "plans no horizontal overflow 390",
+          "passed": true
+        },
+        {
+          "name": "plans no horizontal overflow 1280",
+          "passed": true
+        },
+        {
+          "name": "browser selectors reach records beyond first page",
+          "passed": true
+        },
+        {
+          "name": "selected identities persist in actual HTTP mutation",
+          "passed": true
+        },
+        {
+          "name": "HTTP enrollment history bounded and reachable",
+          "passed": true
+        },
+        {
+          "name": "closure anonymous denied",
+          "passed": true
+        },
+        {
+          "name": "personal deletion rejects GYM",
+          "passed": true
+        },
+        {
+          "name": "external cancellation remains a blocker",
+          "passed": true
+        },
+        {
+          "name": "blocked closure keeps access",
+          "passed": true
+        },
+        {
+          "name": "HTTP closure schedules one-month purge",
+          "passed": true
+        },
+        {
+          "name": "closure duplicate receipt",
+          "passed": true
+        },
+        {
+          "name": "closure history and identities retained",
+          "passed": true
+        },
+        {
+          "name": "purge anonymous denied",
+          "passed": true
+        },
+        {
+          "name": "purge owner denied",
+          "passed": true
+        },
+        {
+          "name": "purge cron anonymous denied",
+          "passed": true
+        },
+        {
+          "name": "superadmin purge preview with original deadline",
+          "passed": true
+        },
+        {
+          "name": "purge rejects stale confirmation",
+          "passed": true
+        },
+        {
+          "name": "browser purge confirmation required",
+          "passed": true
+        },
+        {
+          "name": "unconfigured storage does not report completed purge",
+          "passed": true
+        },
+        {
+          "name": "superadmin immediate purge persisted with retry",
+          "passed": true
+        },
+        {
+          "name": "browser no application errors",
+          "passed": true
+        }
+      ],
+      "screenshots": [
+        "docs/audits/academias/estabilizacao/cinco-browser/planos-390.png",
+        "docs/audits/academias/estabilizacao/cinco-browser/planos-1280.png",
+        ".tmp/gym-stabilization/five-superadmin-purge.png"
+      ],
+      "errors": [],
+      "success": true,
+      "finishedAt": "2026-10-10T03:33:53.144Z"
+    },
+    "typecheck": {
+      "recordedAt": "2026-10-10T15:47:12.821Z",
+      "exitCode": 0,
+      "output": ""
+    },
+    "volume": {
+      "file": "docs/audits/academias/estabilizacao/verificacoes-cinco-volume.json",
+      "contracts": 1200,
+      "overviewBytes": 1150,
+      "p95Ms": 917.6035999999995,
+      "closureMs": 1785.2311999999984,
+      "scope": "local synthetic data; no production SLO or operational homologation claimed"
+    }
+  },
+  "intermediateFailures": [
+    {
+      "label": "cinco-relatorios-legais-inicial",
+      "passed": 31,
+      "failed": 0,
+      "skipped": 0,
+      "rawFile": ".tmp/gym-stabilization/cinco-relatorios-legais-inicial-517fc01c-b979-4508-8881-221b57f5d935-raw.json"
+    },
+    {
+      "label": "cinco-focal",
+      "passed": 51,
+      "failed": 0,
+      "skipped": 0,
+      "rawFile": ".tmp/gym-stabilization/cinco-focal-16e6ed2a-5fcb-44af-9092-1f1bc9b3074b-raw.json"
+    },
+    {
+      "label": "cinco-integracao-completa",
+      "passed": 316,
+      "failed": 0,
+      "skipped": 0,
+      "rawFile": ".tmp/gym-stabilization/cinco-integracao-completa-3decb64b-0fc9-4eec-8f7a-a036decd0e46-raw.json"
+    },
+    {
+      "label": "cinco-personal-regressao",
+      "passed": 77,
+      "failed": 0,
+      "skipped": 0,
+      "rawFile": ".tmp/gym-stabilization/cinco-personal-regressao-9d38e7c5-e10d-4f9a-9245-5383a02a499f-raw.json"
+    },
+    {
+      "label": "cinco-eventos-finais",
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "rawFile": ".tmp/gym-stabilization/cinco-eventos-finais-791765e8-fb06-4330-b335-9fc2c04c1c08-raw.json"
+    },
+    {
+      "label": "cinco-integracao-final",
+      "passed": 318,
+      "failed": 1,
+      "skipped": 0,
+      "rawFile": ".tmp/gym-stabilization/cinco-integracao-final-351b8646-de34-4ded-9e6f-a0cb8f4ac54e-raw.json"
+    },
+    {
+      "label": "cinco-integracao-verificada",
+      "passed": 319,
+      "failed": 0,
+      "skipped": 0,
+      "rawFile": ".tmp/gym-stabilization/cinco-integracao-verificada-cea047b9-3c3f-4a5f-bb40-221bc12c04a0-raw.json"
+    },
+    {
+      "label": "cinco-purga-focal",
+      "passed": 27,
+      "failed": 1,
+      "skipped": 0,
+      "rawFile": ".tmp/gym-stabilization/cinco-purga-focal-8cb3c226-eb13-4b44-ba77-f5f5aa7dab70-raw.json"
+    },
+    {
+      "label": "cinco-purga-revisada",
+      "passed": 11,
+      "failed": 1,
+      "skipped": 0,
+      "rawFile": ".tmp/gym-stabilization/cinco-purga-revisada-578e84c6-b663-4ea8-ba09-e41c99dd17d3-raw.json"
+    },
+    {
+      "label": "cinco-purga-verificada",
+      "passed": 30,
+      "failed": 0,
+      "skipped": 0,
+      "rawFile": ".tmp/gym-stabilization/cinco-purga-verificada-a515d475-511c-4268-9b90-6d7ccf642707-raw.json"
+    },
+    {
+      "label": "cinco-integracao-politica-final",
+      "passed": 331,
+      "failed": 2,
+      "skipped": 0,
+      "rawFile": ".tmp/gym-stabilization/cinco-integracao-politica-final-6c628611-5a28-4f6c-8934-a967c3f6f1cb-raw.json"
+    },
+    {
+      "label": "cinco-purga-atual",
+      "passed": 14,
+      "failed": 0,
+      "skipped": 0,
+      "rawFile": ".tmp/gym-stabilization/cinco-purga-atual-43c456a1-cec6-4363-a77e-af25baff4a60-raw.json"
+    },
+    {
+      "label": "cinco-upload-utc-regressao",
+      "passed": 18,
+      "failed": 0,
+      "skipped": 0,
+      "rawFile": ".tmp/gym-stabilization/cinco-upload-utc-regressao-7471c6f5-432d-4673-a7ba-c93569e7ba38-raw.json"
+    },
+    {
+      "label": "cinco-entrega-legada-regressao",
+      "passed": 26,
+      "failed": 0,
+      "skipped": 0,
+      "rawFile": ".tmp/gym-stabilization/cinco-entrega-legada-regressao-a6d84480-207a-4773-8c04-8a1553c223fd-raw.json"
+    },
+    {
+      "kind": "browser",
+      "file": ".tmp/gym-stabilization/cinco-browser-primeira-falha.json",
+      "checks": 4,
+      "failure": "locator.waitFor: Timeout 120000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByText('Página 2 de 3', { exact: true }) to be visible\u001b[22m\n",
+      "explanation": "Conta sintética tinha reaceite legal pendente; pré-requisito exercitado pela própria API, sem remover o modal."
+    },
+    {
+      "kind": "browser",
+      "file": ".tmp/gym-stabilization/cinco-browser-segunda-falha.json",
+      "checks": 4,
+      "failure": "locator.click: Timeout 120000ms exceeded.\nCall log:\n\u001b[2m  - waiting for getByRole('button', { name: 'Próxima', exact: true })\u001b[22m\n",
+      "explanation": "Conta sintética tinha reaceite legal pendente; pré-requisito exercitado pela própria API, sem remover o modal."
+    },
+    {
+      "kind": "browser",
+      "file": ".tmp/gym-stabilization/cinco-browser-terceira-falha.json",
+      "checks": 20,
+      "failure": "closure history and identities retained",
+      "explanation": "Contagem da fixture omitira evento inicial de criação; agora compara a base persistida mais o evento de encerramento."
+    },
+    {
+      "file": ".tmp/gym-stabilization/cinco-schema-purga-primeira-falha.json",
+      "explanation": "Expectativa antiga exigia retenção sem purga; atualizada conforme política fornecida pelo usuário."
+    },
+    {
+      "file": ".tmp/gym-stabilization/cinco-browser-purga-primeira-falha.json",
+      "explanation": "Primeira compilação do navegador excedeu o prazo de hidratação; execução repetida após aquecer a rota, sem alterar o produto."
+    },
+    {
+      "kind": "fresh-schema",
+      "file": ".tmp/gym-stabilization/cinco-schema-primeira-falha.json",
+      "checks": [
+        {
+          "name": "full baseline deploy",
+          "exitCode": 0
+        },
+        {
+          "name": "fresh schema business journeys",
+          "exitCode": 1,
+          "passed": 33,
+          "failed": 1,
+          "skipped": 0,
+          "rawFile": ".tmp/gym-stabilization/completion-fresh-f8b23bee-f166-4423-8ab3-51b9db6ec07f.json"
+        }
+      ],
+      "explanation": "Fixture misturava nested User com workspaceId unchecked; criação ajustada ao contrato Prisma, sem relaxar regras."
+    },
+    {
+      "file": ".tmp/gym-stabilization/cinco-schema-purga-fixture-falha.json",
+      "explanation": "Fixture de recibo minimizado inseria Notification por SQL sem todos os campos obrigatórios. Agora cria pelo contrato Prisma dentro da transação de fixture, sem relaxar regras ou checks."
+    },
+    {
+      "file": ".tmp/gym-stabilization/cinco-schema-purga-updatedAt-fixture-falha.json",
+      "explanation": "Fixture de recibo minimizado inseria Notification por SQL sem todos os campos obrigatórios. Agora cria pelo contrato Prisma dentro da transação de fixture, sem relaxar regras ou checks."
+    }
+  ],
+  "limits": [
+    "029/030 conservam revisão documental, split/taxas/estornos/vínculos reais; nenhum dado financeiro foi inferido.",
+    "046 conserva aplicação/preflight/backfills, índice de matrícula, fila/scheduler/configuração/alertas e observação real.",
+    "047 conserva jornadas R2 reais/inventário completo de órfãos.",
+    "050 conserva demais superfícies/mocks antigos/leitor de tela humano/piloto, identidade/representação humana e revisão jurídica, desempenho de produção.",
+    "Política de purga GYM em um mês explicitamente fornecida pelo usuário; nenhum prazo legal inferido ou purga de clientes executada. Ativação/armazenamento reais continuam 046/047."
+  ],
+  "sources": [
+    {
+      "file": "scripts/gym-generate-reference-integrity.cjs",
+      "sha256": "071900f4f1105e60f7cda0245c05813cbc7c5af435cc3a379eab7763af21c9cb"
+    },
+    {
+      "file": "scripts/gym-tenant-preflight.cjs",
+      "sha256": "edabd1d7611198eb47bfcbbc753f7e8bfa4705d72db2b2a683166ca3b882e2f2"
+    },
+    {
+      "file": "prisma/gym-reference-integrity.json",
+      "sha256": "ddbcc8618d34ac57305d8c7340380073c95ffd2a035f9d7acdc460b098e96d5f"
+    },
+    {
+      "file": "prisma/baseline-migrations/20261009200000_gym_reference_identity/migration.sql",
+      "sha256": "bb01e0bda7f72d654a2e16d144c1982cd23b77dc1f2841f080f8d6255a552656"
+    },
+    {
+      "file": "prisma/migrations/20261009200000_gym_reference_identity/migration.sql",
+      "sha256": "bb01e0bda7f72d654a2e16d144c1982cd23b77dc1f2841f080f8d6255a552656"
+    },
+    {
+      "file": "tests/gym/tenant-constraints.integration.ts",
+      "sha256": "e34b23d9644ca06d94e42e5b5b6331544ff216480f1abb290feee2584c9a81de"
+    },
+    {
+      "file": "src/lib/auth/password-setup-service.ts",
+      "sha256": "51512ea4e382f34ba76ba0e3d48e3aec031f11e49ab04f5d7ba859ad89e72f56"
+    },
+    {
+      "file": "src/modules/workspaces/application/gym-student-ingress.ts",
+      "sha256": "a17efc80d2e146c5af53c99883d1bf588d04f828a476690521d571de41d02ccb"
+    },
+    {
+      "file": "src/components/auth/actions.ts",
+      "sha256": "f6df6a31c7025a9cad1266342484db601bd42a4cd3edfc986caf72dc555266aa"
+    },
+    {
+      "file": "src/app/auth/setup-password/page.tsx",
+      "sha256": "dbad2fa39a69d89cbea036eef11324364893bb61e40e1887b5d5b706513f163a"
+    },
+    {
+      "file": "tests/gym/password-setup.integration.ts",
+      "sha256": "30a1d23aefe81863efbe70d0299fa800484a23cf665f6a0c2445483d308d0b03"
+    },
+    {
+      "file": "tests/gym/student-ingress.integration.ts",
+      "sha256": "1977a1164cb6268b1b6443858800c59d7e5b0a89a57c9373e7578f2229312ecf"
+    },
+    {
+      "file": "tests/gym/http.spec.ts",
+      "sha256": "b73f7f89b3827f16508542a298d0cef9a5c22b3f3758125fea6e501260303f0e"
+    },
+    {
+      "file": "src/modules/payments/webhooks/webhook-processor.ts",
+      "sha256": "0e7cbbed709b7d0f7a3de52de671eb51a7ae356684a2a5327f1e1e3faf8fa175"
+    },
+    {
+      "file": "src/modules/payments/webhooks/personal-transfer-event.ts",
+      "sha256": "505bebbf7db9ba01b1aae1ec23fec1c227b28a4db6ffc6e4515b3134e83f556d"
+    },
+    {
+      "file": "src/modules/payments/webhooks/webhook-retention.ts",
+      "sha256": "37e6640e8b4930dd5ada0a86ec0a2f3d53c0b530545e4b3c255239f9c920204d"
+    },
+    {
+      "file": "src/app/api/cron/deliveries/route.ts",
+      "sha256": "5a8a74ffd46771df2c6ebdd50d0aca49484e0534b614c44f5dbfa6fa42069918"
+    },
+    {
+      "file": "tests/gym/legacy-webhook.integration.ts",
+      "sha256": "53fc2d0373db5d2274048f036e9858e3c0b4ada7c69e835b5c915e1d0c20a804"
+    },
+    {
+      "file": "tests/gym/delivery-outbox.integration.ts",
+      "sha256": "1a0c377705f8d4e3a9d7f7124e17910b05746ee56be151777640fe5ca19b61de"
+    },
+    {
+      "file": "src/modules/workspaces/application/gym-report-contract-aggregates.ts",
+      "sha256": "d28e97f1218329ed8479a94f323da8737ced7dcec43913acd263dce4ee6b2db4"
+    },
+    {
+      "file": "src/modules/workspaces/application/gym-analytics-service.ts",
+      "sha256": "07710b9699dbaaef027f7d13637f4d22d815295f389eb35b1fbccf62086f30a1"
+    },
+    {
+      "file": "src/modules/workspaces/application/plan-service.ts",
+      "sha256": "36db0c57fabf4c5834962dd02fcc16a2264ceaca4581398659180275c4b3d62d"
+    },
+    {
+      "file": "src/modules/workspaces/application/enrollment-service.ts",
+      "sha256": "169ba608eefbaaff93cdd1640174fb8f244057392b1c105cd55939d59e016138"
+    },
+    {
+      "file": "src/components/application/gym-catalog-search.tsx",
+      "sha256": "9c8d4a57f1598056e62bf3ab322d854752e0f058024130f81038e91adcb320ac"
+    },
+    {
+      "file": "src/app/(gym)/gym/plans/page.tsx",
+      "sha256": "83d54f8d86fc2511a3725c9307645725d21caeabd7341ae823c5bfb5f5c77fc1"
+    },
+    {
+      "file": "src/app/(gym)/gym/plans/plans-client.tsx",
+      "sha256": "7a439dd9d72d04caaaa7dc9967e09c4a7cd4ec6c9239aa23011f43cd0dde546e"
+    },
+    {
+      "file": "src/app/(gym)/gym/enrollments/page.tsx",
+      "sha256": "870baafdeacf45cc7c94c5c74aabee9c6518dc991382c2c5e0f1130a7914f372"
+    },
+    {
+      "file": "src/app/(gym)/gym/enrollments/enrollments-client.tsx",
+      "sha256": "fef83ebf23bdf8650adea2450283c5b2f7b848fa40e7f8d57cca21a1c16aad62"
+    },
+    {
+      "file": "src/app/api/gym/plans/route.ts",
+      "sha256": "815c9081ead78a74b2a9deffd4bfcce55a8f2f3d699d2bc86e7734127398b5ea"
+    },
+    {
+      "file": "src/app/api/gym/plans/[id]/route.ts",
+      "sha256": "b2f0bfb8edc6ed17914e6844fab374ad10ecbaf2175a832e9ce7ee9d50ae2130"
+    },
+    {
+      "file": "src/app/api/gym/enrollments/[id]/route.ts",
+      "sha256": "b75397683002476782285aff16d1392da9612e8e2728bde9941aea0f1d4f6bab"
+    },
+    {
+      "file": "prisma/baseline-migrations/20261009210000_bounded_queries/migration.sql",
+      "sha256": "1e4d32d59752df8a2d319988051bb9897847c5d2365d77185425bce0f87aa2e3"
+    },
+    {
+      "file": "prisma/migrations/20261009210000_bounded_queries/migration.sql",
+      "sha256": "1e4d32d59752df8a2d319988051bb9897847c5d2365d77185425bce0f87aa2e3"
+    },
+    {
+      "file": "scripts/gym-generate-purge.cjs",
+      "sha256": "352b86455cfef9162f20e720a14eb769a93c4dc944edbb58b774dc0a273ce805"
+    },
+    {
+      "file": "src/modules/workspaces/application/gym-purge.ts",
+      "sha256": "e2bb685360f0ab277de8751de4a739457dd949ea7cd3331719bc17c3620b5caa"
+    },
+    {
+      "file": "src/components/application/gym-purge-form.tsx",
+      "sha256": "688667cce1e5ac31238135e52f0c98271edf502fd3e2be5badd973e4983e3ac9"
+    },
+    {
+      "file": "src/app/api/superadmin/workspaces/[id]/purge/route.ts",
+      "sha256": "f813c44c9ac41428cb0cec342dae859d159b6db56f96ccfc1d89b8db53c9793d"
+    },
+    {
+      "file": "src/app/api/cron/gym-purge/route.ts",
+      "sha256": "6fda8307bc42e5b51cf0a93e77d4228047b7b265dafefff4d116fe1688ff2461"
+    },
+    {
+      "file": "src/app/(superadmin)/superadmin/workspaces/[id]/page.tsx",
+      "sha256": "1afb5273f836294f37674823e5ba2c628e810822116684b888180f5d842512de"
+    },
+    {
+      "file": "src/lib/delivery/outbox.ts",
+      "sha256": "09fdc9af12f613a99d9c68d460d29ecf25e7fd3d86b257b71b148c83c5b6fcc6"
+    },
+    {
+      "file": "src/lib/notifications/delivery.ts",
+      "sha256": "191c8be85af41db2580e61bc90d1427990986ec0c583ed1426b4b3c7a77ed3fb"
+    },
+    {
+      "file": "src/lib/storage.service.ts",
+      "sha256": "be5ec788a37fcf522891481e1f9164b91f74f0994b7800d5bac7f0c28d7aa30b"
+    },
+    {
+      "file": "src/modules/workspaces/application/gym-storage.ts",
+      "sha256": "a5df0c7c71e1f50597fc39b50bcdb43eb927d7776298a01f523220e3c65433f4"
+    },
+    {
+      "file": "src/lib/cron-health.ts",
+      "sha256": "655d01483b25d7de86bab45d140589fb438d8d188029ac3c0317fd8866f9a16c"
+    },
+    {
+      "file": "src/modules/workspaces/domain/types.ts",
+      "sha256": "0883d2b79983c3d4c6e7d7afb6ec6f67c1ada29d9a5d967830b2c41b96abea49"
+    },
+    {
+      "file": "vercel.json",
+      "sha256": "5600f33cb50649c38f177aaa656c606f425c5658e6ec9d3ba1003b462b20a536"
+    },
+    {
+      "file": "tests/gym/workspace-purge.integration.ts",
+      "sha256": "db399de2d21f45d16945f58d6d9589cb3593fb8d9458d320c883ef0ebf7c3dbf"
+    },
+    {
+      "file": "prisma/migrations/20261009230000_gym_scheduled_purge/migration.sql",
+      "sha256": "116494ef8c3f209323c119e29b0559c48dffeabccd14eb6116ebe552555fba9f"
+    },
+    {
+      "file": "prisma/baseline-migrations/20261009230000_gym_scheduled_purge/migration.sql",
+      "sha256": "116494ef8c3f209323c119e29b0559c48dffeabccd14eb6116ebe552555fba9f"
+    },
+    {
+      "file": "src/modules/workspaces/application/gym-closure.ts",
+      "sha256": "d3c5e8674a6a6ba4181a87aab3ee8d2f8288d86a3e0139fb9a57eddee4fa3484"
+    },
+    {
+      "file": "src/modules/workspaces/domain/gym-retention-policy.ts",
+      "sha256": "63145776750fe05d10a3e2343fb27270ebadba02de0d5ca45f749a0892bb9b40"
+    },
+    {
+      "file": "src/components/application/gym-closure-form.tsx",
+      "sha256": "d08c77c0bf3f9a82c8eac1c962a86c668e8da4cd845a0783c0505a130b24cbdc"
+    },
+    {
+      "file": "tests/gym/workspace-closure.integration.ts",
+      "sha256": "987ad405a20db8b92f6c64bd66502d6e8af31dc7e8343477e278d1c765a860cc"
+    },
+    {
+      "file": "prisma/baseline-migrations/20261009220000_gym_retention_hold/migration.sql",
+      "sha256": "1f6875b64cd70cf4c17581c07b81594506c74fa268b2e1f82c56709c48313446"
+    },
+    {
+      "file": "prisma/migrations/20261009220000_gym_retention_hold/migration.sql",
+      "sha256": "1f6875b64cd70cf4c17581c07b81594506c74fa268b2e1f82c56709c48313446"
+    },
+    {
+      "file": ".gitignore",
+      "sha256": "bca73502313157f35de47272a76c372fe5ea8fbc205f6ae362d67c68d68ac61b"
+    },
+    {
+      "file": "prisma/schema.prisma",
+      "sha256": "00d05637806315ac914d848c4b7373a752122aa962f89f9d0e8a18d41a487082"
+    },
+    {
+      "file": "tests/gym/completion-five.integration.ts",
+      "sha256": "dc5c77df916378f5204da27b28635efcdec236fd1277eaae113d380aa6b408fd"
+    },
+    {
+      "file": "scripts/gym-verify-five-schema.cjs",
+      "sha256": "3132063d3af92155cbebbba5a8db8fc77d3880666d5c71f9d74b22d919c6ab30"
+    },
+    {
+      "file": "scripts/gym-five-browser-http.cjs",
+      "sha256": "25c43f3ade6ffb8ed42af33c194ce00943581ea088bacfd04fefc0202d6da418"
+    },
+    {
+      "file": "scripts/gym-verify-tenant-deploy.cjs",
+      "sha256": "2b2d9606b392c823ebc80a127b0bf1b3811dbb1b37d71cd0b8f0e42cd92e83a6"
+    },
+    {
+      "file": "scripts/gym-record-five-completions.cjs",
+      "sha256": "9c611396a6f34e1375b1722356a1c9fe65b3aa94044a006aef65e6b422bf6fd9"
+    },
+    {
+      "file": "scripts/gym-remaining-report.cjs",
+      "sha256": "c613d0d4f6665ef28bbf78f0eaf13a8fb7df40458520d7e2b2c6230763a6b362"
+    },
+    {
+      "file": "docs/audits/academias/estabilizacao/conclusao-cinco-achados.md",
+      "sha256": "488e8474ab0918f356995b7792522c86abd9bf98c2190298201ded08920b721b"
+    }
+  ]
+}

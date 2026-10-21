@@ -6,6 +6,11 @@ declare module "next-auth" {
     user: {
       id: string;
       role: string;
+      sessionVersion: number;
+      isImpersonated?: boolean;
+      originalAdminEmail?: string;
+      originalAdminUserId?: string;
+      originalAdminSessionVersion?: number;
       bio?: string | null;
       specialty?: string | null;
       whatsapp?: string | null;
@@ -18,6 +23,11 @@ declare module "next-auth" {
   }
 
   interface User {
+    sessionVersion?: number;
+    isImpersonated?: boolean;
+    originalAdminEmail?: string;
+    originalAdminUserId?: string;
+    originalAdminSessionVersion?: number;
     role?: string;
     bio?: string | null;
     specialty?: string | null;
@@ -46,5 +56,10 @@ declare module "next-auth/jwt" {
   interface JWT extends DefaultJWT {
     id?: string;
     role?: string;
+    sessionVersion?: number;
+    isImpersonated?: boolean;
+    originalAdminEmail?: string;
+    originalAdminUserId?: string;
+    originalAdminSessionVersion?: number;
   }
 }

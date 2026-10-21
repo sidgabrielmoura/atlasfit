@@ -1,3 +1,4 @@
+import { claimAbacateEvent, settleCreditPurchase } from "@/modules/payments/abacate-confirmation";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { AbacatePay } from "@/lib/abacatepay";
@@ -12,8 +13,9 @@ export async function POST(req: Request) {
   const apiKey = process.env.ABACATEPAY_API_KEY;
 
   let eventPayload: any;
+  if (process.env.NODE_ENV === "production" && (!webhookSecret || webhookSecret === "whsec_placeholder")) return new NextResponse("Webhook indisponível.", { status: 503 });
 
-  if (webhookSecret && webhookSecret !== "whsec_placeholder" && apiKey && apiKey !== "abc_dev_placeholder") {
+  if (webhookSecret && webhookSecret !== "whsec_placeholder") {
     if (!signature) {
       return new NextResponse("Assinatura ausente.", { status: 401 });
     }
@@ -25,10 +27,12 @@ export async function POST(req: Request) {
       const sigBase64Shared = crypto.createHmac("sha256", ABACATEPAY_SHARED_KEY).update(rawBody).digest("base64");
       const sigHexShared = crypto.createHmac("sha256", ABACATEPAY_SHARED_KEY).update(rawBody).digest("hex");
 
-      const isValid = (signature === sigHexSecret) ||
-                      (signature === sigBase64Secret) ||
-                      (signature === sigBase64Shared) ||
-                      (signature === sigHexShared);
+      const equal = (expected: string, actual: string) => { const left = Buffer.from(expected), right = Buffer.from(actual); return left.length === right.length && crypto.timingSafeEqual(left, right); };
+      const privateHmac = equal(sigHexSecret, signature) || equal(sigBase64Secret, signature);
+      const urlSecret = new URL(req.url).searchParams.get("webhookSecret") || "";
+      // The provider's documented shared signing key is public: pair it with the URL secret.
+      const sharedHmac = equal(webhookSecret, urlSecret) && (equal(sigBase64Shared, signature) || equal(sigHexShared, signature));
+      const isValid = privateHmac || sharedHmac;
 
       if (!isValid) {
         throw new Error("Assinatura inválida (HMAC incorreto).");
@@ -50,6 +54,7 @@ export async function POST(req: Request) {
   }
 
   const { event: eventType, data } = eventPayload;
+  if (typeof eventType !== "string") return new NextResponse("Evento inválido.", { status: 400 });
   const isCheckoutEvent = eventType && eventType.startsWith("checkout");
   const isSubscriptionEvent = eventType && eventType.startsWith("subscription");
   const targetData = isCheckoutEvent
@@ -97,7 +102,7 @@ export async function POST(req: Request) {
     }
 
     if (!targetUserId) {
-      console.error("[WEBHOOK_RENEWAL] Usuário não identificado para renovação da assinatura:", eventPayload);
+      console.error("[WEBHOOK_RENEWAL]", { code: "USER_NOT_IDENTIFIED" });
       return new NextResponse("Usuário não identificado para renovação.", { status: 400 });
     }
 
@@ -105,6 +110,8 @@ export async function POST(req: Request) {
       let planName = "Plano";
 
       const txResult = await prisma.$transaction(async (tx) => {
+        if (!await claimAbacateEvent(tx, eventPayload)) return null;
+        await tx.$queryRaw`SELECT id FROM "Subscription" WHERE "userId"=${targetUserId} FOR UPDATE`;
         const sub = await tx.subscription.findUnique({
           where: { userId: targetUserId },
           include: { plan: true }
@@ -201,6 +208,7 @@ export async function POST(req: Request) {
         return { newEndDate };
       });
 
+      if (!txResult) return NextResponse.json({ success: true, duplicate: true });
       const renewedEndDate: Date = txResult.newEndDate;
 
       // Notificar a tela do personal trainer em tempo real via Ably
@@ -235,67 +243,22 @@ export async function POST(req: Request) {
     const transactionId = targetData.externalId;
     const billingId = targetData.id || targetData.billingId;
 
-    if (packageId || (billingId && await prisma.creditPurchase.findFirst({ where: { OR: [{ abacatePayBillingId: billingId }, { id: transactionId }] } }))) {
-      const targetUserId = userId || targetData.userId;
-
-      let purchase = billingId
-        ? await prisma.creditPurchase.findFirst({ where: { OR: [{ abacatePayBillingId: billingId }, { id: transactionId }] } })
-        : null;
-
-      if (!purchase && packageId && targetUserId) {
-        purchase = await prisma.creditPurchase.findFirst({
-          where: {
-            userId: targetUserId,
-            packageId: packageId,
-            status: "PENDING",
-          },
-          orderBy: { createdAt: "desc" },
-        });
-      }
-
+    const creditPurchase = billingId || transactionId ? await prisma.creditPurchase.findFirst({ where: { OR: [...(billingId ? [{ abacatePayBillingId: billingId }] : []), ...(transactionId ? [{ id: transactionId }] : [])] } }) : null;
+    if (packageId || creditPurchase) {
+      const purchase = creditPurchase;
+      if (purchase && userId && purchase.userId !== userId) return new NextResponse("Compra incompatível.", { status: 409 });
       if (purchase) {
         if (purchase.status === "PAID") {
           return NextResponse.json({ success: true, message: "Já processado." });
         }
 
-        await prisma.$transaction([
-          prisma.creditPurchase.update({
-            where: { id: purchase.id },
-            data: { status: "PAID", paidAt: new Date() },
-          }),
-          prisma.user.update({
-            where: { id: purchase.userId },
-            data: { importCredits: { increment: purchase.credits } },
-          }),
-        ]);
+        await settleCreditPurchase(purchase.id);
 
         console.log(`Créditos do Personal ${purchase.userId} atualizados (+${purchase.credits} coins) via Webhook Principal.`);
         return NextResponse.json({ success: true, processed: "credit_purchase" });
-      } else if (packageId && targetUserId) {
-        const pkg = await prisma.creditPackage.findUnique({ where: { id: packageId } });
-        if (pkg) {
-          await prisma.$transaction([
-            prisma.user.update({
-              where: { id: targetUserId },
-              data: { importCredits: { increment: pkg.credits } },
-            }),
-            prisma.creditPurchase.create({
-              data: {
-                workspaceId: metadata.workspaceId || "",
-                packageId: pkg.id,
-                userId: targetUserId,
-                amountInCents: pkg.priceInCents,
-                credits: pkg.credits,
-                status: "PAID",
-                abacatePayBillingId: billingId,
-                paidAt: new Date(),
-              },
-            }),
-          ]);
-          console.log(`Pacote de créditos ${packageId} ativado diretamente via Webhook para o usuário ${targetUserId}.`);
-          return NextResponse.json({ success: true, processed: "credit_purchase_direct" });
-        }
       }
+      // The local order is the authority for credits and amount; never mint from metadata.
+      return new NextResponse("Compra ainda não disponível para confirmação.", { status: 503 });
     }
 
     if (!transactionId || !userId || !planId) {
@@ -344,16 +307,18 @@ export async function POST(req: Request) {
           return;
         }
 
+        if (transaction.userId !== userId) throw new Error("TRANSACTION_OWNER_MISMATCH");
         const method = targetData.method || targetData.paymentMethod || (eventType.startsWith("subscription") ? "CREDIT_CARD" : "PIX");
 
-        await tx.transaction.update({
-          where: { id: transactionId },
+        const claimed = await tx.transaction.updateMany({
+          where: { id: transactionId, userId, status: { not: "APPROVED" } },
           data: {
             status: "APPROVED",
             paymentMethod: method,
           }
         });
 
+        if (!claimed.count) return;
         const isPreSub = isPreSubscription === "true";
         let startDate = new Date();
 
@@ -549,6 +514,7 @@ export async function POST(req: Request) {
     if (userId) {
       try {
         await prisma.$transaction(async (tx) => {
+          if (!await claimAbacateEvent(tx, eventPayload)) return;
           const newStatus = eventType === "subscription.cancelled" ? "canceled" : "past_due";
 
           await tx.subscription.update({
@@ -560,7 +526,7 @@ export async function POST(req: Request) {
 
           if (targetData.externalId) {
             await tx.transaction.updateMany({
-              where: { id: targetData.externalId },
+              where: { id: targetData.externalId, userId, status: { not: "APPROVED" } },
               data: {
                 status: "FAILED",
               }

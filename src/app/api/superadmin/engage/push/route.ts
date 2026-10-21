@@ -1,10 +1,11 @@
+import { withRequestMemo } from "@/lib/request-memo";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { EngagePushService } from "@/lib/engage/push-service";
 import { logAuditEvent, logSystemError } from "@/lib/logger";
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   try {
     const session = await auth();
     if (!session?.user?.id || session.user.role !== "SUPERADMIN") {
@@ -48,6 +49,7 @@ export async function GET(req: Request) {
     return new NextResponse(error.message || "Erro interno do servidor.", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 export async function POST(req: Request) {
   try {

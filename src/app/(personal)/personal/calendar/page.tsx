@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -61,6 +61,9 @@ interface TaskItem {
 export default function CalendarPage() {
   const workspaceSnap = useSnapshot(workspaceStore);
   const activeWorkspaceId = workspaceSnap.activeWorkspaceId;
+  const academy = workspaceSnap.activeWorkspace?.type === "GYM";
+  const agendaEndpoint = academy ? "/api/gym/agenda" : "/api/personal/organization";
+  const requestVersion = useRef(0), pendingRequest = useRef<AbortController | null>(null);
 
   const [date, setDate] = useState<Date | undefined>(new Date());
   const [tasks, setTasks] = useState<TaskItem[]>([]);
@@ -97,6 +100,9 @@ export default function CalendarPage() {
   const selectedDateStr = date ? format(date, "yyyy-MM-dd") : "";
 
   const fetchTasks = async () => {
+    const current = ++requestVersion.current;
+    pendingRequest.current?.abort();
+    const controller = new AbortController(); pendingRequest.current = controller;
     if (!activeWorkspaceId || !selectedDateStr) {
       setIsLoading(false);
       return;
@@ -107,31 +113,36 @@ export default function CalendarPage() {
 
     try {
       const response = await fetch(
-        `/api/personal/organization?workspaceId=${activeWorkspaceId}&date=${selectedDateStr}`
+        `${agendaEndpoint}?workspaceId=${activeWorkspaceId}&date=${selectedDateStr}`, { signal: controller.signal }
       );
       if (!response.ok) {
         throw new Error("Não foi possível buscar as tarefas diárias.");
       }
       const data = await response.json();
+      if (requestVersion.current !== current || controller.signal.aborted) return;
       setTasks(data.dailyAgenda || []);
       if (data.intelligentStudentsList) {
         setStudents(data.intelligentStudentsList.map((s: any) => ({ id: s.id, name: s.name })));
       }
     } catch (err: any) {
+      if (requestVersion.current !== current || controller.signal.aborted) return;
       console.error("Error fetching tasks for date:", err);
       setError(err.message || "Erro de conexão ao buscar tarefas.");
     } finally {
-      setIsLoading(false);
+      if (requestVersion.current === current) setIsLoading(false);
     }
   };
 
   useEffect(() => {
+    setTasks([]); setStudents([]);
     fetchTasks();
-  }, [activeWorkspaceId, selectedDateStr]);
+    return () => { ++requestVersion.current; pendingRequest.current?.abort(); };
+  }, [activeWorkspaceId, selectedDateStr, agendaEndpoint]);
 
   const handleToggleTask = async (taskId: string, currentCompleted: boolean) => {
+    const version = requestVersion.current;
     try {
-      const response = await fetch("/api/personal/organization", {
+      const response = await fetch(agendaEndpoint, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -146,6 +157,7 @@ export default function CalendarPage() {
       if (!response.ok) {
         throw new Error("Falha ao sincronizar a tarefa.");
       }
+      if (version !== requestVersion.current || workspaceStore.activeWorkspaceId !== activeWorkspaceId) return;
 
       setTasks((prev) =>
         prev.map((t) => (t.id === taskId ? { ...t, completed: !currentCompleted } : t))
@@ -162,8 +174,9 @@ export default function CalendarPage() {
     if (!newTask.title.trim() || !newTask.time.trim() || !activeWorkspaceId) return;
 
     setIsSubmittingCreate(true);
+    const version = requestVersion.current;
     try {
-      const response = await fetch("/api/personal/organization", {
+      const response = await fetch(agendaEndpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -181,6 +194,7 @@ export default function CalendarPage() {
       if (!response.ok) {
         throw new Error("Não foi possível salvar a tarefa diária.");
       }
+      if (version !== requestVersion.current || workspaceStore.activeWorkspaceId !== activeWorkspaceId) return;
 
       await fetchTasks();
       setIsCreateModalOpen(false);
@@ -209,8 +223,9 @@ export default function CalendarPage() {
     if (!taskToEdit || !editTaskData.title.trim() || !editTaskData.time.trim() || !activeWorkspaceId) return;
 
     setIsSubmittingEdit(true);
+    const version = requestVersion.current;
     try {
-      const response = await fetch("/api/personal/organization", {
+      const response = await fetch(agendaEndpoint, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -228,6 +243,7 @@ export default function CalendarPage() {
       if (!response.ok) {
         throw new Error("Não foi possível atualizar a tarefa.");
       }
+      if (version !== requestVersion.current || workspaceStore.activeWorkspaceId !== activeWorkspaceId) return;
 
       setTasks((prev) =>
         prev.map((t) =>
@@ -255,9 +271,10 @@ export default function CalendarPage() {
     if (!taskToDelete || !activeWorkspaceId) return;
 
     setIsSubmittingDelete(true);
+    const version = requestVersion.current;
     try {
       const response = await fetch(
-        `/api/personal/organization?taskId=${taskToDelete.id}&workspaceId=${activeWorkspaceId}`,
+        `${agendaEndpoint}?taskId=${taskToDelete.id}&workspaceId=${activeWorkspaceId}`,
         {
           method: "DELETE",
         }
@@ -266,6 +283,7 @@ export default function CalendarPage() {
       if (!response.ok) {
         throw new Error("Não foi possível excluir a tarefa.");
       }
+      if (version !== requestVersion.current || workspaceStore.activeWorkspaceId !== activeWorkspaceId) return;
 
       setTasks((prev) => prev.filter((t) => t.id !== taskToDelete.id));
       setIsDeleteModalOpen(false);
@@ -373,6 +391,7 @@ export default function CalendarPage() {
                     {/* Checkbox wrapper with larger hit zone */}
                     <Checkbox
                       checked={task.completed}
+                      aria-label={`Concluir ${task.title}`}
                       onCheckedChange={() => handleToggleTask(task.id, task.completed)}
                       className="size-5 cursor-pointer rounded-md shrink-0 border-border hover:border-primary/80 transition-colors"
                     />
@@ -399,10 +418,11 @@ export default function CalendarPage() {
                   </div>
 
                   {/* Actions Panel */}
-                  <div className="flex items-center gap-1 opacity-0 group-hover/task:opacity-100 focus-within:opacity-100 transition-opacity duration-200 shrink-0">
+                  <div className="flex items-center gap-1 sm:opacity-0 group-hover/task:opacity-100 focus-within:opacity-100 transition-opacity duration-200 shrink-0">
                     <Button
                       variant="ghost"
                       size="icon"
+                      aria-label={`Editar ${task.title}`}
                       onClick={() => handleEditClick(task)}
                       className="size-7 hover:bg-secondary rounded-lg text-muted-foreground hover:text-foreground cursor-pointer transition-colors"
                     >
@@ -411,6 +431,7 @@ export default function CalendarPage() {
                     <Button
                       variant="ghost"
                       size="icon"
+                      aria-label={`Excluir ${task.title}`}
                       onClick={() => handleDeleteClick(task)}
                       className="size-7 hover:bg-destructive/10 rounded-lg text-muted-foreground hover:text-destructive cursor-pointer transition-colors"
                     >
@@ -462,8 +483,9 @@ export default function CalendarPage() {
             </DialogHeader>
             <form onSubmit={handleCreateTask} className="space-y-4 pt-2">
               <div className="space-y-2">
-                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Título da Tarefa</Label>
+                <Label htmlFor="agenda-create-title" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Título da Tarefa</Label>
                 <Input
+                  id="agenda-create-title" maxLength={200}
                   type="text"
                   required
                   value={newTask.title}
@@ -475,9 +497,9 @@ export default function CalendarPage() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Horário</Label>
+                  <Label htmlFor="agenda-create-time" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Horário</Label>
                   <Input
-                    type="time"
+                    id="agenda-create-time" type="time"
                     required
                     value={newTask.time}
                     onChange={(e) => setNewTask({ ...newTask, time: e.target.value })}
@@ -486,18 +508,18 @@ export default function CalendarPage() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Categoria</Label>
+                  <Label htmlFor="agenda-create-type" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Categoria</Label>
                   <Select
                     value={newTask.type}
                     onValueChange={(val) => setNewTask({ ...newTask, type: val })}
                   >
-                    <SelectTrigger className="w-full bg-muted/50 border border-border text-foreground rounded-xl h-10 focus:ring-primary/50">
+                    <SelectTrigger id="agenda-create-type" className="w-full bg-muted/50 border border-border text-foreground rounded-xl h-10 focus:ring-primary/50">
                       <SelectValue placeholder="Selecione a categoria" />
                     </SelectTrigger>
                     <SelectContent className="bg-popover border border-border text-foreground rounded-xl">
-                      <SelectItem value="aula">Aula</SelectItem>
+                      {!academy && <SelectItem value="aula">Aula</SelectItem>}
                       <SelectItem value="avaliação">Avaliação</SelectItem>
-                      <SelectItem value="financeiro">Financeiro</SelectItem>
+                      {!academy && <SelectItem value="financeiro">Financeiro</SelectItem>}
                       <SelectItem value="check-in">Check-in</SelectItem>
                       <SelectItem value="lembrete">Lembrete</SelectItem>
                     </SelectContent>
@@ -506,12 +528,12 @@ export default function CalendarPage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Aluno Relacionado (Opcional)</Label>
+                <Label htmlFor="agenda-create-student" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Aluno Relacionado (Opcional)</Label>
                 <Select
                   value={newTask.studentId}
                   onValueChange={(val) => setNewTask({ ...newTask, studentId: val })}
                 >
-                  <SelectTrigger className="w-full bg-muted/50 border border-border text-foreground rounded-xl h-10 focus:ring-primary/50">
+                  <SelectTrigger id="agenda-create-student" className="w-full bg-muted/50 border border-border text-foreground rounded-xl h-10 focus:ring-primary/50">
                     <SelectValue placeholder="Selecione um aluno (Opcional)" />
                   </SelectTrigger>
                   <SelectContent className="bg-popover border border-border text-foreground rounded-xl">
@@ -601,8 +623,9 @@ export default function CalendarPage() {
           </DialogHeader>
           <form onSubmit={handleEditTask} className="space-y-4 pt-2">
             <div className="space-y-2">
-              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Título da Tarefa</Label>
+              <Label htmlFor="agenda-edit-title" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Título da Tarefa</Label>
               <Input
+                  id="agenda-edit-title" maxLength={200}
                 type="text"
                 required
                 value={editTaskData.title}
@@ -613,9 +636,9 @@ export default function CalendarPage() {
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Horário</Label>
+                <Label htmlFor="agenda-edit-time" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Horário</Label>
                 <Input
-                  type="time"
+                  id="agenda-edit-time" type="time"
                   required
                   value={editTaskData.time}
                   onChange={(e) => setEditTaskData({ ...editTaskData, time: e.target.value })}
@@ -624,18 +647,18 @@ export default function CalendarPage() {
               </div>
 
               <div className="space-y-2">
-                <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Categoria</Label>
+                <Label htmlFor="agenda-edit-type" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Categoria</Label>
                 <Select
                   value={editTaskData.type}
                   onValueChange={(val) => setEditTaskData({ ...editTaskData, type: val })}
                 >
-                  <SelectTrigger className="w-full bg-muted/50 border border-border text-foreground rounded-xl h-10 focus:ring-primary/50">
+                  <SelectTrigger id="agenda-edit-type" className="w-full bg-muted/50 border border-border text-foreground rounded-xl h-10 focus:ring-primary/50">
                     <SelectValue placeholder="Selecione a categoria" />
                   </SelectTrigger>
                   <SelectContent className="bg-popover border border-border text-foreground rounded-xl">
-                    <SelectItem value="aula">Aula</SelectItem>
+                    {!academy && <SelectItem value="aula">Aula</SelectItem>}
                     <SelectItem value="avaliação">Avaliação</SelectItem>
-                    <SelectItem value="financeiro">Financeiro</SelectItem>
+                    {!academy && <SelectItem value="financeiro">Financeiro</SelectItem>}
                     <SelectItem value="check-in">Check-in</SelectItem>
                     <SelectItem value="lembrete">Lembrete</SelectItem>
                   </SelectContent>
@@ -644,12 +667,12 @@ export default function CalendarPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Aluno Relacionado (Opcional)</Label>
+              <Label htmlFor="agenda-edit-student" className="text-xs font-bold text-muted-foreground uppercase tracking-wider">Aluno Relacionado (Opcional)</Label>
               <Select
                 value={editTaskData.studentId}
                 onValueChange={(val) => setEditTaskData({ ...editTaskData, studentId: val })}
               >
-                <SelectTrigger className="w-full bg-muted/50 border border-border text-foreground rounded-xl h-10 focus:ring-primary/50">
+                <SelectTrigger id="agenda-edit-student" className="w-full bg-muted/50 border border-border text-foreground rounded-xl h-10 focus:ring-primary/50">
                   <SelectValue placeholder="Selecione um aluno (Opcional)" />
                 </SelectTrigger>
                 <SelectContent className="bg-popover border border-border text-foreground rounded-xl">

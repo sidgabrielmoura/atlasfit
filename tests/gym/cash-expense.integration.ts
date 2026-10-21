@@ -1,0 +1,238 @@
+import { randomUUID } from "node:crypto";
+import { afterAll, describe, expect, it } from "vitest";
+import prisma from "@/lib/prisma";
+import { gymCashExpenseService as service } from "@/modules/workspaces/application/cash-drawer-expense-service";
+import { reverseInternalExpensePayment } from "@/modules/workspaces/application/cash-mutations";
+import { parseBrlCents } from "@/modules/workspaces/domain/currency-input";
+import { GymAnalyticsService } from "@/modules/workspaces/application/gym-analytics-service";
+
+const target = new URL(process.env.DATABASE_URL || "http://invalid");
+if (target.hostname !== "127.0.0.1" || target.port !== "56432" || target.pathname !== "/atlasfit_gym_stabilization_20261001") throw new Error("Exige PostgreSQL descartável específico.");
+afterAll(async () => { await prisma.$disconnect(); });
+async function fixture() {
+  const owner = await prisma.user.create({ data: { email: `cash-${randomUUID()}@example.invalid` } });
+  const workspace = await prisma.workspace.create({ data: { subscription: { create: { status: "ACTIVE", maxStaff: 30, maxUnits: 5 } }, name: "Academia sintética", slug: `cash-${randomUUID()}`, type: "GYM", ownerId: owner.id } });
+  await prisma.workspaceMember.create({ data: { workspaceId: workspace.id, userId: owner.id, role: "OWNER" } });
+  const unit = await prisma.gymUnit.create({ data: { workspaceId: workspace.id, name: "Unidade sintética" } });
+  const cash = await prisma.gymFinancialAccount.create({ data: { workspaceId: workspace.id, unitId: unit.id, name: "Caixa", accountType: "CASH", balanceInCents: BigInt(10000) } });
+  const bank = await prisma.gymFinancialAccount.create({ data: { workspaceId: workspace.id, unitId: unit.id, name: "Banco", accountType: "BANK_ACCOUNT", balanceInCents: BigInt(10000) } });
+  const category = await prisma.gymExpenseCategory.create({ data: { workspaceId: workspace.id, name: "Categoria" } });
+  return { owner, workspace, unit, cash, bank, category };
+}
+async function open(f: Awaited<ReturnType<typeof fixture>>) { return service.openCashDrawer({ workspaceId: f.workspace.id, unitId: f.unit.id, financialAccountId: f.cash.id, openingAmountInCents: 10000, openedByUserId: f.owner.id }); }
+async function expense(f: Awaited<ReturnType<typeof fixture>>, immediate = false) { return service.createExpense({ workspaceId: f.workspace.id, idempotencyKey: randomUUID(), unitId: f.unit.id, categoryId: f.category.id, title: "Despesa sintética", amountInCents: 1000, penaltyInCents: 100, discountInCents: 50, dueDate: new Date(Date.now() + 86400000), actorUserId: f.owner.id, paidImmediately: immediate, financialAccountId: immediate ? f.cash.id : undefined }); }
+
+describe("GYM PostgreSQL — caixa e despesas internas", () => {
+  it("contas e histórico respeitam unidade, grants revogados e operador sem promover papel legado", async () => {
+    const f = await fixture(); const other = await fixture();
+    const secondUnit = await prisma.gymUnit.create({ data: { workspaceId: f.workspace.id, name: "Outra unidade" } });
+    const secondCash = await prisma.gymFinancialAccount.create({ data: { workspaceId: f.workspace.id, unitId: secondUnit.id, name: "Caixa de outra unidade", accountType: "CASH", balanceInCents: BigInt(1000) } });
+    await prisma.gymFinancialAccount.create({ data: { workspaceId: f.workspace.id, name: "Central", accountType: "BANK_ACCOUNT" } });
+    await prisma.gymFinancialAccount.create({ data: { workspaceId: f.workspace.id, unitId: f.unit.id, name: "Legado externo", accountType: "GATEWAY_ONLINE" } });
+    await service.openCashDrawer({ workspaceId: f.workspace.id, financialAccountId: secondCash.id, openingAmountInCents: 1000, openedByUserId: f.owner.id });
+    const manager = await prisma.user.create({ data: { email: `unit-cash-${randomUUID()}@example.invalid` } });
+    const member = await prisma.workspaceMember.create({ data: { workspaceId: f.workspace.id, unitId: f.unit.id, userId: manager.id, role: "MANAGER" } });
+    const ownExpense = await expense(f);
+    await service.createExpense({ workspaceId: f.workspace.id, unitId: secondUnit.id, categoryId: f.category.id, actorUserId: f.owner.id, title: "Despesa sintética outra unidade", amountInCents: 777, dueDate: new Date(Date.now() + 86400000), idempotencyKey: randomUUID() });
+    const localExpenses = await service.listExpenses({ workspaceId: f.workspace.id, actorUserId: manager.id, search: "Despesa sintética" });
+    expect(localExpenses.expenses.map(e => e.id)).toEqual([ownExpense.id]);
+    expect(localExpenses.kpis.totalPendingInCents).toBe(1050);
+    await expect(service.listExpenses({ workspaceId: f.workspace.id, actorUserId: manager.id, unitId: secondUnit.id })).rejects.toMatchObject({ statusCode: 403 });
+    expect((await service.listFinancialAccounts(f.workspace.id, manager.id)).map(a => a.id).sort()).toEqual([f.cash.id, f.bank.id].sort());
+    const own = await service.openCashDrawer({ workspaceId: f.workspace.id, financialAccountId: f.cash.id, openingAmountInCents: 10000, openedByUserId: manager.id });
+    expect(await service.getCurrentSession(f.workspace.id, manager.id)).toMatchObject({ id: own.id });
+    expect((await service.listCashDrawerSessions({ workspaceId: f.workspace.id, actorUserId: manager.id })).sessions.map(s => s.id)).toEqual([own.id]);
+    await expect(service.createFinancialAccount({ workspaceId: f.workspace.id, name: "Central indevida", accountType: "CASH", actorUserId: manager.id })).rejects.toMatchObject({ code: "UNIT_REQUIRED" });
+    await expect(service.transferBetweenAccounts({ workspaceId: f.workspace.id, fromAccountId: f.bank.id, toAccountId: secondCash.id, amountInCents: 100, performedByUserId: manager.id, idempotencyKey: randomUUID() })).rejects.toMatchObject({ statusCode: 403 });
+    await expect(service.listFinancialAccounts(other.workspace.id, manager.id)).rejects.toMatchObject({ statusCode: 403 });
+    const grant = await prisma.workspaceRoleGrant.create({ data: { memberId: member.id, unitId: f.unit.id, role: "FINANCE" } });
+    expect((await service.listFinancialAccounts(f.workspace.id, manager.id)).map(a => a.id).sort()).toEqual([f.cash.id, f.bank.id].sort());
+    await prisma.workspaceRoleGrant.update({ where: { id: grant.id }, data: { revokedAt: new Date() } });
+    for (const operation of [() => service.listFinancialAccounts(f.workspace.id, manager.id), () => service.getCurrentSession(f.workspace.id, manager.id), () => service.listCashDrawerSessions({ workspaceId: f.workspace.id, actorUserId: manager.id }), () => service.listExpenses({ workspaceId: f.workspace.id, actorUserId: manager.id })]) await expect(operation()).rejects.toMatchObject({ statusCode: 403 });
+  });
+  it("retry concorrente de sangria move uma vez, recusa adulteração e não edita turno fechado", async () => {
+    const f = await fixture(); const session = await open(f);
+    const input = { workspaceId: f.workspace.id, sessionId: session.id, idempotencyKey: randomUUID(), movementType: "BLEED" as const, amountInCents: 500, destinationAccountId: f.bank.id, performedByUserId: f.owner.id };
+    const results = await Promise.all([service.recordCashMovement(input), service.recordCashMovement(input)]);
+    expect(results[0].movementId).toBe(results[1].movementId);
+    expect(await prisma.gymCashDrawerMovement.count({ where: { sessionId: session.id, movementType: "BLEED" } })).toBe(1);
+    expect(await prisma.gymAccountTransfer.count({ where: { referenceId: results[0].movementId } })).toBe(1);
+    expect((await prisma.gymFinancialAccount.findUniqueOrThrow({ where: { id: f.cash.id } })).balanceInCents).toBe(BigInt(9500));
+    expect((await prisma.gymFinancialAccount.findUniqueOrThrow({ where: { id: f.bank.id } })).balanceInCents).toBe(BigInt(10500));
+    await expect(service.recordCashMovement({ ...input, amountInCents: 501 })).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
+    await service.closeCashDrawer({ workspaceId: f.workspace.id, sessionId: session.id, actualCashInCents: 9500, closedByUserId: f.owner.id });
+    expect((await service.recordCashMovement(input)).movementId).toBe(results[0].movementId);
+    await expect(service.recordCashMovement({ ...input, idempotencyKey: randomUUID() })).rejects.toMatchObject({ code: "CASH_DRAWER_CLOSED" });
+    await prisma.workspace.update({ where: { id: f.workspace.id }, data: { isActive: false } });
+    await expect(service.recordCashMovement(input)).rejects.toMatchObject({ statusCode: 403 });
+    expect(await prisma.auditLog.count({ where: { entityId: f.workspace.id, action: { startsWith: `GYM_CASH_DRAWER_MOVEMENT:${results[0].movementId}:` } } })).toBe(1);
+  });
+  it("indicadores usam datas dos fatos, alocações por unidade, despesas parciais e reversões", async () => {
+    const f = await fixture();
+    const otherUnit = await prisma.gymUnit.create({ data: { workspaceId: f.workspace.id, name: "Segunda unidade" } });
+    const student = await prisma.user.create({ data: { email: `analytics-${randomUUID()}@example.invalid` } });
+    const member = await prisma.workspaceMember.create({ data: { workspaceId: f.workspace.id, userId: student.id, role: "STUDENT", unitId: f.unit.id } });
+    const second = await prisma.user.create({ data: { email: `analytics-second-${randomUUID()}@example.invalid` } });
+    const secondMember = await prisma.workspaceMember.create({ data: { workspaceId: f.workspace.id, userId: second.id, role: "STUDENT", unitId: otherUnit.id } });
+    const makeInvoice = (studentMemberId: string, studentUserId: string) => prisma.gymInvoice.create({ data: { workspaceId: f.workspace.id, studentMemberId, studentUserId, invoiceNumber: randomUUID(), title: "Obrigação", dueDate: new Date("2026-09-10T12:00:00Z"), subtotalInCents: BigInt(1000), totalInCents: BigInt(1000), balanceRemainingInCents: BigInt(1000), payerName: "Aluno", createdByUserId: f.owner.id } });
+    const a = await makeInvoice(member.id, student.id), b = await makeInvoice(secondMember.id, second.id);
+    await prisma.gymPayment.create({ data: { workspaceId: f.workspace.id, paymentNumber: randomUUID(), receiptNumber: randomUUID(), idempotencyKey: randomUUID(), receivedByUserId: f.owner.id, payerName: "Aluno", paymentMethod: "BANK_TRANSFER_MANUAL", amountInCents: BigInt(1600), paidAt: new Date("2026-10-02T12:00:00Z"), createdAt: new Date("2026-09-01T12:00:00Z"), allocations: { create: [{ invoiceId: a.id, allocatedAmountInCents: BigInt(600) }, { invoiceId: b.id, allocatedAmountInCents: BigInt(1000) }] } } });
+    await prisma.gymPayment.create({ data: { workspaceId: f.workspace.id, paymentNumber: randomUUID(), receiptNumber: randomUUID(), idempotencyKey: randomUUID(), receivedByUserId: f.owner.id, payerName: "Aluno", paymentMethod: "BANK_TRANSFER_MANUAL", status: "REVERSED", amountInCents: BigInt(800), paidAt: new Date("2026-09-15T12:00:00Z"), reversedAt: new Date("2026-10-03T12:00:00Z"), allocations: { create: [{ invoiceId: a.id, allocatedAmountInCents: BigInt(800), status: "REVERSED" }] } } });
+    const created = await expense(f);
+    await service.payExpense({ workspaceId: f.workspace.id, expenseId: created.id, financialAccountId: f.bank.id, actorUserId: f.owner.id, paidAmountInCents: 300, paidAt: new Date("2026-10-02T12:00:00Z"), idempotencyKey: randomUUID() });
+    const period = { workspaceId: f.workspace.id, actorUserId: f.owner.id, startDate: new Date("2026-10-01T00:00:00Z"), endDate: new Date("2026-10-10T23:59:59Z") };
+    const local = await GymAnalyticsService.getOverview({ ...period, unitId: f.unit.id });
+    expect(local.cashFlow).toMatchObject({ grossReceivedInCents: 600, reversedOrRefundedInCents: 800, netReceivedInCents: -200, expensesPaidInCents: 300, netCashInCents: -500 });
+    expect(local.accountsReceivable.totalReceivableInCents).toBe(1000);
+    const global = await GymAnalyticsService.getOverview(period);
+    expect(global.cashFlow).toMatchObject({ grossReceivedInCents: 1600, reversedOrRefundedInCents: 800, netReceivedInCents: 800, expensesPaidInCents: 300, netCashInCents: 500 });
+    expect(global.accountsReceivable.totalReceivableInCents).toBe(2000);
+    const hidden = await GymAnalyticsService.getOverview({ ...period, includeFinancial: false });
+    expect(hidden.cashFlow).toMatchObject({ grossReceivedInCents: 0, reversedOrRefundedInCents: 0, expensesPaidInCents: 0 });
+    await expect(GymAnalyticsService.getOverview({ ...period, startDate: period.endDate, endDate: period.startDate })).rejects.toMatchObject({ statusCode: 400 });
+  });
+  it("entrada monetária rejeita parsing parcial e mantém centavos brasileiros exatos", () => {
+    expect(parseBrlCents("R$ 1.234,56")).toBe(123456);
+    expect(parseBrlCents("1.234")).toBe(123400);
+    expect(parseBrlCents("10,1")).toBe(1010);
+    expect(parseBrlCents("10.25")).toBe(1025);
+    expect(parseBrlCents("0,00")).toBe(0);
+    for (const invalid of ["", "-1", "NaN", "1,234", "10,251", "1.2.3", "10abc", "90071992547409,92"]) expect(parseBrlCents(invalid)).toBeNull();
+  });
+  it("indicadores de despesa usam saldo e baixas parciais no mesmo filtro, incluindo atraso efetivo", async () => {
+    const f = await fixture(); const created = await expense(f);
+    await service.payExpense({ workspaceId: f.workspace.id, expenseId: created.id, financialAccountId: f.bank.id, actorUserId: f.owner.id, paidAmountInCents: 300, idempotencyKey: randomUUID() });
+    const result = await service.listExpenses({ workspaceId: f.workspace.id, actorUserId: f.owner.id, search: "Despesa sintética" });
+    expect(result.kpis).toEqual({ totalPendingInCents: 750, totalPaidInCents: 300, totalOverdueInCents: 0 });
+    expect(result.expenses[0]).toMatchObject({ totalInCents: 1050, balanceRemainingInCents: 750, paymentsCount: 1 });
+    await prisma.gymExpense.update({ where: { id: created.id }, data: { dueDate: new Date(Date.now() - 86400000) } });
+    const overdue = await service.listExpenses({ workspaceId: f.workspace.id, actorUserId: f.owner.id, status: "OVERDUE" });
+    expect(overdue.kpis).toEqual({ totalPendingInCents: 0, totalPaidInCents: 300, totalOverdueInCents: 750 });
+    expect(overdue.expenses[0].status).toBe("OVERDUE");
+    expect((await service.listExpenses({ workspaceId: f.workspace.id, actorUserId: f.owner.id, search: "Inexistente" })).kpis).toEqual({ totalPendingInCents: 0, totalPaidInCents: 0, totalOverdueInCents: 0 });
+  });
+  it("transferência que envolve dinheiro exige turno e converge com a contagem do caixa", async () => {
+    const f = await fixture();
+    const input = { workspaceId: f.workspace.id, idempotencyKey: randomUUID(), fromAccountId: f.bank.id, toAccountId: f.cash.id, amountInCents: 500, performedByUserId: f.owner.id };
+    await expect(service.transferBetweenAccounts(input)).rejects.toMatchObject({ code: "CASH_DRAWER_NOT_OPEN" });
+    await open(f); const transfers = await Promise.all([service.transferBetweenAccounts(input), service.transferBetweenAccounts(input)]); expect(transfers[0].transferId).toBe(transfers[1].transferId);
+    await expect(service.transferBetweenAccounts({ ...input, amountInCents: 501 })).rejects.toMatchObject({ code: "IDEMPOTENCY_CONFLICT" });
+    expect(await service.getCurrentSession(f.workspace.id, f.owner.id)).toMatchObject({ expectedCashInCents: 10500 });
+    expect((await prisma.gymFinancialAccount.findUniqueOrThrow({ where: { id: f.cash.id } })).balanceInCents).toBe(BigInt(10500));
+    await service.transferBetweenAccounts({ ...input, idempotencyKey: randomUUID(), fromAccountId: f.cash.id, toAccountId: f.bank.id, amountInCents: 200 });
+    expect(await service.getCurrentSession(f.workspace.id, f.owner.id)).toMatchObject({ expectedCashInCents: 10300 });
+  });
+  it("retry concorrente de criação e baixa gera um recibo; mesma chave com conteúdo alterado é recusada", async () => {
+    const f = await fixture();
+    const create = { workspaceId: f.workspace.id, unitId: f.unit.id, categoryId: f.category.id, actorUserId: f.owner.id, title: "Despesa idempotente", dueDate: new Date(), amountInCents: 1000, idempotencyKey: randomUUID() };
+    const creations = await Promise.all([service.createExpense(create), service.createExpense(create)]); expect(creations[0].id).toBe(creations[1].id);
+    await expect(service.createExpense({ ...create, amountInCents: 2000 })).rejects.toMatchObject({ statusCode: 409 });
+    const input = { workspaceId: f.workspace.id, expenseId: creations[0].id, financialAccountId: f.bank.id, actorUserId: f.owner.id, paidAmountInCents: 300, idempotencyKey: randomUUID() };
+    const payments = await Promise.all([service.payExpense(input), service.payExpense(input)]); expect(payments[0].paymentId).toBe(payments[1].paymentId);
+    await expect(service.payExpense({ ...input, paidAmountInCents: 301 })).rejects.toMatchObject({ statusCode: 409 });
+    expect(await prisma.gymExpensePayment.count({ where: { expenseId: creations[0].id } })).toBe(1);
+    expect((await prisma.gymFinancialAccount.findUniqueOrThrow({ where: { id: f.bank.id } })).balanceInCents).toBe(BigInt(9700));
+    expect((await prisma.gymExpense.findUniqueOrThrow({ where: { id: creations[0].id } })).paidAmountInCents).toBe(BigInt(300));
+  });
+  it("reversão de pagamento de despesa preserva recibo e agrega uma compensação no turno atual", async () => {
+    const f = await fixture(); const original = await open(f); const created = await expense(f, true);
+    const payment = await prisma.gymExpensePayment.findFirstOrThrow({ where: { expenseId: created.id } });
+    await service.closeCashDrawer({ workspaceId: f.workspace.id, sessionId: original.id, actualCashInCents: 8950, closedByUserId: f.owner.id });
+    const input = { workspaceId: f.workspace.id, expenseId: created.id, paymentId: payment.id, actorUserId: f.owner.id, reversalReason: "Correção de lançamento sintético" };
+    await expect(reverseInternalExpensePayment(input)).rejects.toMatchObject({ code: "CASH_DRAWER_NOT_OPEN" });
+    expect((await prisma.gymExpensePayment.findUniqueOrThrow({ where: { id: payment.id } })).reversedAt).toBeNull();
+    const next = await service.openCashDrawer({ workspaceId: f.workspace.id, financialAccountId: f.cash.id, openingAmountInCents: 8950, openedByUserId: f.owner.id });
+    const results = await Promise.all([reverseInternalExpensePayment(input), reverseInternalExpensePayment(input)]); expect(results[0].paymentId).toBe(results[1].paymentId);
+    expect(await prisma.gymExpensePayment.findUnique({ where: { id: payment.id } })).toMatchObject({ amountInCents: BigInt(1050), recordedByUserId: f.owner.id, reversedByUserId: f.owner.id, reversalReason: input.reversalReason });
+    expect(await prisma.gymCashDrawerMovement.count({ where: { sessionId: next.id, movementType: "EXPENSE_PAYMENT", amountInCents: -BigInt(1050) } })).toBe(1);
+    expect(await prisma.gymCashDrawerSession.findUnique({ where: { id: original.id } })).toMatchObject({ status: "CLOSED", actualCashInCents: BigInt(8950), expectedCashInCents: BigInt(8950) });
+    expect(await service.getCurrentSession(f.workspace.id, f.owner.id)).toMatchObject({ expectedCashInCents: 10000 });
+    expect((await prisma.gymFinancialAccount.findUniqueOrThrow({ where: { id: f.cash.id } })).balanceInCents).toBe(BigInt(10000));
+    expect((await prisma.gymExpense.findUniqueOrThrow({ where: { id: created.id } })).paidAmountInCents).toBe(BigInt(0));
+  });
+  it("reversão é local e autorizada; banco exige valor positivo e representação completa da reversão", async () => {
+    const [a, b] = await Promise.all([fixture(), fixture()]); const created = await expense(a);
+    const input = { workspaceId: a.workspace.id, expenseId: created.id, financialAccountId: a.bank.id, actorUserId: a.owner.id, paidAmountInCents: 300, idempotencyKey: randomUUID() };
+    const result = await service.payExpense(input);
+    const reverse = { workspaceId: a.workspace.id, expenseId: created.id, paymentId: result.paymentId, actorUserId: a.owner.id, reversalReason: "Correção sintética" };
+    await expect(reverseInternalExpensePayment({ ...reverse, workspaceId: b.workspace.id, actorUserId: b.owner.id })).rejects.toMatchObject({ code: "PAYMENT_NOT_FOUND" });
+    const receptionist = await prisma.user.create({ data: { email: `expense-reader-${randomUUID()}@example.invalid` } });
+    await prisma.workspaceMember.create({ data: { workspaceId: a.workspace.id, userId: receptionist.id, role: "RECEPTIONIST" } });
+    await expect(reverseInternalExpensePayment({ ...reverse, actorUserId: receptionist.id })).rejects.toMatchObject({ code: "INSUFFICIENT_PERMISSIONS" });
+    await expect(prisma.gymExpensePayment.update({ where: { id: result.paymentId }, data: { amountInCents: -BigInt(1) } })).rejects.toBeDefined();
+    await expect(prisma.gymExpensePayment.update({ where: { id: result.paymentId }, data: { reversedAt: new Date(), reversedByUserId: a.owner.id, reversalReason: null } })).rejects.toBeDefined();
+    const legacy = await prisma.gymExpense.create({ data: { workspaceId: a.workspace.id, categoryId: a.category.id, createdByUserId: a.owner.id, title: "Histórico sem recibo", amountInCents: BigInt(1000), paidAmountInCents: BigInt(1000), status: "PAID", dueDate: new Date(), competenceMonth: "2026-10" } });
+    await expect(reverseInternalExpensePayment({ ...reverse, expenseId: legacy.id })).rejects.toMatchObject({ code: "PAYMENT_NOT_FOUND" });
+    expect((await prisma.gymExpense.findUniqueOrThrow({ where: { id: legacy.id } })).paidAmountInCents).toBe(BigInt(1000));
+  });
+  it("consulta de contas não provisiona; abertura valida conta, tipo e unidade antes de gravar", async () => {
+    const [a, b] = await Promise.all([fixture(), fixture()]);
+    const before = await prisma.gymFinancialAccount.count(); await service.listFinancialAccounts(a.workspace.id, a.owner.id); expect(await prisma.gymFinancialAccount.count()).toBe(before);
+    const data = { workspaceId: a.workspace.id, openedByUserId: a.owner.id, openingAmountInCents: 0 };
+    await expect(service.openCashDrawer({ ...data, financialAccountId: b.cash.id })).rejects.toMatchObject({ code: "FINANCIAL_ACCOUNT_NOT_FOUND" });
+    await expect(service.openCashDrawer({ ...data, financialAccountId: a.bank.id })).rejects.toMatchObject({ code: "INVALID_TRANSFER_ACCOUNTS" });
+    await expect(service.openCashDrawer({ ...data, financialAccountId: a.cash.id, unitId: b.unit.id })).rejects.toMatchObject({ code: "UNIT_NOT_FOUND" });
+    await expect(service.openCashDrawer({ ...data, openingAmountInCents: -1 })).rejects.toMatchObject({ statusCode: 400 });
+    expect(await prisma.gymCashDrawerSession.count({ where: { workspaceId: a.workspace.id } })).toBe(0);
+    const attempts = await Promise.allSettled([open(a), open(a)]); expect(attempts.filter(result => result.status === "fulfilled")).toHaveLength(1);
+    expect(await prisma.gymCashDrawerSession.count({ where: { workspaceId: a.workspace.id, status: "OPEN" } })).toBe(1);
+  });
+  it("sangria estrangeira faz rollback; duas retiradas concorrentes não excedem saldo", async () => {
+    const [a, b] = await Promise.all([fixture(), fixture()]); const session = await open(a);
+    const data = { workspaceId: a.workspace.id, sessionId: session.id, idempotencyKey: randomUUID(), movementType: "BLEED" as const, amountInCents: 7000, performedByUserId: a.owner.id };
+    await expect(service.recordCashMovement({ ...data, destinationAccountId: b.bank.id })).rejects.toMatchObject({ code: "FINANCIAL_ACCOUNT_NOT_FOUND" });
+    expect((await prisma.gymFinancialAccount.findUniqueOrThrow({ where: { id: a.cash.id } })).balanceInCents).toBe(BigInt(10000));
+    const attempts = await Promise.allSettled([service.recordCashMovement({ ...data, destinationAccountId: a.bank.id }), service.recordCashMovement({ ...data, idempotencyKey: randomUUID(), destinationAccountId: a.bank.id })]);
+    expect(attempts.filter(result => result.status === "fulfilled")).toHaveLength(1);
+    expect((await prisma.gymFinancialAccount.findUniqueOrThrow({ where: { id: a.cash.id } })).balanceInCents).toBe(BigInt(3000));
+    expect((await prisma.gymFinancialAccount.findUniqueOrThrow({ where: { id: a.bank.id } })).balanceInCents).toBe(BigInt(17000));
+    expect(await prisma.gymAccountTransfer.count({ where: { workspaceId: a.workspace.id } })).toBe(1);
+  });
+  it("outro operador não movimenta; fechamento simultâneo persiste uma contagem e recusa novos lançamentos", async () => {
+    const f = await fixture(); const session = await open(f);
+    const other = await prisma.user.create({ data: { email: `operator-${randomUUID()}@example.invalid` } });
+    await prisma.workspaceMember.create({ data: { workspaceId: f.workspace.id, userId: other.id, role: "FINANCE" } });
+    await expect(service.recordCashMovement({ workspaceId: f.workspace.id, sessionId: session.id, idempotencyKey: randomUUID(), movementType: "SUPPLY", amountInCents: 100, performedByUserId: other.id })).rejects.toMatchObject({ statusCode: 403 });
+    const input = { workspaceId: f.workspace.id, sessionId: session.id, actualCashInCents: 10000, closedByUserId: f.owner.id };
+    const attempts = await Promise.allSettled([service.closeCashDrawer(input), service.closeCashDrawer(input)]); expect(attempts.filter(result => result.status === "fulfilled")).toHaveLength(1);
+    expect(await prisma.gymCashDrawerMovement.count({ where: { sessionId: session.id, movementType: "CLOSING" } })).toBe(1);
+    await expect(service.recordCashMovement({ workspaceId: f.workspace.id, sessionId: session.id, idempotencyKey: randomUUID(), movementType: "BLEED", amountInCents: 1, performedByUserId: f.owner.id })).rejects.toMatchObject({ code: "CASH_DRAWER_CLOSED" });
+  });
+  it("despesa valida fornecedor/conta; pagamento imediato em CASH exige turno e inclui multa/desconto", async () => {
+    const [a, b] = await Promise.all([fixture(), fixture()]);
+    const supplier = await prisma.gymSupplier.create({ data: { workspaceId: b.workspace.id, tradeName: "Fornecedor estrangeiro" } });
+    const data = { workspaceId: a.workspace.id, idempotencyKey: randomUUID(), unitId: a.unit.id, categoryId: a.category.id, title: "Despesa", amountInCents: 1000, dueDate: new Date(), actorUserId: a.owner.id };
+    await expect(service.createExpense({ ...data, supplierId: supplier.id })).rejects.toMatchObject({ code: "SUPPLIER_NOT_FOUND" });
+    await expect(service.createExpense({ ...data, financialAccountId: b.bank.id })).rejects.toMatchObject({ code: "FINANCIAL_ACCOUNT_NOT_FOUND" });
+    await expect(expense(a, true)).rejects.toMatchObject({ code: "CASH_DRAWER_NOT_OPEN" });
+    expect(await prisma.gymExpense.count({ where: { workspaceId: a.workspace.id } })).toBe(0);
+    const session = await open(a); const created = await expense(a, true);
+    expect((await prisma.gymExpense.findUniqueOrThrow({ where: { id: created.id } })).paidAmountInCents).toBe(BigInt(1050));
+    expect(await prisma.gymCashDrawerMovement.findFirst({ where: { sessionId: session.id, expenseId: created.id } })).toMatchObject({ movementType: "EXPENSE_PAYMENT", amountInCents: BigInt(1050) });
+    expect((await prisma.gymFinancialAccount.findUniqueOrThrow({ where: { id: a.cash.id } })).balanceInCents).toBe(BigInt(8950));
+  });
+  it("baixa parcial acumula sem quitar; limite concorrente e cancelamento preservam os fatos", async () => {
+    const f = await fixture(); const created = await expense(f);
+    const input = { workspaceId: f.workspace.id, idempotencyKey: randomUUID(), expenseId: created.id, financialAccountId: f.bank.id, paidAmountInCents: 600, actorUserId: f.owner.id, paymentMethod: "PIX" };
+    const first = await service.payExpense(input); expect(first).toMatchObject({ status: "PENDING", paidAmountInCents: 600, balanceRemainingInCents: 450, paidAt: null });
+    await expect(service.cancelExpense({ workspaceId: f.workspace.id, expenseId: created.id, actorUserId: f.owner.id, cancellationReason: "Cancelamento sintético" })).rejects.toMatchObject({ code: "EXPENSE_ALREADY_PAID" });
+    const attempts = await Promise.allSettled([service.payExpense({ ...input, idempotencyKey: randomUUID(), paidAmountInCents: 450 }), service.payExpense({ ...input, idempotencyKey: randomUUID(), paidAmountInCents: 450 })]); expect(attempts.filter(result => result.status === "fulfilled")).toHaveLength(1);
+    expect(await prisma.gymExpense.findUnique({ where: { id: created.id } })).toMatchObject({ status: "PAID", paidAmountInCents: BigInt(1050) });
+    expect((await prisma.gymFinancialAccount.findUniqueOrThrow({ where: { id: f.bank.id } })).balanceInCents).toBe(BigInt(8950));
+    expect(await prisma.auditLog.count({ where: { entityId: f.workspace.id, action: { startsWith: `GYM_EXPENSE_PAYMENT:${created.id}:` } } })).toBe(2);
+  });
+  it("transferência interna revalida saldo e ambas as unidades dentro da transação", async () => {
+    const [a, b] = await Promise.all([fixture(), fixture()]);
+    const targetAccount = await prisma.gymFinancialAccount.create({ data: { workspaceId: a.workspace.id, unitId: a.unit.id, name: "Reserva", accountType: "SAFE_RESERVE" } });
+    const input = { workspaceId: a.workspace.id, idempotencyKey: randomUUID(), fromAccountId: a.bank.id, toAccountId: targetAccount.id, amountInCents: 7000, performedByUserId: a.owner.id };
+    await expect(service.transferBetweenAccounts({ ...input, toAccountId: b.bank.id })).rejects.toMatchObject({ code: "FINANCIAL_ACCOUNT_NOT_FOUND" });
+    const attempts = await Promise.allSettled([service.transferBetweenAccounts(input), service.transferBetweenAccounts({ ...input, idempotencyKey: randomUUID() })]); expect(attempts.filter(result => result.status === "fulfilled")).toHaveLength(1);
+    expect((await prisma.gymFinancialAccount.findUniqueOrThrow({ where: { id: a.bank.id } })).balanceInCents).toBe(BigInt(3000));
+    expect((await prisma.gymFinancialAccount.findUniqueOrThrow({ where: { id: targetAccount.id } })).balanceInCents).toBe(BigInt(7000));
+    const local = await prisma.user.create({ data: { email: `local-${randomUUID()}@example.invalid` } });
+    await prisma.workspaceMember.create({ data: { workspaceId: a.workspace.id, userId: local.id, role: "FINANCE", roleGrants: { create: { role: "FINANCE", unitId: a.unit.id, grantedBy: a.owner.id } } } });
+    const unit = await prisma.gymUnit.create({ data: { workspaceId: a.workspace.id, name: "Outra unidade" } });
+    const foreignScope = await prisma.gymFinancialAccount.create({ data: { workspaceId: a.workspace.id, unitId: unit.id, name: "Banco de outra unidade", accountType: "BANK_ACCOUNT" } });
+    await expect(service.transferBetweenAccounts({ ...input, performedByUserId: local.id, amountInCents: 1, toAccountId: foreignScope.id })).rejects.toMatchObject({ code: "INSUFFICIENT_PERMISSIONS" });
+  });
+});

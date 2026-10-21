@@ -16,7 +16,7 @@ export function SuperAdminBreadcrumbs() {
   if (paths.length < 2 || paths[0] !== "superadmin") {
     return (
       <div className="hidden md:flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-muted-foreground/60">
-        <span className="text-primary font-black">SuperAdmin</span>
+        <span className="text-foreground font-semibold">SuperAdmin</span>
         <span className="opacity-50">/</span>
         <span>AtlasFit Platform</span>
       </div>
@@ -26,7 +26,7 @@ export function SuperAdminBreadcrumbs() {
   // Gera os breadcrumbs dinamicamente
   return (
     <div className="hidden md:flex items-center gap-2 text-[10px] font-bold uppercase tracking-widest text-muted-foreground/60">
-      <Link href="/superadmin/dashboard" className="text-primary font-black hover:underline">
+      <Link href="/superadmin/dashboard" className="text-foreground font-semibold hover:underline">
         SuperAdmin
       </Link>
       

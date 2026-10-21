@@ -1,3 +1,4 @@
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
@@ -90,6 +91,7 @@ async function getOrCreateAbacateProduct(abacatePay: any, pkg: any) {
 }
 
 export async function POST(req: Request) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -156,6 +158,9 @@ export async function POST(req: Request) {
     const returnUrl = `${baseUrl}/personal/credits`;
     const completionUrl = `${baseUrl}/personal/credits?status=success`;
 
+    // Persist the local order before the provider can emit its webhook.
+    const purchase = await prisma.creditPurchase.create({ data: { workspaceId, packageId, userId: session.user.id, amountInCents: pkg.priceInCents, credits: pkg.credits, status: "PENDING" } });
+
     const createCheckoutPayload = (prodId: string) => ({
       methods: ["PIX"],
       items: [
@@ -190,18 +195,7 @@ export async function POST(req: Request) {
     const checkoutUrl = (checkout as any)?.url || (checkout as any)?.checkoutUrl || "";
     const billingId = (checkout as any)?.id || randomUUID();
 
-    const purchase = await prisma.creditPurchase.create({
-      data: {
-        workspaceId,
-        packageId,
-        userId: session.user.id,
-        amountInCents: pkg.priceInCents,
-        credits: pkg.credits,
-        status: "PENDING",
-        abacatePayBillingId: billingId,
-        abacatePayUrl: checkoutUrl,
-      },
-    });
+    await prisma.creditPurchase.update({ where: { id: purchase.id }, data: { abacatePayBillingId: billingId, abacatePayUrl: checkoutUrl } });
 
     return NextResponse.json({
       purchaseId: purchase.id,

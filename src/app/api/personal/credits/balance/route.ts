@@ -1,3 +1,7 @@
+import { requirePersonalWorkspaceAccess, handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
+import { withRequestMemo } from "@/lib/request-memo";
+import { settleCreditPurchase } from "@/modules/payments/abacate-confirmation";
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
@@ -26,23 +30,15 @@ async function reconcilePendingPurchases(userId: string) {
         const isPaid = checkout && ((checkout as any).status === "PAID" || (checkout as any).status === "paid");
 
         if (isPaid) {
-          await prisma.$transaction([
-            prisma.creditPurchase.update({
-              where: { id: purchase.id },
-              data: { status: "PAID", paidAt: new Date() },
-            }),
-            prisma.user.update({
-              where: { id: userId },
-              data: { importCredits: { increment: purchase.credits } },
-            }),
-          ]);
+          await settleCreditPurchase(purchase.id);
         }
       } catch {}
     }
   } catch {}
 }
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -56,10 +52,15 @@ export async function GET(req: Request) {
   }
 
   try {
-    await reconcilePendingPurchases(session.user.id);
+    await requirePersonalWorkspaceAccess({ workspaceId, allowedRoles: ["OWNER", "TRAINER"] });
+    if (req.method === "POST") await reconcilePendingPurchases(session.user.id);
     const quota = await checkImportQuota(workspaceId, session.user.id);
     return NextResponse.json(quota);
-  } catch {
+  } catch (error) {
+    const denied = handleWorkspaceAccessError(error); if (denied) return denied;
     return new NextResponse("Erro ao verificar saldo.", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
+
+export const POST = handleGET;

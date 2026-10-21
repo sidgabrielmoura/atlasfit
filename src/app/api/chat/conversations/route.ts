@@ -1,9 +1,15 @@
+import { chatUserDto } from "@/lib/avatar-response";
+import { serializableTransaction } from "@/modules/workspaces/application/transaction";
+import { assertChatWorkspace } from "@/modules/workspaces/application/chat-authority";
+import { handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
+import { withAuditedRequest } from "@/lib/audited-request";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { publishToChannel } from "@/lib/ably";
+import { assertGymChatContact, getGymChatContacts } from "@/modules/workspaces/application/gym-chat-contacts";
 
-export async function GET(req: Request) {
+export const GET = withAuditedRequest(async function GET(req: Request) {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -18,6 +24,10 @@ export async function GET(req: Request) {
     }
 
     const userId = session.user.id;
+    await assertChatWorkspace(workspaceId, userId);
+    const gym = (await prisma.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { type: true } })).type === "GYM";
+    const allowedParticipants = gym ? [userId, ...(await getGymChatContacts(workspaceId, userId)).map(contact => contact.id)] : undefined;
+    const participantScope = allowedParticipants ? { participants: { every: { OR: [{ leftAt: { not: null } }, { userId: { in: allowedParticipants } }] } } } : {};
 
     // Check workspace membership
     const membership = await prisma.workspaceMember.findFirst({
@@ -28,13 +38,14 @@ export async function GET(req: Request) {
     }
 
     // Settle offline delivery receipts
-    await prisma.message.updateMany({
+    await serializableTransaction(async tx => { await assertChatWorkspace(workspaceId, userId, tx); return tx.message.updateMany({
       where: {
         conversation: {
+          AND: [participantScope],
           workspaceId,
           participants: {
             some: {
-              userId,
+              userId, leftAt: null,
             },
           },
         },
@@ -44,27 +55,29 @@ export async function GET(req: Request) {
       data: {
         status: "DELIVERED",
       },
-    });
+    }); });
 
     // Find conversations where user is a participant
     const conversations = await prisma.conversation.findMany({
       where: {
         workspaceId,
+        AND: [participantScope],
         participants: {
           some: {
-            userId,
+            userId, leftAt: null,
           },
         },
       },
       include: {
         participants: {
+          where: { leftAt: null },
           include: {
             user: {
               select: {
                 id: true,
                 name: true,
                 email: true,
-                image: true,
+                updatedAt: true,
               },
             },
           },
@@ -92,18 +105,19 @@ export async function GET(req: Request) {
       lastMessageAt: c.lastMessageAt,
       createdAt: c.createdAt,
       updatedAt: c.updatedAt,
-      participants: c.participants,
+      participants: c.participants.map(participant => ({ ...participant, user: chatUserDto(participant.user, c.id) })),
       lastSenderId: c.messages[0]?.senderId || null,
     }));
 
     return NextResponse.json(formatted);
   } catch (error) {
+    const denied = handleWorkspaceAccessError(error); if (denied) return denied;
     console.error("[API Conversations GET] Error:", error);
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
-}
+});
 
-export async function POST(req: Request) {
+export const POST = withAuditedRequest(async function POST(req: Request) {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -118,6 +132,7 @@ export async function POST(req: Request) {
     }
 
     const userId = session.user.id;
+    await assertChatWorkspace(workspaceId, userId);
 
     if (userId === targetUserId) {
       return new NextResponse("Não é possível criar uma conversa direta consigo mesmo.", { status: 400 });
@@ -154,7 +169,7 @@ export async function POST(req: Request) {
                 id: true,
                 name: true,
                 email: true,
-                image: true,
+                updatedAt: true,
               },
             },
           },
@@ -163,11 +178,15 @@ export async function POST(req: Request) {
     });
 
     if (existingConversation) {
-      return NextResponse.json(existingConversation);
+      await serializableTransaction(tx => assertGymChatContact(tx, workspaceId, userId, targetUserId));
+      return NextResponse.json({ ...existingConversation, participants: existingConversation.participants.map(participant => ({ ...participant, user: chatUserDto(participant.user, existingConversation.id) })) });
     }
 
     // Create a new direct conversation in a transaction
-    const newConversation = await prisma.$transaction(async (tx) => {
+    const newConversation = await serializableTransaction(async (tx) => {
+      await assertChatWorkspace(workspaceId, userId, tx);
+      await assertChatWorkspace(workspaceId, targetUserId, tx);
+      await assertGymChatContact(tx, workspaceId, userId, targetUserId);
       const conv = await tx.conversation.create({
         data: {
           workspaceId,
@@ -184,11 +203,12 @@ export async function POST(req: Request) {
         ],
       });
 
+      if ((await tx.workspace.findUniqueOrThrow({ where: { id: workspaceId }, select: { type: true } })).type === "GYM") await tx.auditLog.create({ data: { userId, action: "GYM_CHAT_CONVERSATION_CREATED", entity: "CONVERSATION", entityId: conv.id } });
       return conv;
     });
 
     // Query full conversation structure to return
-    const conversation = await prisma.conversation.findUnique({
+    const storedConversation = await prisma.conversation.findUnique({
       where: { id: newConversation.id },
       include: {
         participants: {
@@ -198,13 +218,15 @@ export async function POST(req: Request) {
                 id: true,
                 name: true,
                 email: true,
-                image: true,
+                updatedAt: true,
               },
             },
           },
         },
       },
     });
+
+    const conversation = storedConversation ? { ...storedConversation, participants: storedConversation.participants.map(participant => ({ ...participant, user: chatUserDto(participant.user, storedConversation.id) })) } : null;
 
     // Notify other user via Ably workspace channel
     if (conversation) {
@@ -213,7 +235,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json(conversation);
   } catch (error) {
+    const denied = handleWorkspaceAccessError(error); if (denied) return denied;
     console.error("[API Conversations POST] Error:", error);
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
-}
+});

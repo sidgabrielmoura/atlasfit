@@ -7,6 +7,7 @@ import {
 import {
   getStudentInvitationEmailTemplate,
   getNewStudentNotificationTrainerTemplate,
+  getStaffInvitationEmailTemplate,
 } from "./templates/onboarding.templates";
 import {
   getNewInvoiceBillingEmailTemplate,
@@ -176,6 +177,25 @@ export class EmailService {
       planName: params.planName,
       modality: params.modality,
       recipientEmail: params.to,
+    });
+    return this.send({ to: params.to, subject: tpl.subject, html: tpl.html, text: tpl.text });
+  }
+
+  static async sendStaffInvitation(params: {
+    to: string;
+    workspaceName: string;
+    roleName: string;
+    unitName?: string | null;
+    inviteUrl: string;
+    expiresInHours?: number;
+  }): Promise<SendEmailResult> {
+    const tpl = getStaffInvitationEmailTemplate({
+      recipientEmail: params.to,
+      workspaceName: params.workspaceName,
+      roleName: params.roleName,
+      unitName: params.unitName,
+      inviteUrl: params.inviteUrl,
+      expiresInHours: params.expiresInHours,
     });
     return this.send({ to: params.to, subject: tpl.subject, html: tpl.html, text: tpl.text });
   }

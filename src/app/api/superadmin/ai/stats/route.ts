@@ -1,3 +1,4 @@
+import { withRequestMemo } from "@/lib/request-memo";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
@@ -24,7 +25,7 @@ function getAgentDisplayName(purpose: string): string {
   return `Agente (${purpose})`;
 }
 
-export async function GET() {
+async function handleGET() {
   const session = await auth();
 
   if (session?.user?.role !== "SUPERADMIN") {
@@ -116,3 +117,4 @@ export async function GET() {
     return NextResponse.json({ error: error.message || "Erro ao carregar métricas de IA." }, { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);

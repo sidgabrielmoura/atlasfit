@@ -1,8 +1,9 @@
+import { withRequestMemo } from "@/lib/request-memo";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { getSuperadminMetrics } from "@/lib/roadmap/services";
 
-export async function GET() {
+async function handleGET() {
   try {
     const session = await auth();
     if (session?.user?.role !== "SUPERADMIN") {
@@ -16,3 +17,4 @@ export async function GET() {
     return new NextResponse("Erro ao carregar métricas do superadmin", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);

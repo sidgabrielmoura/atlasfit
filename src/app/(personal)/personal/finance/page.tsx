@@ -1,6 +1,7 @@
 "use client";
+import { useCoalescedRefresh } from "@/hooks/use-coalesced-refresh";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useSnapshot } from "valtio";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -190,6 +191,13 @@ export default function FinancePage() {
     churnChange: 0,
   });
   const [chartData, setChartData] = useState<any[]>([]);
+  const loadedStudentsWorkspace = useRef<string | null>(null);
+  const financeRequestVersion = useRef(0);
+  const [paymentsPage, setPaymentsPage] = useState(1);
+  const [recurrencesHasMore, setRecurrencesHasMore] = useState(false);
+  const [paymentsHasMore, setPaymentsHasMore] = useState(false);
+  const [paymentStatusCounts, setPaymentStatusCounts] = useState<Record<string, number>>({});
+  const [billingAlerts, setBillingAlerts] = useState<any[]>([]);
   const [recentPayments, setRecentPayments] = useState<any[]>([]);
   const [students, setStudents] = useState<any[]>([]);
 
@@ -243,41 +251,52 @@ export default function FinancePage() {
   const [isUpdatingStatusId, setIsUpdatingStatusId] = useState<string | null>(null);
 
   // Fetch all finance details from API
-  const fetchFinanceData = async () => {
+  const fetchFinanceData = async (refreshStudents = false) => {
     if (!activeWorkspaceId) return;
+    const requestVersion = ++financeRequestVersion.current;
     setIsLoading(true);
     try {
       // 1. Fetch overview metrics, chart, payments and recurrences
-      const overviewRes = await fetch(`/api/personal/finance?workspaceId=${activeWorkspaceId}`);
+      const overviewRes = await fetch(`/api/personal/finance?workspaceId=${activeWorkspaceId}&paymentsPage=${paymentsPage}&search=${encodeURIComponent(searchQuery)}&status=${activeTabFilter}&includeRecurrences=${activeSection === "recorrencias" ? "1" : "0"}&recurrencesPage=${paymentsPage}`);
       if (overviewRes.ok) {
         const data = await overviewRes.json();
+        if (requestVersion !== financeRequestVersion.current || workspaceStore.activeWorkspaceId !== activeWorkspaceId) return;
         setMetrics(data.metrics);
         setChartData(data.chartData);
         setRecentPayments(data.recentPayments);
         setRecurrences(data.recurrences || []);
+        setRecurrencesHasMore(data.recurrencesPagination?.hasMore ?? false);
+        setPaymentsHasMore(data.paymentsPagination?.hasMore ?? false);
+        setPaymentStatusCounts(data.statusCounts || {});
+        setBillingAlerts(data.billingAlerts || []);
       } else {
         toast.error("Erro ao carregar dados do financeiro.");
       }
 
       // 2. Fetch students list for dropdown association
-      const studentsRes = await fetch(`/api/personal/clients?workspaceId=${activeWorkspaceId}`);
+      if (refreshStudents) {
+      const studentsRes = await fetch(`/api/personal/clients?workspaceId=${activeWorkspaceId}&projection=finance`);
       if (studentsRes.ok) {
         const studentsData = await studentsRes.json();
-        setStudents(studentsData);
+        if (workspaceStore.activeWorkspaceId === activeWorkspaceId) { setStudents(studentsData); loadedStudentsWorkspace.current = activeWorkspaceId; }
+      }
       }
     } catch (err) {
       console.error("Fetch finance error:", err);
       toast.error("Erro de conexão ao carregar finanças.");
     } finally {
-      setIsLoading(false);
+      if (requestVersion === financeRequestVersion.current) setIsLoading(false);
     }
   };
 
+  const scheduleFinanceRefresh = useCoalescedRefresh(() => fetchFinanceData(), activeWorkspaceId);
   const ablyClient = useAbly();
 
   useEffect(() => {
-    fetchFinanceData();
-  }, [activeWorkspaceId]);
+    if (loadedStudentsWorkspace.current !== activeWorkspaceId) { setStudents([]); setPaymentsPage(1); }
+    const timer = setTimeout(() => { void fetchFinanceData(loadedStudentsWorkspace.current !== activeWorkspaceId); }, 250);
+    return () => { clearTimeout(timer); ++financeRequestVersion.current; };
+  }, [activeWorkspaceId, paymentsPage, searchQuery, activeTabFilter, activeSection]);
 
   useEffect(() => {
     if (!ablyClient || !activeWorkspaceId) return;
@@ -289,7 +308,7 @@ export default function FinancePage() {
         toast.success("Financeiro atualizado em tempo real!", {
           description: "O recebimento do pagamento foi confirmado e registrado."
         });
-        fetchFinanceData();
+        scheduleFinanceRefresh();
       }
     };
 
@@ -613,18 +632,7 @@ export default function FinancePage() {
     }
   };
 
-  // Filter payments list
-  const filteredPayments = recentPayments.filter((p) => {
-    const matchesSearch =
-      p.student.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.plan.toLowerCase().includes(searchQuery.toLowerCase());
-
-    if (activeTabFilter === "todos") return matchesSearch;
-    return matchesSearch && p.status === activeTabFilter;
-  });
-
-  // Extract critical payment alerts (overdue first, then pending)
-  const billingAlerts = recentPayments.filter((p) => p.status === "atrasado" || p.status === "pendente");
+  const filteredPayments = recentPayments;
 
   if (!activeWorkspaceId) {
     return (
@@ -641,9 +649,9 @@ export default function FinancePage() {
   }
 
   const statusData = [
-    { name: "Pago", value: recentPayments.filter(p => p.status === "pago").length, color: "var(--primary)" },
-    { name: "Pendente", value: recentPayments.filter(p => p.status === "pendente").length, color: "#eab308" },
-    { name: "Atrasado", value: recentPayments.filter(p => p.status === "atrasado").length, color: "#f43f5e" },
+    { name: "Pago", value: paymentStatusCounts.pago || 0, color: "var(--primary)" },
+    { name: "Pendente", value: paymentStatusCounts.pendente || 0, color: "#eab308" },
+    { name: "Atrasado", value: paymentStatusCounts.atrasado || 0, color: "#f43f5e" },
   ];
 
   return (
@@ -905,7 +913,7 @@ export default function FinancePage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setActiveSection("historico")}
+                        onClick={() => { setActiveSection("historico"); setPaymentsPage(1); }}
                         className={cn(
                           "text-xs font-bold px-2 sm:px-4 h-8 rounded-lg transition-colors cursor-pointer text-center",
                           activeSection === "historico"
@@ -919,7 +927,7 @@ export default function FinancePage() {
                       <Button
                         variant="ghost"
                         size="sm"
-                        onClick={() => setActiveSection("recorrencias")}
+                        onClick={() => { setActiveSection("recorrencias"); setPaymentsPage(1); }}
                         className={cn(
                           "text-xs font-bold px-2 sm:px-4 h-8 rounded-lg transition-colors cursor-pointer text-center",
                           activeSection === "recorrencias"
@@ -941,7 +949,7 @@ export default function FinancePage() {
                               placeholder="Buscar por aluno ou serviço..."
                               className="pl-9 bg-background border-border text-foreground"
                               value={searchQuery}
-                              onChange={(e) => setSearchQuery(e.target.value)}
+                              onChange={(e) => { setSearchQuery(e.target.value); setPaymentsPage(1); }}
                             />
                           </div>
                           <div className="flex gap-1.5 overflow-x-auto pb-1 sm:pb-0 no-scrollbar">
@@ -950,7 +958,7 @@ export default function FinancePage() {
                                 key={tab}
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => setActiveTabFilter(tab)}
+                                onClick={() => { setActiveTabFilter(tab); setPaymentsPage(1); }}
                                 className={cn(
                                   "text-xs capitalize font-medium px-3 h-9 rounded-lg transition-colors border",
                                   activeTabFilter === tab
@@ -1118,6 +1126,11 @@ export default function FinancePage() {
                             ))
                           )}
                         </div>
+                        <div className="flex items-center justify-between gap-3 pt-4">
+                          <Button variant="outline" disabled={paymentsPage === 1 || isLoading} onClick={() => setPaymentsPage(page => page - 1)}>Anterior</Button>
+                          <span className="text-sm">Página {paymentsPage}</span>
+                          <Button variant="outline" disabled={!paymentsHasMore || isLoading} onClick={() => setPaymentsPage(page => page + 1)}>Próxima</Button>
+                        </div>
                       </div>
                     ) : (
                       <div className="space-y-4">
@@ -1141,13 +1154,13 @@ export default function FinancePage() {
                         </div>
 
                         <div className="space-y-3 max-h-100 overflow-y-auto pr-1 custom-scrollbar">
-                          {recurrences.filter(r => r.studentName.toLowerCase().includes(searchQuery.toLowerCase())).length === 0 ? (
+                          {recurrences.length === 0 ? (
                             <div className="flex flex-col items-center justify-center p-12 border border-dashed rounded-xl bg-secondary/10">
                               <RefreshCw className="size-8 text-muted-foreground mb-2" />
                               <p className="text-sm font-medium text-muted-foreground">Nenhum aluno encontrado.</p>
                             </div>
                           ) : (
-                            recurrences.filter(r => r.studentName.toLowerCase().includes(searchQuery.toLowerCase())).map((rec) => {
+                            recurrences.map((rec) => {
                               const isManual = rec.billingControlType === "MANUAL";
                               const isPaused = !rec.billingIsActive;
                               const isAuto = rec.billingControlType === "AUTOMATIC";
@@ -1244,6 +1257,7 @@ export default function FinancePage() {
                             })
                           )}
                         </div>
+                        <div className="flex items-center justify-between gap-3 pt-4"><Button variant="outline" disabled={paymentsPage === 1 || isLoading} onClick={() => setPaymentsPage(page => page - 1)}>Anterior</Button><span className="text-sm">Página {paymentsPage}</span><Button variant="outline" disabled={!recurrencesHasMore || isLoading} onClick={() => setPaymentsPage(page => page + 1)}>Próxima</Button></div>
                       </div>
                     )}
                   </CardContent>

@@ -1,10 +1,17 @@
-import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command } from "@aws-sdk/client-s3";
+import { S3Client, PutObjectCommand, DeleteObjectCommand, GetObjectCommand, ListObjectsV2Command, HeadObjectCommand } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
 const accessKeyId = process.env.CLOUDFLARE_ID_TOKEN_ACCESS || process.env.CLOUDFLARE_TOKEN_VALUE;
 const secretAccessKey = process.env.CLOUDFLARE_SECRET_ACCESS_KEY;
 const endpoint = "https://ba71c882bd0e9a802f4a93d6cb22cd3c.r2.cloudflarestorage.com";
 const bucketName = process.env.CLOUDFLARE_R2_BUCKET || "atlasfit";
+
+export class StorageConfigurationError extends Error {
+  constructor() { super("Armazenamento não configurado neste ambiente."); this.name = "StorageConfigurationError"; }
+}
+function requireStorageConfiguration() {
+  if (!accessKeyId || !secretAccessKey) throw new StorageConfigurationError();
+}
 
 if (!accessKeyId || !secretAccessKey) {
   console.warn("WARNING: Cloudflare R2 credentials are not fully configured in environment variables.");
@@ -20,6 +27,14 @@ export const s3Client = new S3Client({
 });
 
 export const storageService = {
+  /** Prefix is server-selected. Always list again after deleting a batch. */
+  async listWorkspaceObjects(workspaceId: string) {
+    requireStorageConfiguration();
+    if (!/^[a-zA-Z0-9_-]{1,100}$/.test(workspaceId)) throw new Error("Invalid workspace storage scope");
+    const prefix = `workspace/${workspaceId}/`;
+    const page = await s3Client.send(new ListObjectsV2Command({ Bucket: bucketName, Prefix: prefix, MaxKeys: 100 }));
+    return { keys: (page.Contents ?? []).map(item => item.Key!).filter(Boolean), hasMore: Boolean(page.IsTruncated) };
+  },
   getBucketName() {
     return bucketName;
   },
@@ -27,20 +42,24 @@ export const storageService = {
   /**
    * Generates a presigned PUT URL to upload files directly to Cloudflare R2
    */
-  async getPresignedUploadUrl(key: string, contentType: string, expiresInSeconds = 3600): Promise<string> {
+  async getPresignedUploadUrl(key: string, contentType: string, expiresInSeconds = 3600, expectedSize?: number): Promise<string> {
+    requireStorageConfiguration();
+    if (expectedSize !== undefined && (!Number.isSafeInteger(expectedSize) || expectedSize <= 0)) throw new Error("Tamanho de upload inválido.");
     const command = new PutObjectCommand({
       Bucket: bucketName,
       Key: key,
       ContentType: contentType,
+      ...(expectedSize === undefined ? {} : { ContentLength: expectedSize }),
     });
     
-    return getSignedUrl(s3Client, command, { expiresIn: expiresInSeconds });
+    return getSignedUrl(s3Client, command, { expiresIn: expiresInSeconds, ...(expectedSize === undefined ? {} : { signableHeaders: new Set(["content-length", "content-type"]) }) });
   },
 
   /**
    * Directly uploads a Buffer to Cloudflare R2 (useful for migrations and backend actions)
    */
   async uploadBuffer(key: string, buffer: Buffer, contentType: string): Promise<void> {
+    requireStorageConfiguration();
     const command = new PutObjectCommand({
       Bucket: bucketName,
       Key: key,
@@ -55,6 +74,7 @@ export const storageService = {
    * Deletes an object from Cloudflare R2
    */
   async deleteObject(key: string): Promise<void> {
+    requireStorageConfiguration();
     const command = new DeleteObjectCommand({
       Bucket: bucketName,
       Key: key,
@@ -67,6 +87,7 @@ export const storageService = {
    * Retrieves an object from Cloudflare R2 as a stream for secure proxy serving with optional byte range support
    */
   async getObjectStream(key: string, range?: string | null) {
+    requireStorageConfiguration();
     const command = new GetObjectCommand({
       Bucket: bucketName,
       Key: key,
@@ -86,11 +107,18 @@ export const storageService = {
     };
   },
 
+  async getObjectMetadata(key: string) {
+    requireStorageConfiguration();
+    const result = await s3Client.send(new HeadObjectCommand({ Bucket: bucketName, Key: key }));
+    return { size: result.ContentLength, contentType: result.ContentType, eTag: result.ETag };
+  },
+
   /**
    * Fetches real-time statistics and recent files directly from Cloudflare R2 bucket
    */
   async getBucketStats() {
     try {
+      requireStorageConfiguration();
       const command = new ListObjectsV2Command({
         Bucket: bucketName,
         MaxKeys: 100,
@@ -145,4 +173,3 @@ export const storageService = {
     }
   },
 };
-

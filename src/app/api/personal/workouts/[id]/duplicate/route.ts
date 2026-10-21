@@ -1,3 +1,4 @@
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
@@ -5,12 +6,15 @@ import { areWorkoutsIdentical } from "@/lib/workout-duplicate-checker";
 import { NotificationService } from "@/lib/notifications/service";
 import { EmailService } from "@/lib/emails/service";
 import { simplifyCommaSeparatedString } from "@/lib/utils";
+import { requirePersonalWorkspaceAccess, handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
+import { authorizePersonalStudent } from "@/modules/workspaces/application/personal-student-authority";
 
 // POST /api/personal/workouts/[id]/duplicate
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -74,6 +78,7 @@ export async function POST(
 
     // Verify workspace access if workspaceId is present
     if (originalWorkout.workspaceId) {
+      await requirePersonalWorkspaceAccess({ workspaceId: originalWorkout.workspaceId, capability: "workouts.manage.assigned" });
       const workspaceMember = await prisma.workspaceMember.findFirst({
         where: {
           userId: session.user.id,
@@ -134,6 +139,7 @@ export async function POST(
 
       // If workspace is set, verify student is in the same workspace (Tenant Isolation)
       if (originalWorkout.workspaceId) {
+        await authorizePersonalStudent(originalWorkout.workspaceId, targetStudentId, session.user.id, "workouts.manage.assigned");
         const studentMember = await prisma.workspaceMember.findFirst({
           where: {
             userId: targetStudentId,
@@ -340,8 +346,9 @@ export async function POST(
       studentId: finalStudentId,
       studentName: targetStudentName,
     }, { status: 201 });
-  } catch (error: any) {
+  } catch (error) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
     console.error("Error duplicating workout:", error);
-    return new NextResponse(error.message || "Erro Interno do Servidor", { status: 500 });
+    return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
 }

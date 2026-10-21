@@ -13,40 +13,37 @@ import {
 } from "../../domain/types";
 import { FinancialAccountStatus, WalletKycStatus, WalletPaymentMethod } from "@prisma/client";
 import crypto from "crypto";
-import fs from "fs";
-import path from "path";
+import prisma from "@/lib/prisma";
+import { decryptSubAccountApiKey } from "./subaccount-crypto";
+import { calculatePlatformFee } from "../../domain/fee-calculator";
 import { timingSafeEqualString } from "../../security/wallet-security";
+import { z } from "zod";
+
+export function asaasEnvironment(): "PRODUCTION" | "SANDBOX" {
+  const value = process.env.ASAAS_ENVIRONMENT || "sandbox";
+  if (value !== "sandbox" && value !== "production") throw new Error("ASAAS_ENVIRONMENT_INVALID");
+  return value === "production" ? "PRODUCTION" : "SANDBOX";
+}
 
 export class AsaasAdapter implements PaymentProviderAdapter {
+  constructor(private readonly resolveSubAccountKey = async (providerAccountId: string): Promise<string> => {
+    const environment = asaasEnvironment();
+    const account = await prisma.paymentProviderAccount.findUnique({
+      where: { provider_environment_providerAccountId: { provider: "ASAAS", environment, providerAccountId } },
+      select: { providerApiKeyEncrypted: true, providerApiKeyKeyVersion: true, deletedAt: true, closedAt: true },
+    });
+    if (!account?.providerApiKeyEncrypted || account.providerApiKeyKeyVersion !== "v1" || account.deletedAt || account.closedAt) throw new Error("ASAAS_SUBACCOUNT_CREDENTIAL_UNAVAILABLE");
+    return decryptSubAccountApiKey(account.providerApiKeyEncrypted);
+  }) {}
   private get baseUrl(): string {
-    const env = process.env.ASAAS_ENVIRONMENT || "sandbox";
-    return env === "production"
-      ? "https://www.asaas.com/api/v3"
-      : "https://sandbox.asaas.com/api/v3";
+    return asaasEnvironment() === "PRODUCTION"
+      ? "https://api.asaas.com/v3"
+      : "https://api-sandbox.asaas.com/v3";
   }
 
   private get masterApiKey(): string {
-    let key = (process.env.ASAAS_API_KEY || "").trim();
-    if (!key || key.length < 50 || !key.startsWith("$aact_")) {
-      try {
-        const envPath = path.join(process.cwd(), ".env");
-        if (fs.existsSync(envPath)) {
-          const content = fs.readFileSync(envPath, "utf-8");
-          for (const line of content.split("\n")) {
-            const trimmed = line.trim();
-            if (trimmed.startsWith("ASAAS_API_KEY=")) {
-              key = trimmed.substring("ASAAS_API_KEY=".length).trim();
-              break;
-            }
-          }
-        }
-      } catch {}
-    }
-
-    key = key.replace(/^['"]+|['"]+$/g, "").trim();
-    if (key.includes("#")) {
-      key = key.split("#")[0].trim();
-    }
+    const key = (process.env.ASAAS_API_KEY || "").trim();
+    if (!key) throw new Error("ASAAS_MASTER_CREDENTIAL_UNAVAILABLE");
     return key;
   }
 
@@ -58,11 +55,13 @@ export class AsaasAdapter implements PaymentProviderAdapter {
     };
   }
 
-  private getSubAccountHeaders(subAccountId: string): Record<string, string> {
+  private async getSubAccountHeaders(subAccountId: string): Promise<Record<string, string>> {
+    if (!subAccountId) throw new Error("ASAAS_SUBACCOUNT_REQUIRED");
+    const key = await this.resolveSubAccountKey(subAccountId);
+    if (!key.trim()) throw new Error("ASAAS_SUBACCOUNT_CREDENTIAL_UNAVAILABLE");
     return {
       "Content-Type": "application/json",
-      "access_token": this.masterApiKey,
-      "asaas-account": subAccountId,
+      "access_token": key,
       "User-Agent": "AtlasFit/1.0"
     };
   }
@@ -93,27 +92,14 @@ export class AsaasAdapter implements PaymentProviderAdapter {
   }
 
   async findExistingSubAccountByEmailOrCpf(email: string, cleanCpfCnpj?: string): Promise<any | null> {
-    try {
-      const res = await fetch(`${this.baseUrl}/accounts?email=${encodeURIComponent(email)}`, {
-        method: "GET",
-        headers: this.headers
-      });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.data && Array.isArray(json.data) && json.data.length > 0) {
-          const matched = json.data.find((acc: any) => {
-            if (acc.email && acc.email.toLowerCase() === email.toLowerCase()) return true;
-            if (cleanCpfCnpj && acc.cpfCnpj && acc.cpfCnpj.replace(/\D/g, "") === cleanCpfCnpj) return true;
-            return false;
-          });
-          if (matched) return matched;
-          return json.data[0];
-        }
-      }
-    } catch (err) {
-      console.error("[ASAAS_ADAPTER] Erro ao buscar subconta existente:", err);
-    }
-    return null;
+    // A shared email alone cannot authorize attaching a financial account.
+    if (!cleanCpfCnpj) return null;
+    const res = await fetch(`${this.baseUrl}/accounts?email=${encodeURIComponent(email)}&limit=100`, { method: "GET", headers: this.headers });
+    if (!res.ok) throw new Error(`ASAAS_ACCOUNT_LOOKUP_FAILED:${res.status}`);
+    const page = z.object({ hasMore: z.boolean(), data: z.array(z.object({ id: z.string().min(1), email: z.string(), cpfCnpj: z.string() }).passthrough()) }).parse(await res.json());
+    const matched = page.data.filter(account => account.email.toLowerCase() === email.toLowerCase() && account.cpfCnpj.replace(/\D/g, "") === cleanCpfCnpj);
+    if (page.hasMore || matched.length > 1 || (page.data.length && matched.length !== 1)) throw new Error("ASAAS_ACCOUNT_IDENTITY_REVIEW_REQUIRED");
+    return matched.length ? matched[0] : null;
   }
 
   async createFinancialAccount(input: CreateAccountInput): Promise<AccountStatusResult> {
@@ -245,7 +231,7 @@ export class AsaasAdapter implements PaymentProviderAdapter {
 
     const searchRes = await fetch(`${this.baseUrl}/customers?email=${encodeURIComponent(input.email)}`, {
       method: "GET",
-      headers: this.getSubAccountHeaders(subAccountId)
+      headers: await this.getSubAccountHeaders(subAccountId)
     });
 
     if (searchRes.ok) {
@@ -258,7 +244,7 @@ export class AsaasAdapter implements PaymentProviderAdapter {
         }
         await fetch(`${this.baseUrl}/customers/${existing.id}`, {
           method: "PUT",
-          headers: this.getSubAccountHeaders(subAccountId),
+          headers: await this.getSubAccountHeaders(subAccountId),
           body: JSON.stringify(updatePayload)
         }).catch(() => {});
 
@@ -270,17 +256,22 @@ export class AsaasAdapter implements PaymentProviderAdapter {
       }
     }
 
-    const payload = {
+    const payload: Record<string, unknown> = {
       name: input.name,
       email: input.email,
       cpfCnpj: cleanCpfCnpj,
-      externalReference: input.studentUserId,
+      externalReference: input.studentUserId || input.payerGuardianId || input.payerUserId || undefined,
       notificationDisabled: true
     };
+    if (input.phone) {
+      const cleanP = input.phone.replace(/\D/g, "");
+      payload.mobilePhone = cleanP;
+      payload.phone = cleanP;
+    }
 
     const res = await fetch(`${this.baseUrl}/customers`, {
       method: "POST",
-      headers: this.getSubAccountHeaders(subAccountId),
+      headers: await this.getSubAccountHeaders(subAccountId),
       body: JSON.stringify(payload)
     });
 
@@ -298,11 +289,13 @@ export class AsaasAdapter implements PaymentProviderAdapter {
   }
 
   async createOneTimeCharge(input: CreateChargeInput, subAccountId: string): Promise<ChargeResult> {
+    if (input.amountInCents <= BigInt(0) || input.amountInCents > BigInt(Number.MAX_SAFE_INTEGER) || !Number.isFinite(input.platformFeePercent) || input.platformFeePercent < 0 || input.platformFeeFixedInCents < BigInt(0)) throw new Error("INVALID_CHARGE_AMOUNT_OR_FEE");
     const grossVal = Number((Number(input.amountInCents) / 100).toFixed(2));
-    const rawFee = Number(input.platformFeeFixedInCents) / 100 + (grossVal * (input.platformFeePercent / 100));
-    const platformFeeVal = Number(rawFee.toFixed(2));
+    const fee = calculatePlatformFee({ grossAmountInCents: input.amountInCents, platformPercentage: input.platformFeePercent, platformFixedInCents: input.platformFeeFixedInCents });
+    const platformFeeVal = Number(fee.platformFeeInCents) / 100;
 
     const masterWalletId = input.masterWalletId || process.env.ASAAS_MASTER_WALLET_ID;
+    if (fee.platformFeeInCents > BigInt(0) && !masterWalletId) throw new Error("ASAAS_SPLIT_WALLET_REQUIRED");
 
     const payload: Record<string, unknown> = {
       customer: input.providerCustomerId,
@@ -313,7 +306,7 @@ export class AsaasAdapter implements PaymentProviderAdapter {
       externalReference: input.billingReference
     };
 
-    if (masterWalletId && masterWalletId !== subAccountId) {
+    if (masterWalletId && fee.platformFeeInCents > BigInt(0)) {
       payload.split = [
         {
           walletId: masterWalletId,
@@ -322,40 +315,25 @@ export class AsaasAdapter implements PaymentProviderAdapter {
       ];
     }
 
-    let res = await fetch(`${this.baseUrl}/payments`, {
+    const res = await fetch(`${this.baseUrl}/payments`, {
       method: "POST",
-      headers: this.getSubAccountHeaders(subAccountId),
+      headers: await this.getSubAccountHeaders(subAccountId),
       body: JSON.stringify(payload)
     });
 
     if (!res.ok) {
       const errorText = await res.text();
-      const parsedError = this.parseAsaasError(errorText);
-
-      if (payload.split && (parsedError.includes("split para sua própria carteira") || parsedError.toLowerCase().includes("split"))) {
-        delete payload.split;
-        res = await fetch(`${this.baseUrl}/payments`, {
-          method: "POST",
-          headers: this.getSubAccountHeaders(subAccountId),
-          body: JSON.stringify(payload)
-        });
-        if (!res.ok) {
-          const retryErrorText = await res.text();
-          throw new Error(this.parseAsaasError(retryErrorText));
-        }
-      } else {
-        throw new Error(parsedError);
-      }
+      throw new Error(this.parseAsaasError(errorText));
     }
 
-    const data = await res.json();
+    const data = z.object({ id: z.string().min(1), status: z.string().min(1), invoiceUrl: z.string().nullable().optional(), bankSlipUrl: z.string().nullable().optional() }).passthrough().parse(await res.json());
     let pixPayload: string | undefined = undefined;
     let pixExpiration: Date | undefined = undefined;
 
     if (input.paymentMethod === WalletPaymentMethod.PIX) {
       const qrRes = await fetch(`${this.baseUrl}/payments/${data.id}/pixQrCode`, {
         method: "GET",
-        headers: this.getSubAccountHeaders(subAccountId)
+        headers: await this.getSubAccountHeaders(subAccountId)
       });
       if (qrRes.ok) {
         const qrData = await qrRes.json();
@@ -366,7 +344,7 @@ export class AsaasAdapter implements PaymentProviderAdapter {
       }
     }
 
-    const estimatedFeeCents = BigInt(Math.round(platformFeeVal * 100));
+    const estimatedFeeCents = fee.platformFeeInCents;
     const netEstimatedCents = input.amountInCents - estimatedFeeCents;
 
     return {
@@ -375,43 +353,47 @@ export class AsaasAdapter implements PaymentProviderAdapter {
       grossAmountInCents: input.amountInCents,
       platformFeeEstimatedInCents: estimatedFeeCents,
       personalNetEstimatedInCents: netEstimatedCents,
-      hostedInvoiceUrl: data.invoiceUrl || data.bankSlipUrl,
+      hostedInvoiceUrl: data.invoiceUrl || data.bankSlipUrl || undefined,
       pixPayloadEncrypted: pixPayload,
       pixExpirationAt: pixExpiration
     };
   }
 
   async getPayment(providerBillingId: string, subAccountId: string) {
-    try {
       const res = await fetch(`${this.baseUrl}/payments/${providerBillingId}`, {
         method: "GET",
-        headers: this.getSubAccountHeaders(subAccountId)
+        headers: await this.getSubAccountHeaders(subAccountId)
       });
-      if (!res.ok) return null;
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error(`ASAAS_PAYMENT_LOOKUP_FAILED:${res.status}`);
       return await res.json();
-    } catch {
-      return null;
-    }
+  }
+
+  /** Read-only recovery after an uncertain POST; ambiguity never permits another charge. */
+  async findPaymentByReference(reference: string, subAccountId: string) {
+    const res = await fetch(`${this.baseUrl}/payments?externalReference=${encodeURIComponent(reference)}&limit=100`, { method: "GET", headers: await this.getSubAccountHeaders(subAccountId) });
+    if (!res.ok) throw new Error(`ASAAS_PAYMENT_LOOKUP_FAILED:${res.status}`);
+    const page = z.object({ hasMore: z.boolean(), data: z.array(z.object({
+      id: z.string().min(1), externalReference: z.string(), customer: z.string().min(1),
+      value: z.number().finite().positive(), status: z.string().min(1),
+      invoiceUrl: z.string().optional().nullable(),
+    }).passthrough()) }).parse(await res.json());
+    if (page.hasMore || page.data.length > 1 || page.data.some(payment => payment.externalReference !== reference)) throw new Error("ASAAS_AMBIGUOUS_PAYMENT_REFERENCE");
+    return page.data.length === 0 ? null : page.data[0];
   }
 
   async getMasterBalance(): Promise<GetBalanceResult> {
-    try {
       const res = await fetch(`${this.baseUrl}/finance/balance`, {
         method: "GET",
         headers: this.headers
       });
 
       if (!res.ok) {
-        return {
-          availableAmountInCents: BigInt(0),
-          pendingAmountInCents: BigInt(0),
-          blockedAmountInCents: BigInt(0),
-          negativeAmountInCents: BigInt(0)
-        };
+        throw new Error(`ASAAS_BALANCE_LOOKUP_FAILED:${res.status}`);
       }
 
       const data = await res.json();
-      const availableCents = BigInt(Math.round((data.balance || 0) * 100));
+      const availableCents = this.balanceCents(data);
 
       return {
         availableAmountInCents: availableCents,
@@ -419,20 +401,12 @@ export class AsaasAdapter implements PaymentProviderAdapter {
         blockedAmountInCents: BigInt(0),
         negativeAmountInCents: availableCents < BigInt(0) ? -availableCents : BigInt(0)
       };
-    } catch {
-      return {
-        availableAmountInCents: BigInt(0),
-        pendingAmountInCents: BigInt(0),
-        blockedAmountInCents: BigInt(0),
-        negativeAmountInCents: BigInt(0)
-      };
-    }
   }
 
   async getBalance(providerAccountId: string): Promise<GetBalanceResult> {
     const res = await fetch(`${this.baseUrl}/finance/balance`, {
       method: "GET",
-      headers: this.getSubAccountHeaders(providerAccountId)
+      headers: await this.getSubAccountHeaders(providerAccountId)
     });
 
     if (!res.ok) {
@@ -441,7 +415,7 @@ export class AsaasAdapter implements PaymentProviderAdapter {
     }
 
     const data = await res.json();
-    const availableCents = BigInt(Math.round((data.balance || 0) * 100));
+    const availableCents = this.balanceCents(data);
 
     return {
       availableAmountInCents: availableCents,
@@ -462,7 +436,7 @@ export class AsaasAdapter implements PaymentProviderAdapter {
 
     const res = await fetch(`${this.baseUrl}/transfers`, {
       method: "POST",
-      headers: this.getSubAccountHeaders(subAccountId),
+      headers: await this.getSubAccountHeaders(subAccountId),
       body: JSON.stringify(payload)
     });
 
@@ -483,10 +457,144 @@ export class AsaasAdapter implements PaymentProviderAdapter {
     };
   }
 
+  async createSubscription(input: {
+    customerId: string;
+    billingType: "CREDIT_CARD" | "PIX" | "BOLETO" | "UNDEFINED";
+    value: number;
+    nextDueDate: string;
+    cycle: "MONTHLY" | "WEEKLY" | "BIMONTHLY" | "QUARTERLY" | "SEMIANNUALLY" | "YEARLY";
+    description: string;
+    externalReference?: string;
+    creditCard?: {
+      holderName: string;
+      number: string;
+      expiryMonth: string;
+      expiryYear: string;
+      ccv: string;
+    };
+    creditCardHolderInfo?: {
+      name: string;
+      email: string;
+      cpfCnpj: string;
+      postalCode: string;
+      addressNumber: string;
+      phone: string;
+    };
+    creditCardToken?: string;
+    split?: Array<{ walletId: string; fixedValue?: number; percentualValue?: number }>;
+  }, subAccountId: string): Promise<any> {
+    const payload: any = {
+      customer: input.customerId,
+      billingType: input.billingType,
+      value: input.value,
+      nextDueDate: input.nextDueDate,
+      cycle: input.cycle,
+      description: input.description,
+      externalReference: input.externalReference
+    };
+
+    if (input.creditCardToken) {
+      payload.creditCardToken = input.creditCardToken;
+    } else if (input.creditCard) {
+      payload.creditCard = input.creditCard;
+      if (input.creditCardHolderInfo) {
+        payload.creditCardHolderInfo = input.creditCardHolderInfo;
+      }
+    }
+
+    if (input.split && input.split.length > 0) {
+      payload.split = input.split;
+    }
+
+    const res = await fetch(`${this.baseUrl}/subscriptions`, {
+      method: "POST",
+      headers: await this.getSubAccountHeaders(subAccountId),
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(this.parseAsaasError(errorText));
+    }
+
+    return await res.json();
+  }
+
+  async getSubscription(subscriptionId: string, subAccountId: string): Promise<any | null> {
+      const res = await fetch(`${this.baseUrl}/subscriptions/${subscriptionId}`, {
+        method: "GET",
+        headers: await this.getSubAccountHeaders(subAccountId)
+      });
+      if (res.status === 404) return null;
+      if (!res.ok) throw new Error(`ASAAS_SUBSCRIPTION_LOOKUP_FAILED:${res.status}`);
+      return await res.json();
+  }
+
+  async updateSubscription(subscriptionId: string, updateData: any, subAccountId: string): Promise<any> {
+    const res = await fetch(`${this.baseUrl}/subscriptions/${subscriptionId}`, {
+      method: "PUT",
+      headers: await this.getSubAccountHeaders(subAccountId),
+      body: JSON.stringify(updateData)
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(this.parseAsaasError(errorText));
+    }
+
+    return await res.json();
+  }
+
+  async getSubscriptionPayments(subscriptionId: string, subAccountId: string): Promise<any[]> {
+    const payments: any[] = [];
+    const headers = await this.getSubAccountHeaders(subAccountId);
+    for (let offset = 0; ; offset += 100) {
+      const res = await fetch(`${this.baseUrl}/subscriptions/${subscriptionId}/payments?limit=100&offset=${offset}`, { method: "GET", headers });
+      if (!res.ok) throw new Error(`ASAAS_SUBSCRIPTION_PAYMENTS_LOOKUP_FAILED:${res.status}`);
+      const json = await res.json();
+      if (!Array.isArray(json.data) || typeof json.hasMore !== "boolean") throw new Error("ASAAS_INVALID_PAYMENT_PAGE");
+      payments.push(...json.data);
+      if (!json.hasMore) return payments;
+      if (!json.data.length || offset >= 99900) throw new Error("ASAAS_PAYMENT_PAGINATION_INCOMPLETE");
+    }
+  }
+
+  async tokenizeCreditCard(input: {
+    customer: string;
+    creditCard: {
+      holderName: string;
+      number: string;
+      expiryMonth: string;
+      expiryYear: string;
+      ccv: string;
+    };
+    creditCardHolderInfo: {
+      name: string;
+      email: string;
+      cpfCnpj: string;
+      postalCode: string;
+      addressNumber: string;
+      phone: string;
+    };
+  }, subAccountId: string): Promise<{ creditCardToken: string; creditCardBrand?: string; creditCardNumber?: string }> {
+    const res = await fetch(`${this.baseUrl}/creditCard/tokenize`, {
+      method: "POST",
+      headers: await this.getSubAccountHeaders(subAccountId),
+      body: JSON.stringify(input)
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(this.parseAsaasError(errorText));
+    }
+
+    return await res.json();
+  }
+
   async cancelSubscription(subscriptionId: string, subAccountId: string): Promise<boolean> {
     const res = await fetch(`${this.baseUrl}/subscriptions/${subscriptionId}`, {
       method: "DELETE",
-      headers: this.getSubAccountHeaders(subAccountId)
+      headers: await this.getSubAccountHeaders(subAccountId)
     });
 
     if (!res.ok) {
@@ -505,21 +613,18 @@ export class AsaasAdapter implements PaymentProviderAdapter {
   }
 
   async normalizeWebhook(rawBody: string): Promise<NormalizedFinancialEvent> {
-    let parsed: any;
-    try {
-      parsed = JSON.parse(rawBody);
-    } catch {
-      throw new Error("Payload do webhook malformado ou JSON inválido");
-    }
-
-    const eventId = parsed.id || parsed.event + "_" + (parsed.payment?.id || parsed.transfer?.id || Date.now());
-
+    const resource = z.object({ id: z.string().min(1).max(255) }).passthrough();
+    const parsed = z.object({ id: z.string().min(1).max(255).optional(), event: z.string().min(1).max(100), dateCreated: z.string().optional(), payment: resource.optional(), transfer: resource.optional(), account: z.union([resource, z.string().min(1).max(255)]).optional() }).passthrough().parse(JSON.parse(rawBody));
+    const occurredAt = parsed.dateCreated ? new Date(parsed.dateCreated) : new Date();
+    if (!Number.isFinite(occurredAt.getTime())) throw new Error("Data do webhook inválida.");
+    // Stable fallback retains retry identity even when an older provider event omitted its ID.
+    const eventId = parsed.id || `BODY_SHA256_${crypto.createHash("sha256").update(rawBody).digest("hex")}`;
     return {
       providerEventId: eventId,
-      eventType: parsed.event || "UNKNOWN",
+      eventType: parsed.event,
       resourceType: parsed.payment ? "PAYMENT" : parsed.transfer ? "TRANSFER" : "ACCOUNT",
-      resourceId: parsed.payment?.id || parsed.transfer?.id || parsed.account?.id || "",
-      occurredAt: parsed.dateCreated ? new Date(parsed.dateCreated) : new Date(),
+      resourceId: parsed.payment?.id || parsed.transfer?.id || (typeof parsed.account === "string" ? parsed.account : parsed.account?.id) || "",
+      occurredAt,
       rawPayload: parsed
     };
   }
@@ -612,5 +717,45 @@ export class AsaasAdapter implements PaymentProviderAdapter {
     }
 
     return null;
+  }
+
+  async refundPayment(params: {
+    providerBillingId: string;
+    subAccountId: string;
+    valueInCents?: bigint;
+    description?: string;
+  }): Promise<{ status: string; value: number }> {
+    const payload: Record<string, unknown> = {};
+    if (params.valueInCents !== undefined) {
+      if (params.valueInCents <= BigInt(0) || params.valueInCents > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("INVALID_REFUND_AMOUNT");
+      payload.value = Number(params.valueInCents) / 100;
+    }
+    if (params.description) {
+      payload.description = params.description;
+    }
+
+    const res = await fetch(`${this.baseUrl}/payments/${params.providerBillingId}/refund`, {
+      method: "POST",
+      headers: await this.getSubAccountHeaders(params.subAccountId),
+      body: JSON.stringify(payload)
+    });
+
+    if (!res.ok) {
+      const errorText = await res.text();
+      throw new Error(this.parseAsaasError(errorText));
+    }
+
+    const data = await res.json();
+    return {
+      status: z.string().min(1).parse(data.status),
+      value: z.number().finite().nonnegative().parse(data.value)
+    };
+  }
+
+  private balanceCents(data: unknown): bigint {
+    const { balance } = z.object({ balance: z.number().finite() }).parse(data);
+    const cents = Math.round(balance * 100);
+    if (!Number.isSafeInteger(cents)) throw new Error("ASAAS_INVALID_BALANCE");
+    return BigInt(cents);
   }
 }

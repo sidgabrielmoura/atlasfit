@@ -1,3 +1,4 @@
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { paymentService } from "@/modules/payments/application/payment-service";
@@ -28,6 +29,7 @@ const payoutSchema = z.object({
 }).strict();
 
 export async function POST(req: NextRequest) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   try {
     const session = await auth();
     if (!session?.user?.id) {

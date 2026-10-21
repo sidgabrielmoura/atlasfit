@@ -1,0 +1,12 @@
+﻿"Matrícula";"Nome";"E-mail";"Telefone";"Status";"Data Matrícula";"Plano Ativo";"Data Término";"Menor de Idade"
+"CSV-d79c2311-7c0e-45a3-815d-ac4c373cd93d-0";"'	=1+1";"";"'	+5500000000000";"ACTIVE";"2026-10-08";"Sem plano ativo";"Indeterminado";"NÃO"
+"CSV-193e9827-383f-4952-a634-8e8de23b349c-1";"'	+1+1";"";"'	+5500000000000";"ACTIVE";"2026-10-08";"Sem plano ativo";"Indeterminado";"NÃO"
+"CSV-d68b3fab-097b-4f58-b5ad-06e3b94f12dd-2";"'	-1+1";"";"'	+5500000000000";"ACTIVE";"2026-10-08";"Sem plano ativo";"Indeterminado";"NÃO"
+"CSV-f1814421-fc6d-48ca-84e9-a501aeed02c5-3";"'	@SUM(1;1)";"";"'	+5500000000000";"ACTIVE";"2026-10-08";"Sem plano ativo";"Indeterminado";"NÃO"
+"CSV-4dba83ea-88e0-4779-bcaf-a3fa51f415f0-4";"'	＝1+1";"";"'	+5500000000000";"ACTIVE";"2026-10-08";"Sem plano ativo";"Indeterminado";"NÃO"
+"CSV-c065e3fd-de31-4513-93a7-2ba2895a0433-5";"'		=1+1";"";"'	+5500000000000";"ACTIVE";"2026-10-08";"Sem plano ativo";"Indeterminado";"NÃO"
+"CSV-20eae468-2836-4e02-9243-4dc57a0cfa67-6";"'	=1+1";"";"'	+5500000000000";"ACTIVE";"2026-10-08";"Sem plano ativo";"Indeterminado";"NÃO"
+"CSV-9a9c006f-3518-4f59-93b5-bf07cc5b8a57-7";"'	
+=1+1";"";"'	+5500000000000";"ACTIVE";"2026-10-08";"Sem plano ativo";"Indeterminado";"NÃO"
+"CSV-5005badf-4cff-4475-83ad-127c89486d32-8";"'	﻿=1+1";"";"'	+5500000000000";"ACTIVE";"2026-10-08";"Sem plano ativo";"Indeterminado";"NÃO"
+"CSV-c4696907-2cae-4a1e-a88b-1fe7ec1fdd3d-9";"Nome legítimo, com acento; aspas ""teste""";"";"'	+5500000000000";"ACTIVE";"2026-10-08";"Sem plano ativo";"Indeterminado";"NÃO"

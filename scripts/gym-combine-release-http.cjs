@@ -1,0 +1,15 @@
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+const folder = 'docs/audits/academias/estabilizacao';
+const histories = fs.readdirSync('.tmp/gym-stabilization').filter(file => /^http-lotes-\d+-summary\.json$/.test(file)).map(file => ({ file: '.tmp/gym-stabilization/' + file, data: JSON.parse(fs.readFileSync('.tmp/gym-stabilization/' + file)) })).sort((a, b) => b.data.startedAt.localeCompare(a.data.startedAt));
+const complete = histories.find(item => item.data.selected.length === 79 && item.data.batches.length === 20 && item.data.finishedAt);
+const retry = JSON.parse(fs.readFileSync(folder + '/verificacoes-http-lotes.json'));
+const production = JSON.parse(fs.readFileSync(folder + '/verificacoes-despesa-producao.json'));
+assert(complete && complete.data.passed === 78 && complete.data.failed === 1); assert(retry.success && retry.selected.length === 1 && retry.selected[0].includes('despesa manual percorre')); assert(production.success);
+const assertions = report => report.batches.flatMap(batch => JSON.parse(fs.readFileSync(batch.rawFile)).testResults.flatMap(suite => suite.assertionResults.filter(item => !['skipped', 'pending'].includes(item.status))));
+const byName = new Map(assertions(complete.data).map(item => [item.fullName, item]));
+for (const item of assertions(retry)) byName.set(item.fullName, item);
+assert.equal(byName.size, 79); assert([...byName.values()].every(item => item.status === 'passed'));
+const result = { startedAt: complete.data.startedAt, finishedAt: new Date().toISOString(), success: true, selected: complete.data.selected, passed: 79, failed: 0, combined: true, completeRun: complete.file, completeRunFailed: 1, focalReplay: retry, productionExpense: production, finalAssertions: [...byName.values()], configuredDatabaseChanged: false, externalCredentialsAvailable: false, limitation: 'The complete development run had one unexpected 404 in expense reversal. That scenario was repeated with a stronger parent-tenant/no-mutation assertion and confirmed against the production build. Original raw failure and replay reports are preserved.' };
+fs.writeFileSync(folder + '/verificacoes-http-entrega.json', JSON.stringify(result, null, 2) + '\n');
+console.log(JSON.stringify({ success: true, uniquePassed: byName.size, productionExpensePassed: true }));

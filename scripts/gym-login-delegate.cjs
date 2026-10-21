@@ -1,0 +1,10 @@
+const fs = require('node:fs');
+const ts = require('typescript');
+const file = 'src/components/auth/actions.ts';
+let source = fs.readFileSync(file, 'utf8');
+const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+const fn = ast.statements.find(node => ts.isFunctionDeclaration(node) && node.name?.text === 'login');
+if (!fn?.body) throw new Error('Login body missing');
+source = source.slice(0, fn.body.getStart(ast)) + fs.readFileSync('.tmp/gym-stabilization/login-body.txt', 'utf8') + source.slice(fn.body.end);
+source = source.replace('import { issueCredentialProof } from "@/lib/auth/credential-proof";', 'import { issueCredentialProof } from "@/lib/auth/credential-proof";\nimport { resolveAuthenticationPolicyByEmail, authenticationPolicyKey, prepareEmailFactor, consumeEmailFactor, consumeAuthenticatorFactor } from "@/lib/auth/mfa-service";');
+fs.writeFileSync(file, source);

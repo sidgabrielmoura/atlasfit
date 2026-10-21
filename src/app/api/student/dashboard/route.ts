@@ -1,47 +1,25 @@
+import { studentTrainingSummary, studentProgressSummary } from "@/lib/student-training-summary";
+import { withRequestMemo } from "@/lib/request-memo";
 import { NextResponse } from "next/server";
+import { authorizeGymStudent } from "@/modules/workspaces/application/student-authority";
+import { handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
-import { verifyAndDecayWorkspaceMemberStreak } from "@/lib/streak-helper";
-import { processRecurringPaymentsForMember } from "@/lib/recurrence";
+import { getStudentWorkspaceMember } from "@/lib/student-auth";
+import { studentWorkoutScope } from "@/lib/student-workout-scope";
+import { getGymStudentFinance } from "@/modules/workspaces/application/gym-student-finance";
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado. Por favor, faça login.", { status: 401 });
   }
 
   try {
-    // 1. Find active student membership
-    let member = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        role: "STUDENT",
-        isActive: true,
-      },
-      include: {
-        workspace: true,
-        user: true,
-      },
-    });
-
-    if (!member) {
-      return new NextResponse("Membro do workspace não encontrado.", { status: 404 });
-    }
-
-    // Process recurring payments for this member to sync invoices and planEndDate
-    await processRecurringPaymentsForMember(member.id);
-
-    // Re-fetch member to have the latest planEndDate after recurrence processing
-    const updatedMember = await prisma.workspaceMember.findUnique({
-      where: { id: member.id },
-      include: {
-        workspace: true,
-        user: true,
-      }
-    });
-    if (updatedMember) {
-      member = updatedMember;
-    }
+    const selected = await getStudentWorkspaceMember(session.user.id);
+    if (!selected) return new NextResponse("Selecione um vínculo estudantil ativo.", { status: 409 });
+    const identity = await prisma.user.findUniqueOrThrow({ where: { id: session.user.id }, select: { name: true } });
+    const member = { ...selected, user: identity };
 
     // Fetch trainer (workspace owner) details for contact info
     const trainer = await prisma.user.findUnique({
@@ -53,52 +31,21 @@ export async function GET(req: Request) {
     });
 
     const workspaceId = member.workspaceId;
+    if (member.workspace.type === "GYM") await authorizeGymStudent(workspaceId, member.id, session.user.id, "health.read.assigned", { allowSelf: true });
     const now = new Date();
     const currentDayOfWeek = now.getDay(); // 0 = Sunday, 1 = Monday, etc.
 
     const workouts = await prisma.workout.findMany({
       where: {
-        workspaceId,
-        OR: [
-          { studentId: session.user.id },
-          { studentId: null }
-        ]
+        ...studentWorkoutScope(workspaceId, member.workspace.type, session.user.id)
       },
-      include: {
-        exercises: {
-          include: {
-            exercise: {
-              include: {
-                muscleGroup: true,
-                trainerVideoLinks: {
-                  where: {
-                    video: {
-                      OR: [
-                        { workspaceId },
-                        { trainer: { workspaces: { some: { workspaceId } } } },
-                      ],
-                    },
-                  },
-                  include: {
-                    video: true,
-                  },
-                },
-              },
-            },
-          }
-        }
-      },
+      select: { id: true, name: true, dayOfWeek: true, muscleGroupLabel: true, duration: true, isActive: true, _count: { select: { exercises: true } } },
       orderBy: { dayOfWeek: "asc" }
     });
 
     // 3. Fetch progress history for evolution (weight, BF%)
-    const progressHistory = await prisma.studentProgress.findMany({
-      where: {
-        studentId: session.user.id,
-        workspaceId,
-      },
-      orderBy: { date: "asc" },
-    });
+    const progress = await studentProgressSummary(workspaceId, session.user.id);
+    const progressHistory = progress.points;
 
     // 4. Fetch physical evaluations
     const physicalEvaluations = await prisma.physicalEvaluation.findMany({
@@ -106,35 +53,22 @@ export async function GET(req: Request) {
         studentId: session.user.id,
         workspaceId,
       },
-      orderBy: { date: "desc" },
+      select: { weight: true, bodyFat: true },
+      take: 1,
+      orderBy: [{ date: "desc" }, { id: "desc" }],
     });
 
     // 4.5. Fetch completed workouts history (WorkoutLog) for PR calculations
-    const workoutLogs = await prisma.workoutLog.findMany({
-      where: {
-        studentId: session.user.id,
-        workspaceId,
-      },
-      include: {
-        workout: {
-          include: {
-            exercises: {
-              include: {
-                exercise: true,
-              },
-            },
-          },
-        },
-      },
-      orderBy: {
-        completedAt: "asc",
-      },
-    });
+    const weekStart = new Date(now);
+    weekStart.setDate(now.getDate() + (now.getDay() === 0 ? -6 : 1 - now.getDay())); weekStart.setHours(0, 0, 0, 0);
+    const workoutLogs = await prisma.workoutLog.findMany({ where: { studentId: session.user.id, workspaceId, completedAt: { gte: weekStart }, workout: { workspaceId } }, select: { workoutId: true, completedAt: true, workout: { select: { name: true, dayOfWeek: true } } }, orderBy: [{ completedAt: "asc" }, { id: "asc" }] });
+    const training = await studentTrainingSummary(workspaceId, session.user.id);
 
     // 5. Fetch adjustment requests / chat messages
     const adjustmentRequests = await prisma.exerciseAdjustmentRequest.findMany({
       where: {
         requesterId: session.user.id,
+        exercise: { workoutExercises: { some: { workout: studentWorkoutScope(workspaceId, member.workspace.type, session.user.id) } } },
       },
       include: {
         exercise: true,
@@ -169,16 +103,18 @@ export async function GET(req: Request) {
 
     // 7. Check if there are pending or overdue payments
     const studentName = member.user.name || session.user.name || "Aluno";
-    const studentPayments = await prisma.workspacePayment.findMany({
+    const manual = member.workspace.type === "GYM" ? await getGymStudentFinance(workspaceId, member.id, session.user.id) : null;
+    const studentPayments = manual ? [] : await prisma.workspacePayment.findMany({
       where: {
         workspaceId,
         studentName,
+        status: { in: ["pendente", "atrasado"] },
       },
-      orderBy: { createdAt: "desc" },
+      select: { status: true, amount: true },
     });
 
-    const hasOverdue = studentPayments.some((p) => p.status === "atrasado");
-    const hasPending = studentPayments.some((p) => p.status === "pendente");
+    const hasOverdue = manual ? BigInt(manual.totals.overdueInCents) > BigInt(0) : studentPayments.some((p) => p.status === "atrasado");
+    const hasPending = manual ? BigInt(manual.totals.outstandingInCents) > BigInt(0) : studentPayments.some((p) => p.status === "pendente");
     
     let paymentStatus = "Em dia";
     if (hasOverdue) {
@@ -192,10 +128,9 @@ export async function GET(req: Request) {
       .reduce((sum, p) => sum + p.amount, 0);
 
     // 8. Calculations and formatting
-    const { streak, bestStreak: calculatedBestStreak } = await verifyAndDecayWorkspaceMemberStreak(
-      member,
-      workoutLogs.map((log) => log.completedAt)
-    );
+    const streak = training.streak;
+    const calculatedBestStreak = Math.max(training.bestStreak, member.bestStreak || 0);
+    if (member.streak !== streak || member.bestStreak !== calculatedBestStreak) await prisma.workspaceMember.update({ where: { id: member.id }, data: { streak, bestStreak: calculatedBestStreak } });
     const adherence = member.progress || 0; // standard progress value acts as adherence
 
     // Determine current/next workout and today's workouts
@@ -254,8 +189,8 @@ export async function GET(req: Request) {
 
     // Calculate weight change from first logged progress
     let evolutionPercent = 0;
-    if (progressHistory.length > 1) {
-      const firstWeight = progressHistory[0].weight;
+    if (progress.first && latestProgress && progress.first.id !== latestProgress.id) {
+      const firstWeight = progress.first.weight;
       const lastWeight = currentWeight;
       if (firstWeight && lastWeight) {
         evolutionPercent = parseFloat((((firstWeight - lastWeight) / firstWeight) * 100).toFixed(1));
@@ -357,69 +292,7 @@ export async function GET(req: Request) {
       }
     }
 
-    // Dynamic PRs (Recordes Pessoais) from WorkoutLog load history
-    interface PRRecord {
-      maxLoad: number;
-      date: Date;
-      previousBest: number | null;
-    }
-    const prMap = new Map<string, PRRecord>();
-
-    for (const log of workoutLogs) {
-      if (!log.loads || typeof log.loads !== "object") continue;
-      const loadsRecord = log.loads as Record<string, string[]>;
-
-      const exerciseMap = new Map<string, string>();
-      log.workout?.exercises?.forEach((we) => {
-        if (we.exercise?.name) {
-          exerciseMap.set(we.id, we.exercise.name);
-        }
-      });
-
-      Object.entries(loadsRecord).forEach(([weId, setLoads]) => {
-        const exerciseName = exerciseMap.get(weId);
-        if (!exerciseName || !Array.isArray(setLoads)) return;
-
-        let maxLoadInLog = 0;
-        setLoads.forEach((loadStr) => {
-          if (!loadStr) return;
-          const numericLoad = parseFloat(String(loadStr).replace(/[^0-9.]/g, "")) || 0;
-          if (numericLoad > maxLoadInLog) {
-            maxLoadInLog = numericLoad;
-          }
-        });
-
-        if (maxLoadInLog > 0) {
-          const existing = prMap.get(exerciseName);
-          if (!existing) {
-            prMap.set(exerciseName, {
-              maxLoad: maxLoadInLog,
-              date: log.completedAt,
-              previousBest: null,
-            });
-          } else if (maxLoadInLog > existing.maxLoad) {
-            prMap.set(exerciseName, {
-              maxLoad: maxLoadInLog,
-              date: log.completedAt,
-              previousBest: existing.maxLoad,
-            });
-          }
-        }
-      });
-    }
-
-    const prs = Array.from(prMap.entries())
-      .map(([exerciseName, record]) => ({
-        id: `pr-${exerciseName.toLowerCase().replace(/\s+/g, "-")}`,
-        exercise: `${exerciseName} (Carga Máxima)`,
-        value: `${record.maxLoad} kg`,
-        date: record.date.toLocaleDateString("pt-BR"),
-        previousBest: record.previousBest ? `${record.previousBest} kg` : "--",
-        rawLoad: record.maxLoad,
-        rawDate: record.date.getTime(),
-      }))
-      .sort((a, b) => b.rawDate - a.rawDate)
-      .slice(0, 3);
+    const prs = training.records.map(record => ({ id: `pr-${record.exerciseName.toLowerCase().replace(/\s+/g, "-")}`, exercise: `${record.exerciseName} (Carga Máxima)`, value: `${record.maxLoad} kg`, date: record.date.toLocaleDateString("pt-BR"), previousBest: record.previousBest ? `${record.previousBest} kg` : "--", rawLoad: record.maxLoad, rawDate: record.date.getTime() }));
 
     // Dynamic Messages (including both exercise adjustments and daily feeling feedbacks)
     const recentMessages = [];
@@ -460,6 +333,8 @@ export async function GET(req: Request) {
 
     const payload = {
       workspace: {
+        id: workspaceId,
+        type: member.workspace.type,
         name: member.workspace.name,
         logoUrl: member.workspace.logoUrl,
         primaryColor: member.workspace.primaryColor,
@@ -478,7 +353,7 @@ export async function GET(req: Request) {
         name: nextWorkout.name,
         muscleGroupLabel: nextWorkout.muscleGroupLabel || "Geral",
         duration: nextWorkout.duration,
-        exercisesCount: nextWorkout.exercises.length,
+        exercisesCount: nextWorkout._count.exercises,
       } : null,
       canDoAnyWorkoutDay: member.canDoAnyWorkoutDay ?? false,
       completedWorkoutIdsThisWeek,
@@ -488,12 +363,13 @@ export async function GET(req: Request) {
         name: w.name,
         muscleGroupLabel: w.muscleGroupLabel || "Geral",
         duration: w.duration,
-        exercisesCount: w.exercises.length,
+        exercisesCount: w._count.exercises,
         isActive: w.isActive,
         isCompletedToday: completedWorkoutIdsToday.includes(w.id),
         isCompletedThisWeek: completedWorkoutIdsThisWeek.includes(w.id),
       })),
       weightHistory,
+      weightHistoryBasis: { period: "LATEST_READING_PER_MONTH", limit: 24 },
       prs,
       alerts,
       pendingTasks,
@@ -508,7 +384,9 @@ export async function GET(req: Request) {
       recentMessages: recentMessages.slice(0, 3),
       finance: {
         status: paymentStatus,
-        pendingAmount: pendingPaymentAmount,
+        kind: manual ? "GYM_MANUAL" : "PERSONAL",
+        pendingAmount: manual ? `${BigInt(manual.totals.outstandingInCents) / BigInt(100)},${(BigInt(manual.totals.outstandingInCents) % BigInt(100)).toString().padStart(2, "0")}` : pendingPaymentAmount,
+        pendingAmountInCents: manual?.totals.outstandingInCents || null,
       },
       planEndDate: member.planEndDate ? member.planEndDate.toISOString() : null,
       trainerWhatsApp: trainer?.whatsapp || null,
@@ -525,7 +403,9 @@ export async function GET(req: Request) {
 
     return NextResponse.json(payload);
   } catch (error) {
-    console.error("Student Dashboard API Error:", error);
+    const denied = handleWorkspaceAccessError(error); if (denied) return denied;
+    console.error("Student Dashboard API Error:", { errorType: error instanceof Error ? error.name : "UnknownError" });
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);

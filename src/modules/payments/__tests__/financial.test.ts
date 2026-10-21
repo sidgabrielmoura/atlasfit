@@ -39,6 +39,7 @@ vi.mock("@/lib/prisma", () => {
 vi.mock("@/lib/ably", () => ({ publishToChannel: vi.fn() }));
 
 import prisma from "@/lib/prisma";
+import { PaymentService } from "../application/payment-service";
 import { encryptSubAccountApiKey, decryptSubAccountApiKey } from "@/modules/payments/providers/asaas/subaccount-crypto";
 
 const MOCK_RAW_KEY = "$aact_sub_test_apikey_sandboxonly";
@@ -101,38 +102,51 @@ describe("PaymentService – processActivationFeeRecovery", () => {
     vi.resetAllMocks();
   });
 
-  it("[T01] PAYMENT_RECEIVED cria exatamente uma ActivationFeeRecoveryOperation", async () => {
+  it("[T01] resultado de transferência incerto conserva uma reserva e impede novo envio no retry", async () => {
     const account = makeMockAccount();
-    const mockPrisma = prisma as unknown as ReturnType<typeof import("@/lib/prisma")["default"]["$transaction"]>;
-    (prisma.paymentProviderAccount.findUnique as ReturnType<typeof vi.fn>).mockResolvedValue(account);
-    (prisma.activationFeeRecoveryOperation.create as ReturnType<typeof vi.fn>).mockResolvedValue({
-      id: "op_001", status: "RESERVED", externalReference: "atlas_activation_fee_op_001"
+    let operation: { id: string; status: string; externalReference: string } | null = null;
+    const create = vi.fn().mockImplementation(({ data }) => { operation = { ...data }; return operation; });
+    const updateAccount = vi.fn().mockResolvedValue({});
+    const lock = vi.fn().mockResolvedValue([{ id: account.id }]);
+    const findFirst = vi.fn().mockImplementation(({ where }) => {
+      if (!operation) return null;
+      const status = where.status;
+      if (status.notIn) return status.notIn.includes(operation.status) ? null : operation;
+      if (status.in) return status.in.includes(operation.status) ? operation : null;
+      return operation;
     });
-    (prisma.paymentProviderAccount.update as ReturnType<typeof vi.fn>).mockResolvedValue({});
     (prisma.$transaction as ReturnType<typeof vi.fn>).mockImplementation(async (fn: (tx: typeof prisma) => Promise<unknown>) => {
       const tx = {
+        $queryRaw: lock,
         paymentProviderAccount: {
           findUnique: vi.fn().mockResolvedValue(account),
-          update: vi.fn().mockResolvedValue({})
+          update: updateAccount
         },
         activationFeeRecoveryOperation: {
-          findFirst: vi.fn().mockResolvedValue(null),
-          create: vi.fn().mockResolvedValue({
-            id: "op_001", status: "RESERVED", externalReference: "atlas_activation_fee_op_001"
-          })
+          findFirst, create,
         }
       };
       return fn(tx as unknown as typeof prisma);
     });
 
-    const { PaymentService } = await import("../application/payment-service");
     const svc = new PaymentService();
-    vi.spyOn(svc["adapter"] as unknown as { transferToMaster: () => unknown }, "transferToMaster").mockRejectedValue(new Error("Network timeout"));
-    (prisma.activationFeeRecoveryOperation.update as ReturnType<typeof vi.fn>).mockResolvedValue({});
+    const transfer = vi.spyOn(svc["adapter"] as unknown as { transferToMaster: () => unknown }, "transferToMaster").mockRejectedValue(new Error("Network timeout"));
+    (prisma.activationFeeRecoveryOperation.update as ReturnType<typeof vi.fn>).mockImplementation(({ data }) => {
+      if (operation) operation.status = data.status; return operation;
+    });
 
-    await svc.processActivationFeeRecovery(MOCK_DB_ACCOUNT_ID, BigInt(500), "billing_001");
+    expect(await svc.processActivationFeeRecovery(MOCK_DB_ACCOUNT_ID, BigInt(500), "billing_001")).toBeNull();
+    expect(await svc.processActivationFeeRecovery(MOCK_DB_ACCOUNT_ID, BigInt(500), "billing_001")).toBeNull();
 
-    expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(create).toHaveBeenCalledTimes(1); expect(transfer).toHaveBeenCalledTimes(1);
+    const created = create.mock.calls[0][0].data;
+    expect(created).toMatchObject({ providerAccountId: MOCK_DB_ACCOUNT_ID, billingId: "billing_001", amountInCents: BigInt(500), status: "RESERVED" });
+    expect(created.externalReference).toBe(`atlas_activation_fee_${created.id}`);
+    expect(transfer).toHaveBeenCalledWith(BigInt(500), MOCK_RAW_KEY, created.externalReference);
+    expect(prisma.activationFeeRecoveryOperation.update).toHaveBeenCalledWith({ where: { id: created.id }, data: { status: "RECONCILING", failureReason: "Network timeout" } });
+    expect(updateAccount).toHaveBeenCalledTimes(1);
+    expect(updateAccount).toHaveBeenCalledWith({ where: { id: MOCK_DB_ACCOUNT_ID }, data: { activationFeeReservedInCents: { increment: BigInt(500) } } });
+    expect(lock).toHaveBeenCalledTimes(2);
   });
 
   it("[T15] transferToMaster usa API Key da subconta descriptografada, não a Master", async () => {

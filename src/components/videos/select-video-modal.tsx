@@ -76,12 +76,12 @@ export function SelectVideoModal({
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="max-w-lg w-full max-h-[85vh] flex flex-col p-0 overflow-hidden rounded-2xl border-border bg-card">
+        <DialogContent className="max-w-lg w-full max-h-[85vh] flex flex-col p-0 overflow-hidden rounded-2xl! border-border bg-card">
           <DialogHeader className="p-4 sm:p-6 pb-2 border-b border-border/50 shrink-0">
             <div className="flex items-center justify-between gap-2">
               <div>
                 <DialogTitle className="text-lg font-bold tracking-tight">
-                  Selecionar da Biblioteca de Vídeos
+                  Selecionar da Biblioteca
                 </DialogTitle>
                 <DialogDescription className="text-xs text-muted-foreground">
                   Escolha um dos seus vídeos para vincular a este exercício.

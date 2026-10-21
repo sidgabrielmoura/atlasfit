@@ -1,0 +1,33 @@
+const fs = require('node:fs');
+const root = 'docs/audits/academias/estabilizacao';
+const file = `${root}/tratamento.json`;
+const states = JSON.parse(fs.readFileSync(file, 'utf8'));
+const annex = `${root}/pausa-e-escopo-financeiro.md`;
+function record(number, correction, files, close = false) {
+  const state = states[`GYM-AUD-${String(number).padStart(3, '0')}`];
+  state.correction = correction;
+  state.files = [...new Set([...state.files, ...files, annex])];
+  state.validation = [...new Set([...state.validation, 'pause-finance-units: 34/0 PostgreSQL; http-pause-finance: 1/0 HTTP (26 fora do filtro). Escopo/limites no anexo de pausa e financeiro; sem browser/produção.'])];
+  state.currentConfirmation = close ? 'Condição original revalidada no domínio, PostgreSQL real e contrato HTTP pertinente; conclusão limitada ao achado indicado.' : 'Correção parcial implementada e verificada nos cenários descritos; o achado composto conserva pendências.';
+  if (close) state.state = 'Corrigido e verificado';
+}
+const pause = ['src/modules/workspaces/application/enrollment-pause.ts', 'src/modules/workspaces/application/enrollment-lock.ts', 'src/modules/workspaces/application/enrollment-activation.ts', 'src/modules/workspaces/application/enrollment-closure-job.ts', 'src/app/api/gym/enrollments/[id]/pause/route.ts', 'src/app/api/gym/enrollments/[id]/resume/route.ts', 'src/app/api/gym/enrollments/cron-expire/route.ts', 'prisma/migrations/20261003000000_gym_pause_effective_start/migration.sql', 'tests/gym/enrollment-pause.integration.ts'];
+const finance = ['src/modules/workspaces/application/manual-finance-authority.ts', 'src/modules/workspaces/application/manual-finance-service.ts', 'src/modules/workspaces/application/manual-invoice-service.ts', 'src/modules/workspaces/application/payer-service.ts', 'src/modules/workspaces/domain/manual-finance-contract.ts', 'src/modules/workspaces/application/invoice-service.ts', 'src/app/(gym)/gym/finance/page.tsx', 'tests/gym/finance-unit-scope.integration.ts', 'tests/gym/http.spec.ts'];
+record(22, 'Criação/aceite/ativação locais validados; pausa futura não suspende antes da data. Pausa/retomada serializadas, sem sobreposição/dia artificial ou ativação por rota alternativa. Job registra início efetivo e retoma antes da expiração; preserva dívida/aceite. Troca imediata com novo aceite e ajuste aprovado foi escolhida pelo usuário e ainda exige implementação. Renovação, múltiplas matrículas e política financeira da pausa permanecem pendentes.', pause);
+record(2, 'Grants reais e histórico de revogação governam escopo. Leitura de alunos agora limita papel legado à unidade do membro, sem promover ausência de grants a acesso global. Avulsas, recibos, baixa e reversão derivam unidade real; retries não retornam recibo após revogação. Demais queries, OWNER e seleção de unidade em todas as interfaces ainda pendentes.', [...finance, 'src/modules/workspaces/application/gym-student-queries.ts']);
+record(11, 'Obrigações financeiras revalidam aluno/matrícula/conta/academia/unidade dentro do comando; FK estrangeira legada impede baixa e não aparece nas listas. SSR minimiza/prelimita seletores financeiros. Permanecem relações históricas, unidade imutável da obrigação, demais modelos e migrations de integridade composta.', finance);
+record(12, 'DTO settings/subscription e serialização decimal mantidos. Faturas/recebimentos/recibos agora têm tipos estruturais e conversão segura de BigInt, sem arredondar legado além de MAX_SAFE_INTEGER; mutações rejeitam montante não apresentável antes da gravação. Contratos monetários de outras superfícies ainda em revisão.', finance);
+record(17, 'Emissão manual estrita revalida desconto, precisão, motivo e alçada atual na unidade real; centavos/percentual são exclusivos. ID de aprovador enviado não concede autoridade. 100% autorizado registra obrigação zero sem recebimento fictício. Persistência atribui aprovação ao ator autorizado, sem coerções por truthiness.', finance, true);
+record(25, 'Recebimento/alocação/saldo/auditoria são atômicos em Serializable. Chave inclui academia e fingerprint completo. Retry concorrente preserva um recebimento; reutilização divergente é recusada. Releitura de P2002 revalida ator/recursos; permissão revogada ou unidade alheia não retorna recibo anterior. Emissão avulsa sem idempotência é pendência distinta, indicada no anexo.', finance, true);
+record(27, 'Pagador deriva aluno/matrícula/responsável atuais; papel estudantil revogado não é restaurado por perfil, documento personalizado tem dígito verificador válido. Cliente não define pagador arbitrário na baixa. Vínculo de responsável/legado e identidade global ainda requerem revisão completa, sem encerrar o achado por esta validação parcial.', finance);
+record(43, 'Cron exige segredo; execução manual do ciclo completo exige workspace.manage global e schema estrito. Job aplica pausas/encerramento locais e informa falhas como 503, sem emitir recibo por gerar dívida. Scheduler implantado, observabilidade e demais caminhos compartilhados ainda pendentes.', pause);
+fs.writeFileSync(file, JSON.stringify(states, null, 2) + '\n');
+const counts = {};
+for (const state of Object.values(states)) counts[state.state] = (counts[state.state] || 0) + 1;
+const main = 'docs/audits/academias/estabilizacao-modulo-academias.md';
+let source = fs.readFileSync(main, 'utf8');
+source = source.replace(/Posição deste marco:[^\n]+/, `Posição deste marco: ${counts['Corrigido e verificado'] || 0} achados corrigidos e verificados, ${counts['Desativado ou retirado do escopo com segurança'] || 0} retirados do escopo, ${counts['Implementado, aguardando verificação específica'] || 0} implementados aguardando verificação específica e ${counts.Pendente || 0} pendentes. Pendências incluem achados compostos com correções parciais; não representam processos independentes.`);
+if (!source.includes('(estabilizacao/pausa-e-escopo-financeiro.md)')) source = source.replace('## Arquitetura e sequência', 'O [lote de pausa efetiva e financeiro por unidade](estabilizacao/pausa-e-escopo-financeiro.md) registra as alterações de 03/10, migration aditiva, 34 cenários PostgreSQL e jornada HTTP, incluindo a nova decisão de troca imediata com aceite e aprovação financeira.\n\n## Arquitetura e sequência');
+source = source.replace('jornadas de pessoas/contratos/aulas; marca e configuração; acesso físico verificável;', 'jornadas de pessoas/contratos; marca e configuração; experiência operacional sem CRM/aulas/equipamentos;');
+fs.writeFileSync(main, source);
+console.log(JSON.stringify(counts));

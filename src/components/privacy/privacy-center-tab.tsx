@@ -1,4 +1,7 @@
 "use client";
+import { NativeSelect, NativeSelectOption } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
+
 
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
@@ -34,6 +37,7 @@ import { toast } from "sonner";
 import Link from "next/link";
 
 interface PrivacyData {
+  gymWorkspaces?: { id: string; name: string }[];
   compliance: {
     isCompliant: boolean;
   };
@@ -59,10 +63,15 @@ interface PrivacyData {
     type: string;
     status: string;
     requestedAt: string;
+    workspaceId?: string | null; response?: string | null; rejectionReason?: string | null;
   }>;
 }
 
 export function PrivacyCenterTab() {
+  const [requestWorkspace, setRequestWorkspace] = useState("");
+  const [requestType, setRequestType] = useState("INFORMATION");
+  const [requestNotes, setRequestNotes] = useState("");
+  const [requestBusy, setRequestBusy] = useState(false);
   const [data, setData] = useState<PrivacyData | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
@@ -149,9 +158,14 @@ export function PrivacyCenterTab() {
     }
   };
 
+  const submitRequest = async () => {
+    setRequestBusy(true);
+    try { const res = await fetch("/api/user/privacy", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: requestType, workspaceId: requestWorkspace || null, notes: requestNotes }) }); const body = await res.json(); if (!res.ok) throw new Error(typeof body.error === "string" ? body.error : body.error?.message || "Pedido não registrado."); toast.success("Pedido registrado para análise."); setRequestNotes(""); await fetchPrivacyData(); }
+    catch (e) { toast.error(e instanceof Error ? e.message : "Falha ao enviar pedido."); } finally { setRequestBusy(false); }
+  };
   const handleDeleteAccount = async () => {
     setIsDeleting(true);
-    const toastId = toast.loading("Processando exclusão definitiva de dados...");
+    const toastId = toast.loading("Registrando pedido de exclusão...");
 
     try {
       const res = await fetch("/api/user/privacy", {
@@ -159,13 +173,14 @@ export function PrivacyCenterTab() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           type: "DELETION",
+          workspaceId: requestWorkspace || null,
           notes: "Solicitação formal de exclusão definitiva e expurgo de dados do titular.",
         }),
       });
 
       if (!res.ok) throw new Error("Erro ao registrar solicitação de exclusão.");
 
-      toast.success("Solicitação de exclusão registrada com sucesso. Nossa equipe e sistemas iniciarão o expurgo.", { id: toastId });
+      toast.success("Solicitação de exclusão registrada com sucesso. O controlador analisará a identidade, o escopo e as retenções.", { id: toastId });
       fetchPrivacyData();
     } catch (err: any) {
       toast.error(err.message || "Falha ao processar solicitação.", { id: toastId });
@@ -199,7 +214,7 @@ export function PrivacyCenterTab() {
           </div>
           <Badge variant="outline" className="gap-1 px-3 py-1">
             <CheckCircle2 className="size-3 text-emerald-500" />
-            Conforme LGPD
+            Central de privacidade
           </Badge>
         </CardHeader>
         <CardContent className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
@@ -282,12 +297,12 @@ export function PrivacyCenterTab() {
             Portabilidade de Dados (Exportação)
           </CardTitle>
           <CardDescription className="text-xs">
-            Baixe uma cópia completa, estruturada e legível dos seus dados cadastrais, saúde e histórico de treinos.
+            Baixe seus registros cadastrais, saúde, treinos, contratos e anexos em um pacote estruturado.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="text-xs text-muted-foreground max-w-lg">
-            O arquivo JSON gerado inclui seu perfil, avaliações físicas, histórico de medidas, registros de execução e links temporários para mídias associadas.
+            O pacote inclui os registros do titular e anexos em base64 com hash de integridade. O pacote admite até 100 MB e 1.000 anexos; acima disso, solicite atendimento em lotes. Arquivos sem vínculo ou tamanho verificável exigem reconciliação antes da conclusão.
           </div>
           <Button
             onClick={handleExportData}
@@ -342,6 +357,12 @@ export function PrivacyCenterTab() {
         </Card>
       )}
 
+      <Card><CardHeader><CardTitle>Exercer meus direitos</CardTitle><CardDescription>Selecione quem mantém os registros e acompanhe a resposta ao seu pedido.</CardDescription></CardHeader><CardContent className="space-y-4">
+        <Label htmlFor="privacy-controller">Controlador responsável</Label><NativeSelect id="privacy-controller" value={requestWorkspace} onChange={e => setRequestWorkspace(e.target.value)}><NativeSelectOption value="">AtlasFit — conta da plataforma</NativeSelectOption>{data?.gymWorkspaces?.map(w => <NativeSelectOption key={w.id} value={w.id}>{w.name}</NativeSelectOption>)}</NativeSelect>
+        <Label htmlFor="privacy-type">Tipo de pedido</Label><NativeSelect id="privacy-type" value={requestType} onChange={e => setRequestType(e.target.value)}>{Object.entries({ ACCESS: "Acesso aos dados", CORRECTION: "Correção", DELETION: "Eliminação", PORTABILITY: "Portabilidade", CONSENT_REVOCATION: "Revogação de consentimento", INFORMATION: "Informações sobre tratamento", OBJECTION: "Oposição", OTHER: "Outro pedido" }).map(([value, label]) => <NativeSelectOption key={value} value={value}>{label}</NativeSelectOption>)}</NativeSelect>
+        <Label htmlFor="privacy-notes">Descreva seu pedido</Label><Textarea id="privacy-notes" value={requestNotes} onChange={e => setRequestNotes(e.target.value)} maxLength={2000} /><Button disabled={requestBusy} onClick={() => void submitRequest()}>{requestBusy ? "Registrando…" : "Enviar pedido"}</Button>
+        <div className="space-y-3" aria-label="Meus pedidos de privacidade">{data?.requests.map(r => <div key={r.id} className="rounded-lg border p-3 text-sm"><p>{r.type} · {r.status} · {new Date(r.requestedAt).toLocaleDateString("pt-BR")}</p><p>{data.gymWorkspaces?.find(w => w.id === r.workspaceId)?.name || "AtlasFit — plataforma"}</p>{(r.response || r.rejectionReason) && <p className="mt-2 whitespace-pre-wrap">{r.response || r.rejectionReason}</p>}</div>)}</div>
+      </CardContent></Card>
       {/* Account Deletion / Data Erasure */}
       <Card className="border-destructive/30 bg-destructive/5">
         <CardHeader className="pb-3">
@@ -350,12 +371,12 @@ export function PrivacyCenterTab() {
             Exclusão Definitiva de Conta e Dados
           </CardTitle>
           <CardDescription className="text-xs text-destructive/80">
-            Ação irreversível de eliminação de registros no banco de dados e expurgo de arquivos no Cloudflare R2.
+            Pedido sujeito à conferência da identidade e à análise das finalidades de retenção pelo controlador selecionado.
           </CardDescription>
         </CardHeader>
         <CardContent className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div className="text-xs text-muted-foreground max-w-lg">
-            Ao solicitar a exclusão, todos os seus treinos, fotos comparativas, dados de saúde e acessos serão permanentemente eliminados.
+            A solicitação será analisada pelo controlador. A resposta informará os dados eliminados, os registros conservados e os motivos da retenção.
           </div>
 
           <AlertDialog>
@@ -376,7 +397,7 @@ export function PrivacyCenterTab() {
                 </AlertDialogTitle>
                 <AlertDialogDescription className="text-xs text-muted-foreground space-y-2">
                   <p>
-                    Esta ação é <strong className="text-foreground">irreversível</strong>. Todos os seus dados pessoais, históricos de treino, medidas e fotos de evolução serão expurgados definitivamente dos nossos servidores e do storage em nuvem.
+                    Este pedido será registrado para análise. A exclusão ocorrerá após a conferência da identidade e das finalidades de retenção, com resposta fundamentada.
                   </p>
                   <p>
                     Deseja realmente prosseguir com o pedido de exclusão?
@@ -390,7 +411,7 @@ export function PrivacyCenterTab() {
                   variant="destructive"
                   disabled={isDeleting}
                 >
-                  {isDeleting ? "Processando..." : "Sim, Excluir Meus Dados"}
+                  {isDeleting ? "Processando..." : "Registrar pedido de exclusão"}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>

@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
-import { cookies } from "next/headers";
+import { getStudentWorkspaceMember } from "@/lib/student-auth";
+import { normalizeWorkspaceColor, brandingForeground } from "@/modules/workspaces/domain/branding";
 import { StudentMobileNavbar } from "@/components/application/student-mobile-navbar";
 import { NotificationBell } from "@/components/application/notification-bell";
 import { ChatHeaderButton } from "@/components/application/chat-header-button";
@@ -27,13 +28,11 @@ export default async function StudentLayout({
     redirect("/auth/student");
   }
 
-  const role = (session.user as any).role as string | undefined;
-  if (role !== "STUDENT" && role !== "SUPERADMIN" && !(session.user as any).isImpersonated) {
-    redirect("/auth/student");
-  }
-
+  const member = await getStudentWorkspaceMember(session.user.id);
+  if (!member) redirect("/select-workspace");
+  const activeWorkspace = member.workspace;
   // Se for superadmin ou sessão impersonada, ignora para permitir suporte e testes
-  if (session?.user?.role !== "SUPERADMIN" && !(session?.user as any)?.isImpersonated) {
+  if (session?.user?.role !== "SUPERADMIN" && !session.user.isImpersonated) {
     const maintenanceSetting = await prisma.systemSetting.findUnique({
       where: { key: "maintenance_mode" }
     });
@@ -44,58 +43,23 @@ export default async function StudentLayout({
   }
 
   // Guard: if user is not onboarded, redirect to onboarding flow
-  if (session?.user?.role !== "SUPERADMIN" && !(session?.user as any)?.isImpersonated) {
+  if (session?.user?.role !== "SUPERADMIN" && !session.user.isImpersonated) {
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
       select: { onboarded: true }
     });
 
-    if (user && !user.onboarded) {
+    if (user && !user.onboarded && activeWorkspace.type === "PERSONAL") {
       redirect("/student-onboarding");
     }
   }
 
-  // Fetch active workspace details for mobile header branding
-  const cookieStore = await cookies();
-  const activeWorkspaceId = cookieStore.get("student_active_workspace_id")?.value;
-
-  let activeWorkspace = null;
-  if (activeWorkspaceId) {
-    activeWorkspace = await prisma.workspace.findUnique({
-      where: { id: activeWorkspaceId, isActive: true },
-      select: {
-        id: true,
-        name: true,
-        slug: true,
-        logoUrl: true,
-        primaryColor: true,
-        slogan: true,
-        workoutCoverUrl: true,
-        watermarkUrl: true,
-      }
-    });
-  } else {
-    const activeMember = await prisma.workspaceMember.findFirst({
-      where: { userId: session.user.id, role: "STUDENT", isActive: true },
-      include: { workspace: true }
-    });
-    if (activeMember?.workspace) {
-      activeWorkspace = activeMember.workspace;
-    }
-  }
-
-  const workspaceData = activeWorkspace ? {
-    id: activeWorkspace.id || activeWorkspaceId || "",
-    name: activeWorkspace.name,
-    slug: (activeWorkspace as any).slug || "",
-    logo: activeWorkspace.name.slice(0, 2).toUpperCase(),
-    logoUrl: activeWorkspace.logoUrl,
-    primaryColor: activeWorkspace.primaryColor || "#2B4FCC",
-    plan: "Pro",
-    slogan: activeWorkspace.slogan,
-    workoutCoverUrl: activeWorkspace.workoutCoverUrl || null,
-    watermarkUrl: activeWorkspace.watermarkUrl || null,
-  } : null;
+  const workspaceData = {
+    id: activeWorkspace.id, name: activeWorkspace.name, slug: activeWorkspace.slug, type: activeWorkspace.type,
+    logo: activeWorkspace.name.slice(0, 2).toUpperCase(), logoUrl: activeWorkspace.logoUrl,
+    primaryColor: normalizeWorkspaceColor(activeWorkspace.primaryColor), plan: activeWorkspace.type === "GYM" ? "Academia" : "Personal",
+    slogan: activeWorkspace.slogan, workoutCoverUrl: activeWorkspace.workoutCoverUrl, watermarkUrl: activeWorkspace.watermarkUrl,
+  };
 
   return (
     <SidebarProvider>
@@ -112,7 +76,8 @@ export default async function StudentLayout({
                 <div
                   className="flex aspect-square size-8 items-center justify-center rounded-lg text-white font-bold text-xs shrink-0 overflow-hidden shadow-sm border border-white/[0.06]"
                   style={{
-                    backgroundColor: activeWorkspace.primaryColor || "var(--primary)",
+                    backgroundColor: workspaceData.primaryColor,
+                    color: brandingForeground(workspaceData.primaryColor),
                   }}
                 >
                   {activeWorkspace.logoUrl ? (
@@ -131,9 +96,9 @@ export default async function StudentLayout({
                   </span>
                   <span
                     className="text-[8px] font-black uppercase tracking-wider leading-none mt-0.5 truncate max-w-[150px]"
-                    style={{ color: activeWorkspace.primaryColor || "var(--primary)" }}
+                    style={{ color: workspaceData.primaryColor }}
                   >
-                    {activeWorkspace.slogan || "Assessoria Esportiva"}
+                    {activeWorkspace.slogan || (activeWorkspace.type === "GYM" ? "Academia" : "Assessoria Esportiva")}
                   </span>
                 </div>
               </div>

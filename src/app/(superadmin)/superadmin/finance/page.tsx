@@ -1,26 +1,24 @@
 "use client";
 
-import { motion } from "framer-motion";
+import { financeTransactionsSchema, type FinanceTransactions } from "@/modules/workspaces/domain/superadmin-finance";
+import { Empty, EmptyHeader, EmptyTitle, EmptyDescription } from "@/components/ui/empty";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import type { LucideIcon } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
   DollarSign,
   TrendingUp,
-  TrendingDown,
   CreditCard,
   Users,
   ArrowUpRight,
   ArrowDownRight,
-  Download,
-  CalendarDays,
   BadgeCheck,
   AlertCircle,
   BarChart3,
   Percent,
-  History,
   Loader2
 } from "lucide-react";
-import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { superAdminActions, useSuperAdminSnapshot } from "@/stores/superadmin.store";
@@ -46,12 +44,13 @@ import {
 
 
 
-const formatBRL = (value: number) => {
+const formatBRL = (value: number | null | undefined) => {
+  if (value == null) return "Indisponível";
   return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(value);
 };
 
-function FinanceStatCard({ title, value, change, icon: Icon, description, trend }: {
-  title: string; value: string; change: string; icon: any; description: string; trend: "up" | "down";
+function FinanceStatCard({ title, value, icon: Icon, description }: {
+  title: string; value: string; icon: LucideIcon; description: string;
 }) {
   return (
     <Card className="border-border/40 bg-card/50">
@@ -60,13 +59,7 @@ function FinanceStatCard({ title, value, change, icon: Icon, description, trend 
           <div className="p-2.5 rounded-xl bg-primary/10 text-primary">
             <Icon className="size-5" />
           </div>
-          <div className={cn(
-            "flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full",
-            trend === "up" ? "text-emerald-600 bg-emerald-500/10" : "text-rose-600 bg-rose-500/10"
-          )}>
-            {trend === "up" ? <ArrowUpRight className="size-3" /> : <ArrowDownRight className="size-3" />}
-            {change}
-          </div>
+
         </div>
         <div>
           <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">{title}</p>
@@ -82,7 +75,6 @@ export default function FinanceManagementPage() {
   const snap = useSuperAdminSnapshot();
   const [isCouponModalOpen, setIsCouponModalOpen] = useState(false);
   const [isSubmittingCoupon, setIsSubmittingCoupon] = useState(false);
-  const [mounted, setMounted] = useState(false);
   const [togglingCoupons, setTogglingCoupons] = useState<Record<string, boolean>>({});
   const [couponToDelete, setCouponToDelete] = useState<any | null>(null);
   const [isDeletingCoupon, setIsDeletingCoupon] = useState(false);
@@ -99,19 +91,12 @@ export default function FinanceManagementPage() {
   const [selectedPersonal, setSelectedPersonal] = useState("all");
   const [selectedPlan, setSelectedPlan] = useState("all");
   const [currentPage, setCurrentPage] = useState(1);
-  const [transactionsData, setTransactionsData] = useState<{
-    data: any[];
-    pagination: {
-      total: number;
-      page: number;
-      pages: number;
-      limit: number;
-    };
-  } | null>(null);
+  const [transactionsData, setTransactionsData] = useState<FinanceTransactions | null>(null);
+  const [transactionsError, setTransactionsError] = useState<string | null>(null);
+  const [transactionAttempt, setTransactionAttempt] = useState(0);
   const [isLoadingTx, setIsLoadingTx] = useState(false);
 
   useEffect(() => {
-    setMounted(true);
     superAdminActions.fetchFinance();
     superAdminActions.fetchCoupons();
     superAdminActions.fetchPlans();
@@ -143,31 +128,24 @@ export default function FinanceManagementPage() {
     }
   };
 
-  const fetchTransactions = async () => {
-    setIsLoadingTx(true);
-    try {
-      const params = new URLSearchParams();
-      params.append("status", activeTab);
-      params.append("page", String(currentPage));
-      params.append("limit", "10");
-      if (selectedPersonal !== "all") params.append("userId", selectedPersonal);
-      if (selectedPlan !== "all") params.append("planId", selectedPlan);
-      if (selectedDate !== "all") params.append("dateRange", selectedDate);
-
-      const res = await fetch(`/api/superadmin/finance/transactions?${params.toString()}`);
-      if (!res.ok) throw new Error("Erro ao carregar transações");
-      const result = await res.json();
-      setTransactionsData(result);
-    } catch (err: any) {
-      toast.error(err.message || "Erro ao carregar transações.");
-    } finally {
-      setIsLoadingTx(false);
-    }
-  };
-
   useEffect(() => {
-    fetchTransactions();
-  }, [activeTab, selectedDate, selectedPersonal, selectedPlan, currentPage]);
+    const controller = new AbortController();
+    setIsLoadingTx(true); setTransactionsError(null); setTransactionsData(null);
+    const params = new URLSearchParams({ status: activeTab, page: String(currentPage), limit: "10", dateRange: selectedDate });
+    if (selectedPersonal !== "all") params.set("userId", selectedPersonal);
+    if (selectedPlan !== "all") params.set("planId", selectedPlan);
+    void (async () => {
+      try {
+        const response = await fetch("/api/superadmin/finance/transactions?" + params.toString(), { signal: controller.signal });
+        if (!response.ok) throw new Error("Não foi possível carregar as transações.");
+        const result = financeTransactionsSchema.parse(await response.json());
+        if (!controller.signal.aborted) setTransactionsData(result);
+      } catch (error: unknown) {
+        if (!controller.signal.aborted) setTransactionsError("Não foi possível carregar as transações. Tente novamente.");
+      } finally { if (!controller.signal.aborted) setIsLoadingTx(false); }
+    })();
+    return () => controller.abort();
+  }, [activeTab, selectedDate, selectedPersonal, selectedPlan, currentPage, transactionAttempt]);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -219,22 +197,8 @@ export default function FinanceManagementPage() {
     }
   };
 
-  const data = snap.financeData || {
-    mrr: 0,
-    arr: 0,
-    totalRevenue: 0,
-    todaysRevenue: 0,
-    totalFailedRevenue: 0,
-    ltv: 0,
-    churn: 0,
-    recentTransactions: [],
-    recentUpgrades: []
-  };
-
-  const recentUpgradesList = data.recentUpgrades || [];
-
-  // Histórico de MRR dinâmico baseado no MRR real
-  const chartData = data.mrrHistory || [];
+  const data = snap.financeData;
+  const recentUpgradesList = data?.recentUpgrades || [];
 
   return (
     <div className="p-4 sm:p-6 md:p-8 space-y-6 md:space-y-10 max-w-[1600px] mx-auto animate-in fade-in duration-500">
@@ -248,54 +212,26 @@ export default function FinanceManagementPage() {
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Financeiro Global</h1>
           <p className="text-muted-foreground text-xs sm:text-sm font-medium">Consolidado de receita, assinaturas e saúde econômica da plataforma.</p>
         </div>
-        <div className="flex flex-col sm:flex-row items-center gap-3 w-full sm:w-auto">
-          <Button variant="outline" className="h-11 w-full sm:w-auto rounded-xl gap-2 font-bold text-xs border-border/60 px-6 cursor-pointer">
-            <Download className="size-4" /> EXPORTAR RELATÓRIO
-          </Button>
-          <Button className="h-11 w-full sm:w-auto rounded-xl gap-2 font-bold bg-primary text-primary-foreground px-6 shadow-lg shadow-primary/20 cursor-pointer hover:bg-primary/90 transition-colors">
-            CONCILIAR PAGAMENTOS
-          </Button>
+        <Button variant="outline" disabled={snap.financeLoading} onClick={() => void superAdminActions.fetchFinance()}>
+          {snap.financeLoading && <Loader2 className="size-4 animate-spin" />} Atualizar indicadores
+        </Button>
+      </div>
+
+      {snap.financeError && <Alert variant="destructive"><AlertDescription>{snap.financeError}{data && " Os valores abaixo são da última consulta concluída."}</AlertDescription></Alert>}
+      {snap.financeLoading && !data ? <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">{Array.from({ length: 5 }, (_, i) => <Skeleton key={i} className="h-40 rounded-xl" />)}</div> : data && <>
+        <p className="text-xs text-muted-foreground">Consulta de {new Date(data.snapshot.asOf).toLocaleString("pt-BR", { timeZone: data.snapshot.timezone })} • Fuso de São Paulo. Assinaturas Personal e licenças de academias; cobranças dos alunos pertencem ao financeiro de cada academia.</p>
+        {data.unvaluedSubscriptionsCount > 0 && <Alert><AlertDescription>{data.unvaluedSubscriptionsCount} de {data.eligibleSubscriptionsCount} assinaturas vigentes sem preço ou ciclo válido. Subtotal conhecido: {formatBRL(data.knownMonthlyReferenceInCents / 100)} por mês.</AlertDescription></Alert>}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
+          <FinanceStatCard title="Transações aprovadas" value={formatBRL(data.totalRevenue)} icon={DollarSign} description="Registros com status aprovado; não é conciliação bancária" />
+          <FinanceStatCard title="Referência mensal" value={formatBRL(data.mrr)} icon={TrendingUp} description="Catálogo atual normalizado por ciclo; sem preço contratado preservado" />
+          <FinanceStatCard title="Referência anual" value={formatBRL(data.arr)} icon={BarChart3} description="Referência mensal multiplicada por 12" />
+          <FinanceStatCard title="LTV" value="Indisponível" icon={Users} description="Histórico de receita por cliente insuficiente" />
+          <FinanceStatCard title="Churn" value="Indisponível" icon={ArrowDownRight} description="Histórico da coorte de assinaturas insuficiente" />
         </div>
-      </div>
-
-      {/* 2. Bento Grid de Primary KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-        <FinanceStatCard title="Receita Total" value={formatBRL(data.totalRevenue)} change="+8.2%" icon={DollarSign} description="Volume total processado" trend="up" />
-        <FinanceStatCard title="MRR Global" value={formatBRL(data.mrr)} change="+12.4%" icon={TrendingUp} description="Receita mensal recorrente" trend="up" />
-        <FinanceStatCard title="ARR Global" value={formatBRL(data.arr)} change="+15.1%" icon={BarChart3} description="Receita anual estimada" trend="up" />
-        <FinanceStatCard title="LTV Médio" value={formatBRL(data.ltv)} change="+5.0%" icon={Users} description="Valor médio por cliente" trend="up" />
-        <FinanceStatCard title="Churn Financeiro" value={`${data.churn.toFixed(1)}%`} change="-1.2%" icon={ArrowDownRight} description="Perda de receita mensal" trend="down" />
-      </div>
-
-      {/* Gráfico de Evolução Financeira */}
-      <Card className="border-border/40 bg-card/50 shadow-sm overflow-hidden">
-        <CardHeader className="p-6 pb-2">
-          <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground flex items-center gap-2">
-            <BarChart3 className="size-4 text-primary" /> Evolução de MRR (Últimos 6 meses)
-          </CardTitle>
-          <CardDescription className="text-xs text-muted-foreground font-medium uppercase tracking-wider">Histórico de receita recorrente consolidada no AbacatePay</CardDescription>
-        </CardHeader>
-        <CardContent className="pt-4">
-          <div className="h-[250px] w-full min-w-0">
-            {mounted && (
-              <ResponsiveContainer width="100%" height="100%">
-                <AreaChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <defs>
-                    <linearGradient id="fillFinance" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="var(--primary)" stopOpacity={0.3} />
-                      <stop offset="100%" stopColor="var(--primary)" stopOpacity={0.02} />
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid vertical={false} strokeDasharray="3 3" className="stroke-border/30" />
-                  <XAxis dataKey="month" tickLine={false} axisLine={false} tickMargin={8} className="text-[10px] font-bold text-muted-foreground" />
-                  <YAxis tickLine={false} axisLine={false} tickFormatter={(v) => `R$ ${v}`} className="text-[10px] font-bold text-muted-foreground" />
-                  <Tooltip contentStyle={{ background: "rgba(9, 9, 11, 0.95)", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: "12px", fontSize: "11px" }} />
-                  <Area type="monotone" dataKey="mrr" name="MRR" stroke="var(--primary)" strokeWidth={2.5} fill="url(#fillFinance)" />
-                </AreaChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </CardContent>
+      </>}
+      <Card className="border-border/40 bg-card/50">
+        <CardHeader><CardTitle>Histórico de receita recorrente</CardTitle><CardDescription>Disponibilidade dos dados SaaS</CardDescription></CardHeader>
+        <CardContent><Empty><EmptyHeader><EmptyTitle>Histórico indisponível</EmptyTitle><EmptyDescription>{data?.unavailableReason || "Aguardando consulta dos indicadores."}</EmptyDescription></EmptyHeader></Empty></CardContent>
       </Card>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -318,11 +254,11 @@ export default function FinanceManagementPage() {
               <TabsList className="bg-secondary/20 p-1 rounded-2xl h-auto flex gap-1">
                 <TabsTrigger value="APPROVED" className="px-4 py-2 text-xs font-bold gap-2 rounded-xl data-[state=active]:bg-card data-[state=active]:text-primary cursor-pointer transition-all">
                   <BadgeCheck className="size-4 text-emerald-600" />
-                  Pagamentos Aprovados
+                  Transações aprovadas
                 </TabsTrigger>
                 <TabsTrigger value="FAILED" className="px-4 py-2 text-xs font-bold gap-2 rounded-xl data-[state=active]:bg-card data-[state=active]:text-primary cursor-pointer transition-all">
                   <AlertCircle className="size-4 text-rose-600" />
-                  Inadimplência
+                  Tentativas falhas
                 </TabsTrigger>
               </TabsList>
 
@@ -330,13 +266,13 @@ export default function FinanceManagementPage() {
               <div className="text-right px-1">
                 {activeTab === "APPROVED" ? (
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Aprovados Hoje</span>
-                    <span className="text-lg font-black text-emerald-600 leading-none mt-1">{formatBRL(data.todaysRevenue)}</span>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Aprovados criados hoje</span>
+                    <span className="text-lg font-black text-emerald-600 leading-none mt-1">{formatBRL(data?.todaysRevenue)}</span>
                   </div>
                 ) : (
                   <div className="flex flex-col">
-                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Inadimplência Acumulada</span>
-                    <span className="text-lg font-black text-rose-600 leading-none mt-1">{formatBRL(data.totalFailedRevenue)}</span>
+                    <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider">Tentativas falhas registradas</span>
+                    <span className="text-lg font-black text-rose-600 leading-none mt-1">{formatBRL(data?.totalFailedRevenue)}</span>
                   </div>
                 )}
               </div>
@@ -380,10 +316,10 @@ export default function FinanceManagementPage() {
 
               {/* Filtro Planos */}
               <div className="space-y-1">
-                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider px-1">Plano</span>
+                <span className="text-[9px] font-bold text-muted-foreground uppercase tracking-wider px-1">Plano atual</span>
                 <Select value={selectedPlan} onValueChange={setSelectedPlan}>
                   <SelectTrigger className="w-full h-10 rounded-xl bg-card/50 border-border/40 text-xs font-semibold cursor-pointer">
-                    <SelectValue placeholder="Plano" />
+                    <SelectValue placeholder="Plano atual" />
                   </SelectTrigger>
                   <SelectContent className="rounded-xl">
                     <SelectItem value="all">Todos os Planos</SelectItem>
@@ -403,8 +339,8 @@ export default function FinanceManagementPage() {
                   <table className="w-full text-left border-collapse">
                     <thead className="bg-secondary/10 border-b border-border/40">
                       <tr>
-                        <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Workspace / Cliente</th>
-                        <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Plano</th>
+                        <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Conta / Cliente</th>
+                        <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Plano atual</th>
                         <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Valor</th>
                         <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-right">Status / Data</th>
                       </tr>
@@ -436,6 +372,8 @@ export default function FinanceManagementPage() {
                             </td>
                           </tr>
                         ))
+                      ) : transactionsError ? (
+                        <tr><td colSpan={4} className="px-6 py-8"><Alert variant="destructive"><AlertDescription>{transactionsError}</AlertDescription></Alert><Button variant="outline" onClick={() => setTransactionAttempt(v => v + 1)} className="mt-3">Tentar novamente</Button></td></tr>
                       ) : !transactionsData || transactionsData.data.length === 0 ? (
                         <tr>
                           <td colSpan={4} className="px-6 py-12 text-center text-sm font-medium text-muted-foreground">
@@ -443,8 +381,8 @@ export default function FinanceManagementPage() {
                           </td>
                         </tr>
                       ) : (
-                        transactionsData.data.map((tx: any, idx: number) => {
-                          const planName = tx.user?.subscription?.plan?.name || tx.workspace?.subscription?.plan?.name || "Sem Plano";
+                        transactionsData.data.map((tx, idx) => {
+                          const planName = tx.user.subscription?.plan.name || "Sem plano atual";
                           const dateObj = new Date(tx.createdAt);
                           const formattedDate = new Intl.DateTimeFormat('pt-BR', {
                             day: '2-digit',
@@ -458,7 +396,7 @@ export default function FinanceManagementPage() {
                               <td className="px-6 py-4">
                                 <div className="flex items-center gap-3">
                                   <div className="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0 border border-primary/20">
-                                    {tx.workspace?.logo || "CP"}
+                                    {tx.user.name?.slice(0, 2).toUpperCase() || "CP"}
                                   </div>
                                   <div className="flex flex-col min-w-0">
                                     <span className="text-sm font-bold leading-none truncate">{tx.user?.name || "Personal"}</span>
@@ -492,7 +430,7 @@ export default function FinanceManagementPage() {
                                     "text-[9px] font-black uppercase px-2 py-0.5 rounded-full mb-1 tracking-wider",
                                     tx.status === "APPROVED" ? "bg-emerald-500/10 text-emerald-500" : "bg-rose-500/10 text-rose-500"
                                   )}>
-                                    {tx.status === "APPROVED" ? "Pago" : "Falhou"}
+                                    {tx.status === "APPROVED" ? "Aprovado" : "Falhou"}
                                   </span>
                                   <span className="text-[9px] text-muted-foreground font-semibold">{formattedDate}</span>
                                 </div>

@@ -17,16 +17,32 @@ export function PWARegister() {
       "serviceWorker" in navigator &&
       (window as any).workbox === undefined // Avoid registering multiple times if workbox is active
     ) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker
-          .register("/sw.js")
-          .then((reg) => {
-            console.log("Service Worker registered successfully:", reg.scope);
-          })
-          .catch((err) => {
-            console.error("Service Worker registration failed:", err);
+      if (process.env.NODE_ENV !== "production") {
+        // In development, unregister any active service worker to avoid caching and proxying API routes
+        navigator.serviceWorker.getRegistrations().then((registrations) => {
+          for (const registration of registrations) {
+            registration.unregister().catch(() => {});
+          }
+        });
+        if ("caches" in window) {
+          caches.keys().then((keys) => {
+            for (const key of keys) {
+              caches.delete(key).catch(() => {});
+            }
           });
-      });
+        }
+      } else {
+        window.addEventListener("load", () => {
+          navigator.serviceWorker
+            .register("/sw.js")
+            .then((reg) => {
+              console.log("Service Worker registered successfully:", reg.scope);
+            })
+            .catch((err) => {
+              console.error("Service Worker registration failed:", err);
+            });
+        });
+      }
     }
 
     return () => {

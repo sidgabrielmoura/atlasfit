@@ -267,14 +267,12 @@ export default function PersonalOnboardingPage() {
 
       toast.success("Perfil e Assessoria configurados com sucesso! Bem-vindo(a) ao AtlasFit! 🚀");
 
-      // Update nextauth session
       await update();
 
       if (resData.workspaceId) {
         workspaceActions.setActiveWorkspaceId(resData.workspaceId);
       }
 
-      // Redirect to trainer dashboard
       router.push("/personal/dashboard");
       router.refresh();
     } catch (err: any) {
@@ -355,8 +353,8 @@ export default function PersonalOnboardingPage() {
                     isCurrent
                       ? "bg-primary/10 border-primary/30 text-primary shadow-xs"
                       : isDone
-                      ? "bg-muted/40 border-border/60 text-muted-foreground"
-                      : "bg-muted/10 border-border/30 text-muted-foreground/50"
+                        ? "bg-muted/40 border-border/60 text-muted-foreground"
+                        : "bg-muted/10 border-border/30 text-muted-foreground/50"
                   )}
                 >
                   <div
@@ -365,8 +363,8 @@ export default function PersonalOnboardingPage() {
                       isCurrent
                         ? "bg-primary text-primary-foreground"
                         : isDone
-                        ? "bg-primary/20 text-primary"
-                        : "bg-muted text-muted-foreground"
+                          ? "bg-primary/20 text-primary"
+                          : "bg-muted text-muted-foreground"
                     )}
                   >
                     {isDone ? <CheckCircle2 className="size-3.5" /> : s.id}

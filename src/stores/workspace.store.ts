@@ -1,104 +1,44 @@
-import { proxy, subscribe } from "valtio";
+import { proxy } from "valtio";
+import { chatActions } from "./chat.store";
+import { workoutActions } from "./workout.store";
 
 export interface Workspace {
-  id: string;
-  name: string;
-  slug: string;
-  logo: string;
-  logoUrl?: string | null;
-  primaryColor: string;
-  plan: string;
-  slogan?: string | null;
-  watermarkUrl?: string | null;
-  workoutCoverUrl?: string | null;
+  id: string; name: string; slug: string; type?: "PERSONAL" | "GYM"; logo: string;
+  logoUrl?: string | null; primaryColor: string; plan: string; slogan?: string | null;
+  watermarkUrl?: string | null; workoutCoverUrl?: string | null; roles?: readonly string[];
+  defaultRoute?: string; unitsCount?: number;
 }
+interface WorkspaceState { activeWorkspaceId: string | null; activeWorkspace: Workspace | null; workspaces: Workspace[]; isLoading: boolean; }
 
-interface WorkspaceState {
-  activeWorkspaceId: string | null;
-  activeWorkspace: Workspace | null;
-  workspaces: Workspace[];
-  isLoading: boolean;
-}
-
-const storageKey = "atlasfit_workspace_store";
-
-const initialState: WorkspaceState = {
-  activeWorkspaceId: null,
-  activeWorkspace: null,
-  workspaces: [],
-  isLoading: false,
-};
-
-const getPersistedState = () => {
-  if (typeof window === "undefined") return initialState;
-  try {
-    const saved = localStorage.getItem(storageKey);
-    if (saved) {
-      const parsed = JSON.parse(saved);
-      const activeWorkspace = parsed.activeWorkspace || null;
-      const workspaces = parsed.workspaces || [];
-      return {
-        ...initialState,
-        activeWorkspaceId: parsed.activeWorkspaceId || null,
-        activeWorkspace,
-        workspaces,
-      };
-    }
-  } catch (err) {
-    console.error("Failed to parse persisted workspace state:", err);
-  }
-  return initialState;
-};
-
-export const workspaceStore = proxy<WorkspaceState>(getPersistedState());
-
-if (typeof window !== "undefined") {
-  subscribe(workspaceStore, () => {
-    try {
-      localStorage.setItem(
-        storageKey,
-        JSON.stringify({
-          activeWorkspaceId: workspaceStore.activeWorkspaceId,
-          activeWorkspace: workspaceStore.activeWorkspace,
-          workspaces: workspaceStore.workspaces,
-        })
-      );
-    } catch (err) {
-      console.error("Failed to persist workspace state:", err);
-    }
-  });
-}
+// The server cookie and membership check are authoritative. Never restore another login's tenant or theme from localStorage.
+export const workspaceStore = proxy<WorkspaceState>({ activeWorkspaceId: null, activeWorkspace: null, workspaces: [], isLoading: false });
 
 export const workspaceActions = {
-  setWorkspaces(workspaces: Workspace[]) {
-    workspaceStore.workspaces = workspaces;
-    
-    // Auto-select first workspace or sync activeWorkspace if activeWorkspaceId exists
-    if (workspaces.length > 0) {
-      const found = workspaces.find((w) => w.id === workspaceStore.activeWorkspaceId);
-      if (found) {
-        workspaceStore.activeWorkspace = found;
-      } else {
-        workspaceStore.activeWorkspaceId = workspaces[0].id;
-        workspaceStore.activeWorkspace = workspaces[0];
-      }
-    } else {
-      workspaceStore.activeWorkspaceId = null;
-      workspaceStore.activeWorkspace = null;
-    }
+  setWorkspaces(workspaces: readonly Workspace[]) {
+    workspaceStore.workspaces = workspaces.map(workspace => ({ ...workspace, roles: workspace.roles ? [...workspace.roles] : undefined }));
+    const active = workspaces.find(workspace => workspace.id === workspaceStore.activeWorkspaceId);
+    if (active) workspaceStore.activeWorkspace = { ...active };
+    // Listing memberships must not implicitly switch the server's selected context.
   },
-
   setActiveWorkspace(workspace: Workspace) {
+    if (workspaceStore.activeWorkspaceId !== workspace.id) { chatActions.resetWorkspace(); workoutActions.bindWorkspace(workspace.id); }
     workspaceStore.activeWorkspaceId = workspace.id;
-    workspaceStore.activeWorkspace = workspace;
+    workspaceStore.activeWorkspace = { ...workspace };
+    if (!workspaceStore.workspaces.some(item => item.id === workspace.id)) workspaceStore.workspaces.push({ ...workspace });
+    else workspaceStore.workspaces = workspaceStore.workspaces.map(item => item.id === workspace.id ? { ...workspace } : item);
   },
-
   setActiveWorkspaceId(id: string) {
+    if (workspaceStore.activeWorkspaceId !== id) { chatActions.resetWorkspace(); workoutActions.bindWorkspace(id); }
     workspaceStore.activeWorkspaceId = id;
-    workspaceStore.activeWorkspace = null;
+    workspaceStore.activeWorkspace = workspaceStore.workspaces.find(workspace => workspace.id === id) ?? null;
   },
-
-  setLoading(loading: boolean) {
-    workspaceStore.isLoading = loading;
-  }
+  setLoading(loading: boolean) { workspaceStore.isLoading = loading; },
+  clear() {
+    chatActions.resetWorkspace();
+    workoutActions.cancelWorkout();
+    workspaceStore.activeWorkspaceId = null;
+    workspaceStore.activeWorkspace = null;
+    workspaceStore.workspaces = [];
+    workspaceStore.isLoading = false;
+  },
 };

@@ -1,8 +1,9 @@
+import { withRequestMemo } from "@/lib/request-memo";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   try {
     const session = await auth();
     if (!session?.user?.id || session.user.role !== "SUPERADMIN") {
@@ -61,3 +62,4 @@ export async function GET(req: Request) {
     return new NextResponse(error.message || "Erro ao buscar usuários.", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);

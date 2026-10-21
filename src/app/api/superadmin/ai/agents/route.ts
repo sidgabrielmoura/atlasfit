@@ -1,3 +1,4 @@
+import { withRequestMemo } from "@/lib/request-memo";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
@@ -81,7 +82,7 @@ async function getPersistedAgents() {
   return DEFAULT_AGENTS_CONFIG;
 }
 
-export async function GET() {
+async function handleGET() {
   const session = await auth();
 
   if (session?.user?.role !== "SUPERADMIN") {
@@ -95,6 +96,7 @@ export async function GET() {
     return NextResponse.json({ error: error.message || "Erro ao carregar agentes." }, { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 export async function PATCH(req: Request) {
   const session = await auth();

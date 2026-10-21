@@ -30,7 +30,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useSession } from "next-auth/react";
+import { useSession, signOut } from "next-auth/react";
 import { cn } from "@/lib/utils";
 import { compressImage } from "@/lib/image-compress";
 
@@ -286,10 +286,11 @@ export default function StudentSettingsPage() {
         throw new Error(errMsg);
       }
 
-      toast.success("Senha alterada com sucesso! 🔒");
+      toast.success("Senha alterada. Entre novamente com a nova senha.");
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
+      await signOut({ callbackUrl: "/auth/student" }).catch(() => window.location.assign("/auth/student"));
     } catch (err: any) {
       console.error(err);
       toast.error(err.message || "Erro ao alterar sua senha de acesso.");

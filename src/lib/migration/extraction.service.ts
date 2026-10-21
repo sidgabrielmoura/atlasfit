@@ -1,3 +1,5 @@
+import { sourceTextContent } from "./source-payload";
+import { WorkspaceAccessError } from "@/modules/workspaces/domain/types";
 import prisma from "@/lib/prisma";
 import { publishToChannel } from "@/lib/ably";
 import { GeminiMigrationExtractor } from "../gemini/extractor";
@@ -22,14 +24,14 @@ import {
 
 export async function processImportJob(jobId: string, workspaceId: string) {
   const job = await prisma.importJob.findUnique({
-    where: { id: jobId },
-    include: { sources: true },
+    where: { id: jobId, workspaceId },
+
   });
 
   if (!job) throw new Error("Job de migração não encontrado.");
 
-  await prisma.importJob.update({
-    where: { id: jobId },
+  const claimed = await prisma.importJob.updateMany({
+    where: { id: jobId, workspaceId, status: { in: ["UPLOADED", "FAILED"] } },
     data: {
       status: "PROCESSING",
       processingStep: "PARSING",
@@ -37,6 +39,8 @@ export async function processImportJob(jobId: string, workspaceId: string) {
       safeErrorMessage: null,
     },
   });
+
+  if (!claimed.count) throw new WorkspaceAccessError(409, "INVALID_STATUS", "Importação já iniciada ou encerrada.");
 
   await publishToChannel(`migration:${workspaceId}`, "job_updated", {
     jobId,
@@ -58,7 +62,10 @@ export async function processImportJob(jobId: string, workspaceId: string) {
     let totalAssessmentsCount = 0;
     let totalMeasurementsCount = 0;
 
-    for (const source of job.sources) {
+    const sources = await prisma.importSource.findMany({ where: { importJobId: jobId }, select: { id: true }, orderBy: [{ sortOrder: "asc" }, { id: "asc" }] });
+    for (const reference of sources) {
+      const stored = await prisma.importSource.findUniqueOrThrow({ where: { id: reference.id, importJobId: jobId } });
+      const source = { ...stored, textContent: await sourceTextContent(stored, workspaceId, jobId) };
       if (source.type === "SPREADSHEET" || source.type === "MIXED") {
         if (source.textContent) {
           if (source.textContent.startsWith("BASE64_XLSX:")) {

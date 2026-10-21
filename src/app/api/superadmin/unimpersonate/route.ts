@@ -1,45 +1,20 @@
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
-import crypto from "crypto";
+import { issueImpersonationReturn } from "@/lib/auth/impersonation-service";
+import { isAllowedOrigin } from "@/lib/auth/application-origin";
+import { WorkspaceAccessError } from "@/modules/workspaces/domain/types";
 import { logSystemError } from "@/lib/logger";
 
 export async function POST(req: Request) {
   const session = await auth();
-
-  const isImpersonated = (session?.user as any)?.isImpersonated;
-  const originalAdminEmail = (session?.user as any)?.originalAdminEmail;
-
-  if (!isImpersonated || !originalAdminEmail) {
-    return new NextResponse("Not in an impersonated session", { status: 400 });
-  }
-
+  if (!session?.user?.id) return NextResponse.json({ error: "Sessão ausente ou revogada." }, { status: 401 });
   try {
-    // Buscar se o email de destino (originalAdminEmail) de fato existe e é um SUPERADMIN
-    const adminUser = await prisma.user.findUnique({
-      where: { email: originalAdminEmail }
-    });
-
-    if (!adminUser || adminUser.role !== "SUPERADMIN") {
-      return new NextResponse("Original user is not a superadmin", { status: 403 });
-    }
-
-    // Gerar um token seguro único e temporário (expira em 2 minutos)
-    const token = crypto.randomBytes(32).toString("hex");
-    const expires = new Date();
-    expires.setMinutes(expires.getMinutes() + 2);
-
-    await prisma.verificationToken.create({
-      data: {
-        identifier: `IMPERSONATION:${adminUser.email}`,
-        token,
-        expires,
-      }
-    });
-
-    return NextResponse.json({ token, email: adminUser.email }, { status: 200 });
+    const origin = req.headers.get("origin");
+    if (req.headers.get("sec-fetch-site") === "cross-site" || (origin && !isAllowedOrigin(origin))) throw new WorkspaceAccessError(403, "FORBIDDEN_RESOURCE", "Origem inválida.");
+    return NextResponse.json(await issueImpersonationReturn(session.user), { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
+    if (error instanceof WorkspaceAccessError) return NextResponse.json({ error: error.message }, { status: error.statusCode });
     await logSystemError({ action: "POST_UNIMPERSONATE", error, entity: "IMPERSONATION" });
-    return new NextResponse("Internal Error", { status: 500 });
+    return NextResponse.json({ error: "Não foi possível retornar à conta administrativa." }, { status: 500 });
   }
 }

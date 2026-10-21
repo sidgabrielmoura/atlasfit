@@ -1,0 +1,1 @@
+require('./gym-check-runner.cjs')('http-workouts', ['--config', 'vitest.gym-http.config.ts', '--testNamePattern', 'biblioteca GYM|instrutor de unidade'], { GYM_HTTP_ORIGIN: 'http://127.0.0.1:31173' });

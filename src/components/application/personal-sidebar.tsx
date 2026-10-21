@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useState, useEffect, useRef } from "react";
 import { useTheme } from "next-themes";
 import {
@@ -115,8 +115,10 @@ const systemNavItems: NavItemDef[] = [
   { title: "Configurações", href: "/personal/settings", icon: Settings },
 ];
 
-export function PersonalSidebar() {
+export function PersonalSidebar({ academy = false }: { academy?: boolean }) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
+  const academyView = searchParams.get("view");
   const [copied, setCopied] = useState(false);
   const { theme, setTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
@@ -159,18 +161,21 @@ export function PersonalSidebar() {
     if (isMobile) {
       setOpenMobile(false);
     }
-  }, [pathname, isMobile, setOpenMobile]);
+  }, [pathname, academyView, isMobile, setOpenMobile]);
 
   useEffect(() => {
     setMounted(true);
-    fetch("/api/personal/subscription")
+    if (academy) { setSubInfo(null); return; }
+    const controller = new AbortController();
+    fetch("/api/personal/subscription", { signal: controller.signal })
       .then((res) => {
         if (res.ok) return res.json();
         throw new Error();
       })
       .then((data) => setSubInfo(data.currentSubscription))
       .catch(() => { });
-  }, []);
+    return () => controller.abort();
+  }, [academy]);
 
   const getInitials = (name?: string | null) => {
     if (!name) return "PT";
@@ -191,8 +196,8 @@ export function PersonalSidebar() {
   }
 
   useEffect(() => {
-    if (captureLink) generateQrcode()
-  }, [captureLink])
+    if (!academy && captureLink) generateQrcode()
+  }, [captureLink, academy])
 
   const handleCopy = () => {
     navigator.clipboard.writeText(captureLink);
@@ -208,7 +213,10 @@ export function PersonalSidebar() {
       <SidebarGroupContent>
         <SidebarMenu>
           {items.map((item) => {
-            const isActive = pathname === item.href || (item.href !== "#capture" && pathname?.startsWith(item.href + "/"));
+            const [itemPath, itemQuery] = item.href.split("?");
+            const isActive = academy && itemPath === "/personal/academy"
+              ? pathname === itemPath && academyView === (new URLSearchParams(itemQuery).get("view"))
+              : pathname === item.href || (item.href !== "#capture" && pathname?.startsWith(item.href + "/"));
 
             if (item.isModal) {
               return (
@@ -327,22 +335,22 @@ export function PersonalSidebar() {
       <SidebarSeparator className="max-w-[90%] mx-auto opacity-50" />
 
       <SidebarContent className="">
-        {renderNavSection("Visão Geral", overviewNavItems)}
+        {renderNavSection("Visão Geral", academy ? [{ title: "Minha academia", href: "/personal/academy", icon: LayoutDashboard }] : overviewNavItems)}
         <SidebarSeparator className="max-w-[90%] mx-auto opacity-40" />
 
-        {renderNavSection("Gestão de Clientes", clientsNavItems)}
+        {renderNavSection("Gestão de Clientes", academy ? [{ title: "Alunos", href: "/personal/academy?view=students", icon: Users }, { title: "Mensagens", href: "/personal/chat", icon: MessageSquare }] : clientsNavItems)}
         <SidebarSeparator className="max-w-[90%] mx-auto opacity-40" />
 
-        {renderNavSection("Prescrição e Avaliações", prescriptionNavItems)}
+        {renderNavSection("Prescrição e Avaliações", academy ? [{ title: "Treinos e Exercícios", href: "/personal/academy?view=workouts", icon: Dumbbell }, { title: "Avaliações e Arquivos", href: "/personal/academy?view=health", icon: FolderOpen }] : prescriptionNavItems)}
         <SidebarSeparator className="max-w-[90%] mx-auto opacity-40" />
 
-        {renderNavSection("Finanças e Atlas Pay", financeNavItems)}
+        {!academy && renderNavSection("Finanças e Atlas Pay", financeNavItems)}
         <SidebarSeparator className="max-w-[90%] mx-auto opacity-40" />
 
-        {renderNavSection("Engajamento e Crescimento", growthNavItems)}
+        {!academy && renderNavSection("Engajamento e Crescimento", growthNavItems)}
         <SidebarSeparator className="max-w-[90%] mx-auto opacity-40" />
 
-        {renderNavSection("Operação e Sistema", systemNavItems)}
+        {renderNavSection("Operação e Sistema", academy ? [{ title: "Agenda", href: "/personal/academy?view=calendar", icon: CalendarDays }] : systemNavItems)}
       </SidebarContent>
 
       <SidebarSeparator className="max-w-[90%] mx-auto opacity-50" />
@@ -395,18 +403,18 @@ export function PersonalSidebar() {
                   </div>
                 </div>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild className="rounded-xl cursor-pointer">
+                {!academy && <DropdownMenuItem asChild className="rounded-xl cursor-pointer">
                   <Link href="/personal/settings" className="flex items-center gap-2">
                     <UserPen className="size-4" />
                     Editar Perfil
                   </Link>
-                </DropdownMenuItem>
-                <DropdownMenuItem asChild className="rounded-xl cursor-pointer">
+                </DropdownMenuItem>}
+                {!academy && <DropdownMenuItem asChild className="rounded-xl cursor-pointer">
                   <Link href="/personal/subscription" className="flex items-center gap-2">
                     <BadgeCheck className="size-4 text-amber-500" />
                     Minha Assinatura
                   </Link>
-                </DropdownMenuItem>
+                </DropdownMenuItem>}
                 <DropdownMenuSeparator />
                 <DropdownMenuItem
                   onClick={() => signOut({ callbackUrl: "/auth/trainer" })}

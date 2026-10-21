@@ -11,6 +11,7 @@ import Link from "next/link";
 import { toast } from "sonner";
 import { useRouter, useSearchParams } from "next/navigation";
 import { registerTrainer } from "./actions";
+import { gymInvitationReturn } from "@/lib/auth/invitation-return";
 
 export function RegisterForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -57,7 +58,8 @@ export function RegisterForm() {
       }
 
       toast.success("Cadastro realizado com sucesso! Faça login para entrar.");
-      router.push("/auth/trainer");
+      const invitation = gymInvitationReturn(searchParams.get("callbackUrl"));
+      router.push(invitation ? `/auth/gym?callbackUrl=${encodeURIComponent(invitation)}` : "/auth/trainer");
     } catch (error) {
       toast.error("Ocorreu um erro ao realizar o cadastro. Tente novamente.");
       setIsLoading(false);

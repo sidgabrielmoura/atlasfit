@@ -131,7 +131,6 @@ export default function MigrationDashboardPage() {
     fetchQuotaBalance();
   }, [fetchJobs, fetchQuotaBalance]);
 
-  // Real-time updates via Ably
   useEffect(() => {
     if (!ably || !workspaceId) return;
 
@@ -496,7 +495,6 @@ export default function MigrationDashboardPage() {
         </section>
       </div>
 
-      {/* CONFIRMAÇÃO DE DELEÇÃO */}
       <AlertDialog open={!!deletingJobId} onOpenChange={(open) => !open && setDeletingJobId(null)}>
         <AlertDialogContent className="w-[92vw] sm:max-w-md rounded-3xl! p-5 sm:p-6">
           <AlertDialogHeader>

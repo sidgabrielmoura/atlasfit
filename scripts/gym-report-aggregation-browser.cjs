@@ -1,0 +1,55 @@
+const fs = require('node:fs');
+const assert = require('node:assert/strict');
+const { randomUUID } = require('node:crypto');
+const { PrismaClient } = require('@prisma/client');
+const { PrismaPg } = require('@prisma/adapter-pg');
+const { chromium } = require('../.tmp/gym-visual-runner/node_modules/playwright');
+const access = JSON.parse(fs.readFileSync('.tmp/gym-stabilization/review-access.json', 'utf8'));
+assert.equal(access.origin, 'http://127.0.0.1:31174');
+assert.equal(access.database, 'atlasfit_gym_review_20261009');
+assert.equal(access.synthetic, true);
+const db = new PrismaClient({ adapter: new PrismaPg({ connectionString: 'postgresql://atlasfit_test@127.0.0.1:56432/atlasfit_gym_review_20261009' }) });
+const folder = '.tmp/gym-stabilization/reports-browser-' + Date.now(); fs.mkdirSync(folder, { recursive: true });
+const screenshots = 'docs/audits/academias/estabilizacao/relatorios-agregacao'; fs.mkdirSync(screenshots, { recursive: true });
+const report = { startedAt: new Date().toISOString(), synthetic: true, configuredDatabaseChanged: false, samples: [], errors: [] };
+let browser;
+(async () => {
+ const workspace = await db.workspace.findUniqueOrThrow({ where: { id: access.gymId } });
+ assert.equal(workspace.ownerId, access.userId); assert.equal(workspace.type, 'GYM');
+ await db.gymPayment.create({ data: { workspaceId: workspace.id, paymentNumber: randomUUID(), receiptNumber: randomUUID(), idempotencyKey: randomUUID(), paymentMethod: 'BANK_TRANSFER_MANUAL', amountInCents: BigInt(100), payerName: 'Histórico sintético', receivedByUserId: access.userId } });
+ const category = await db.gymExpenseCategory.create({ data: { workspaceId: workspace.id, name: 'Histórico sintético ' + randomUUID() } });
+ await db.gymExpense.create({ data: { workspaceId: workspace.id, categoryId: category.id, title: 'Despesa legada sintética', amountInCents: BigInt(100), paidAmountInCents: BigInt(100), paidAt: new Date(), status: 'PAID', competenceMonth: '2026-10', dueDate: new Date(), createdByUserId: access.userId } });
+ browser = await chromium.launch({ executablePath: 'C:/Program Files/Google/Chrome/Application/chrome.exe', headless: true });
+ const context = await browser.newContext({ viewport: { width: 1280, height: 900 }, locale: 'pt-BR' });
+ await context.route('**/*', route => new URL(route.request().url()).origin === access.origin ? route.continue() : route.abort());
+ const csrf = await (await context.request.get(access.origin + '/api/auth/csrf', { timeout: 120000 })).json();
+ await context.request.post(access.origin + '/api/auth/callback/credentials', { form: { email: access.email, password: access.password, csrfToken: csrf.csrfToken }, headers: { 'X-Auth-Return-Redirect': '1' }, timeout: 120000 });
+ assert.equal((await (await context.request.get(access.origin + '/api/auth/session')).json()).user?.id, access.userId);
+ await context.addCookies([{ name: 'atlasfit_active_workspace_id', value: workspace.id, url: access.origin }]);
+ const response = await context.request.get(access.origin + `/api/gym/analytics/kpis?workspaceId=${workspace.id}`, { timeout: 120000 });
+ assert.equal(response.status(), 200);
+ const data = (await response.json()).data;
+ assert.equal(data.cashFlow.historyCoverage.complete, false);
+ assert.ok(data.cashFlow.historyCoverage.unallocatedPaymentsCount >= 1);
+ assert.ok(data.cashFlow.historyCoverage.legacyPaidExpensesCount >= 1);
+ report.http = { status: response.status(), historyCoverage: data.cashFlow.historyCoverage };
+ const page = await context.newPage(); page.setDefaultTimeout(120000); page.on('pageerror', error => report.errors.push(error.message));
+ await page.goto(access.origin + '/gym/finance?tab=metrics', { timeout: 180000, waitUntil: 'domcontentloaded' });
+ await page.getByRole('button', { name: 'Atualizar', exact: true }).click();
+ const notice = page.getByText('Histórico financeiro precisa de conferência', { exact: true });
+ await notice.waitFor({ state: 'visible' });
+ await page.getByText('Métricas atualizadas com sucesso!', { exact: true }).waitFor({ state: 'hidden' });
+ for (const width of [390, 1280]) {
+  await page.setViewportSize({ width, height: 900 }); await notice.evaluate(node => node.scrollIntoView({ block: 'center' }));
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1);
+  assert.equal(overflow, false);
+  const screenshot = `${screenshots}/${width}.png`; await page.screenshot({ path: screenshot });
+  report.samples.push({ width, overflow, noticeVisible: await notice.isVisible(), screenshot });
+ }
+ assert.deepEqual(report.errors, []); report.success = true;
+})().catch(error => { report.success = false; report.failure = error.message; process.exitCode = 1; }).finally(async () => {
+ if (browser) await browser.close(); await db.$disconnect(); report.finishedAt = new Date().toISOString();
+ fs.writeFileSync(folder + '/report.json', JSON.stringify(report, null, 2) + '\n');
+ fs.writeFileSync('docs/audits/academias/estabilizacao/verificacoes-relatorios-browser.json', JSON.stringify(report, null, 2) + '\n');
+ console.log(JSON.stringify({ success: report.success, samples: report.samples.length, http: report.http, failure: report.failure }));
+});

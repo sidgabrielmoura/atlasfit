@@ -1,0 +1,23 @@
+{
+  "startedAt": "2026-10-10T15:38:02.394Z",
+  "synthetic": true,
+  "configuredDatabaseChanged": false,
+  "disposableDatabase": "atlasfit_completion_tests_eac94c5568a2498c985f283fbcec2113",
+  "checks": [
+    {
+      "name": "full baseline deploy",
+      "exitCode": 0,
+      "output": "Datasource \"db\": PostgreSQL database \"atlasfit_completion_tests_eac94c5568a2498c985f283fbcec2113\", schema \"public\" at \"127.0.0.1:56432\"\n\n7 migrations found in prisma/migrations\n\nApplying migration `0_atlasfit_20261007`\nApplying migration `20261009000000_gym_tenant_relations`\nApplying migration `20261009100000_notification_delivery`\nApplying migration `20261009200000_gym_reference_identity`\nApplying migration `20261009210000_bounded_queries`\nApplying migration `20261009220000_gym_retention_hold`\nApplying migration `20261009230000_gym_scheduled_purge`\n\nThe following migration(s) have been applied:\n\nmigrations/\n  └─ 0_atlasfit_20261007/\n    └─ migration.sql\n  └─ 20261009000000_gym_tenant_relations/\n    └─ migration.sql\n  └─ 20261009100000_notification_delivery/\n    └─ migration.sql\n  └─ 20261009200000_gym_reference_identity/\n    └─ migration.sql\n  └─ 20261009210000_bounded_queries/\n    └─ migration.sql\n  └─ 20261009220000_gym_retention_hold/\n    └─ migration.sql\n  └─ 20261009230000_gym_scheduled_purge/\n    └─ migration.sql\n\nAll migrations have been successfully applied.\nLoaded Prisma config from prisma.baseline.config.ts.\n\nPrisma schema loaded from prisma\\schema.prisma.\n"
+    },
+    {
+      "name": "fresh schema business journeys",
+      "exitCode": 0,
+      "passed": 48,
+      "failed": 0,
+      "skipped": 0,
+      "rawFile": ".tmp/gym-stabilization/completion-fresh-07e0d598-8418-4704-af2b-b100b272c611.json"
+    }
+  ],
+  "success": true,
+  "finishedAt": "2026-10-10T15:38:40.744Z"
+}

@@ -1,9 +1,10 @@
+import { withRequestMemo } from "@/lib/request-memo";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { AbacatePay } from "@/lib/abacatepay";
 import { logSystemError } from "@/lib/logger";
 
-export async function GET() {
+async function handleGET() {
   try {
     const session = await auth();
     if (session?.user?.role !== "SUPERADMIN") {
@@ -74,3 +75,4 @@ export async function GET() {
     );
   }
 }
+export const GET = withRequestMemo(handleGET);

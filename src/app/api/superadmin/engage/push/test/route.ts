@@ -54,9 +54,11 @@ export async function POST(req: Request) {
 
     return NextResponse.json({
       success: true,
-      message: `Notificação push de teste emitida com sucesso para ${res.user?.name || res.user?.email || "o usuário"}!`,
+      message: "Notificação registrada. Os envios estão na fila de entrega.",
       devicesCount: res.devicesCount || 0,
       pushSent: res.pushSent || false,
+      dispatchId: res.dispatchId,
+      deliveryStatus: res.deliveryStatus,
       inAppDelivered: res.inAppDelivered || false,
       user: res.user,
       logId: res.logId

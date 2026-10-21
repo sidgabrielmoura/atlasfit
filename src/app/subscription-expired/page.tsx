@@ -1,5 +1,7 @@
 "use client";
 
+import { PersonalSubscriptionCheckout } from "@/components/application/personal-subscription-checkout";
+
 import { motion } from "framer-motion";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -13,6 +15,8 @@ import {
   Users, Dumbbell, DollarSign, FolderLock, GlobeLock, Clock, AlertTriangle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { getPersonalWorkspaces } from "@/components/application/actions";
+import { selectActiveWorkspace } from "@/modules/workspaces/application/actions";
 
 interface PlatformPlan {
   id: string;
@@ -51,10 +55,20 @@ export default function SubscriptionExpiredPage() {
   const router = useRouter();
   const [data, setData] = useState<ApiResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const [isProcessing, setIsProcessing] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [checkoutPlan, setCheckoutPlan] = useState<{ id: string; name: string } | null>(null);
+  const isProcessing = checkoutPlan?.id ?? null;
+  const [gymReturns, setGymReturns] = useState<Array<{ id: string; name: string }>>([]);
+  useEffect(() => { if (sessionStatus === "authenticated") void getPersonalWorkspaces().then(workspaces => setGymReturns(workspaces.filter(workspace => workspace.type === "GYM" && workspace.roles.includes("TRAINER")))).catch(() => setGymReturns([])); }, [sessionStatus]);
+  async function returnToGym(id: string) {
+    const result = await selectActiveWorkspace(id);
+    if (result.success) { router.push(result.defaultRoute); router.refresh(); }
+    else toast.error(result.error || "Academia indisponível.");
+  }
 
   const loadPlansData = useCallback(async () => {
     setIsLoading(true);
+    setLoadError(null);
     try {
       const res = await fetch("/api/personal/subscription");
       if (!res.ok) {
@@ -63,7 +77,7 @@ export default function SubscriptionExpiredPage() {
       const result = await res.json();
 
       const freeTrial = result.currentSubscription?.freeTrial;
-      const isTrialActive = freeTrial ? new Date() <= new Date(freeTrial.endDate) : false;
+      const isTrialActive = freeTrial?.isActive === true;
       const isSubscriptionActive = result.currentSubscription
         ? (result.currentSubscription.status?.toLowerCase() === "active" ||
            (result.currentSubscription.status?.toLowerCase() === "canceled" && result.currentSubscription.daysRemaining > 0))
@@ -78,6 +92,7 @@ export default function SubscriptionExpiredPage() {
     } catch (err: any) {
       console.error(err);
       toast.error("Erro ao carregar os planos disponíveis.");
+      setLoadError("Não foi possível carregar os planos. Tente novamente.");
     } finally {
       setIsLoading(false);
     }
@@ -91,34 +106,8 @@ export default function SubscriptionExpiredPage() {
     }
   }, [sessionStatus, loadPlansData, router]);
 
-  const handleSubscribe = async (planId: string, planName: string) => {
-    setIsProcessing(planId);
-    const toastId = toast.loading(`Iniciando contratação do plano ${planName}...`);
-
-    try {
-      const response = await fetch("/api/personal/subscription", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ planId }),
-      });
-
-      if (!response.ok) {
-        const text = await response.text();
-        throw new Error(text || "Erro ao processar assinatura.");
-      }
-
-      const res = await response.json();
-
-      toast.success("Checkout gerado com sucesso! Redirecionando...", { id: toastId });
-
-      if (res.checkoutUrl) {
-        router.push(res.checkoutUrl);
-      }
-    } catch (err: any) {
-      console.error(err);
-      toast.error(err.message || "Não foi possível iniciar o pagamento.", { id: toastId });
-      setIsProcessing(null);
-    }
+  const handleSubscribe = (planId: string, planName: string) => {
+    setCheckoutPlan({ id: planId, name: planName });
   };
 
   const handleLogout = async () => {
@@ -142,6 +131,9 @@ export default function SubscriptionExpiredPage() {
       </div>
 
       <div className="w-full max-w-5xl z-10 space-y-8">
+        <PersonalSubscriptionCheckout plan={checkoutPlan} onClose={() => setCheckoutPlan(null)} />
+        {gymReturns.map(gym => <Button key={gym.id} variant="secondary" onClick={() => void returnToGym(gym.id)}>Voltar à academia {gym.name}</Button>)}
+        {loadError && <div role="alert" className="space-y-3 rounded-xl border border-red-500/30 p-4"><p>{loadError}</p><Button variant="secondary" onClick={() => void loadPlansData()}>Tentar novamente</Button></div>}
 
         {/* Top Warning Banner / Header */}
         <div className="text-center space-y-3 max-w-2xl mx-auto mb-4">

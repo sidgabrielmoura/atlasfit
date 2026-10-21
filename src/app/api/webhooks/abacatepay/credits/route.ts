@@ -1,3 +1,5 @@
+import { timingSafeEqual } from "node:crypto";
+import { settleCreditPurchase } from "@/modules/payments/abacate-confirmation";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { headers } from "next/headers";
@@ -8,7 +10,9 @@ export async function POST(req: Request) {
     const devToken = headersList.get("x-dev-token") || headersList.get("authorization");
     const expectedToken = process.env.ABACATEPAY_WEBHOOK_TOKEN || process.env.ABACATEPAY_API_KEY;
 
-    if (!devToken || !expectedToken || !devToken.includes(expectedToken.slice(0, 20))) {
+    const received = Buffer.from((devToken || "").replace(/^Bearer /, ""));
+    const expected = Buffer.from(expectedToken || "");
+    if (!expected.length || received.length !== expected.length || !timingSafeEqual(received, expected)) {
       return new NextResponse("Unauthorized", { status: 401 });
     }
 
@@ -29,43 +33,7 @@ export async function POST(req: Request) {
 
     const purchase = billingId
       ? await prisma.creditPurchase.findUnique({ where: { abacatePayBillingId: billingId } })
-      : null;
-
-    if (!purchase && metadata?.userId && metadata?.packageId) {
-      const pkg = await prisma.creditPackage.findUnique({ where: { id: metadata.packageId } });
-      if (!pkg) return NextResponse.json({ received: true });
-
-      const existing = await prisma.creditPurchase.findFirst({
-        where: {
-          userId: metadata.userId,
-          packageId: metadata.packageId,
-          status: "PAID",
-          paidAt: { gte: new Date(Date.now() - 60_000) },
-        },
-      });
-      if (existing) return NextResponse.json({ received: true });
-
-      await prisma.$transaction([
-        prisma.user.update({
-          where: { id: metadata.userId },
-          data: { importCredits: { increment: pkg.credits } },
-        }),
-        prisma.creditPurchase.create({
-          data: {
-            workspaceId: metadata.workspaceId || "",
-            packageId: metadata.packageId,
-            userId: metadata.userId,
-            amountInCents: pkg.priceInCents,
-            credits: pkg.credits,
-            status: "PAID",
-            abacatePayBillingId: billingId,
-            paidAt: new Date(),
-          },
-        }),
-      ]);
-
-      return NextResponse.json({ received: true });
-    }
+      : billing?.externalId ? await prisma.creditPurchase.findUnique({ where: { id: billing.externalId } }) : null;
 
     if (!purchase) {
       return NextResponse.json({ received: true });
@@ -75,16 +43,7 @@ export async function POST(req: Request) {
       return NextResponse.json({ received: true });
     }
 
-    await prisma.$transaction([
-      prisma.creditPurchase.update({
-        where: { id: purchase.id },
-        data: { status: "PAID", paidAt: new Date() },
-      }),
-      prisma.user.update({
-        where: { id: purchase.userId },
-        data: { importCredits: { increment: purchase.credits } },
-      }),
-    ]);
+    await settleCreditPurchase(purchase.id);
 
     return NextResponse.json({ received: true });
   } catch {

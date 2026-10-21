@@ -31,6 +31,9 @@ import { toast } from "sonner";
 import { getPersonalWorkspaces, getAvailablePlans, createWorkspace, getTrainerWorkspaceLimit } from "./actions";
 import { useSnapshot } from "valtio";
 import { workspaceStore, workspaceActions } from "@/stores/workspace.store";
+import { selectActiveWorkspace } from "@/modules/workspaces/application/actions";
+import { useRouter } from "next/navigation";
+import type { Workspace } from "@/stores/workspace.store";
 
 function slugify(text: string) {
   return text
@@ -45,6 +48,7 @@ function slugify(text: string) {
 }
 
 export function WorkspaceSwitcher() {
+  const router = useRouter();
   const { isMobile } = useSidebar();
   const snap = useSnapshot(workspaceStore);
 
@@ -58,18 +62,52 @@ export function WorkspaceSwitcher() {
   const [slug, setSlug] = React.useState("");
   const [isSlugManual, setIsSlugManual] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const [switchingId, setSwitchingId] = React.useState<string | null>(null);
+  const activateWorkspace = async (workspace: Workspace) => {
+    if (switchingId) return;
+    setSwitchingId(workspace.id);
+    try {
+      const result = await selectActiveWorkspace(workspace.id);
+      if (!result.success || !result.workspace) throw new Error(result.error || "Não foi possível selecionar o workspace.");
+      workspaceActions.setActiveWorkspace({ ...workspace, ...result.workspace });
+      router.push(result.defaultRoute);
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível trocar de workspace.");
+    } finally { setSwitchingId(null); }
+  };
+
+  const openPersonalUpgrade = async () => {
+    if (switchingId) return;
+    setSwitchingId(snap.activeWorkspaceId || "upgrade");
+    try {
+      // Billing belongs to PERSONAL. Opening its route with a GYM cookie would
+      // send the user straight back to the gym instead of the upgrade flow.
+      if (snap.activeWorkspace?.type !== "PERSONAL") {
+        const workspaces = await getPersonalWorkspaces();
+        const personal = workspaces.find(workspace => workspace.type === "PERSONAL" && workspace.roles.includes("OWNER"));
+        if (!personal) throw new Error("Nenhuma assessoria própria ativa está disponível para abrir a assinatura.");
+        const result = await selectActiveWorkspace(personal.id);
+        if (!result.success || !result.workspace) throw new Error(result.error || "Não foi possível selecionar a assessoria.");
+        workspaceActions.setActiveWorkspace({ ...personal, ...result.workspace });
+      }
+      setIsUpgradeWarningOpen(false);
+      router.push("/personal/subscription");
+      router.refresh();
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Não foi possível abrir a assinatura.");
+    } finally { setSwitchingId(null); }
+  };
 
   React.useEffect(() => {
     async function loadData() {
       workspaceActions.setLoading(true);
       try {
-        const [workspacesData, plansData, limitRes] = await Promise.all([
+        const [workspacesData, limitRes] = await Promise.all([
           getPersonalWorkspaces(),
-          getAvailablePlans(),
           getTrainerWorkspaceLimit(),
         ]);
         workspaceActions.setWorkspaces(workspacesData);
-        setPlansList(plansData);
         setLimitData(limitRes);
       } catch (err) {
         console.error("Failed to load switcher data:", err);
@@ -79,6 +117,13 @@ export function WorkspaceSwitcher() {
     }
     loadData();
   }, []);
+
+  React.useEffect(() => {
+    if (!isUpgradeWarningOpen) return;
+    let current = true;
+    void getAvailablePlans().then(plans => { if (current) setPlansList(plans); }).catch(() => toast.error("Não foi possível carregar os planos."));
+    return () => { current = false; };
+  }, [isUpgradeWarningOpen]);
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -124,7 +169,7 @@ export function WorkspaceSwitcher() {
 
       const newWs = updated.find((w: any) => w.id === res.workspace?.id) || res.workspace;
       if (newWs) {
-        workspaceActions.setActiveWorkspace(newWs);
+        await activateWorkspace(newWs);
       }
 
       // Reset modal state
@@ -227,7 +272,8 @@ export function WorkspaceSwitcher() {
               {snap.workspaces.map((workspace) => (
                 <DropdownMenuItem
                   key={workspace.id}
-                  onClick={() => workspaceActions.setActiveWorkspace(workspace)}
+                  disabled={switchingId !== null}
+                  onClick={() => void activateWorkspace(workspace)}
                   className="gap-2 p-2 rounded-xl cursor-pointer"
                 >
                   <div
@@ -252,6 +298,7 @@ export function WorkspaceSwitcher() {
               ))}
               <DropdownMenuSeparator />
               <DropdownMenuItem
+                disabled={limitData === null || switchingId !== null}
                 onSelect={(e) => {
                   e.preventDefault();
                   if (limitData && !limitData.isTestAccount && limitData.current >= limitData.limit) {
@@ -351,7 +398,7 @@ export function WorkspaceSwitcher() {
       </Dialog>
 
       <Dialog open={isUpgradeWarningOpen} onOpenChange={setIsUpgradeWarningOpen}>
-        <DialogContent className="sm:max-w-112.5 rounded-2xl! border-border/50 bg-background/95 backdrop-blur-xl shadow-2xl p-6 overflow-hidden">
+        <DialogContent className="sm:max-w-112.5 sm:max-h-[90dvh] sm:overflow-auto rounded-2xl! border-border/50 bg-background/95 backdrop-blur-xl shadow-2xl p-6">
           <DialogHeader className="space-y-2 text-center flex flex-col items-center">
             <DialogTitle className="text-2xl font-black tracking-tight">
               Limite de Workspaces Atingido
@@ -381,10 +428,8 @@ export function WorkspaceSwitcher() {
 
           <DialogFooter className="flex flex-col gap-2 sm:flex-col!">
             <Button
-              onClick={() => {
-                toast.success("Solicitação de upgrade enviada com sucesso! 🚀 Nosso time entrará em contato.");
-                setIsUpgradeWarningOpen(false);
-              }}
+              disabled={switchingId !== null}
+              onClick={() => void openPersonalUpgrade()}
               className="w-full h-12 rounded-xl text-sm font-bold shadow-lg shadow-primary/15 gap-2 cursor-pointer bg-primary text-primary-foreground"
             >
               Fazer Upgrade do Plano

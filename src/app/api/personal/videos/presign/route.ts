@@ -1,3 +1,4 @@
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { storageService } from "@/lib/storage.service";
@@ -15,6 +16,7 @@ const ALLOWED_MIME_TYPES = new Set([
 const MAX_FILE_SIZE = 500 * 1024 * 1024;
 
 export async function POST(req: Request) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   try {
     const session = await auth();
     if (!session?.user?.id) {

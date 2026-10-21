@@ -1,4 +1,5 @@
 "use client";
+import { useCoalescedRefresh } from "@/hooks/use-coalesced-refresh";
 
 import { useEffect, useState, useRef } from "react";
 import { useSession } from "next-auth/react";
@@ -43,9 +44,14 @@ import { centsToCurrencyString } from "@/modules/payments/domain/fee-calculator"
 import { useAbly } from "@/providers/ably-provider";
 import { toDataURL } from 'qrcode'
 import Image from "next/image";
+import { useSnapshot } from "valtio";
+import { workspaceStore } from "@/stores/workspace.store";
+import { GymStudentFinance } from "@/components/application/gym-student-finance";
 
 interface StudentFinanceData {
   workspaceName: string;
+  pagination?: { page: number; hasMore: boolean };
+  totals?: { pendingInCents: string; paidInCents: string };
   activePlan: {
     name: string;
     status: string;
@@ -83,8 +89,12 @@ interface StudentFinanceData {
 }
 
 export default function StudentFinancePage() {
+  const workspace = useSnapshot(workspaceStore).activeWorkspace;
+  const isGym = workspace?.type === "GYM";
   const { data: session } = useSession();
   const ablyClient = useAbly();
+  const financeRequestVersion = useRef(0);
+  const [financePage, setFinancePage] = useState(1);
   const [loading, setLoading] = useState(true);
   const [data, setData] = useState<StudentFinanceData | null>(null);
   const [copiedId, setCopiedId] = useState<string | null>(null);
@@ -96,12 +106,14 @@ export default function StudentFinancePage() {
   const [isCancelAlertOpen, setIsCancelAlertOpen] = useState(false);
   const [cancelingRecurrence, setCancelingRecurrence] = useState(false);
 
-  const fetchStudentFinance = async () => {
+  const fetchStudentFinance = async (sync = false) => {
+    if (!workspace || isGym) return;
+    const requestVersion = ++financeRequestVersion.current;
     try {
-      const res = await fetch("/api/student/finance");
+      const res = await fetch(`/api/student/finance?page=${financePage}`, { method: sync ? "POST" : "GET" });
       if (res.ok) {
         const json = await res.json();
-        setData(json);
+        if (requestVersion === financeRequestVersion.current && workspaceStore.activeWorkspaceId === workspace.id) setData(json);
       }
     } catch {
       toast.error("Falha ao carregar dados financeiros.");
@@ -109,6 +121,8 @@ export default function StudentFinancePage() {
       setLoading(false);
     }
   };
+
+  const scheduleFinanceRefresh = useCoalescedRefresh(() => fetchStudentFinance(), workspace?.id);
 
   const handleCancelRecurrence = async () => {
     try {
@@ -135,7 +149,7 @@ export default function StudentFinancePage() {
   const handleManualRefresh = async () => {
     setSyncing(true);
     try {
-      await fetchStudentFinance();
+      await fetchStudentFinance(true);
       toast.success("Dados financeiros atualizados com sucesso!");
     } catch {
       toast.error("Falha ao atualizar dados.");
@@ -157,8 +171,9 @@ export default function StudentFinancePage() {
   }, [selectedPixBilling?.pixCopyPaste])
 
   useEffect(() => {
-    fetchStudentFinance();
-  }, []);
+    setData(null); setLoading(true);
+    if (workspace && !isGym) void fetchStudentFinance();
+  }, [workspace?.id, isGym, financePage]);
 
   const selectedPixBillingRef = useRef(selectedPixBilling);
   useEffect(() => {
@@ -166,7 +181,7 @@ export default function StudentFinancePage() {
   }, [selectedPixBilling]);
 
   useEffect(() => {
-    if (!ablyClient || !session?.user?.id) return;
+    if (isGym || !ablyClient || !session?.user?.id) return;
     const userChannel = ablyClient.channels.get(`user:${session.user.id}`);
 
     const handleWalletUpdate = () => {
@@ -183,7 +198,7 @@ export default function StudentFinancePage() {
           description: "Seu histórico financeiro foi atualizado."
         });
       }
-      fetchStudentFinance();
+      scheduleFinanceRefresh();
     };
 
     userChannel.subscribe("wallet:updated", handleWalletUpdate);
@@ -192,7 +207,7 @@ export default function StudentFinancePage() {
       userChannel.unsubscribe("wallet:updated", handleWalletUpdate);
       userChannel.unsubscribe("financial:updated", handleWalletUpdate);
     };
-  }, [ablyClient, session?.user?.id]);
+  }, [ablyClient, session?.user?.id, isGym, workspace?.id]);
 
   const handleCopyPix = (id: string, code: string) => {
     navigator.clipboard.writeText(code);
@@ -201,16 +216,10 @@ export default function StudentFinancePage() {
     setTimeout(() => setCopiedId(null), 2500);
   };
 
-  const totalPendingCents = data?.pendingBillings.reduce(
-    (acc, item) => acc + BigInt(item.grossAmountInCents),
-    BigInt(0)
-  ) || BigInt(0);
+  const totalPendingCents = BigInt(data?.totals?.pendingInCents || "0");
+  const totalPaidCents = BigInt(data?.totals?.paidInCents || "0");
 
-  const totalPaidCents = data?.paidBillings.reduce(
-    (acc, item) => acc + BigInt(item.grossAmountInCents),
-    BigInt(0)
-  ) || BigInt(0);
-
+  if (isGym && workspace) return <GymStudentFinance key={workspace.id} workspaceId={workspace.id} />;
   if (loading) {
     return <StudentFinanceSkeleton />;
   }

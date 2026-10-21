@@ -1,0 +1,10 @@
+{
+  "recordedAt": "2026-10-20T03:11:01.395Z",
+  "synthetic": true,
+  "invoices": 5000,
+  "payments": 1000,
+  "durationMs": 681.2910000000011,
+  "paymentMethodRowsReturned": 2,
+  "success": true,
+  "limitation": "Single disposable PostgreSQL sample; operational volume and lifecycle history require separate validation."
+}

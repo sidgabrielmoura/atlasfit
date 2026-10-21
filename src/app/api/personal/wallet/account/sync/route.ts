@@ -1,9 +1,11 @@
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { paymentService } from "@/modules/payments/application/payment-service";
 import { enforceWalletRateLimit } from "@/modules/payments/security/wallet-security";
 
 export async function POST(req: NextRequest) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -16,6 +18,8 @@ export async function POST(req: NextRequest) {
       return rateLimitResult.response;
     }
 
+    const account = await paymentService.getWalletOverview(session.user.id, { reconcile: true });
+    if (!account) await paymentService.healOrphanedAccountIfAny(session.user.id);
     const snapshot = await paymentService.syncAccountBalance(session.user.id);
 
     // 2. Data Minimization

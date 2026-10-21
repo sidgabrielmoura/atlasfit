@@ -1,0 +1,47 @@
+{
+  "migration": "20261009200000_gym_reference_identity",
+  "queries": [
+    {
+      "table": "GymInvoice",
+      "rule": "identity",
+      "query": "SELECT count(*)::text AS count FROM \"GymInvoice\" c WHERE EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id=c.\"workspaceId\" AND w.type='GYM') AND NOT (EXISTS (SELECT 1 FROM \"WorkspaceMember\" m WHERE m.id=c.\"studentMemberId\" AND m.\"workspaceId\"=c.\"workspaceId\" AND m.\"userId\"=c.\"studentUserId\") AND (c.\"enrollmentId\" IS NULL OR EXISTS (SELECT 1 FROM \"GymEnrollment\" e WHERE e.id=c.\"enrollmentId\" AND e.\"workspaceId\"=c.\"workspaceId\" AND e.\"studentMemberId\"=c.\"studentMemberId\")))"
+    },
+    {
+      "table": "GymEnrollment",
+      "rule": "identity",
+      "query": "SELECT count(*)::text AS count FROM \"GymEnrollment\" c WHERE EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id=c.\"workspaceId\" AND w.type='GYM') AND NOT ((c.\"billingPayerGuardianId\" IS NULL OR EXISTS (SELECT 1 FROM \"GymGuardian\" g WHERE g.id=c.\"billingPayerGuardianId\" AND g.\"workspaceId\"=c.\"workspaceId\" AND g.\"studentMemberId\"=c.\"studentMemberId\")) AND (c.\"supersedesEnrollmentId\" IS NULL OR EXISTS (SELECT 1 FROM \"GymEnrollment\" e WHERE e.id=c.\"supersedesEnrollmentId\" AND e.id<>c.id AND e.\"workspaceId\"=c.\"workspaceId\" AND e.\"studentMemberId\"=c.\"studentMemberId\")))"
+    },
+    {
+      "table": "GymContractAcceptance",
+      "rule": "identity",
+      "query": "SELECT count(*)::text AS count FROM \"GymContractAcceptance\" c WHERE EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id=c.\"workspaceId\" AND w.type='GYM') AND NOT (EXISTS (SELECT 1 FROM \"GymEnrollment\" e JOIN \"WorkspaceMember\" m ON m.id=e.\"studentMemberId\" WHERE e.id=c.\"enrollmentId\" AND e.\"workspaceId\"=c.\"workspaceId\" AND ((c.\"representedUserId\" IS NULL AND c.\"signerUserId\"=m.\"userId\") OR (c.\"representedUserId\"=m.\"userId\" AND c.\"signerUserId\"<>m.\"userId\" AND EXISTS (SELECT 1 FROM \"GymGuardian\" g WHERE g.\"workspaceId\"=e.\"workspaceId\" AND g.\"studentMemberId\"=m.id AND g.\"guardianUserId\"=c.\"signerUserId\")))))"
+    },
+    {
+      "table": "GymInvoiceItem",
+      "rule": "planVersionId",
+      "query": "SELECT count(*)::text AS count FROM \"GymInvoiceItem\" c JOIN \"GymInvoice\" own ON own.id=c.\"invoiceId\" JOIN \"Workspace\" w ON w.id=own.\"workspaceId\" WHERE w.type='GYM' AND c.\"planVersionId\" IS NOT NULL AND NOT (EXISTS (SELECT 1 FROM \"GymInvoice\" i JOIN \"GymPlanVersion\" v ON v.id=c.\"planVersionId\" JOIN \"GymPlan\" p ON p.id=v.\"planId\" WHERE i.id=c.\"invoiceId\" AND i.\"workspaceId\"=p.\"workspaceId\"))"
+    }
+  ],
+  "inherited": [
+    [
+      "GymInvoiceItem",
+      "invoiceId",
+      "GymInvoice"
+    ],
+    [
+      "GymEnrollmentPause",
+      "enrollmentId",
+      "GymEnrollment"
+    ],
+    [
+      "GymStudentProfile",
+      "memberId",
+      "WorkspaceMember"
+    ],
+    [
+      "GymStaffProfile",
+      "memberId",
+      "WorkspaceMember"
+    ]
+  ]
+}

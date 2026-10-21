@@ -1,9 +1,12 @@
+import { withRequestMemo } from "@/lib/request-memo";
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { logSystemError } from "@/lib/logger";
 
-export async function GET() {
+async function handleGET() {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -27,8 +30,10 @@ export async function GET() {
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 export async function POST() {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -71,6 +76,7 @@ export async function POST() {
 }
 
 export async function DELETE() {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   try {
     const session = await auth();
     if (!session?.user?.id) {

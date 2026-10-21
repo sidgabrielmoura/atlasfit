@@ -1,3 +1,6 @@
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
+import { assertPersonalImportJobAccess } from "@/lib/migration/access";
+import { requirePersonalWorkspaceAccess, handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
@@ -7,14 +10,17 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string; recordId: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
   }
 
-  const { recordId } = await params;
+  const { id: jobId, recordId } = await params;
 
   try {
+    await assertPersonalImportJobAccess(jobId, recordId);
+
     const body = await req.json();
     const { normalizedData } = body;
 
@@ -25,6 +31,8 @@ export async function PATCH(
     const updated = await saveUserRecordEdit(recordId, normalizedData);
     return NextResponse.json(updated);
   } catch (error: any) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
+
     return new NextResponse(error.message || "Erro ao salvar alteração.", { status: 500 });
   }
 }
@@ -33,19 +41,24 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string; recordId: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
   }
 
-  const { recordId } = await params;
+  const { id: jobId, recordId } = await params;
 
   try {
+    await assertPersonalImportJobAccess(jobId, recordId);
+
     await prisma.importRecord.delete({
       where: { id: recordId },
     });
     return NextResponse.json({ success: true });
   } catch (error: any) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
+
     return new NextResponse(error.message || "Erro ao excluir registro.", { status: 500 });
   }
 }

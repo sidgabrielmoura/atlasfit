@@ -1,3 +1,7 @@
+import { z } from "zod";
+import { handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
+import { saveGymHealthProfile } from "@/modules/workspaces/application/gym-health-profile";
+import { getStudentWorkspaceMember } from "@/lib/student-auth";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
@@ -14,19 +18,22 @@ export async function POST(req: Request) {
 
   try {
     // 1. Get active student workspace member to associate initial physical stats
-    const member = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        role: "STUDENT",
-        isActive: true,
-      },
-    });
+    const member = await getStudentWorkspaceMember(session.user.id);
 
     if (!member) {
       return NextResponse.json({ error: "Membro ativo do workspace não encontrado." }, { status: 404 });
     }
 
     const body = await req.json();
+    if (member.workspace.type === "GYM") {
+      const parsed = z.object({ objective: z.string().max(2000).nullable().optional(), experienceLevel: z.string().max(2000).nullable().optional(), medicalConditions: z.string().max(2000).nullable().optional(), city: z.string().max(150).nullable().optional(), gender: z.string().max(30).nullable().optional(), birthDate: z.string().max(40).optional(), weight: z.union([z.string(), z.number()]).nullable().optional(), height: z.union([z.string(), z.number()]).nullable().optional(), acceptedTerms: z.boolean().optional(), acceptedPrivacy: z.boolean().optional() }).strict().safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: "Dados de onboarding inválidos." }, { status: 400 });
+      // Onboarding never records acceptance of a document the client has not presented by hash.
+      const compliance = await LegalAcceptanceService.checkUserCompliance(session.user.id);
+      if (!compliance.isCompliant) return NextResponse.json({ error: "Leia e confirme os documentos vigentes na central de privacidade antes de concluir." }, { status: 409 });
+      const { objective, experienceLevel, medicalConditions, weight, height } = parsed.data;
+      return NextResponse.json(await saveGymHealthProfile(member.workspaceId, member.id, session.user.id, { objective, experienceLevel, medicalConditions, weight, height }, true));
+    }
     const {
       objective,
       gender,
@@ -127,7 +134,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Student Onboarding API Error:", error);
+    const denied = handleWorkspaceAccessError(error); if (denied) return denied;
+    console.error("Student Onboarding API Error:", { errorType: error instanceof Error ? error.name : "UnknownError" });
     return NextResponse.json({ error: "Erro Interno do Servidor" }, { status: 500 });
   }
 }

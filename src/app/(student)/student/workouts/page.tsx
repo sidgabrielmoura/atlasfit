@@ -249,31 +249,26 @@ export default function StudentWorkoutsPage() {
     overdueBilling: any | null;
   }>({ status: "OK", daysUntilLock: null, overdueBilling: null });
 
-  const fetchLockStatus = async () => {
-    try {
-      const res = await fetch("/api/student/lock-status");
-      if (res.ok) {
-        const json = await res.json();
-        setLockStatus(json);
+  useEffect(() => {
+    setLockStatus({ status: "OK", daysUntilLock: null, overdueBilling: null });
+    if (!activeWs?.id || activeWs.type !== "PERSONAL") return;
+    const controller = new AbortController();
+    async function fetchLockStatus() {
+      try {
+        const response = await fetch("/api/student/lock-status", { signal: controller.signal });
+        if (!response.ok) throw new Error("Não foi possível consultar as pendências.");
+        const result = await response.json();
+        if (!controller.signal.aborted) setLockStatus(result);
+      } catch (error: unknown) {
+        if (!controller.signal.aborted) setError(error instanceof Error ? error.message : "Falha ao consultar pendências.");
       }
-    } catch {}
-  };
-
-  useEffect(() => {
-    fetchLockStatus();
-  }, []);
-
-  useEffect(() => {
-    if (!ablyClient || !session?.user?.id) return;
-    const userChannel = ablyClient.channels.get(`user:${session.user.id}`);
-    const handleWalletUpdate = () => {
-      fetchLockStatus();
-    };
-    userChannel.subscribe("wallet:updated", handleWalletUpdate);
-    return () => {
-      userChannel.unsubscribe("wallet:updated", handleWalletUpdate);
-    };
-  }, [ablyClient, session?.user?.id]);
+    }
+    void fetchLockStatus();
+    const channel = ablyClient && session?.user?.id ? ablyClient.channels.get(`user:${session.user.id}`) : null;
+    const refresh = () => { void fetchLockStatus(); };
+    channel?.subscribe("wallet:updated", refresh);
+    return () => { controller.abort(); channel?.unsubscribe("wallet:updated", refresh); };
+  }, [ablyClient, session?.user?.id, activeWs?.id, activeWs?.type]);
 
   const daysOfWeekLabels = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
   const fullDaysOfWeek = [
@@ -396,15 +391,17 @@ export default function StudentWorkoutsPage() {
     loadWorkoutsData();
   }, []);
 
-  async function loadWorkoutsData() {
+  async function loadWorkoutsData(signal?: AbortSignal) {
     setLoading(true);
     setError(null);
     try {
-      const res = await fetch("/api/student/workouts");
+      const res = await fetch("/api/student/workouts", { signal });
       if (!res.ok) {
         throw new Error("Falha ao carregar treinos.");
       }
       const apiData = await res.json();
+      if (signal?.aborted) return;
+      if (apiData.workspaceId !== activeWs?.id) throw new Error("O contexto mudou. Recarregue a página.");
       setWorkouts(apiData.workouts || []);
       setHistoryLogs(apiData.logs || []);
       if (typeof apiData.canDoAnyWorkoutDay === "boolean") {

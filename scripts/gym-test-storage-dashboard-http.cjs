@@ -1,0 +1,1 @@
+require('./gym-check-runner.cjs')('storage-dashboard-http', ['--config', 'vitest.gym-http.config.ts', '-t', 'HTTP armazenamento administrativo paginado'], { GYM_HTTP_ORIGIN: 'http://127.0.0.1:31173' });

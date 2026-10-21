@@ -18,6 +18,46 @@ export function formatPhone(value: string) {
   }
 }
 
+export function formatCurrencyBrl(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return "";
+  const str = String(value);
+  const digits = str.replace(/\D/g, "");
+  if (!digits) return "";
+  const cents = Number(digits);
+  if (cents === 0) return "";
+  if (cents > 99999999999) return "999.999.999,99";
+  return (cents / 100).toLocaleString("pt-BR", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+export function formatCref(value: string): string {
+  if (!value) return "";
+  const cleaned = value.toUpperCase().replace(/[^0-9A-Z]/g, "");
+
+  const numberMatch = cleaned.match(/^\d+/);
+  if (!numberMatch) {
+    return cleaned.slice(0, 6);
+  }
+
+  const numbers = numberMatch[0].slice(0, 6);
+  const afterNumbers = cleaned.slice(numbers.length);
+
+  const lettersOnly = afterNumbers.replace(/[^A-Z]/g, "").slice(0, 3);
+  const category = lettersOnly.slice(0, 1);
+  const uf = lettersOnly.slice(1, 3);
+
+  let formatted = numbers;
+  if (category) {
+    formatted += `-${category}`;
+  }
+  if (uf) {
+    formatted += `/${uf}`;
+  }
+  return formatted;
+}
+
 export function simplifyCommaSeparatedString(val: string | null | undefined): string {
   if (!val) return "";
   const str = String(val).trim();

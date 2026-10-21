@@ -1,0 +1,225 @@
+{
+  "schema": "prisma/schema.prisma",
+  "edges": [
+    {
+      "table": "WorkspaceMember",
+      "field": "unitId",
+      "parent": "GymUnit",
+      "query": "SELECT count(*)::text AS count FROM \"WorkspaceMember\" c  LEFT JOIN \"GymUnit\" p ON p.id=c.\"unitId\" WHERE c.\"unitId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "WorkspaceMember",
+      "field": "assignedStaffId",
+      "parent": "WorkspaceMember",
+      "query": "SELECT count(*)::text AS count FROM \"WorkspaceMember\" c  LEFT JOIN \"WorkspaceMember\" p ON p.id=c.\"assignedStaffId\" WHERE c.\"assignedStaffId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "WorkoutLog",
+      "field": "workoutId",
+      "parent": "Workout",
+      "query": "SELECT count(*)::text AS count FROM \"WorkoutLog\" c  LEFT JOIN \"Workout\" p ON p.id=c.\"workoutId\" WHERE c.\"workoutId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "Notification",
+      "field": "dispatchId",
+      "parent": "GymCommunicationDispatch",
+      "query": "SELECT count(*)::text AS count FROM \"Notification\" c  LEFT JOIN \"GymCommunicationDispatch\" p ON p.id=c.\"dispatchId\" WHERE c.\"dispatchId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "StudentBilling",
+      "field": "workspacePaymentId",
+      "parent": "WorkspacePayment",
+      "query": "SELECT count(*)::text AS count FROM \"StudentBilling\" c  LEFT JOIN \"WorkspacePayment\" p ON p.id=c.\"workspacePaymentId\" WHERE c.\"workspacePaymentId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "StudentBilling",
+      "field": "providerAccountId",
+      "parent": "PaymentProviderAccount",
+      "query": "SELECT count(*)::text AS count FROM \"StudentBilling\" c  LEFT JOIN \"PaymentProviderAccount\" p ON p.id=c.\"providerAccountId\" WHERE c.\"providerAccountId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "StudentBilling",
+      "field": "enrollmentId",
+      "parent": "GymEnrollment",
+      "query": "SELECT count(*)::text AS count FROM \"StudentBilling\" c  LEFT JOIN \"GymEnrollment\" p ON p.id=c.\"enrollmentId\" WHERE c.\"enrollmentId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "WorkspaceInvitation",
+      "field": "unitId",
+      "parent": "GymUnit",
+      "query": "SELECT count(*)::text AS count FROM \"WorkspaceInvitation\" c  LEFT JOIN \"GymUnit\" p ON p.id=c.\"unitId\" WHERE c.\"unitId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymStudentProfile",
+      "field": "memberId",
+      "parent": "WorkspaceMember",
+      "query": "SELECT count(*)::text AS count FROM \"GymStudentProfile\" c  LEFT JOIN \"WorkspaceMember\" p ON p.id=c.\"memberId\" WHERE c.\"memberId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymGuardian",
+      "field": "studentMemberId",
+      "parent": "WorkspaceMember",
+      "query": "SELECT count(*)::text AS count FROM \"GymGuardian\" c  LEFT JOIN \"WorkspaceMember\" p ON p.id=c.\"studentMemberId\" WHERE c.\"studentMemberId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymEnrollment",
+      "field": "studentMemberId",
+      "parent": "WorkspaceMember",
+      "query": "SELECT count(*)::text AS count FROM \"GymEnrollment\" c  LEFT JOIN \"WorkspaceMember\" p ON p.id=c.\"studentMemberId\" WHERE c.\"studentMemberId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymEnrollment",
+      "field": "planVersionId",
+      "parent": "GymPlanVersion",
+      "via": "planId",
+      "root": "GymPlan",
+      "query": "SELECT count(*)::text AS count FROM \"GymEnrollment\" c  LEFT JOIN \"GymPlanVersion\" r ON r.id=c.\"planVersionId\" LEFT JOIN \"GymPlan\" p ON p.id=r.\"planId\" WHERE c.\"planVersionId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymEnrollment",
+      "field": "scheduledPlanVersionId",
+      "parent": "GymPlanVersion",
+      "via": "planId",
+      "root": "GymPlan",
+      "query": "SELECT count(*)::text AS count FROM \"GymEnrollment\" c  LEFT JOIN \"GymPlanVersion\" r ON r.id=c.\"scheduledPlanVersionId\" LEFT JOIN \"GymPlan\" p ON p.id=r.\"planId\" WHERE c.\"scheduledPlanVersionId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymEnrollment",
+      "field": "supersedesEnrollmentId",
+      "parent": "GymEnrollment",
+      "query": "SELECT count(*)::text AS count FROM \"GymEnrollment\" c  LEFT JOIN \"GymEnrollment\" p ON p.id=c.\"supersedesEnrollmentId\" WHERE c.\"supersedesEnrollmentId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymEnrollment",
+      "field": "unitId",
+      "parent": "GymUnit",
+      "query": "SELECT count(*)::text AS count FROM \"GymEnrollment\" c  LEFT JOIN \"GymUnit\" p ON p.id=c.\"unitId\" WHERE c.\"unitId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymEnrollment",
+      "field": "billingPayerGuardianId",
+      "parent": "GymGuardian",
+      "query": "SELECT count(*)::text AS count FROM \"GymEnrollment\" c  LEFT JOIN \"GymGuardian\" p ON p.id=c.\"billingPayerGuardianId\" WHERE c.\"billingPayerGuardianId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymContractAcceptance",
+      "field": "enrollmentId",
+      "parent": "GymEnrollment",
+      "query": "SELECT count(*)::text AS count FROM \"GymContractAcceptance\" c  LEFT JOIN \"GymEnrollment\" p ON p.id=c.\"enrollmentId\" WHERE c.\"enrollmentId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymEnrollmentEvent",
+      "field": "enrollmentId",
+      "parent": "GymEnrollment",
+      "query": "SELECT count(*)::text AS count FROM \"GymEnrollmentEvent\" c  LEFT JOIN \"GymEnrollment\" p ON p.id=c.\"enrollmentId\" WHERE c.\"enrollmentId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymInvoice",
+      "field": "studentMemberId",
+      "parent": "WorkspaceMember",
+      "query": "SELECT count(*)::text AS count FROM \"GymInvoice\" c  LEFT JOIN \"WorkspaceMember\" p ON p.id=c.\"studentMemberId\" WHERE c.\"studentMemberId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymInvoice",
+      "field": "enrollmentId",
+      "parent": "GymEnrollment",
+      "query": "SELECT count(*)::text AS count FROM \"GymInvoice\" c  LEFT JOIN \"GymEnrollment\" p ON p.id=c.\"enrollmentId\" WHERE c.\"enrollmentId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymInvoice",
+      "field": "billingId",
+      "parent": "StudentBilling",
+      "query": "SELECT count(*)::text AS count FROM \"GymInvoice\" c  LEFT JOIN \"StudentBilling\" p ON p.id=c.\"billingId\" WHERE c.\"billingId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymPayment",
+      "field": "cashDrawerSessionId",
+      "parent": "GymCashDrawerSession",
+      "query": "SELECT count(*)::text AS count FROM \"GymPayment\" c  LEFT JOIN \"GymCashDrawerSession\" p ON p.id=c.\"cashDrawerSessionId\" WHERE c.\"cashDrawerSessionId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymPayment",
+      "field": "financialAccountId",
+      "parent": "GymFinancialAccount",
+      "query": "SELECT count(*)::text AS count FROM \"GymPayment\" c  LEFT JOIN \"GymFinancialAccount\" p ON p.id=c.\"financialAccountId\" WHERE c.\"financialAccountId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymFinancialAccount",
+      "field": "unitId",
+      "parent": "GymUnit",
+      "query": "SELECT count(*)::text AS count FROM \"GymFinancialAccount\" c  LEFT JOIN \"GymUnit\" p ON p.id=c.\"unitId\" WHERE c.\"unitId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymAccountTransfer",
+      "field": "fromAccountId",
+      "parent": "GymFinancialAccount",
+      "query": "SELECT count(*)::text AS count FROM \"GymAccountTransfer\" c  LEFT JOIN \"GymFinancialAccount\" p ON p.id=c.\"fromAccountId\" WHERE c.\"fromAccountId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymAccountTransfer",
+      "field": "toAccountId",
+      "parent": "GymFinancialAccount",
+      "query": "SELECT count(*)::text AS count FROM \"GymAccountTransfer\" c  LEFT JOIN \"GymFinancialAccount\" p ON p.id=c.\"toAccountId\" WHERE c.\"toAccountId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymExpense",
+      "field": "unitId",
+      "parent": "GymUnit",
+      "query": "SELECT count(*)::text AS count FROM \"GymExpense\" c  LEFT JOIN \"GymUnit\" p ON p.id=c.\"unitId\" WHERE c.\"unitId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymExpense",
+      "field": "supplierId",
+      "parent": "GymSupplier",
+      "query": "SELECT count(*)::text AS count FROM \"GymExpense\" c  LEFT JOIN \"GymSupplier\" p ON p.id=c.\"supplierId\" WHERE c.\"supplierId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymExpense",
+      "field": "categoryId",
+      "parent": "GymExpenseCategory",
+      "query": "SELECT count(*)::text AS count FROM \"GymExpense\" c  LEFT JOIN \"GymExpenseCategory\" p ON p.id=c.\"categoryId\" WHERE c.\"categoryId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymExpense",
+      "field": "financialAccountId",
+      "parent": "GymFinancialAccount",
+      "query": "SELECT count(*)::text AS count FROM \"GymExpense\" c  LEFT JOIN \"GymFinancialAccount\" p ON p.id=c.\"financialAccountId\" WHERE c.\"financialAccountId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymCashDrawerSession",
+      "field": "unitId",
+      "parent": "GymUnit",
+      "query": "SELECT count(*)::text AS count FROM \"GymCashDrawerSession\" c  LEFT JOIN \"GymUnit\" p ON p.id=c.\"unitId\" WHERE c.\"unitId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymCashDrawerSession",
+      "field": "financialAccountId",
+      "parent": "GymFinancialAccount",
+      "query": "SELECT count(*)::text AS count FROM \"GymCashDrawerSession\" c  LEFT JOIN \"GymFinancialAccount\" p ON p.id=c.\"financialAccountId\" WHERE c.\"financialAccountId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM c.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (c.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "WorkspaceRoleGrant",
+      "field": "unitId",
+      "parent": "GymUnit",
+      "ownVia": "memberId",
+      "ownRoot": "WorkspaceMember",
+      "query": "SELECT count(*)::text AS count FROM \"WorkspaceRoleGrant\" c JOIN \"WorkspaceMember\" own ON own.id=c.\"memberId\" LEFT JOIN \"GymUnit\" p ON p.id=c.\"unitId\" WHERE c.\"unitId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM own.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (own.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymPaymentAllocation",
+      "field": "invoiceId",
+      "parent": "GymInvoice",
+      "ownVia": "paymentId",
+      "ownRoot": "GymPayment",
+      "query": "SELECT count(*)::text AS count FROM \"GymPaymentAllocation\" c JOIN \"GymPayment\" own ON own.id=c.\"paymentId\" LEFT JOIN \"GymInvoice\" p ON p.id=c.\"invoiceId\" WHERE c.\"invoiceId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM own.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (own.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    },
+    {
+      "table": "GymExpensePayment",
+      "field": "financialAccountId",
+      "parent": "GymFinancialAccount",
+      "ownVia": "expenseId",
+      "ownRoot": "GymExpense",
+      "query": "SELECT count(*)::text AS count FROM \"GymExpensePayment\" c JOIN \"GymExpense\" own ON own.id=c.\"expenseId\" LEFT JOIN \"GymFinancialAccount\" p ON p.id=c.\"financialAccountId\" WHERE c.\"financialAccountId\" IS NOT NULL AND p.\"workspaceId\" IS DISTINCT FROM own.\"workspaceId\" AND EXISTS (SELECT 1 FROM \"Workspace\" w WHERE w.id IN (own.\"workspaceId\", p.\"workspaceId\") AND w.type='GYM')"
+    }
+  ]
+}

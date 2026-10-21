@@ -1,48 +1,35 @@
+import { withRequestMemo } from "@/lib/request-memo";
+import { recordGymWorkoutCompletion } from "@/modules/workspaces/application/gym-student-health-events";
+import { readPrivacyJsonRequest } from "@/lib/privacy/request-body";
+import { authorizeGymStudent } from "@/modules/workspaces/application/student-authority";
+import { handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { getStudentWorkspaceMember } from "@/lib/student-auth";
+import { studentWorkoutScope, studentWorkoutCompletionSchema } from "@/lib/student-workout-scope";
 import { calculateStreaks, verifyAndDecayWorkspaceMemberStreak } from "@/lib/streak-helper";
 import { NotificationService } from "@/lib/notifications/service";
 import { EngagePushService } from "@/lib/engage/push-service";
 
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado. Por favor, faça login.", { status: 401 });
   }
 
   try {
-    // 1. Get active student workspace member profile
-    const member = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        role: "STUDENT",
-        isActive: true,
-      },
-      include: {
-        workspace: {
-          select: {
-            ownerId: true,
-          },
-        },
-      },
-    });
-
-    if (!member) {
-      return new NextResponse("Membro ativo do workspace não encontrado.", { status: 404 });
-    }
+    const member = await getStudentWorkspaceMember(session.user.id);
+    if (!member) return new NextResponse("Selecione um vínculo estudantil ativo.", { status: 409 });
 
     const workspaceId = member.workspaceId;
+    if (member.workspace.type === "GYM") await authorizeGymStudent(workspaceId, member.id, session.user.id, req.method === "GET" ? "workouts.read" : "workouts.manage.assigned", { allowSelf: true });
     const trainerOwnerId = member.workspace?.ownerId;
 
     const workouts = await prisma.workout.findMany({
       where: {
-        workspaceId,
-        OR: [
-          { studentId: session.user.id },
-          { studentId: null }
-        ]
+        ...studentWorkoutScope(workspaceId, member.workspace.type, session.user.id)
       },
       include: {
         exercises: {
@@ -52,7 +39,7 @@ export async function GET(req: Request) {
                 muscleGroup: true,
                 trainerVideoLinks: {
                   where: {
-                    video: {
+                    video: member.workspace.type === "GYM" ? { workspaceId } : {
                       OR: [
                         { workspaceId },
                         ...(trainerOwnerId ? [{ trainerId: trainerOwnerId }] : []),
@@ -112,10 +99,11 @@ export async function GET(req: Request) {
     endOfWeek.setDate(startOfWeek.getDate() + 6);
     endOfWeek.setHours(23, 59, 59, 999);
 
-    const logs = await (prisma as any).workoutLog.findMany({
+    const logs = await prisma.workoutLog.findMany({
       where: {
         studentId: session.user.id,
         workspaceId,
+        workout: { workspaceId },
       },
       include: {
         workout: {
@@ -132,9 +120,10 @@ export async function GET(req: Request) {
       },
     });
 
-    await verifyAndDecayWorkspaceMemberStreak(member, logs.map((l: any) => l.completedAt));
+    await verifyAndDecayWorkspaceMemberStreak(member, logs.map(l => l.completedAt));
 
     return NextResponse.json({
+      workspaceId,
       workouts: formattedWorkouts,
       logs,
       canDoAnyWorkoutDay: member.canDoAnyWorkoutDay ?? false,
@@ -142,10 +131,12 @@ export async function GET(req: Request) {
       endOfWeek: endOfWeek.toISOString(),
     });
   } catch (error) {
-    console.error("Student Workouts API GET Error:", error);
+    const denied = handleWorkspaceAccessError(error); if (denied) return denied;
+    console.error("Student Workouts API GET Error:", { errorType: error instanceof Error ? error.name : "UnknownError" });
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -154,33 +145,18 @@ export async function POST(req: Request) {
   }
 
   try {
-    const body = await req.json();
-    const { workoutId, feedback, effortScore, loads, reps, restTimes, skippedExercises } = body;
-
-    if (!workoutId) {
-      return new NextResponse("ID do treino é obrigatório.", { status: 400 });
-    }
-
-    // 1. Get student active membership
-    const member = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        role: "STUDENT",
-        isActive: true,
-      },
-    });
-
-    if (!member) {
-      return new NextResponse("Membro ativo do workspace não encontrado.", { status: 404 });
-    }
+    const parsed = studentWorkoutCompletionSchema.safeParse(await readPrivacyJsonRequest(req, 64 * 1024));
+    if (!parsed.success) return new NextResponse("Registro de treino inválido.", { status: 400 });
+    const { workoutId, feedback, effortScore, loads, reps, restTimes, skippedExercises } = parsed.data;
+    const member = await getStudentWorkspaceMember(session.user.id);
+    if (!member) return new NextResponse("Selecione um vínculo estudantil ativo.", { status: 409 });
+    const targetWorkout = await prisma.workout.findFirst({ where: { id: workoutId, ...studentWorkoutScope(member.workspaceId, member.workspace.type, session.user.id) }, select: { dayOfWeek: true, exercises: { select: { id: true } } } });
+    if (!targetWorkout) return new NextResponse("Treino não disponível neste vínculo.", { status: 404 });
+    const exerciseIds = new Set(targetWorkout.exercises.map(exercise => exercise.id));
+    if ([loads, reps, restTimes, skippedExercises].some(records => records && Object.keys(records).some(id => !exerciseIds.has(id)))) return new NextResponse("Registro contém exercício de outro treino.", { status: 400 });
 
     // 2. Validate day restriction if personal configured strict day execution
     if (member.canDoAnyWorkoutDay === false) {
-      const targetWorkout = await prisma.workout.findUnique({
-        where: { id: workoutId },
-        select: { dayOfWeek: true },
-      });
-
       const todayDayOfWeek = new Date().getDay();
       if (
         targetWorkout?.dayOfWeek !== null &&
@@ -198,7 +174,7 @@ export async function POST(req: Request) {
       const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
       const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
 
-      const alreadyCompletedToday = await (prisma as any).workoutLog.findFirst({
+      const alreadyCompletedToday = await prisma.workoutLog.findFirst({
         where: {
           studentId: session.user.id,
           workoutId,
@@ -219,19 +195,22 @@ export async function POST(req: Request) {
     }
 
     const workspaceId = member.workspaceId;
+    if (member.workspace.type === "GYM") await authorizeGymStudent(workspaceId, member.id, session.user.id, req.method === "GET" ? "workouts.read" : "workouts.manage.assigned", { allowSelf: true });
+
+    if (member.workspace.type === "GYM") return NextResponse.json(await recordGymWorkoutCompletion(workspaceId, member.id, session.user.id, parsed.data));
 
     // 3. Create the completed workout log record
-    const log = await (prisma as any).workoutLog.create({
+    const log = await prisma.workoutLog.create({
       data: {
         studentId: session.user.id,
         workoutId,
         workspaceId,
         feedback: feedback || null,
-        effortScore: effortScore ? parseInt(effortScore) : null,
-        loads: loads || null,
-        reps: reps || null,
-        restTimes: restTimes || null,
-        skippedExercises: skippedExercises || null,
+        effortScore: effortScore ?? null,
+        loads,
+        reps,
+        restTimes,
+        skippedExercises,
         completedAt: new Date(),
       },
     });
@@ -260,11 +239,11 @@ export async function POST(req: Request) {
 
     // 2.1. Track Push Notification Conversion (if student received an Engage push within the last 6 hours)
     EngagePushService.trackPushConversion(session.user.id).catch((err) => {
-      console.warn("[EngagePush] Error tracking workout conversion:", err);
+      console.warn("[EngagePush] Error tracking workout conversion:", { errorType: err instanceof Error ? err.name : "UnknownError" });
     });
 
     // 3. Calculate and update streak and progress dynamically from all history
-    const allLogs = await (prisma as any).workoutLog.findMany({
+    const allLogs = await prisma.workoutLog.findMany({
       where: {
         studentId: session.user.id,
         workspaceId,
@@ -275,19 +254,15 @@ export async function POST(req: Request) {
     });
 
     const { streak: newStreak, bestStreak: newBestStreak } = calculateStreaks(
-      allLogs.map((l: any) => l.completedAt)
+      allLogs.map(l => l.completedAt)
     );
 
     // Calculate weekly compliance (progress)
     // Find workouts scheduled for the week
     const weeklyWorkoutsCount = await prisma.workout.count({
       where: {
-        workspaceId,
+        ...studentWorkoutScope(workspaceId, member.workspace.type, session.user.id),
         dayOfWeek: { not: null },
-        OR: [
-          { studentId: session.user.id },
-          { studentId: null }
-        ]
       }
     });
 
@@ -299,7 +274,7 @@ export async function POST(req: Request) {
     startOfWeek.setDate(diff);
     startOfWeek.setHours(0, 0, 0, 0);
 
-    const weeklyCompletionsCount = await (prisma as any).workoutLog.count({
+    const weeklyCompletionsCount = await prisma.workoutLog.count({
       where: {
         studentId: session.user.id,
         workspaceId,
@@ -333,7 +308,9 @@ export async function POST(req: Request) {
       progress: newProgress,
     });
   } catch (error) {
-    console.error("Student Workouts API POST Error:", error);
+    const denied = handleWorkspaceAccessError(error); if (denied) return denied;
+    if (error instanceof SyntaxError) return new NextResponse("JSON inválido.", { status: 400 });
+    console.error("[StudentWorkoutCompletion]", { errorType: error instanceof Error ? error.name : "UnknownError" });
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
 }

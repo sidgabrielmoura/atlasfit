@@ -4,6 +4,7 @@ import { useSnapshot } from "valtio";
 import { workspaceStore } from "@/stores/workspace.store";
 import { usePathname } from "next/navigation";
 import { useState, useEffect, useLayoutEffect } from "react";
+import { normalizeWorkspaceColor, brandingForeground } from "@/modules/workspaces/domain/branding";
 
 const useIsomorphicLayoutEffect = typeof window !== "undefined" ? useLayoutEffect : useEffect;
 
@@ -159,9 +160,9 @@ export function DynamicBranding() {
   }, []);
 
   const isSuperAdmin = pathname?.startsWith("/superadmin");
-  const rawColor = (!isSuperAdmin && snap.activeWorkspace?.primaryColor?.trim())
+  const rawColor = normalizeWorkspaceColor((!isSuperAdmin && snap.activeWorkspace?.primaryColor?.trim())
     ? snap.activeWorkspace.primaryColor.trim()
-    : DEFAULT_APP_COLOR;
+    : DEFAULT_APP_COLOR);
 
   // Sincroniza a barra de status móvel (bateria, relógio, ícones) antes do paint
   useIsomorphicLayoutEffect(() => {
@@ -172,9 +173,9 @@ export function DynamicBranding() {
     return null;
   }
 
-  const isHex = /^#[0-9a-fA-F]{3,8}$/.test(rawColor);
-  const lightColor = isHex ? hexToOklch(rawColor) : rawColor;
-  const darkColor = isHex ? hexToOklchDark(rawColor) : rawColor;
+  const lightColor = rawColor;
+  const darkColor = rawColor;
+  const foreground = brandingForeground(rawColor);
 
   return (
     <>
@@ -185,6 +186,8 @@ export function DynamicBranding() {
         __html: `
           :root {
             --primary: ${lightColor} !important;
+            --primary-foreground: ${foreground} !important;
+            --sidebar-primary-foreground: ${foreground} !important;
             --sidebar-primary: ${lightColor} !important;
             --ring: ${lightColor} !important;
             --sidebar-ring: ${lightColor} !important;
@@ -192,6 +195,8 @@ export function DynamicBranding() {
           }
           .dark {
             --primary: ${darkColor} !important;
+            --primary-foreground: ${foreground} !important;
+            --sidebar-primary-foreground: ${foreground} !important;
             --sidebar-primary: ${darkColor} !important;
             --ring: ${darkColor} !important;
             --sidebar-ring: ${darkColor} !important;

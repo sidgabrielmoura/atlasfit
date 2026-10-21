@@ -8,11 +8,13 @@ import {
   WalletSubscriptionStatus,
   WalletPayoutStatus,
   LedgerEntryType,
-  LedgerDirection
+  LedgerDirection,
+  FinancialProfileType
 } from "@prisma/client";
 
 export interface CreateAccountInput {
-  personalUserId: string;
+  personalUserId?: string;
+  workspaceId?: string;
   name: string;
   email: string;
   cpfCnpj: string;
@@ -37,11 +39,15 @@ export interface AccountStatusResult {
 }
 
 export interface CreateCustomerInput {
-  personalUserId: string;
-  studentUserId: string;
+  personalUserId?: string;
+  workspaceId?: string;
+  studentUserId?: string;
+  payerUserId?: string;
+  payerGuardianId?: string;
   name: string;
   email: string;
   cpfCnpj?: string;
+  phone?: string;
 }
 
 export interface CustomerResult {

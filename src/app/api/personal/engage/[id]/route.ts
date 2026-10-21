@@ -1,3 +1,4 @@
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
@@ -45,6 +46,7 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user?.id) {
     return new NextResponse("Unauthorized", { status: 401 });
@@ -173,6 +175,7 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user?.id) {
     return new NextResponse("Unauthorized", { status: 401 });

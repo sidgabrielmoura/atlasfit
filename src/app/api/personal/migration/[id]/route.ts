@@ -1,11 +1,16 @@
+import { withRequestMemo } from "@/lib/request-memo";
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
+import { assertPersonalImportJobAccess } from "@/lib/migration/access";
+import { requirePersonalWorkspaceAccess, handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 
-export async function GET(
+async function handleGET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -14,6 +19,8 @@ export async function GET(
   const { id } = await params;
 
   try {
+    await assertPersonalImportJobAccess(id);
+
     const job = await prisma.importJob.findUnique({
       where: { id },
       include: {
@@ -34,28 +41,20 @@ export async function GET(
       return new NextResponse("Job de migração não encontrado.", { status: 404 });
     }
 
-    // Verify workspace authorization
-    const member = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        workspaceId: job.workspaceId,
-      },
-    });
-
-    if (!member) {
-      return new NextResponse("Acesso negado a este job.", { status: 403 });
-    }
-
     return NextResponse.json(job);
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
+
     return new NextResponse("Erro ao consultar job de migração.", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -64,6 +63,8 @@ export async function DELETE(
   const { id } = await params;
 
   try {
+    await assertPersonalImportJobAccess(id);
+
     const job = await prisma.importJob.findUnique({
       where: { id },
     });
@@ -79,6 +80,8 @@ export async function DELETE(
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
+
     return new NextResponse("Erro ao cancelar job.", { status: 500 });
   }
 }

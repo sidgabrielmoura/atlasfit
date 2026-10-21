@@ -1,0 +1,1 @@
+require('./gym-check-runner.cjs')('student-ingress', ['--config', 'vitest.gym.config.ts', 'tests/gym/student-ingress.integration.ts', 'tests/gym/session-revocation.integration.ts', 'tests/gym/delivery-outbox.integration.ts']);

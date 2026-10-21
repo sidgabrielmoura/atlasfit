@@ -3,14 +3,15 @@
 import { useEffect, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useSidebar } from "@/components/ui/sidebar";
 import { LayoutDashboard, Users, Dumbbell, CalendarDays, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 
-export function PersonalMobileNavbar() {
+export function PersonalMobileNavbar({ academy = false }: { academy?: boolean }) {
   const pathname = usePathname();
+  const academyView = useSearchParams().get("view");
   const { toggleSidebar } = useSidebar();
   const [mounted, setMounted] = useState(false);
 
@@ -18,7 +19,12 @@ export function PersonalMobileNavbar() {
     setMounted(true);
   }, []);
 
-  const navItems = [
+  const navItems = academy ? [
+    { title: "Início", href: "/personal/academy", icon: LayoutDashboard },
+    { title: "Alunos", href: "/personal/academy?view=students", icon: Users },
+    { title: "Treinos", href: "/personal/academy?view=workouts", icon: Dumbbell },
+    { title: "Agenda", href: "/personal/academy?view=calendar", icon: CalendarDays },
+  ] : [
     { title: "Início", href: "/personal/dashboard", icon: LayoutDashboard },
     { title: "Alunos", href: "/personal/clients", icon: Users },
     { title: "Treinos", href: "/personal/workouts", icon: Dumbbell },
@@ -32,11 +38,16 @@ export function PersonalMobileNavbar() {
       <div className="bg-white/80 dark:bg-neutral-950/35 backdrop-blur-3xl border border-black/10 dark:border-white/15 rounded-2xl p-1.5 flex items-center justify-between shadow-lg dark:shadow-2xl dark:shadow-black/70 ring-1 ring-black/5 dark:ring-white/10">
         <div className="flex items-center gap-1.5 flex-1 justify-between">
           {navItems.map((item) => {
-            const isActive = pathname === item.href || (item.href !== "/personal/dashboard" && pathname.startsWith(item.href));
+            const [itemPath, itemQuery] = item.href.split("?");
+            const isActive = academy
+              ? pathname === itemPath && academyView === new URLSearchParams(itemQuery).get("view")
+              : pathname === item.href || (item.href !== "/personal/dashboard" && pathname.startsWith(item.href));
             return (
               <Link
                 key={item.href}
                 href={item.href}
+                aria-label={item.title}
+                aria-current={isActive ? "page" : undefined}
                 className={cn(
                   "relative flex items-center justify-center px-3 py-2 rounded-xl text-muted-foreground hover:text-foreground dark:text-neutral-400 dark:hover:text-neutral-200 transition-colors duration-200 select-none min-h-[36px]",
                   isActive && "text-primary-foreground font-bold"
@@ -65,6 +76,7 @@ export function PersonalMobileNavbar() {
 
         {/* Toggle Sidebar Button */}
         <button
+          aria-label="Abrir menu"
           onClick={() => toggleSidebar()}
           className="p-3 text-muted-foreground hover:text-foreground transition-colors cursor-pointer rounded-xl flex items-center justify-center size-9 hover:bg-black/5 dark:hover:bg-white/5"
         >

@@ -12,6 +12,7 @@
 
 # testing
 /coverage
+/.tmp/
 
 # next.js
 /.next/
@@ -24,7 +25,29 @@
 secrets/
 *.json
 !/package.json
+!/vercel.json
 !/components.json
+!/docs/audits/academias/achados.json
+!/docs/audits/academias/estabilizacao/estado-inicial.json
+!/docs/audits/academias/estabilizacao/tratamento.json
+!/docs/audits/academias/estabilizacao/verificacoes-isoladas.json
+!/prisma/gym-tenant-integrity.json
+!/prisma/gym-reference-integrity.json
+!/docs/audits/academias/estabilizacao/preflight-tenant-real.json
+!/docs/audits/academias/estabilizacao/preflight-tenant-teste.json
+!/docs/audits/academias/estabilizacao/typecheck-contexto-final.json
+!/docs/audits/academias/estabilizacao/verificacoes-tenant-deploy.json
+!/docs/audits/academias/estabilizacao/verificacoes-configuracao-a11y.json
+!/docs/audits/academias/estabilizacao/verificacoes-relatorios-volume.json
+!/docs/audits/academias/estabilizacao/verificacoes-relatorios-browser.json
+!/docs/audits/academias/estabilizacao/verificacoes-integridade-agregacao.json
+!/docs/audits/academias/estabilizacao/verificacoes-notificacoes-http.json
+!/docs/audits/academias/estabilizacao/verificacoes-conclusao-schema.json
+!/docs/audits/academias/estabilizacao/verificacoes-conclusao-seis.json
+!/docs/audits/academias/estabilizacao/verificacoes-conclusao-cinco.json
+!/docs/audits/academias/estabilizacao/verificacoes-cinco-schema.json
+!/docs/audits/academias/estabilizacao/verificacoes-cinco-browser-http.json
+!/docs/audits/academias/estabilizacao/verificacoes-cinco-volume.json
 
 # misc
 .DS_Store

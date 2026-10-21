@@ -1,9 +1,14 @@
-"use client"
+"use client";
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, useMemo, use } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { signIn } from "next-auth/react";
 import { toast } from "sonner";
+import {
+  workspaceAdministrationResultSchema,
+  workspaceAdministrationErrorMessage,
+} from "@/modules/workspaces/domain/workspace-administration-contract";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -32,6 +37,37 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Switch } from "@/components/ui/switch";
+import { Progress } from "@/components/ui/progress";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import {
+  Breadcrumb,
+  BreadcrumbItem,
+  BreadcrumbLink,
+  BreadcrumbList,
+  BreadcrumbPage,
+  BreadcrumbSeparator,
+} from "@/components/ui/breadcrumb";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
+import {
+  Empty,
+  EmptyHeader,
+  EmptyTitle,
+  EmptyDescription,
+  EmptyMedia,
+} from "@/components/ui/empty";
 import {
   ArrowLeft,
   Building2,
@@ -46,42 +82,120 @@ import {
   LogIn,
   Loader2,
   MessageCircle,
-  TrendingUp,
   Flame,
   CreditCard,
   Trash2,
   Sliders,
-  Sparkles
+  MapPin,
+  ShieldCheck,
+  Plus,
+  Save,
+  Copy,
+  Check,
+  ExternalLink,
+  Search,
+  RotateCcw,
+  ShieldAlert,
+  CalendarDays,
+  FileText,
+  Clock,
+  Sparkles,
 } from "lucide-react";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "@/components/ui/alert-dialog";
 import { cn } from "@/lib/utils";
+import { GymPurgeForm } from "@/components/application/gym-purge-form";
 
-function StatSkeleton() {
+/* -------------------------------------------------------------------------
+   Componente de Card de Estatística Unificado
+------------------------------------------------------------------------- */
+interface StatCardProps {
+  title: string;
+  value: string | number;
+  icon: any;
+  iconColor: string;
+  iconBg: string;
+  description: string;
+}
+
+function StatCard({ title, value, icon: Icon, iconColor, iconBg, description }: StatCardProps) {
   return (
-    <Card className="border-border/40 bg-card/50">
-      <CardContent className="p-6 space-y-4">
-        <div className="flex justify-between items-center">
-          <Skeleton className="h-10 w-10 rounded-xl" />
+    <Card className="border-border/60 bg-card shadow-xs transition-all hover:border-border/80">
+      <CardContent className="p-5 flex flex-col justify-between h-full space-y-3">
+        <div className="flex items-center justify-between">
+          <div className={cn("p-2.5 rounded-xl flex items-center justify-center shrink-0", iconBg, iconColor)}>
+            <Icon className="size-4.5" />
+          </div>
         </div>
-        <div className="space-y-2">
-          <Skeleton className="h-3 w-1/3" />
-          <Skeleton className="h-8 w-1/2" />
+        <div>
+          <p className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/80">{title}</p>
+          <h3 className="text-2xl font-black tracking-tight text-foreground mt-1">{value}</h3>
+          <p className="text-[11px] text-muted-foreground mt-0.5 line-clamp-1 font-medium">{description}</p>
         </div>
       </CardContent>
     </Card>
   );
 }
 
+/* -------------------------------------------------------------------------
+   Componente Skeleton Completo para Zero Layout Shift
+------------------------------------------------------------------------- */
+function WorkspaceDetailSkeleton() {
+  return (
+    <div className="min-w-0 p-4 sm:p-6 md:p-8 space-y-8 max-w-[1400px] mx-auto animate-pulse">
+      {/* Breadcrumb Skeleton */}
+      <div className="flex items-center gap-2">
+        <Skeleton className="h-4 w-20 rounded" />
+        <Skeleton className="h-4 w-4 rounded" />
+        <Skeleton className="h-4 w-24 rounded" />
+        <Skeleton className="h-4 w-4 rounded" />
+        <Skeleton className="h-4 w-32 rounded" />
+      </div>
+
+      {/* Header Skeleton */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/40 pb-6">
+        <div className="flex items-center gap-4">
+          <Skeleton className="size-11 rounded-xl" />
+          <div className="space-y-2">
+            <div className="flex items-center gap-3">
+              <Skeleton className="h-7 w-48 rounded-lg" />
+              <Skeleton className="h-5 w-20 rounded-full" />
+              <Skeleton className="h-5 w-16 rounded-full" />
+            </div>
+            <Skeleton className="h-4 w-36 rounded" />
+          </div>
+        </div>
+        <div className="flex gap-2">
+          <Skeleton className="h-10 w-32 rounded-xl" />
+          <Skeleton className="h-10 w-36 rounded-xl" />
+        </div>
+      </div>
+
+      {/* Stat Cards Skeleton */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Card key={i} className="border-border/60 bg-card p-5 space-y-3">
+            <Skeleton className="size-10 rounded-xl" />
+            <Skeleton className="h-3 w-28 rounded" />
+            <Skeleton className="h-8 w-24 rounded" />
+            <Skeleton className="h-3 w-36 rounded" />
+          </Card>
+        ))}
+      </div>
+
+      {/* Tabs Skeleton */}
+      <div className="space-y-6">
+        <Skeleton className="h-11 w-full sm:w-96 rounded-xl" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <Skeleton className="h-80 w-full rounded-2xl" />
+          <Skeleton className="h-80 w-full rounded-2xl" />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------
+   Página Principal de Detalhes do Workspace
+------------------------------------------------------------------------- */
 export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id: string }> }) {
   const router = useRouter();
   const unwrappedParams = use(params);
@@ -89,10 +203,16 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
   const [isLoading, setIsLoading] = useState(true);
   const [isSuspending, setIsSuspending] = useState(false);
 
-  // States para Impersonate de membros
+  // States de Cópia
+  const [copiedId, setCopiedId] = useState(false);
+  const [copiedSlug, setCopiedSlug] = useState(false);
+
+  // States para Impersonate de membros e workspace
   const [isImpersonating, setIsImpersonating] = useState(false);
   const [memberToImpersonate, setMemberToImpersonate] = useState<any>(null);
   const [isImpersonateOpen, setIsImpersonateOpen] = useState(false);
+  const [impersonateReason, setImpersonateReason] = useState<string>("");
+  const [isWorkspaceAccess, setIsWorkspaceAccess] = useState(false);
 
   // States para Moderação Financeira
   const [selectedPayment, setSelectedPayment] = useState<any>(null);
@@ -100,16 +220,55 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
   const [updatingPaymentStatus, setUpdatingPaymentStatus] = useState(false);
   const [deletingPayment, setDeletingPayment] = useState(false);
   const [isDeletePaymentAlertOpen, setIsDeletePaymentAlertOpen] = useState(false);
+  const [paymentStatusFilter, setPaymentStatusFilter] = useState<string>("ALL");
 
-  const fetchWorkspace = async () => {
+  // States para Filtro de Membros
+  const [memberSearch, setMemberSearch] = useState("");
+  const [memberRoleFilter, setMemberRoleFilter] = useState<string>("ALL");
+
+  // States para Configurações GYM e Unidades
+  const [gymLimits, setGymLimits] = useState({
+    maxStudents: 500,
+    maxStaff: 50,
+    maxUnits: 5,
+  });
+  const [gymPolicies, setGymPolicies] = useState({
+    billingGracePeriodDays: 5,
+    requireGuardianSignature: true,
+  });
+  const [isSavingGymConfig, setIsSavingGymConfig] = useState(false);
+  const [isAddUnitOpen, setIsAddUnitOpen] = useState(false);
+  const [isAddingUnit, setIsAddingUnit] = useState(false);
+  const [newUnitData, setNewUnitData] = useState({
+    name: "",
+    code: "",
+    address: "",
+  });
+
+  const fetchWorkspace = async (navigateOnFailure = true) => {
     try {
       const res = await fetch(`/api/superadmin/workspaces/${unwrappedParams.id}`);
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setWorkspace(data);
+      if (data.type === "GYM") {
+        setGymLimits({
+          maxStudents: data.subscription?.maxStudents ?? 0,
+          maxStaff: data.subscription?.maxStaff ?? 0,
+          maxUnits: data.subscription?.maxUnits ?? 0,
+        });
+        setGymPolicies({
+          billingGracePeriodDays: data.settings?.billingGracePeriodDays ?? 5,
+          requireGuardianSignature: data.settings?.requireGuardianSignature ?? true,
+        });
+      }
+      return true;
     } catch (error) {
-      toast.error("Erro ao carregar os dados do workspace.");
-      router.push("/superadmin/workspaces");
+      if (navigateOnFailure) {
+        toast.error("Erro ao carregar os dados do workspace.");
+        router.push("/superadmin/workspaces");
+      }
+      return false;
     } finally {
       setIsLoading(false);
     }
@@ -117,8 +276,88 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
 
   useEffect(() => {
     fetchWorkspace();
-  }, [unwrappedParams.id, router]);
+  }, [unwrappedParams.id]);
 
+  // Ação de cópia rápida
+  const handleCopy = (text: string, type: "id" | "slug") => {
+    navigator.clipboard.writeText(text);
+    if (type === "id") {
+      setCopiedId(true);
+      setTimeout(() => setCopiedId(false), 2000);
+    } else {
+      setCopiedSlug(true);
+      setTimeout(() => setCopiedSlug(false), 2000);
+    }
+    toast.success(`${type === "id" ? "ID" : "Slug"} copiado com sucesso!`);
+  };
+
+  // Salvar Configurações GYM
+  const handleSaveGymConfig = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isSavingGymConfig) return;
+    setIsSavingGymConfig(true);
+    try {
+      const res = await fetch(`/api/superadmin/workspaces/${workspace.id}/gym-config`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          subscription: {
+            maxStudents: Number(gymLimits.maxStudents),
+            maxStaff: Number(gymLimits.maxStaff),
+            maxUnits: Number(gymLimits.maxUnits),
+          },
+          settings: gymPolicies,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Falha ao salvar configurações.");
+      }
+      if (!(await fetchWorkspace(false))) {
+        throw new Error("Gravação recebida, mas a confirmação falhou. Recarregue para conferir os valores.");
+      }
+      toast.success("Configurações da academia salvas com sucesso!");
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao salvar configurações da academia.");
+    } finally {
+      setIsSavingGymConfig(false);
+    }
+  };
+
+  // Adicionar Unidade Filial
+  const handleAddUnit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newUnitData.name.trim() || !newUnitData.code.trim()) {
+      toast.error("Nome e código da unidade são obrigatórios.");
+      return;
+    }
+    setIsAddingUnit(true);
+    try {
+      const res = await fetch(`/api/superadmin/workspaces/${workspace.id}/gym-config`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: newUnitData.name.trim(),
+          code: newUnitData.code.trim().toLowerCase().replace(/[^a-z0-9_-]/g, ""),
+          address: newUnitData.address ? newUnitData.address.trim() : undefined,
+        }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || "Falha ao criar unidade.");
+      }
+      toast.success("Unidade cadastrada com sucesso!");
+      setIsAddUnitOpen(false);
+      setNewUnitData({ name: "", code: "", address: "" });
+      await fetchWorkspace();
+    } catch (error: any) {
+      toast.error(error.message || "Erro ao adicionar unidade.");
+    } finally {
+      setIsAddingUnit(false);
+    }
+  };
+
+  // Alterar Status (Suspender / Reativar)
   const handleToggleStatus = async () => {
     setIsSuspending(true);
     try {
@@ -126,36 +365,76 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
       const res = await fetch(`/api/superadmin/workspaces/${workspace.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ isActive: newStatus })
+        body: JSON.stringify({ isActive: newStatus, expectedIsActive: workspace.isActive }),
       });
-      if (!res.ok) throw new Error("Erro na atualização");
-      setWorkspace({ ...workspace, isActive: newStatus });
-      toast.success(newStatus ? "Workspace reativado!" : "Workspace suspenso com segurança!");
+      const result: unknown = await res.json();
+      if (!res.ok) throw new Error(workspaceAdministrationErrorMessage(result, "Não foi possível alterar o estado."));
+      const applied = workspaceAdministrationResultSchema.parse(result);
+      setWorkspace({ ...workspace, isActive: applied.isActive });
+      toast.success(applied.isActive ? "Workspace reativado com sucesso." : "Workspace suspenso com sucesso.");
     } catch (error) {
-      toast.error("Erro ao alterar o status do workspace.");
+      toast.error(error instanceof Error ? error.message : "Erro ao alterar o status do workspace.");
     } finally {
       setIsSuspending(false);
     }
+  };
+
+  // Inicia impersonate como gestor do workspace para assistência / manutenção
+  const handleAccessWorkspace = () => {
+    let targetMember: any = null;
+    if (workspace.owner && workspace.owner.role !== "SUPERADMIN") {
+      targetMember = { userId: workspace.ownerId, user: workspace.owner };
+    }
+
+    if (!targetMember) {
+      targetMember =
+        workspace.members?.find(
+          (m: any) => (m.userId === workspace.ownerId || m.role === "OWNER") && m.user?.role !== "SUPERADMIN"
+        ) ||
+        workspace.members?.find((m: any) => m.role === "TRAINER" && m.user?.role !== "SUPERADMIN") ||
+        workspace.members?.find((m: any) => m.user?.role !== "SUPERADMIN");
+    }
+
+    if (!targetMember || !targetMember.userId) {
+      if (workspace.owner?.role === "SUPERADMIN") {
+        toast.error(
+          "O proprietário deste workspace é uma conta Superadmin e não há outros membros elegíveis. Contas administrativas exigem login próprio."
+        );
+      } else {
+        toast.error("Nenhum usuário gestor ou proprietário disponível neste workspace para acesso.");
+      }
+      return;
+    }
+
+    setMemberToImpersonate(targetMember);
+    setIsWorkspaceAccess(true);
+    setImpersonateReason(`Manutenção e assistência técnica ao workspace ${workspace.name} autorizada pelo Superadmin`);
+    setIsImpersonateOpen(true);
   };
 
   // Executa Impersonate
   const handleImpersonate = async () => {
     if (!memberToImpersonate) return;
     setIsImpersonating(true);
-    const toastId = toast.loading("Gerando token de acesso...");
+    const toastId = toast.loading("Gerando token de acesso seguro...");
     try {
       const res = await fetch("/api/superadmin/impersonate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           targetUserId: memberToImpersonate.userId,
-          reason: "Atendimento de suporte ao workspace / Diagnóstico autorizado pelo Superadmin",
-        })
+          reason:
+            impersonateReason ||
+            `Manutenção e assistência técnica ao workspace ${workspace.name} autorizada pelo Superadmin`,
+        }),
       });
-      if (!res.ok) throw new Error("Falha ao gerar token");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Falha ao gerar token de acesso.");
+      }
       const { token } = await res.json();
 
-      toast.loading("Realizando login seguro...", { id: toastId });
+      toast.loading("Realizando login auditado...", { id: toastId });
 
       const result = await signIn("credentials", {
         impersonateToken: token,
@@ -166,31 +445,35 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
         throw new Error(result.error);
       }
 
-      toast.success("Login realizado com sucesso!", { id: toastId });
-      window.location.href = "/";
-    } catch (error) {
+      toast.success("Acesso autorizado! Redirecionando para o workspace...", { id: toastId });
+      window.location.href = "/dashboard";
+    } catch (error: any) {
       console.error(error);
-      toast.error("Erro ao tentar acessar a conta.", { id: toastId });
+      toast.error(error.message || "Erro ao tentar acessar a conta.", { id: toastId });
       setIsImpersonating(false);
     } finally {
       setIsImpersonateOpen(false);
       setMemberToImpersonate(null);
+      setIsWorkspaceAccess(false);
     }
   };
 
-  // Abre Modal de Impersonate
+  // Modais de ação rápida
   const triggerImpersonate = (member: any) => {
     setMemberToImpersonate(member);
+    setIsWorkspaceAccess(false);
+    setImpersonateReason(
+      `Atendimento de suporte e diagnóstico autorizado pelo Superadmin para o usuário ${member.user?.name || member.user?.email || ""
+      }`
+    );
     setIsImpersonateOpen(true);
   };
 
-  // Abre Modal de Moderação Financeira
   const triggerModeratePayment = (payment: any) => {
     setSelectedPayment(payment);
     setIsPaymentModalOpen(true);
   };
 
-  // Atualiza status de pagamento
   const handleUpdatePaymentStatus = async (newStatus: string) => {
     if (!selectedPayment) return;
     setUpdatingPaymentStatus(true);
@@ -198,14 +481,14 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
       const res = await fetch(`/api/superadmin/payments/${selectedPayment.id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus })
+        body: JSON.stringify({ status: newStatus }),
       });
       if (!res.ok) throw new Error("Erro ao atualizar pagamento");
 
       toast.success("Status de pagamento atualizado com sucesso!");
       setIsPaymentModalOpen(false);
       setSelectedPayment(null);
-      await fetchWorkspace(); // Atualiza dados da tela
+      await fetchWorkspace();
     } catch (error) {
       toast.error("Erro ao atualizar pagamento.");
     } finally {
@@ -213,7 +496,6 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
     }
   };
 
-  // Confirma Exclusão de pagamento
   const handleDeletePaymentConfirm = async () => {
     if (!selectedPayment) return;
     setDeletingPayment(true);
@@ -227,7 +509,7 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
       setIsDeletePaymentAlertOpen(false);
       setIsPaymentModalOpen(false);
       setSelectedPayment(null);
-      await fetchWorkspace(); // Atualiza dados da tela
+      await fetchWorkspace();
     } catch (error) {
       toast.error("Erro ao remover pagamento.");
     } finally {
@@ -235,87 +517,204 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
     }
   };
 
+  // Filtro de Membros
+  const filteredMembers = useMemo(() => {
+    return (workspace?.members || []).filter((m: any) => {
+      if (memberSearch.trim()) {
+        const q = memberSearch.toLowerCase().trim();
+        const nameMatch = m.user?.name?.toLowerCase().includes(q);
+        const emailMatch = m.user?.email?.toLowerCase().includes(q);
+        const roleMatch = m.role?.toLowerCase().includes(q);
+        if (!nameMatch && !emailMatch && !roleMatch) return false;
+      }
+      if (memberRoleFilter !== "ALL") {
+        if (m.role !== memberRoleFilter) return false;
+      }
+      return true;
+    });
+  }, [workspace?.members, memberSearch, memberRoleFilter]);
+
+  // Filtro de Pagamentos
+  const filteredPayments = useMemo(() => {
+    return (workspace?.payments || []).filter((p: any) => {
+      if (paymentStatusFilter !== "ALL") {
+        if (p.status?.toLowerCase() !== paymentStatusFilter.toLowerCase()) return false;
+      }
+      return true;
+    });
+  }, [workspace?.payments, paymentStatusFilter]);
+
   if (isLoading) {
-    return (
-      <div className="p-6 md:p-8 space-y-8 max-w-[1400px] mx-auto">
-        <div className="flex items-center gap-4">
-          <Skeleton className="h-10 w-10 rounded-xl" />
-          <div className="space-y-2">
-            <Skeleton className="h-8 w-64" />
-            <Skeleton className="h-4 w-40" />
-          </div>
-        </div>
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-          <StatSkeleton />
-          <StatSkeleton />
-          <StatSkeleton />
-          <StatSkeleton />
-        </div>
-        <Skeleton className="h-[450px] w-full rounded-xl" />
-      </div>
-    );
+    return <WorkspaceDetailSkeleton />;
   }
 
   if (!workspace) return null;
 
+  const planName = workspace.subscription?.plan?.name || "Plano Gratuito";
+  const planStatus = workspace.subscription?.status || "Inativo";
+
   return (
-    <div className="p-6 md:p-8 space-y-10 max-w-[1400px] mx-auto animate-in fade-in duration-500 pb-24">
-      {/* Header */}
+    <div className="min-w-0 p-4 sm:p-6 md:p-8 space-y-8 max-w-[1400px] mx-auto animate-in fade-in duration-500 pb-24">
+      {/* 1. Breadcrumbs de Navegação */}
+      <Breadcrumb>
+        <BreadcrumbList>
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/superadmin/dashboard" className="text-xs font-semibold">
+                SuperAdmin
+              </Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbLink asChild>
+              <Link href="/superadmin/workspaces" className="text-xs font-semibold">
+                Workspaces
+              </Link>
+            </BreadcrumbLink>
+          </BreadcrumbItem>
+          <BreadcrumbSeparator />
+          <BreadcrumbItem>
+            <BreadcrumbPage className="text-xs font-bold text-foreground truncate max-w-[200px] sm:max-w-xs">
+              {workspace.name}
+            </BreadcrumbPage>
+          </BreadcrumbItem>
+        </BreadcrumbList>
+      </Breadcrumb>
+
+      {/* 2. Cabeçalho Principal Alinhado */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-border/40 pb-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" onClick={() => router.back()} className="h-10 w-10 rounded-xl bg-secondary/30 hover:bg-secondary">
-            <ArrowLeft className="size-5" />
+        <div className="flex items-start gap-4 min-w-0">
+          <Button
+            asChild
+            variant="outline"
+            size="icon"
+            className="size-11 shrink-0 rounded-xl border-border/60 hover:bg-secondary/60 cursor-pointer shadow-xs"
+            title="Voltar aos Workspaces"
+          >
+            <Link href="/superadmin/workspaces">
+              <ArrowLeft className="size-5" />
+            </Link>
           </Button>
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-black tracking-tight">{workspace.name}</h1>
-              {workspace.isActive ? (
-                <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 font-bold uppercase tracking-wider">Ativo</Badge>
+
+          <div className="min-w-0 space-y-1.5">
+            <div className="flex flex-wrap items-center gap-2.5">
+              <h1 className="text-2xl sm:text-3xl font-black tracking-tight text-foreground truncate max-w-[280px] sm:max-w-md">
+                {workspace.name}
+              </h1>
+
+              {workspace.type === "GYM" ? (
+                <Badge className="bg-purple-500/10 text-purple-400 border-purple-500/20 font-bold uppercase tracking-wider gap-1 h-5.5 px-2 text-[10px]">
+                  <Building2 className="size-3" /> Academia
+                </Badge>
               ) : (
-                <Badge variant="destructive" className="font-bold uppercase tracking-wider">Suspenso</Badge>
+                <Badge variant="outline" className="border-border/60 font-bold uppercase tracking-wider gap-1 text-muted-foreground h-5.5 px-2 text-[10px]">
+                  <Dumbbell className="size-3" /> Personal
+                </Badge>
+              )}
+
+              {workspace.isActive ? (
+                <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 font-bold uppercase tracking-wider h-5.5 px-2 text-[10px]">
+                  Ativo
+                </Badge>
+              ) : (
+                <Badge variant="destructive" className="font-bold uppercase tracking-wider h-5.5 px-2 text-[10px]">
+                  Suspenso
+                </Badge>
               )}
             </div>
-            <p className="text-muted-foreground text-sm font-medium mt-1">/app/{workspace.slug}</p>
+
+            {/* Identificadores e Links com Copiar */}
+            <div className="flex items-center gap-3 text-xs text-muted-foreground flex-wrap font-medium">
+              <span className="flex items-center gap-1.5">
+                <span className="font-mono text-foreground/80">/app/{workspace.slug}</span>
+                <button
+                  type="button"
+                  onClick={() => handleCopy(workspace.slug, "slug")}
+                  className="text-muted-foreground hover:text-foreground transition-colors p-0.5"
+                  title="Copiar Slug"
+                >
+                  {copiedSlug ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
+                </button>
+              </span>
+
+              <span className="text-border/60">•</span>
+
+              <span className="flex items-center gap-1.5 font-mono text-[11px]">
+                ID: {workspace.id.substring(0, 10)}...
+                <button
+                  type="button"
+                  onClick={() => handleCopy(workspace.id, "id")}
+                  className="text-muted-foreground hover:text-foreground transition-colors p-0.5"
+                  title="Copiar ID completo"
+                >
+                  {copiedId ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
+                </button>
+              </span>
+            </div>
           </div>
         </div>
 
-        <div className="flex gap-3">
+        {/* Ações do Cabeçalho */}
+        <div className="flex items-center gap-3 shrink-0 flex-wrap">
+          <Button
+            onClick={handleAccessWorkspace}
+            disabled={isImpersonating}
+            className="h-10 rounded-xl font-bold gap-2 text-xs bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs cursor-pointer"
+          >
+            {isImpersonating ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <LogIn className="size-3.5" />
+            )}
+            <span>Acessar Workspace</span>
+          </Button>
+
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button
+                disabled={Boolean(workspace.closedAt)}
                 variant={workspace.isActive ? "destructive" : "default"}
                 className={cn(
-                  "h-11 rounded-xl font-bold gap-2 shadow-lg cursor-pointer",
-                  !workspace.isActive && "bg-emerald-600 hover:bg-emerald-700 shadow-emerald-500/10"
+                  "h-10 rounded-xl font-bold gap-2 text-xs shadow-xs cursor-pointer",
+                  !workspace.isActive && "bg-emerald-600 hover:bg-emerald-700 text-white"
                 )}
               >
-                {workspace.isActive ? <Ban className="size-4" /> : <CheckCircle2 className="size-4" />}
-                {workspace.isActive ? "Suspender Workspace" : "Reativar Workspace"}
+                {workspace.isActive ? <Ban className="size-3.5" /> : <CheckCircle2 className="size-3.5" />}
+                <span>{workspace.isActive ? "Suspender Workspace" : "Reativar Workspace"}</span>
               </Button>
             </AlertDialogTrigger>
             <AlertDialogContent className="rounded-2xl border-border/50">
               <AlertDialogHeader>
                 <AlertDialogTitle className="font-black text-xl flex items-center gap-2">
                   <AlertCircle className="size-5 text-destructive" />
-                  Tem certeza?
+                  {workspace.isActive ? "Suspender este workspace?" : "Reativar este workspace?"}
                 </AlertDialogTitle>
                 <AlertDialogDescription className="text-sm font-medium leading-relaxed">
                   {workspace.isActive
-                    ? "Suspender este workspace impedirá que todos os personais e alunos vinculados a ele façam login ou acessem a plataforma. Essa ação pode ser desfeita depois."
-                    : "Reativar este workspace liberará o acesso imediato de todos os usuários vinculados a ele."}
+                    ? "Ao suspender este workspace, todos os membros e alunos vinculados a ele perderão o acesso até que a assessoria seja reativada. Essa operação pode ser revertida a qualquer momento."
+                    : "Ao reativar este workspace, todos os membros e alunos vinculados terão seus acessos restabelecidos imediatamente."}
                 </AlertDialogDescription>
               </AlertDialogHeader>
               <AlertDialogFooter className="mt-6 gap-2">
-                <AlertDialogCancel className="rounded-xl font-bold h-11">Cancelar</AlertDialogCancel>
+                <AlertDialogCancel className="rounded-xl font-bold h-10">Cancelar</AlertDialogCancel>
                 <AlertDialogAction
                   onClick={handleToggleStatus}
                   disabled={isSuspending}
                   className={cn(
-                    "rounded-xl h-11 font-black cursor-pointer",
-                    workspace.isActive ? "bg-destructive text-destructive-foreground hover:bg-destructive/90" : "bg-emerald-600 hover:bg-emerald-700"
+                    "rounded-xl h-10 font-bold cursor-pointer",
+                    workspace.isActive
+                      ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                      : "bg-emerald-600 hover:bg-emerald-700 text-white"
                   )}
                 >
-                  {isSuspending ? "Aguarde..." : (workspace.isActive ? "Sim, Suspender" : "Sim, Reativar")}
+                  {isSuspending ? (
+                    <><Loader2 className="size-4 animate-spin mr-1.5" /> Processando...</>
+                  ) : workspace.isActive ? (
+                    "Sim, Suspender"
+                  ) : (
+                    "Sim, Reativar"
+                  )}
                 </AlertDialogAction>
               </AlertDialogFooter>
             </AlertDialogContent>
@@ -323,148 +722,381 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
         </div>
       </div>
 
-      {/* Metrics */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-        <Card className="border-border/40 bg-card/50">
-          <CardContent className="p-6 space-y-3">
-            <div className="p-2.5 w-fit rounded-xl bg-primary/10 text-primary">
-              <Users className="size-5" />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Alunos Ativos</p>
-              <h3 className="text-2xl font-black tracking-tight">{workspace.studentsCount}</h3>
-            </div>
-          </CardContent>
-        </Card>
+      {/* 3. Bento Grid de Indicadores Principais */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title={workspace.type === "GYM" ? "Alunos Ativos" : "Vínculos de Alunos"}
+          value={(workspace.gymFinancialOverview?.executive.activeStudentsCount ?? workspace.studentsCount).toLocaleString("pt-BR")}
+          icon={Users}
+          iconColor="text-primary"
+          iconBg="bg-primary/10"
+          description="Contratos e vínculos ativos na base"
+        />
 
-        <Card className="border-border/40 bg-card/50">
-          <CardContent className="p-6 space-y-3">
-            <div className="p-2.5 w-fit rounded-xl bg-emerald-500/10 text-emerald-500">
-              <DollarSign className="size-5" />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">MRR Estimado</p>
-              <h3 className="text-2xl font-black tracking-tight">
-                {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(workspace.mrr || 0)}
-              </h3>
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard
+          title="Recorrência (MRR)"
+          value={
+            workspace.mrr == null
+              ? "Indisponível"
+              : new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(workspace.mrr)
+          }
+          icon={DollarSign}
+          iconColor="text-emerald-500"
+          iconBg="bg-emerald-500/10"
+          description="Receita recorrente contratual"
+        />
 
-        <Card className="border-border/40 bg-card/50">
-          <CardContent className="p-6 space-y-3">
-            <div className="p-2.5 w-fit rounded-xl bg-blue-500/10 text-blue-500">
-              <Activity className="size-5" />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Planos Cadastrados</p>
-              <h3 className="text-2xl font-black tracking-tight">{workspace.plans?.length || 0}</h3>
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard
+          title="Planos Cadastrados"
+          value={workspace.registeredPlansCount || 0}
+          icon={Activity}
+          iconColor="text-blue-500"
+          iconBg="bg-blue-500/10"
+          description="Grade de planos ofertados"
+        />
 
-        <Card className="border-border/40 bg-card/50">
-          <CardContent className="p-6 space-y-3">
-            <div className="p-2.5 w-fit rounded-xl bg-purple-500/10 text-purple-500">
-              <Dumbbell className="size-5" />
-            </div>
-            <div>
-              <p className="text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Treinos Gerados</p>
-              <h3 className="text-2xl font-black tracking-tight">{workspace._count?.workouts || 0}</h3>
-            </div>
-          </CardContent>
-        </Card>
+        <StatCard
+          title="Treinos Prescritos"
+          value={workspace.registeredWorkoutsCount || 0}
+          icon={Dumbbell}
+          iconColor="text-purple-500"
+          iconBg="bg-purple-500/10"
+          description="Fichas de exercícios geradas"
+        />
       </div>
 
-      {/* Tabs Container */}
-      <Tabs defaultValue="geral" className="w-full">
-        <TabsList className="grid grid-cols-3 max-w-md rounded-xl p-1 bg-secondary/30 h-11 border border-border/40 mb-8">
-          <TabsTrigger value="geral" className="rounded-lg gap-2 text-xs font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <Settings2 className="size-3.5" /> Informações
+      <Tabs defaultValue="geral" className="w-full space-y-6">
+        <TabsList className="h-fit! p-1 bg-secondary/30 rounded-xl border border-border/40 inline-flex flex-wrap w-full sm:w-auto">
+          <TabsTrigger
+            value="geral"
+            className="rounded-lg cursor-pointer h-9 px-4 text-xs font-bold gap-2 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs transition-all"
+          >
+            <Settings2 className="size-3.5 text-muted-foreground" />
+            <span>Informações</span>
           </TabsTrigger>
-          <TabsTrigger value="membros" className="rounded-lg gap-2 text-xs font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <Users className="size-3.5" /> Membros ({workspace.members?.length || 0})
+
+          {workspace.type === "GYM" && (
+            <TabsTrigger
+              value="unidades"
+              className="rounded-lg cursor-pointer h-9 px-4 text-xs font-bold gap-2 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs transition-all"
+            >
+              <Building2 className="size-3.5 text-purple-400" />
+              <span>Unidades</span>
+              <Badge variant="secondary" className="h-4.5 px-1.5 text-[9px] font-bold rounded-md ml-1">
+                {workspace.units?.length || 0}
+              </Badge>
+            </TabsTrigger>
+          )}
+
+          <TabsTrigger
+            value="membros"
+            className="rounded-lg cursor-pointer h-9 px-4 text-xs font-bold gap-2 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs transition-all"
+          >
+            <Users className="size-3.5 text-muted-foreground" />
+            <span>Membros</span>
+            <Badge variant="secondary" className="h-4.5 px-1.5 text-[9px] font-bold rounded-md ml-1">
+              {workspace.members?.length || 0}
+            </Badge>
           </TabsTrigger>
-          <TabsTrigger value="financeiro" className="rounded-lg gap-2 text-xs font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">
-            <DollarSign className="size-3.5" /> Controle Financeiro
+
+          <TabsTrigger
+            value="financeiro"
+            className="rounded-lg cursor-pointer h-9 px-4 text-xs font-bold gap-2 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs transition-all"
+          >
+            <DollarSign className="size-3.5 text-muted-foreground" />
+            <span>Financeiro</span>
+            {workspace.payments?.length > 0 && (
+              <Badge variant="secondary" className="h-4.5 px-1.5 text-[9px] font-bold rounded-md ml-1">
+                {workspace.payments.length}
+              </Badge>
+            )}
           </TabsTrigger>
         </TabsList>
 
-        {/* 1. ABA GERAL */}
-        <TabsContent value="geral" className="space-y-8 animate-in fade-in duration-300">
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            {/* Workspace Info */}
-            <Card className="border-border/40 shadow-sm bg-card/50">
-              <CardHeader>
-                <CardTitle className="text-lg font-bold flex items-center gap-2">
-                  <Settings2 className="size-5 text-primary" /> Detalhes do Sistema
+        {/* -------------------------------------------------------------------
+            ABA 1: INFORMAÇÕES GERAIS
+        ------------------------------------------------------------------- */}
+        <TabsContent value="geral" className="space-y-6 animate-in fade-in duration-300">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Card Detalhes do Sistema */}
+            <Card className="border-border/60 bg-card shadow-xs">
+              <CardHeader className="pb-4 border-b border-border/40">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Settings2 className="size-4 text-primary" />
+                  <span>Detalhes do Sistema & Infraestrutura</span>
                 </CardTitle>
+                <CardDescription className="text-xs">
+                  Identificadores globais e metadados de auditoria.
+                </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-6">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">ID do Workspace</p>
-                    <p className="font-semibold text-sm mt-1 font-mono">{workspace.id}</p>
+              <CardContent className="p-5 space-y-4 text-xs">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/70">
+                      ID do Workspace
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <code className="font-mono text-xs bg-secondary/50 px-2 py-1 rounded-md text-foreground">
+                        {workspace.id}
+                      </code>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 rounded-md"
+                        onClick={() => handleCopy(workspace.id, "id")}
+                        title="Copiar ID"
+                      >
+                        {copiedId ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3" />}
+                      </Button>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest">Data de Criação</p>
-                    <p className="font-semibold text-sm mt-1">{new Date(workspace.createdAt).toLocaleDateString("pt-BR")}</p>
+
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/70">
+                      Slug de Acesso
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <code className="font-mono text-xs bg-secondary/50 px-2 py-1 rounded-md text-foreground">
+                        {workspace.slug}
+                      </code>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="size-7 rounded-md"
+                        onClick={() => handleCopy(workspace.slug, "slug")}
+                        title="Copiar Slug"
+                      >
+                        {copiedSlug ? <Check className="size-3 text-emerald-500" /> : <Copy className="size-3" />}
+                      </Button>
+                    </div>
                   </div>
                 </div>
 
-                <div className="border-t border-border/30 pt-6">
-                  <h4 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">Proprietário (Owner)</h4>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-border/30">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/70">
+                      Tipo de Entidade
+                    </span>
+                    <p className="font-bold text-sm text-foreground">
+                      {workspace.type === "GYM" ? "Academia / Centro Fitness" : "Personal Trainer / Assessoria"}
+                    </p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/70">
+                      Criado em
+                    </span>
+                    <p className="font-bold text-sm text-foreground">
+                      {new Date(workspace.createdAt).toLocaleDateString("pt-BR", {
+                        day: "2-digit",
+                        month: "long",
+                        year: "numeric",
+                      })}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Proprietário */}
+                <div className="pt-4 border-t border-border/30">
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/70 block mb-2.5">
+                    Proprietário da Conta (Owner)
+                  </span>
                   {workspace.owner ? (
-                    <div className="flex items-center justify-between p-4 rounded-xl border border-border/40 bg-secondary/10 group">
-                      <div className="flex items-center gap-4">
-                        <div className="size-12 rounded-full bg-primary/20 text-primary font-black flex items-center justify-center shrink-0">
-                          {workspace.owner.name?.substring(0, 2).toUpperCase() || "US"}
-                        </div>
-                        <div>
-                          <p className="font-bold">{workspace.owner.name}</p>
-                          <p className="text-xs text-muted-foreground">{workspace.owner.email}</p>
+                    <div className="flex items-center justify-between p-3.5 rounded-xl border border-border/50 bg-secondary/15">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <Avatar className="size-10 border border-border/60">
+                          <AvatarImage src={workspace.owner.image} />
+                          <AvatarFallback className="font-bold text-xs bg-primary/10 text-primary">
+                            {workspace.owner.name?.substring(0, 2).toUpperCase() || "US"}
+                          </AvatarFallback>
+                        </Avatar>
+                        <div className="min-w-0">
+                          <p className="font-bold text-sm text-foreground truncate">{workspace.owner.name}</p>
+                          <p className="text-xs text-muted-foreground truncate">{workspace.owner.email}</p>
                         </div>
                       </div>
                       <Button
                         onClick={() => triggerImpersonate({ userId: workspace.ownerId, user: workspace.owner })}
-                        variant="ghost"
+                        variant="outline"
                         size="sm"
-                        className="rounded-lg font-bold text-xs gap-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-primary hover:text-primary-foreground"
+                        className="rounded-xl font-bold text-xs gap-1.5 h-8 border-border/60 shadow-xs hover:bg-primary hover:text-primary-foreground cursor-pointer shrink-0"
                       >
-                        <LogIn className="size-3.5" /> Acessar Conta
+                        <LogIn className="size-3.5" />
+                        <span>Acessar</span>
                       </Button>
                     </div>
                   ) : (
-                    <p className="text-sm font-medium text-muted-foreground">Nenhum proprietário definido.</p>
+                    <p className="text-xs text-muted-foreground font-medium">Nenhum proprietário atribuído.</p>
                   )}
                 </div>
               </CardContent>
             </Card>
 
-            {/* Últimos Treinos prescritos */}
-            <Card className="border-border/40 shadow-sm bg-card/50">
-              <CardHeader>
-                <CardTitle className="text-lg font-bold flex items-center gap-2">
-                  <Dumbbell className="size-5 text-primary" /> Atividade Recente
+            {/* Card Plano & Assinatura */}
+            <Card className="border-border/60 bg-card shadow-xs">
+              <CardHeader className="pb-4 border-b border-border/40">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <CreditCard className="size-4 text-emerald-500" />
+                  <span>Plano & Licenciamento</span>
                 </CardTitle>
-                <CardDescription className="text-xs font-medium uppercase tracking-widest">Últimos treinos prescritos nesta assessoria</CardDescription>
+                <CardDescription className="text-xs">
+                  Detalhes da assinatura e franquia contratada.
+                </CardDescription>
               </CardHeader>
-              <CardContent>
-                {workspace.workouts?.length > 0 ? (
-                  <div className="space-y-4">
-                    {workspace.workouts.map((workout: any) => (
-                      <div key={workout.id} className="flex items-center justify-between p-3 rounded-lg border border-border/30 hover:bg-secondary/20 transition-colors">
-                        <div>
-                          <p className="font-bold text-sm">{workout.name}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">Aluno: {workout.student?.name || "Geral"}</p>
-                        </div>
-                        <Badge variant="outline" className="font-semibold uppercase text-[10px]">{workout.difficulty}</Badge>
-                      </div>
-                    ))}
+              <CardContent className="p-5 space-y-4 text-xs">
+                <div className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-secondary/15">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/70">
+                      Plano Ativo
+                    </span>
+                    <h4 className="text-lg font-black text-foreground">{planName}</h4>
                   </div>
-                ) : (
-                  <div className="py-8 text-center border border-dashed border-border/60 rounded-xl">
-                    <p className="text-sm font-medium text-muted-foreground">Nenhum treino gerado ainda.</p>
+                  <Badge
+                    variant="outline"
+                    className={cn(
+                      "font-bold uppercase tracking-wider text-[10px] px-2.5 py-1 rounded-lg border",
+                      planStatus.toLowerCase() === "active" || planStatus.toLowerCase() === "ativo"
+                        ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                        : "bg-secondary text-muted-foreground border-border/60"
+                    )}
+                  >
+                    {planStatus}
+                  </Badge>
+                </div>
+
+                <div className="grid grid-cols-3 gap-3 pt-2">
+                  <div className="p-3 rounded-xl border border-border/40 bg-secondary/10 text-center space-y-1">
+                    <span className="text-[9px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                      Franquia Alunos
+                    </span>
+                    <p className="text-base font-black text-foreground">
+                      {workspace.subscription?.maxStudents ? workspace.subscription.maxStudents : "Ilimitado"}
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-xl border border-border/40 bg-secondary/10 text-center space-y-1">
+                    <span className="text-[9px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                      Franquia Staff
+                    </span>
+                    <p className="text-base font-black text-foreground">
+                      {workspace.subscription?.maxStaff ? workspace.subscription.maxStaff : "Ilimitado"}
+                    </p>
+                  </div>
+
+                  <div className="p-3 rounded-xl border border-border/40 bg-secondary/10 text-center space-y-1">
+                    <span className="text-[9px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                      Unidades
+                    </span>
+                    <p className="text-base font-black text-foreground">
+                      {workspace.subscription?.maxUnits ? workspace.subscription.maxUnits : "1"}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Atividade Recente (Treinos) */}
+                <div className="pt-4 border-t border-border/30">
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/70 block mb-2.5">
+                    Últimos Treinos Prescritos
+                  </span>
+                  {workspace.workouts?.length > 0 ? (
+                    <div className="space-y-2">
+                      {workspace.workouts.slice(0, 3).map((workout: any) => (
+                        <div
+                          key={workout.id}
+                          className="flex items-center justify-between p-2.5 rounded-lg border border-border/30 bg-secondary/10 hover:bg-secondary/20 transition-colors"
+                        >
+                          <div className="min-w-0">
+                            <p className="font-bold text-xs truncate text-foreground">{workout.name}</p>
+                            <p className="text-[10px] text-muted-foreground mt-0.5 truncate">
+                              Aluno: {workout.student?.name || "Geral"}
+                            </p>
+                          </div>
+                          <Badge variant="outline" className="text-[9px] font-bold uppercase tracking-wider h-5 px-1.5 border-border/60">
+                            {workout.difficulty || "Geral"}
+                          </Badge>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs text-muted-foreground font-medium py-3 text-center border border-dashed border-border/50 rounded-xl">
+                      Nenhum treino prescrito recentemente.
+                    </p>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="">
+            <Card className="shadow-xs p-0 overflow-hidden">
+              <CardHeader className="pt-5 border-b border-rose-500/10">
+                <CardTitle className="text-sm font-bold text-red-500 flex items-center gap-2">
+                  <ShieldAlert className="size-4" />
+                  <span>Zona de Ações Críticas & Governança</span>
+                </CardTitle>
+                <CardDescription className="text-xs text-muted-foreground">
+                  Ações que alteram a disponibilidade operacional e a permanência de dados desta conta.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-5 space-y-6">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <p className="font-bold text-sm text-foreground">
+                      {workspace.isActive ? "Suspender Acesso do Workspace" : "Reativar Acesso do Workspace"}
+                    </p>
+                    <p className="text-xs text-muted-foreground max-w-xl">
+                      {workspace.isActive
+                        ? "Bloqueia temporariamente o login de todos os personais e alunos vinculados a esta assessoria."
+                        : "Libera o acesso dos usuários vinculados a esta assessoria imediatamente."}
+                    </p>
+                  </div>
+                  <AlertDialog>
+                    <AlertDialogTrigger asChild>
+                      <Button
+                        variant={workspace.isActive ? "destructive" : "default"}
+                        size="sm"
+                        className={cn(
+                          "rounded-xl font-bold h-9 px-4 text-xs cursor-pointer shrink-0 shadow-xs",
+                          !workspace.isActive && "bg-emerald-600 hover:bg-emerald-700 text-white"
+                        )}
+                      >
+                        {workspace.isActive ? "Suspender Workspace" : "Reativar Workspace"}
+                      </Button>
+                    </AlertDialogTrigger>
+                    <AlertDialogContent className="rounded-2xl border-border/50">
+                      <AlertDialogHeader>
+                        <AlertDialogTitle className="font-black text-xl flex items-center gap-2">
+                          <AlertCircle className="size-5 text-destructive" />
+                          Confirmar {workspace.isActive ? "suspensão" : "reativação"}?
+                        </AlertDialogTitle>
+                        <AlertDialogDescription className="text-sm font-medium leading-relaxed">
+                          {workspace.isActive
+                            ? "Tem certeza de que deseja suspender este workspace? Usuários e alunos não conseguirão acessar os treinos nem realizar novos pagamentos enquanto estiver suspenso."
+                            : "Deseja restabelecer o acesso total dos membros e alunos a este workspace?"}
+                        </AlertDialogDescription>
+                      </AlertDialogHeader>
+                      <AlertDialogFooter className="mt-6 gap-2">
+                        <AlertDialogCancel className="rounded-xl font-bold h-10">Cancelar</AlertDialogCancel>
+                        <AlertDialogAction
+                          onClick={handleToggleStatus}
+                          disabled={isSuspending}
+                          className={cn(
+                            "rounded-xl h-10 font-bold cursor-pointer",
+                            workspace.isActive
+                              ? "bg-destructive text-destructive-foreground hover:bg-destructive/90"
+                              : "bg-emerald-600 hover:bg-emerald-700 text-white"
+                          )}
+                        >
+                          {isSuspending ? "Aguarde..." : workspace.isActive ? "Sim, Suspender" : "Sim, Reativar"}
+                        </AlertDialogAction>
+                      </AlertDialogFooter>
+                    </AlertDialogContent>
+                  </AlertDialog>
+                </div>
+
+                {workspace.type === "GYM" && (
+                  <div className="">
+                    <GymPurgeForm workspaceId={workspace.id} slug={workspace.slug} />
                   </div>
                 )}
               </CardContent>
@@ -472,84 +1104,434 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
           </div>
         </TabsContent>
 
-        {/* 2. ABA MEMBROS & ACESSO */}
+        {workspace.type === "GYM" && (
+          <TabsContent value="unidades" className="space-y-6 animate-in fade-in duration-300">
+            {/* Capacidade e Franquias Contratadas */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <Card className="border-border/60 bg-card shadow-xs">
+                <CardContent className="p-5 space-y-2.5">
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest">Alunos Matriculados</span>
+                    <Users className="size-4 text-primary" />
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <h3 className="text-2xl font-black text-foreground">{workspace.studentsCount || 0}</h3>
+                    <span className="text-xs font-bold text-muted-foreground">/ {gymLimits.maxStudents}</span>
+                  </div>
+                  <Progress
+                    value={Math.min(100, Math.round(((workspace.studentsCount || 0) / (gymLimits.maxStudents || 1)) * 100))}
+                    className="h-2 bg-secondary"
+                  />
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/60 bg-card shadow-xs">
+                <CardContent className="p-5 space-y-2.5">
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest">Equipe / Staff</span>
+                    <ShieldCheck className="size-4 text-purple-400" />
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <h3 className="text-2xl font-black text-foreground">{workspace.staffCount || 0}</h3>
+                    <span className="text-xs font-bold text-muted-foreground">/ {gymLimits.maxStaff}</span>
+                  </div>
+                  <Progress
+                    value={Math.min(100, Math.round(((workspace.staffCount || 0) / (gymLimits.maxStaff || 1)) * 100))}
+                    className="h-2 bg-secondary"
+                  />
+                </CardContent>
+              </Card>
+
+              <Card className="border-border/60 bg-card shadow-xs">
+                <CardContent className="p-5 space-y-2.5">
+                  <div className="flex items-center justify-between text-muted-foreground">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest">Unidades Filiais</span>
+                    <Building2 className="size-4 text-emerald-400" />
+                  </div>
+                  <div className="flex items-baseline gap-2">
+                    <h3 className="text-2xl font-black text-foreground">{workspace.units?.length || 0}</h3>
+                    <span className="text-xs font-bold text-muted-foreground">/ {gymLimits.maxUnits}</span>
+                  </div>
+                  <Progress
+                    value={Math.min(100, Math.round(((workspace.units?.length || 0) / (gymLimits.maxUnits || 1)) * 100))}
+                    className="h-2 bg-secondary"
+                  />
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Tabela de Unidades Filiais */}
+            <Card className="border-border/60 bg-card shadow-xs overflow-hidden">
+              <CardHeader className="pb-4 border-b border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div>
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Building2 className="size-4 text-primary" />
+                    <span>Filiais Físicas da Rede ({workspace.units?.length || 0})</span>
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Locais físicos de atendimento cadastrados nesta academia.
+                  </CardDescription>
+                </div>
+                <Button
+                  onClick={() => setIsAddUnitOpen(true)}
+                  disabled={(workspace.units?.length || 0) >= (gymLimits.maxUnits || 5)}
+                  className="rounded-xl h-9 px-4 font-bold gap-2 text-xs bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs cursor-pointer shrink-0"
+                >
+                  <Plus className="size-3.5" />
+                  <span>Nova Unidade</span>
+                </Button>
+              </CardHeader>
+              <CardContent className="p-0">
+                {workspace.units && workspace.units.length > 0 ? (
+                  <div className="overflow-x-auto">
+                    <Table>
+                      <TableHeader>
+                        <TableRow className="bg-secondary/5 border-b border-border/40 hover:bg-secondary/5">
+                          <TableHead className="px-6 py-3.5 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                            Unidade
+                          </TableHead>
+                          <TableHead className="px-6 py-3.5 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                            Código / Slug
+                          </TableHead>
+                          <TableHead className="px-6 py-3.5 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                            Status
+                          </TableHead>
+                          <TableHead className="px-6 py-3.5 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground text-right">
+                            Cadastrada em
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody className="divide-y divide-border/30">
+                        {workspace.units.map((unit: any) => (
+                          <TableRow key={unit.id} className="hover:bg-secondary/15 transition-colors">
+                            <TableCell className="px-6 py-4">
+                              <div className="flex items-center gap-3">
+                                <div className="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0">
+                                  <Building2 className="size-4" />
+                                </div>
+                                <div className="flex flex-col min-w-0">
+                                  <span className="font-bold text-sm text-foreground truncate">{unit.name}</span>
+                                  {unit.address && (
+                                    <span className="text-[11px] text-muted-foreground flex items-center gap-1 mt-0.5 truncate">
+                                      <MapPin className="size-3 shrink-0" />
+                                      {unit.address}
+                                    </span>
+                                  )}
+                                </div>
+                              </div>
+                            </TableCell>
+                            <TableCell className="px-6 py-4 font-mono text-xs text-muted-foreground">
+                              {unit.code}
+                            </TableCell>
+                            <TableCell className="px-6 py-4">
+                              <Badge className="bg-emerald-500/10 text-emerald-500 border-emerald-500/20 text-[9px] font-bold uppercase tracking-wider h-5 px-2">
+                                {unit.status || "Ativa"}
+                              </Badge>
+                            </TableCell>
+                            <TableCell className="px-6 py-4 text-xs text-muted-foreground text-right">
+                              {new Date(unit.createdAt).toLocaleDateString("pt-BR")}
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                      </TableBody>
+                    </Table>
+                  </div>
+                ) : (
+                  <Empty className="py-12 border-none">
+                    <EmptyMedia variant="icon">
+                      <Building2 className="size-5" />
+                    </EmptyMedia>
+                    <EmptyHeader>
+                      <EmptyTitle className="text-sm font-bold">Nenhuma unidade física cadastrada</EmptyTitle>
+                      <EmptyDescription className="text-xs">
+                        Cadastre a primeira filial física desta academia para habilitar a gestão descentralizada.
+                      </EmptyDescription>
+                    </EmptyHeader>
+                  </Empty>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* Parâmetros de Licença & Políticas */}
+            <Card className="border-border/60 bg-card shadow-xs">
+              <CardHeader className="pb-4 border-b border-border/40">
+                <CardTitle className="text-sm font-bold flex items-center gap-2">
+                  <Sliders className="size-4 text-primary" />
+                  <span>Parâmetros de Licenciamento & Políticas Operacionais</span>
+                </CardTitle>
+                <CardDescription className="text-xs">
+                  Ajuste os limites de uso e preferências contratuais da academia.
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="p-6">
+                <form onSubmit={handleSaveGymConfig} className="space-y-6">
+                  <div>
+                    <h4 className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/80 mb-3">
+                      Limites Contratuais
+                    </h4>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="maxStudents" className="text-xs font-bold">
+                          Máximo de Alunos
+                        </Label>
+                        <Input
+                          id="maxStudents"
+                          disabled={isSavingGymConfig}
+                          type="number"
+                          min="1"
+                          value={gymLimits.maxStudents}
+                          onChange={(e) => setGymLimits({ ...gymLimits, maxStudents: Number(e.target.value) })}
+                          className="rounded-xl h-10 border-border/60"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="maxStaff" className="text-xs font-bold">
+                          Máximo de Equipe / Staff
+                        </Label>
+                        <Input
+                          id="maxStaff"
+                          disabled={isSavingGymConfig}
+                          type="number"
+                          min="1"
+                          value={gymLimits.maxStaff}
+                          onChange={(e) => setGymLimits({ ...gymLimits, maxStaff: Number(e.target.value) })}
+                          className="rounded-xl h-10 border-border/60"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="maxUnits" className="text-xs font-bold">
+                          Máximo de Unidades Filiais
+                        </Label>
+                        <Input
+                          id="maxUnits"
+                          disabled={isSavingGymConfig}
+                          type="number"
+                          min="1"
+                          value={gymLimits.maxUnits}
+                          onChange={(e) => setGymLimits({ ...gymLimits, maxUnits: Number(e.target.value) })}
+                          className="rounded-xl h-10 border-border/60"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="pt-4 border-t border-border/30">
+                    <h4 className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/80 mb-3">
+                      Regras de Negócio & Cobrança
+                    </h4>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="gracePeriod" className="text-xs font-bold">
+                          Tolerância de Inadimplência (Dias)
+                        </Label>
+                        <Input
+                          id="gracePeriod"
+                          disabled={isSavingGymConfig}
+                          type="number"
+                          min="0"
+                          value={gymPolicies.billingGracePeriodDays}
+                          onChange={(e) =>
+                            setGymPolicies({ ...gymPolicies, billingGracePeriodDays: Number(e.target.value) })
+                          }
+                          className="rounded-xl h-10 border-border/60"
+                        />
+                        <p className="text-[11px] text-muted-foreground font-medium">
+                          Dias de tolerância antes de suspender a catraca/acesso do aluno inadimplente.
+                        </p>
+                      </div>
+
+                      <div className="flex items-center justify-between p-4 rounded-xl border border-border/50 bg-secondary/10">
+                        <div className="space-y-0.5 pr-4">
+                          <Label htmlFor="requireGuardianSignature" className="text-xs font-bold cursor-pointer">
+                            Assinatura Obrigatória de Responsável
+                          </Label>
+                          <p className="text-[11px] text-muted-foreground font-medium">
+                            Exigir assinatura digital do responsável legal para ativação de menores.
+                          </p>
+                        </div>
+                        <Switch
+                          id="requireGuardianSignature"
+                          disabled={isSavingGymConfig}
+                          checked={gymPolicies.requireGuardianSignature}
+                          onCheckedChange={(checked) =>
+                            setGymPolicies({ ...gymPolicies, requireGuardianSignature: checked })
+                          }
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex justify-end pt-4 border-t border-border/30">
+                    <Button
+                      type="submit"
+                      disabled={isSavingGymConfig}
+                      className="rounded-xl h-10 px-6 font-bold gap-2 text-xs bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs cursor-pointer"
+                    >
+                      {isSavingGymConfig ? (
+                        <>
+                          <Loader2 className="size-4 animate-spin" />
+                          <span>Salvando...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Save className="size-4" />
+                          <span>Salvar Configurações</span>
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        )}
+
+        {/* -------------------------------------------------------------------
+            ABA 3: MEMBROS & ACESSOS
+        ------------------------------------------------------------------- */}
         <TabsContent value="membros" className="animate-in fade-in duration-300">
-          <Card className="border-border/40 bg-card/50 shadow-sm overflow-hidden">
-            <CardHeader className="pb-3 border-b border-border/40">
-              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
-                Lista de Membros Ativos
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Auditoria de perfis e acessos diretos para suporte.
-              </CardDescription>
+          <Card className="border-border/60 bg-card shadow-xs overflow-hidden">
+            <CardHeader className="pb-4 border-b border-border/40 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <Users className="size-4 text-primary" />
+                    <span>Membros Cadastrados ({workspace.members?.length || 0})</span>
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    Usuários vinculados a este workspace com acesso ao painel ou prescrição.
+                  </CardDescription>
+                </div>
+              </div>
+
+              {/* Barra de Filtros de Membros */}
+              <div className="flex flex-col sm:flex-row items-center gap-3">
+                <div className="relative w-full sm:w-80">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground pointer-events-none" />
+                  <Input
+                    placeholder="Buscar membro por nome ou e-mail..."
+                    value={memberSearch}
+                    onChange={(e) => setMemberSearch(e.target.value)}
+                    className="h-9.5 pl-9 rounded-xl border-border/60 text-xs"
+                  />
+                  {memberSearch && (
+                    <button
+                      type="button"
+                      onClick={() => setMemberSearch("")}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5 rounded-md"
+                    >
+                      <RotateCcw className="size-3" />
+                    </button>
+                  )}
+                </div>
+
+                <Select value={memberRoleFilter} onValueChange={setMemberRoleFilter}>
+                  <SelectTrigger className="h-9.5 w-full sm:w-[150px] rounded-xl border-border/60 text-xs font-semibold">
+                    <SelectValue placeholder="Todas as Funções" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="ALL">Todas as Funções</SelectItem>
+                    <SelectItem value="OWNER">Proprietário (Owner)</SelectItem>
+                    <SelectItem value="TRAINER">Treinador (Trainer)</SelectItem>
+                    <SelectItem value="STUDENT">Aluno (Student)</SelectItem>
+                    <SelectItem value="ASSISTANT">Assistente</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </CardHeader>
+
             <CardContent className="p-0">
-              {workspace.members && workspace.members.length > 0 ? (
+              {filteredMembers.length > 0 ? (
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-secondary/5 border-b border-border/30 hover:bg-secondary/5">
-                        <TableHead className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Membro</TableHead>
-                        <TableHead className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Função</TableHead>
-                        <TableHead className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-center">Foco Streak</TableHead>
-                        <TableHead className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-center">Progresso</TableHead>
-                        <TableHead className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-center">Último Acesso</TableHead>
-                        <TableHead className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-right">Ações</TableHead>
+                      <TableRow className="bg-secondary/5 border-b border-border/40 hover:bg-secondary/5">
+                        <TableHead className="px-6 py-3.5 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                          Membro
+                        </TableHead>
+                        <TableHead className="px-6 py-3.5 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                          Função
+                        </TableHead>
+                        <TableHead className="px-6 py-3.5 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground text-center">
+                          Foco Streak
+                        </TableHead>
+                        <TableHead className="px-6 py-3.5 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground text-center">
+                          Progresso
+                        </TableHead>
+                        <TableHead className="px-6 py-3.5 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground text-center">
+                          Último Acesso
+                        </TableHead>
+                        <TableHead className="px-6 py-3.5 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground text-right">
+                          Ações
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
-                    <TableBody className="divide-y divide-border/20">
-                      {workspace.members.map((member: any) => (
+                    <TableBody className="divide-y divide-border/30">
+                      {filteredMembers.map((member: any) => (
                         <TableRow key={member.id} className="hover:bg-secondary/15 transition-colors">
                           <TableCell className="px-6 py-4">
                             <div className="flex items-center gap-3">
-                              <div className="size-8 rounded-lg bg-primary/10 text-primary font-black flex items-center justify-center border border-primary/20 text-xs uppercase shrink-0">
-                                {member.user?.name?.substring(0, 2).toUpperCase() || member.user?.email?.substring(0, 2).toUpperCase()}
-                              </div>
+                              <Avatar className="size-9 border border-border/60">
+                                <AvatarImage src={member.user?.image} />
+                                <AvatarFallback className="font-bold text-xs bg-primary/10 text-primary">
+                                  {member.user?.name?.substring(0, 2).toUpperCase() ||
+                                    member.user?.email?.substring(0, 2).toUpperCase()}
+                                </AvatarFallback>
+                              </Avatar>
                               <div className="min-w-0">
-                                <p className="font-bold text-sm text-foreground truncate">{member.user?.name || "Sem Nome"}</p>
+                                <p className="font-bold text-sm text-foreground truncate">
+                                  {member.user?.name || "Sem Nome"}
+                                </p>
                                 <p className="text-xs text-muted-foreground truncate">{member.user?.email}</p>
                               </div>
                             </div>
                           </TableCell>
                           <TableCell className="px-6 py-4">
-                            <Badge variant="outline" className={cn(
-                              "font-bold uppercase text-[9px] tracking-wider border",
-                              member.role === "OWNER" && "bg-amber-500/10 text-amber-500 border-amber-500/20",
-                              member.role === "TRAINER" && "bg-primary/10 text-primary border-primary/20",
-                              member.role === "STUDENT" && "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
-                              member.role === "ASSISTANT" && "bg-blue-500/10 text-blue-500 border-blue-500/20"
-                            )}>
+                            <Badge
+                              variant="outline"
+                              className={cn(
+                                "font-bold uppercase text-[9px] tracking-wider border h-5 px-2",
+                                member.role === "OWNER" && "bg-amber-500/10 text-amber-500 border-amber-500/20",
+                                member.role === "TRAINER" && "bg-primary/10 text-primary border-primary/20",
+                                member.role === "STUDENT" && "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+                                member.role === "ASSISTANT" && "bg-blue-500/10 text-blue-500 border-blue-500/20"
+                              )}
+                            >
                               {member.role}
                             </Badge>
                           </TableCell>
                           <TableCell className="px-6 py-4 text-center">
-                            <div className="flex items-center justify-center gap-1 font-bold text-sm">
-                              <Flame className="size-4 text-orange-500 fill-current animate-pulse" />
-                              <span>{member.streak || 0}</span>
-                              <span className="text-[10px] text-muted-foreground font-medium">/{member.bestStreak || 0}d</span>
+                            <div className="flex items-center justify-center gap-1 font-bold text-xs">
+                              <Flame className="size-3.5 text-orange-500 fill-current" />
+                              <span>{member.streak || 0}d</span>
+                              <span className="text-[10px] text-muted-foreground font-normal">
+                                (rec: {member.bestStreak || 0}d)
+                              </span>
                             </div>
                           </TableCell>
                           <TableCell className="px-6 py-4 text-center">
-                            <div className="flex flex-col items-center justify-center gap-1 max-w-[100px] mx-auto">
-                              <span className="text-xs font-bold text-foreground">{member.progress || 0}%</span>
-                              <div className="w-full h-1 bg-secondary rounded-full overflow-hidden">
-                                <div className="h-full bg-primary" style={{ width: `${member.progress || 0}%` }} />
-                              </div>
+                            <div className="flex flex-col items-center justify-center gap-1 max-w-[90px] mx-auto">
+                              <span className="text-[11px] font-bold text-foreground">{member.progress || 0}%</span>
+                              <Progress value={member.progress || 0} className="h-1.5 w-full bg-secondary" />
                             </div>
                           </TableCell>
                           <TableCell className="px-6 py-4 text-center">
                             <span className="text-xs font-medium text-muted-foreground">
-                              {member.lastActive ? new Date(member.lastActive).toLocaleDateString("pt-BR") : "Nunca"}
+                              {member.lastActive
+                                ? new Date(member.lastActive).toLocaleDateString("pt-BR")
+                                : "Nunca"}
                             </span>
                           </TableCell>
                           <TableCell className="px-6 py-4 text-right">
-                            <div className="flex items-center justify-end gap-2">
+                            <div className="flex items-center justify-end gap-1.5">
                               {member.user?.whatsapp && (
                                 <Button
                                   size="icon"
                                   variant="ghost"
                                   className="size-8 rounded-lg text-emerald-500 hover:bg-emerald-500/10 hover:text-emerald-600"
-                                  onClick={() => window.open(`https://wa.me/55${member.user.whatsapp.replace(/\D/g, "")}`, "_blank")}
+                                  onClick={() =>
+                                    window.open(`https://wa.me/55${member.user.whatsapp.replace(/\D/g, "")}`, "_blank")
+                                  }
                                   title="Enviar mensagem via WhatsApp"
                                 >
                                   <MessageCircle className="size-4" />
@@ -559,10 +1541,10 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
                                 onClick={() => triggerImpersonate(member)}
                                 variant="outline"
                                 size="sm"
-                                className="h-8 rounded-lg font-bold text-xs gap-1 hover:bg-primary hover:text-primary-foreground border-border/60 shadow-xs cursor-pointer"
+                                className="h-8 rounded-lg font-bold text-xs gap-1.5 hover:bg-primary hover:text-primary-foreground border-border/60 shadow-xs cursor-pointer"
                               >
                                 <LogIn className="size-3.5" />
-                                Acessar
+                                <span>Acessar</span>
                               </Button>
                             </div>
                           </TableCell>
@@ -572,68 +1554,125 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
                   </Table>
                 </div>
               ) : (
-                <div className="p-12 text-center text-muted-foreground opacity-60">
-                  <AlertCircle className="size-8 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-xs font-bold uppercase tracking-widest">Nenhum membro cadastrado</p>
-                </div>
+                <Empty className="py-12 border-none">
+                  <EmptyMedia variant="icon">
+                    <Users className="size-5" />
+                  </EmptyMedia>
+                  <EmptyHeader>
+                    <EmptyTitle className="text-sm font-bold">Nenhum membro encontrado</EmptyTitle>
+                    <EmptyDescription className="text-xs">
+                      {memberSearch || memberRoleFilter !== "ALL"
+                        ? "Nenhum membro corresponde aos filtros de busca informados."
+                        : "Não há membros registrados nesta assessoria até o momento."}
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
               )}
             </CardContent>
           </Card>
         </TabsContent>
 
-        {/* 3. ABA CONTROLE FINANCEIRO */}
+        {/* -------------------------------------------------------------------
+            ABA 4: CONTROLE FINANCEIRO INTERNO
+        ------------------------------------------------------------------- */}
         <TabsContent value="financeiro" className="animate-in fade-in duration-300">
-          <Card className="border-border/40 bg-card/50 shadow-sm overflow-hidden">
-            <CardHeader className="pb-3 border-b border-border/40">
-              <CardTitle className="text-sm font-bold uppercase tracking-widest text-muted-foreground">
-                Movimentação Financeira Interna (Alunos)
-              </CardTitle>
-              <CardDescription className="text-xs">
-                Controle econômico da assessoria e intervenção manual de cobranças.
-              </CardDescription>
+          <Card className="border-border/60 bg-card shadow-xs overflow-hidden">
+            <CardHeader className="pb-4 border-b border-border/40 space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <div>
+                  <CardTitle className="text-sm font-bold flex items-center gap-2">
+                    <DollarSign className="size-4 text-emerald-500" />
+                    <span>Movimentação Financeira Interna ({workspace.payments?.length || 0})</span>
+                  </CardTitle>
+                  <CardDescription className="text-xs">
+                    {workspace.type === "GYM"
+                      ? "Registros legados para consulta. Os indicadores executivos usam contratos e faturas da academia."
+                      : "Registros de cobranças e faturas emitidas para alunos da assessoria."}
+                  </CardDescription>
+                </div>
+              </div>
+
+              {/* Filtro de Status de Pagamento */}
+              <div className="flex items-center gap-3">
+                <Select value={paymentStatusFilter} onValueChange={setPaymentStatusFilter}>
+                  <SelectTrigger className="h-9.5 w-full sm:w-[160px] rounded-xl border-border/60 text-xs font-semibold">
+                    <SelectValue placeholder="Status de Pagamento" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="ALL">Todos os Status</SelectItem>
+                    <SelectItem value="pago">Pago</SelectItem>
+                    <SelectItem value="pendente">Pendente</SelectItem>
+                    <SelectItem value="atrasado">Atrasado</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
             </CardHeader>
+
             <CardContent className="p-0">
-              {workspace.payments && workspace.payments.length > 0 ? (
+              {filteredPayments.length > 0 ? (
                 <div className="overflow-x-auto">
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-secondary/5 border-b border-border/30 hover:bg-secondary/5">
-                        <TableHead className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Aluno</TableHead>
-                        <TableHead className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Plano Contratado</TableHead>
-                        <TableHead className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-center">Valor</TableHead>
-                        <TableHead className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-center">Forma de Pagamento</TableHead>
-                        <TableHead className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-center">Status</TableHead>
-                        <TableHead className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-center">Data</TableHead>
-                        <TableHead className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-right">Ações</TableHead>
+                      <TableRow className="bg-secondary/5 border-b border-border/40 hover:bg-secondary/5">
+                        <TableHead className="px-6 py-3.5 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                          Aluno
+                        </TableHead>
+                        <TableHead className="px-6 py-3.5 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                          Plano
+                        </TableHead>
+                        <TableHead className="px-6 py-3.5 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground text-center">
+                          Valor
+                        </TableHead>
+                        <TableHead className="px-6 py-3.5 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground text-center">
+                          Método
+                        </TableHead>
+                        <TableHead className="px-6 py-3.5 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground text-center">
+                          Status
+                        </TableHead>
+                        <TableHead className="px-6 py-3.5 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground text-center">
+                          Data
+                        </TableHead>
+                        <TableHead className="px-6 py-3.5 text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground text-right">
+                          Ações
+                        </TableHead>
                       </TableRow>
                     </TableHeader>
-                    <TableBody className="divide-y divide-border/20">
-                      {workspace.payments.map((payment: any) => (
+                    <TableBody className="divide-y divide-border/30">
+                      {filteredPayments.map((payment: any) => (
                         <TableRow key={payment.id} className="hover:bg-secondary/15 transition-colors">
                           <TableCell className="px-6 py-4 font-bold text-sm text-foreground">
                             {payment.studentName}
                           </TableCell>
-                          <TableCell className="px-6 py-4">
-                            <div className="flex items-center gap-1.5 text-xs text-muted-foreground font-semibold">
-                              <span>{payment.planName}</span>
-                            </div>
+                          <TableCell className="px-6 py-4 text-xs font-semibold text-muted-foreground">
+                            {payment.planName || "Avulso"}
                           </TableCell>
                           <TableCell className="px-6 py-4 text-center font-black text-sm text-foreground">
-                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(payment.amount)}
+                            {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+                              payment.amount
+                            )}
                           </TableCell>
                           <TableCell className="px-6 py-4 text-center">
-                            <Badge variant="outline" className="font-mono text-[9px] font-semibold border-border/40 uppercase bg-secondary/50">
+                            <Badge
+                              variant="outline"
+                              className="font-mono text-[9px] font-semibold border-border/40 uppercase bg-secondary/50 h-5 px-2"
+                            >
                               {payment.method || "PIX"}
                             </Badge>
                           </TableCell>
                           <TableCell className="px-6 py-4 text-center">
-                            <Badge className={cn(
-                              "font-bold uppercase text-[9px] tracking-wider border border-transparent shadow-none rounded-full px-2.5 py-0.5",
-                              payment.status === "pago" && "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
-                              payment.status === "pendente" && "bg-amber-500/10 text-amber-500 border-amber-500/20 animate-pulse",
-                              payment.status === "atrasado" && "bg-rose-500/10 text-rose-500 border-rose-500/20"
-                            )}>
-                              {payment.status === "pago" ? "Pago" : payment.status === "pendente" ? "Pendente" : "Atrasado"}
+                            <Badge
+                              className={cn(
+                                "font-bold uppercase text-[9px] tracking-wider border h-5 px-2 rounded-md shadow-none",
+                                payment.status === "pago" && "bg-emerald-500/10 text-emerald-500 border-emerald-500/20",
+                                payment.status === "pendente" && "bg-amber-500/10 text-amber-500 border-amber-500/20",
+                                payment.status === "atrasado" && "bg-rose-500/10 text-rose-500 border-rose-500/20"
+                              )}
+                            >
+                              {payment.status === "pago"
+                                ? "Pago"
+                                : payment.status === "pendente"
+                                  ? "Pendente"
+                                  : "Atrasado"}
                             </Badge>
                           </TableCell>
                           <TableCell className="px-6 py-4 text-center font-medium text-xs text-muted-foreground">
@@ -641,13 +1680,14 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
                           </TableCell>
                           <TableCell className="px-6 py-4 text-right">
                             <Button
+                              disabled={workspace.type === "GYM"}
                               onClick={() => triggerModeratePayment(payment)}
                               variant="outline"
                               size="sm"
-                              className="h-8 rounded-lg font-bold text-xs gap-1 hover:bg-primary hover:text-primary-foreground border-border/60 shadow-xs cursor-pointer"
+                              className="h-8 rounded-lg font-bold text-xs gap-1.5 hover:bg-primary hover:text-primary-foreground border-border/60 shadow-xs cursor-pointer"
                             >
                               <Sliders className="size-3.5" />
-                              Moderar
+                              <span>Moderar</span>
                             </Button>
                           </TableCell>
                         </TableRow>
@@ -656,33 +1696,150 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
                   </Table>
                 </div>
               ) : (
-                <div className="p-12 text-center text-muted-foreground opacity-60">
-                  <CreditCard className="size-8 mx-auto mb-2 text-muted-foreground" />
-                  <p className="text-xs font-bold uppercase tracking-widest">Nenhuma transação interna realizada</p>
-                </div>
+                <Empty className="py-12 border-none">
+                  <EmptyMedia variant="icon">
+                    <CreditCard className="size-5" />
+                  </EmptyMedia>
+                  <EmptyHeader>
+                    <EmptyTitle className="text-sm font-bold">Nenhum registro de pagamento</EmptyTitle>
+                    <EmptyDescription className="text-xs">
+                      Não há transações financeiras internas registradas para os filtros aplicados.
+                    </EmptyDescription>
+                  </EmptyHeader>
+                </Empty>
               )}
             </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
 
-      {/* ================= MODAIS DE INTERMEDIAÇÃO ================= */}
+      <Dialog open={isAddUnitOpen} onOpenChange={setIsAddUnitOpen}>
+        <DialogContent className="max-w-md rounded-2xl! border-border/50">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black tracking-tight flex items-center gap-2">
+              <Building2 className="size-5 text-primary" />
+              <span>Cadastrar Nova Unidade</span>
+            </DialogTitle>
+            <DialogDescription className="text-xs font-medium text-muted-foreground">
+              Adicione uma filial física à rede desta academia.
+            </DialogDescription>
+          </DialogHeader>
+          <form onSubmit={handleAddUnit} className="space-y-4 py-3">
+            <div className="space-y-2">
+              <Label htmlFor="unitName" className="text-xs font-bold">
+                Nome da Unidade
+              </Label>
+              <Input
+                id="unitName"
+                required
+                placeholder="Ex: Unidade Jardins"
+                value={newUnitData.name}
+                onChange={(e) => {
+                  const name = e.target.value;
+                  const code = name
+                    .toLowerCase()
+                    .replace(/[^a-z0-9]+/g, "-")
+                    .replace(/(^-|-$)+/g, "");
+                  setNewUnitData({ ...newUnitData, name, code });
+                }}
+                className="rounded-xl h-10 border-border/60"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="unitCode" className="text-xs font-bold">
+                Código Identificador (Slug)
+              </Label>
+              <Input
+                id="unitCode"
+                required
+                placeholder="Ex: jardins"
+                value={newUnitData.code}
+                onChange={(e) => setNewUnitData({ ...newUnitData, code: e.target.value })}
+                className="rounded-xl h-10 border-border/60"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="unitAddress" className="text-xs font-bold">
+                Endereço Completo (Opcional)
+              </Label>
+              <Input
+                id="unitAddress"
+                placeholder="Ex: Av. Paulista, 1000 - Bela Vista, SP"
+                value={newUnitData.address}
+                onChange={(e) => setNewUnitData({ ...newUnitData, address: e.target.value })}
+                className="rounded-xl h-10 border-border/60"
+              />
+            </div>
+            <DialogFooter className="pt-4 gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setIsAddUnitOpen(false)}
+                className="rounded-xl font-bold h-10"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={isAddingUnit || !newUnitData.name.trim() || !newUnitData.code.trim()}
+                className="rounded-xl h-10 px-6 font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs cursor-pointer"
+              >
+                {isAddingUnit ? (
+                  <>
+                    <Loader2 className="size-4 animate-spin mr-2" />
+                    <span>Cadastrando...</span>
+                  </>
+                ) : (
+                  "Cadastrar Unidade"
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
-      {/* 1. Modal de Confirmação de Impersonate */}
-      <Dialog open={isImpersonateOpen} onOpenChange={setIsImpersonateOpen}>
-        <DialogContent className="max-w-md rounded-2xl border-border/50">
+      {/* 2. Modal de Confirmação de Impersonate */}
+      <Dialog
+        open={isImpersonateOpen}
+        onOpenChange={(open) => {
+          setIsImpersonateOpen(open);
+          if (!open) {
+            setMemberToImpersonate(null);
+            setIsWorkspaceAccess(false);
+          }
+        }}
+      >
+        <DialogContent className="max-w-md rounded-2xl! border-border/50">
           {memberToImpersonate && (
             <>
               <DialogHeader className="space-y-3">
                 <div className="mx-auto size-12 rounded-full bg-primary/10 text-primary flex items-center justify-center border border-primary/20 shrink-0">
                   <LogIn className="size-6" />
                 </div>
-                <DialogTitle className="font-black text-xl text-center flex items-center justify-center gap-2">
-                  Aviso de Acesso Seguro (Auditoria)
+                <DialogTitle className="font-black text-xl text-center">
+                  {isWorkspaceAccess
+                    ? "Acessar Workspace (Manutenção & Assistência)"
+                    : "Aviso de Acesso Seguro (Auditoria)"}
                 </DialogTitle>
-                <DialogDescription className="text-sm font-medium leading-relaxed text-center">
-                  Você está prestes a entrar temporariamente como <strong>{memberToImpersonate.user?.name || "Usuário"} ({memberToImpersonate.user?.email})</strong>.
-                  Todas as suas ações no painel dele serão salvas em seu nome sob registros de auditoria. Use apenas para fins de ajuda ou verificação de problemas.
+                <DialogDescription className="text-sm font-medium leading-relaxed text-center text-muted-foreground">
+                  {isWorkspaceAccess ? (
+                    <>
+                      Você está iniciando uma sessão de diagnóstico, assistência técnica ou manutenção no workspace{" "}
+                      <strong className="text-foreground">{workspace.name}</strong> através da credencial do titular{" "}
+                      <strong className="text-foreground">
+                        {memberToImpersonate.user?.name || "Proprietário"} ({memberToImpersonate.user?.email})
+                      </strong>
+                      . Todas as ações realizadas ficarão registradas nos registros de auditoria do sistema.
+                    </>
+                  ) : (
+                    <>
+                      Você está prestes a acessar temporariamente a conta de{" "}
+                      <strong className="text-foreground">
+                        {memberToImpersonate.user?.name || "Usuário"} ({memberToImpersonate.user?.email})
+                      </strong>
+                      . Todas as suas ações serão gravadas em seu nome nos registros de auditoria do sistema.
+                    </>
+                  )}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="mt-6 gap-2 sm:justify-center">
@@ -692,19 +1849,28 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
                   onClick={() => {
                     setIsImpersonateOpen(false);
                     setMemberToImpersonate(null);
+                    setIsWorkspaceAccess(false);
                   }}
-                  className="rounded-xl font-bold h-11 cursor-pointer"
+                  disabled={isImpersonating}
+                  className="rounded-xl font-bold h-10 cursor-pointer"
                 >
                   Cancelar
                 </Button>
                 <Button
                   onClick={handleImpersonate}
                   disabled={isImpersonating}
-                  className="rounded-xl h-11 font-black bg-primary text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20 cursor-pointer"
+                  className="rounded-xl h-10 font-bold bg-primary text-primary-foreground hover:bg-primary/90 shadow-xs cursor-pointer gap-2"
                 >
                   {isImpersonating ? (
-                    <><Loader2 className="size-4 animate-spin mr-2" /> Acessando...</>
-                  ) : "Sim, Entrar na Conta"}
+                    <>
+                      <Loader2 className="size-4 animate-spin mr-2" /> Acessando...
+                    </>
+                  ) : (
+                    <>
+                      <LogIn className="size-4" />
+                      <span>{isWorkspaceAccess ? "Entrar no Workspace" : "Sim, Entrar na Conta"}</span>
+                    </>
+                  )}
                 </Button>
               </DialogFooter>
             </>
@@ -712,11 +1878,14 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
         </DialogContent>
       </Dialog>
 
-      {/* 2. Modal de Moderação Financeira */}
-      <Dialog open={isPaymentModalOpen} onOpenChange={(open) => {
-        setIsPaymentModalOpen(open);
-        if (!open) setSelectedPayment(null);
-      }}>
+      {/* 3. Modal de Moderação Financeira */}
+      <Dialog
+        open={isPaymentModalOpen}
+        onOpenChange={(open) => {
+          setIsPaymentModalOpen(open);
+          if (!open) setSelectedPayment(null);
+        }}
+      >
         <DialogContent className="max-w-md rounded-2xl border-border/50">
           {selectedPayment && (
             <>
@@ -729,94 +1898,111 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
 
               <div className="py-4 space-y-4">
                 <div className="space-y-2">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Alterar Status do Pagamento</p>
+                  <Label className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground">
+                    Alterar Status do Pagamento
+                  </Label>
                   <Select
                     defaultValue={selectedPayment.status}
                     onValueChange={(val) => handleUpdatePaymentStatus(val)}
                     disabled={updatingPaymentStatus || deletingPayment}
                   >
-                    <SelectTrigger className="rounded-xl h-12 w-full border-border/40 font-bold">
+                    <SelectTrigger className="rounded-xl h-11 w-full border-border/60 font-bold text-xs">
                       <SelectValue placeholder="Selecione o novo status..." />
                     </SelectTrigger>
                     <SelectContent className="rounded-xl border-border/40">
-                      <SelectItem value="pago" className="font-bold text-xs text-emerald-500">PAGO</SelectItem>
-                      <SelectItem value="pendente" className="font-bold text-xs text-amber-500">PENDENTE</SelectItem>
-                      <SelectItem value="atrasado" className="font-bold text-xs text-rose-500">ATRASADO</SelectItem>
+                      <SelectItem value="pago" className="font-bold text-xs text-emerald-500">
+                        PAGO
+                      </SelectItem>
+                      <SelectItem value="pendente" className="font-bold text-xs text-amber-500">
+                        PENDENTE
+                      </SelectItem>
+                      <SelectItem value="atrasado" className="font-bold text-xs text-rose-500">
+                        ATRASADO
+                      </SelectItem>
                     </SelectContent>
                   </Select>
                   {updatingPaymentStatus && (
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-primary animate-pulse pl-1 pt-1">
+                    <div className="flex items-center gap-2 text-[11px] font-bold text-primary animate-pulse pl-1 pt-1">
                       <Loader2 className="size-3.5 animate-spin" />
                       <span>Salvando alteração de status...</span>
                     </div>
                   )}
                 </div>
 
-                <div className="p-4 rounded-xl border border-border/40 bg-secondary/10 flex flex-col gap-2">
-                  <div className="flex justify-between text-xs font-bold">
+                <div className="p-4 rounded-xl border border-border/50 bg-secondary/15 flex flex-col gap-2.5 text-xs">
+                  <div className="flex justify-between font-bold">
                     <span className="text-muted-foreground">Valor Cobrado:</span>
-                    <span className="text-foreground">{new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(selectedPayment.amount)}</span>
+                    <span className="text-foreground">
+                      {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+                        selectedPayment.amount
+                      )}
+                    </span>
                   </div>
-                  <div className="flex justify-between text-xs font-bold">
+                  <div className="flex justify-between font-bold">
                     <span className="text-muted-foreground">Método:</span>
-                    <span className="text-foreground uppercase">{selectedPayment.method}</span>
+                    <span className="text-foreground uppercase">{selectedPayment.method || "PIX"}</span>
                   </div>
-                  <div className="flex justify-between text-xs font-bold">
+                  <div className="flex justify-between font-bold">
                     <span className="text-muted-foreground">Registrado em:</span>
-                    <span className="text-foreground">{new Date(selectedPayment.createdAt).toLocaleDateString()}</span>
+                    <span className="text-foreground">
+                      {new Date(selectedPayment.createdAt).toLocaleDateString("pt-BR")}
+                    </span>
                   </div>
                 </div>
               </div>
 
-              <DialogFooter className="pt-4 border-t border-border/20 flex flex-col sm:flex-row gap-3">
+              <DialogFooter className="pt-4 border-t border-border/30 flex flex-col sm:flex-row gap-2">
                 <Button
                   onClick={() => setIsDeletePaymentAlertOpen(true)}
                   variant="ghost"
                   type="button"
                   disabled={updatingPaymentStatus || deletingPayment}
-                  className="rounded-xl hover:bg-rose-500/10 h-11 font-black hover:text-rose-600 transition-all cursor-pointer mr-auto text-rose-500 flex gap-1.5"
+                  className="rounded-xl hover:bg-rose-500/10 h-10 font-bold text-rose-500 hover:text-rose-600 cursor-pointer mr-auto text-xs gap-1.5"
                 >
-                  <Trash2 className="size-4" /> Excluir Cobrança
+                  <Trash2 className="size-3.5" />
+                  <span>Excluir Registro</span>
                 </Button>
 
-                <div className="flex gap-2">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    onClick={() => {
-                      setIsPaymentModalOpen(false);
-                      setSelectedPayment(null);
-                    }}
-                    disabled={updatingPaymentStatus || deletingPayment}
-                    className="rounded-xl font-bold h-11"
-                  >
-                    Fechar
-                  </Button>
-                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={() => {
+                    setIsPaymentModalOpen(false);
+                    setSelectedPayment(null);
+                  }}
+                  disabled={updatingPaymentStatus || deletingPayment}
+                  className="rounded-xl font-bold h-10 text-xs"
+                >
+                  Fechar
+                </Button>
               </DialogFooter>
             </>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* 3. AlertDialog de Exclusão Física de Cobrança */}
+      {/* 4. AlertDialog de Exclusão Definitiva de Cobrança */}
       <AlertDialog open={isDeletePaymentAlertOpen} onOpenChange={setIsDeletePaymentAlertOpen}>
-        <AlertDialogContent className="rounded-2xl border-rose-500/20 shadow-2xl shadow-rose-500/5">
+        <AlertDialogContent className="rounded-2xl border-rose-500/20">
           <AlertDialogHeader className="space-y-3">
             <div className="mx-auto size-12 rounded-full bg-rose-500/10 text-rose-600 flex items-center justify-center border border-rose-500/20">
               <Trash2 className="size-6" />
             </div>
-            <AlertDialogTitle className="text-xl font-black tracking-tight text-center">Excluir Cobrança Definitivamente?</AlertDialogTitle>
+            <AlertDialogTitle className="text-xl font-black tracking-tight text-center">
+              Excluir Cobrança Definitivamente?
+            </AlertDialogTitle>
             <AlertDialogDescription className="text-sm text-muted-foreground text-center">
-              Tem certeza que deseja excluir permanentemente o registro de cobrança do aluno <strong className="text-foreground">{selectedPayment?.studentName}</strong>? Esta ação é irreversível e pode afetar as métricas financeiras acumuladas e o acesso aos treinos dele na assessoria.
+              Tem certeza que deseja excluir o registro de cobrança do aluno{" "}
+              <strong className="text-foreground">{selectedPayment?.studentName}</strong>? Esta ação é irreversível
+              e removerá o registro financeiro da base.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-4 gap-2 sm:justify-center">
-            <AlertDialogCancel className="rounded-xl font-bold h-11">Cancelar</AlertDialogCancel>
+            <AlertDialogCancel className="rounded-xl font-bold h-10">Cancelar</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeletePaymentConfirm}
               disabled={deletingPayment}
-              className="rounded-xl h-11 px-8 font-black bg-rose-600 text-white hover:bg-rose-700 shadow-lg shadow-rose-600/20 cursor-pointer flex gap-1.5"
+              className="rounded-xl h-10 px-6 font-bold bg-rose-600 text-white hover:bg-rose-700 shadow-xs cursor-pointer gap-1.5"
             >
               {deletingPayment ? (
                 <>
@@ -826,7 +2012,7 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
               ) : (
                 <>
                   <Trash2 className="size-4" />
-                  <span>Excluir de Vez</span>
+                  <span>Confirmar Exclusão</span>
                 </>
               )}
             </AlertDialogAction>
@@ -834,7 +2020,7 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Overlay de Transição de Conta (Impersonate) */}
+      {/* 5. Overlay de Transição de Conta (Impersonate) */}
       {isImpersonating && (
         <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center bg-background/80 backdrop-blur-md animate-in fade-in duration-300">
           <div className="flex flex-col items-center gap-4 text-center max-w-sm px-6 py-8 rounded-2xl border border-border/50 bg-card shadow-2xl">

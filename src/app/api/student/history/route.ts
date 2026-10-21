@@ -1,3 +1,7 @@
+import { withRequestMemo } from "@/lib/request-memo";
+import { authorizeGymStudent } from "@/modules/workspaces/application/student-authority";
+import { handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
+import { getStudentWorkspaceMember } from "@/lib/student-auth";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
@@ -15,7 +19,7 @@ function getYearAndMonthInSP(date: Date) {
   return { year, month };
 }
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado. Por favor, faça login.", { status: 401 });
@@ -23,19 +27,14 @@ export async function GET(req: Request) {
 
   try {
     // 1. Get active student workspace member
-    const member = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        role: "STUDENT",
-        isActive: true,
-      },
-    });
+    const member = await getStudentWorkspaceMember(session.user.id);
 
     if (!member) {
       return new NextResponse("Membro ativo do workspace não encontrado.", { status: 404 });
     }
 
     const workspaceId = member.workspaceId;
+    if (member.workspace.type === "GYM") await authorizeGymStudent(workspaceId, member.id, session.user.id, req.method === "GET" ? "workouts.read" : "workouts.manage.assigned", { allowSelf: true });
 
     // 2. Fetch completed workouts history (WorkoutLog)
     const logs = await prisma.workoutLog.findMany({
@@ -154,10 +153,12 @@ export async function GET(req: Request) {
       },
     });
   } catch (error) {
-    console.error("GET student history error:", error);
+    const denied = handleWorkspaceAccessError(error); if (denied) return denied;
+    console.error("GET student history error:", { errorType: error instanceof Error ? error.name : "UnknownError" });
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 export async function DELETE(req: Request) {
   const session = await auth();
@@ -174,19 +175,14 @@ export async function DELETE(req: Request) {
     }
 
     // 1. Fetch active workspace member
-    const member = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        role: "STUDENT",
-        isActive: true,
-      },
-    });
+    const member = await getStudentWorkspaceMember(session.user.id);
 
     if (!member) {
       return new NextResponse("Membro ativo do workspace não encontrado.", { status: 404 });
     }
 
     const workspaceId = member.workspaceId;
+    if (member.workspace.type === "GYM") await authorizeGymStudent(workspaceId, member.id, session.user.id, req.method === "GET" ? "workouts.read" : "workouts.manage.assigned", { allowSelf: true });
 
     // 2. Validate log existence and ownership
     const existingLog = await prisma.workoutLog.findUnique({
@@ -269,7 +265,8 @@ export async function DELETE(req: Request) {
       progress: newProgress,
     });
   } catch (error) {
-    console.error("DELETE student history error:", error);
+    const denied = handleWorkspaceAccessError(error); if (denied) return denied;
+    console.error("DELETE student history error:", { errorType: error instanceof Error ? error.name : "UnknownError" });
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
 }

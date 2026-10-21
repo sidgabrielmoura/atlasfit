@@ -9,7 +9,7 @@ export function getStudentInvitationEmailTemplate(params: {
   recipientEmail?: string;
 }) {
   const { studentName, trainerName, workspaceName, setupToken, planName, recipientEmail } = params;
-  const setupUrl = `${getAppBaseUrl()}/auth/setup?token=${setupToken}`;
+  const setupUrl = `${getAppBaseUrl()}/auth/setup-password?token=${setupToken}`;
 
   const html = renderBaseEmailLayout({
     title: "Seja Bem-vindo(a) à sua Consultoria!",
@@ -90,4 +90,58 @@ export function getNewStudentNotificationTrainerTemplate(params: {
   const text = `AtlasFit | Novo Aluno!\n\nOlá, ${trainerName}.\nO aluno ${studentName} (${studentEmail}) foi adicionado no plano ${planName}.\nAcesse o painel: ${clientsUrl}`;
 
   return { html, text, subject: `Novo Aluno Cadastrado: ${studentName} 🚀` };
+}
+
+export function getStaffInvitationEmailTemplate(params: {
+  workspaceName: string;
+  roleName: string;
+  unitName?: string | null;
+  inviteUrl: string;
+  recipientEmail?: string;
+  expiresInHours?: number;
+}) {
+  const {
+    workspaceName,
+    roleName,
+    unitName,
+    inviteUrl,
+    recipientEmail,
+    expiresInHours = 72,
+  } = params;
+
+  const html = renderBaseEmailLayout({
+    title: "Convite para Ingressar na Equipe",
+    badgeText: "Equipe & Acesso",
+    badgeColor: "#10b981",
+    previewText: `Você foi convidado(a) para a equipe da ${workspaceName}`,
+    recipientEmail,
+    contentHtml: `
+      <p style="margin: 0 0 16px 0;">Olá!</p>
+      <p style="margin: 0 0 16px 0; color: #d4d4d8;">
+        Você foi convidado(a) para fazer parte da equipe de profissionais da academia <strong>${workspaceName}</strong> na plataforma <strong>AtlasFit</strong>.
+      </p>
+      <div style="background-color: #09090b; border: 1px solid #27272a; border-radius: 14px; padding: 16px; margin-bottom: 20px; font-size: 13px;">
+        <div style="margin-bottom: 8px;"><strong style="color: #71717a;">Academia:</strong> <span style="color: #ffffff; font-weight: 600; margin-left: 6px;">${workspaceName}</span></div>
+        <div style="margin-bottom: 8px;"><strong style="color: #71717a;">Cargo / Função:</strong> <span style="color: #10b981; font-weight: 600; margin-left: 6px;">${roleName}</span></div>
+        ${unitName ? `<div style="margin-bottom: 8px;"><strong style="color: #71717a;">Unidade:</strong> <span style="color: #ffffff; margin-left: 6px;">${unitName}</span></div>` : ""}
+        <div><strong style="color: #71717a;">Validade do Convite:</strong> <span style="color: #fbbf24; margin-left: 6px;">${expiresInHours} horas</span></div>
+      </div>
+      <p style="margin: 0 0 20px 0; color: #a1a1aa;">
+        Com seu acesso, você poderá gerenciar treinos, alunos, atendimentos e acompanhar a evolução dos alunos de forma ágil e moderna. Para aceitar o convite e ativar sua conta, clique no botão abaixo:
+      </p>
+    `,
+    ctaButton: {
+      text: "Aceitar Convite e Acessar",
+      url: inviteUrl,
+      color: "#10b981",
+    },
+    secondaryInfoHtml: `
+      <p style="margin: 0 0 6px 0;">Se o botão não funcionar, copie e cole o endereço abaixo no seu navegador:</p>
+      <p style="margin: 0;"><a href="${inviteUrl}" target="_blank" style="color: #3b82f6; word-break: break-all;">${inviteUrl}</a></p>
+    `,
+  });
+
+  const text = `AtlasFit | Convite de Equipe\n\nOlá!\nVocê foi convidado(a) para integrar a equipe da academia ${workspaceName} como ${roleName}${unitName ? ` (Unidade: ${unitName})` : ""}.\n\nPara aceitar seu convite e ativar seu acesso (válido por ${expiresInHours} horas), acesse o link:\n${inviteUrl}`;
+
+  return { html, text, subject: `Convite para ingressar na equipe da ${workspaceName} 🤝` };
 }

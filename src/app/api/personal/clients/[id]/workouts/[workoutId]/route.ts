@@ -1,3 +1,6 @@
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
+import { authorizePersonalStudent } from "@/modules/workspaces/application/personal-student-authority";
+import { handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
@@ -10,6 +13,7 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string; workoutId: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user?.id) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -33,6 +37,8 @@ export async function PATCH(
     if (!existingWorkout) {
       return new NextResponse("Treino não encontrado ou não autorizado.", { status: 404 });
     }
+    await authorizePersonalStudent(existingWorkout.workspaceId, studentId, session.user.id, "workouts.manage.assigned");
+    
 
     // Transação atômica para limpar exercícios antigos e registrar os novos
     const updatedWorkout = await prisma.$transaction(async (tx) => {
@@ -161,6 +167,8 @@ export async function PATCH(
 
     return NextResponse.json(updatedWorkout);
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
+
     console.error("PATCH student workout error:", error);
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
@@ -172,6 +180,7 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string; workoutId: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user?.id) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -199,6 +208,8 @@ export async function DELETE(
     if (!existingWorkout) {
       return new NextResponse("Treino não encontrado ou não autorizado.", { status: 404 });
     }
+    await authorizePersonalStudent(existingWorkout.workspaceId, studentId, session.user.id, "workouts.manage.assigned");
+    
 
     const exerciseIds = existingWorkout.exercises.map(ex => ex.exerciseId);
 
@@ -218,6 +229,8 @@ export async function DELETE(
 
     return new NextResponse(null, { status: 204 });
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
+
     console.error("DELETE student workout error:", error);
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }

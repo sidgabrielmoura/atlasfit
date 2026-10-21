@@ -1,9 +1,11 @@
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { logSystemError } from "@/lib/logger";
 
 export async function DELETE(req: Request) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -35,6 +37,7 @@ export async function DELETE(req: Request) {
     if (!workspace) {
       return new NextResponse("Workspace não encontrado ou você não tem permissão para excluí-lo.", { status: 404 });
     }
+    if (workspace.type !== "PERSONAL") return NextResponse.json({ error: "Academias precisam de encerramento próprio; esta operação atende apenas assessorias." }, { status: 409 });
 
     // Delete workspace (Prisma schema cascade-deletes related members, tasks, plans, payments, etc.)
     await prisma.workspace.delete({

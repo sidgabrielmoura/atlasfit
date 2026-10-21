@@ -51,7 +51,7 @@ export async function DELETE(req: Request) {
       return new NextResponse("Token é obrigatório para cancelamento de registro.", { status: 400 });
     }
 
-    await NotificationService.unregisterDevice(token);
+    await NotificationService.unregisterDevice(token, session.user.id);
 
     return NextResponse.json({ success: true, message: "Dispositivo desvinculado com sucesso." });
   } catch (error: any) {

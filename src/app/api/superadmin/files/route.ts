@@ -1,8 +1,9 @@
+import { withRequestMemo } from "@/lib/request-memo";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   const session = await auth();
 
   if (session?.user?.role !== "SUPERADMIN") {
@@ -82,3 +83,4 @@ export async function GET(req: Request) {
     return new NextResponse("Internal Error", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);

@@ -1,6 +1,7 @@
 import prisma from "@/lib/prisma";
 import { parseDayOfWeekToInt } from "./utils/day-of-week";
-import bcryptjs from "bcryptjs";
+import { newSetupTokenExpiry } from "@/lib/auth/setup-token-policy";
+import { WorkspaceAccessError } from "@/modules/workspaces/domain/types";
 import crypto from "crypto";
 import { validateAgeEligibility } from "@/lib/privacy/age-validator";
 
@@ -23,9 +24,9 @@ export interface CommitPreviewResult {
  */
 export async function generateCommitPreview(jobId: string, workspaceId: string): Promise<CommitPreviewResult> {
   const job = await prisma.importJob.findUnique({
-    where: { id: jobId },
+    where: { id: jobId, workspaceId },
     include: {
-      records: true,
+      records: { select: { id: true, entityType: true, temporaryEntityId: true, matchedEntityId: true, normalizedData: true, status: true, reviewStatus: true } },
     },
   });
 
@@ -42,26 +43,12 @@ export async function generateCommitPreview(jobId: string, workspaceId: string):
   let totalExercises = 0;
   const warnings: string[] = [];
 
-  for (const sr of studentRecords) {
-    if (sr.matchedEntityId) {
-      // Verify matched entity exists in this workspace
-      const member = await prisma.workspaceMember.findFirst({
-        where: {
-          userId: sr.matchedEntityId,
-          workspaceId,
-          role: "STUDENT",
-        },
-      });
-
-      if (member) {
-        updateStudentsCount++;
-      } else {
-        newStudentsCount++;
-        warnings.push(`Aluno "${(sr.normalizedData as any)?.name}" teve correspondência inválida e será criado como novo.`);
-      }
-    } else {
-      newStudentsCount++;
-    }
+  const matchedIds = studentRecords.flatMap(record => record.matchedEntityId ? [record.matchedEntityId] : []);
+  const matchedMembers = matchedIds.length ? await prisma.workspaceMember.findMany({ where: { workspaceId, userId: { in: matchedIds }, role: "STUDENT" }, select: { userId: true } }) : [];
+  const matched = new Set(matchedMembers.map(member => member.userId));
+  for (const record of studentRecords) {
+    if (record.matchedEntityId && matched.has(record.matchedEntityId)) updateStudentsCount++;
+    else { newStudentsCount++; if (record.matchedEntityId) warnings.push(`Aluno "${(record.normalizedData as any)?.name}" teve correspondência inválida e será criado como novo.`); }
   }
 
   for (const wr of workoutRecords) {
@@ -123,9 +110,9 @@ export async function commitImportJob(
   idempotencyKey?: string
 ) {
   const job = await prisma.importJob.findUnique({
-    where: { id: jobId },
+    where: { id: jobId, workspaceId },
     include: {
-      records: true,
+      records: { select: { id: true, entityType: true, temporaryEntityId: true, matchedEntityId: true, normalizedData: true, status: true, reviewStatus: true } },
     },
   });
 
@@ -143,15 +130,18 @@ export async function commitImportJob(
     throw new Error("A versão do review foi alterada. Por favor, gere um novo preview de confirmação.");
   }
 
-  // Set state to IMPORTING
-  await prisma.importJob.update({
-    where: { id: jobId },
+  if (job.records.length > 500) throw new WorkspaceAccessError(413, "INVALID_REQUEST", "Importe no máximo 500 registros por lote.");
+  // Claim before writes; parallel confirms cannot commit the same review twice.
+  const claim = await prisma.importJob.updateMany({
+    where: { id: jobId, workspaceId, commitVersion, previewValidated: true, status: { in: ["REVIEW", "READY", "FAILED", "PARTIAL"] } },
     data: {
       status: "IMPORTING",
       processingStep: "COMMITTING",
       idempotencyKey: idempotencyKey ?? `${jobId}_v${commitVersion}`,
     },
   });
+
+  if (!claim.count) throw new WorkspaceAccessError(409, "INVALID_STATUS", "Importação em andamento ou revisão alterada.");
 
   // Map temporary IDs to database entity IDs
   const studentIdMap: Record<string, string> = {}; // tempStudentId -> real User.id
@@ -505,21 +495,13 @@ export async function commitImportJob(
           },
         });
       }
-    });
-
-    // Mark job as COMPLETED
-    await prisma.importJob.update({
-      where: { id: jobId },
-      data: {
-        status: "COMPLETED",
-        processingStep: "IDLE",
-      },
-    });
+      await tx.importJob.update({ where: { id: jobId, workspaceId }, data: { status: "COMPLETED", processingStep: "IDLE" } });
+    }, { maxWait: 10_000, timeout: 30_000 });
 
     return { success: true, status: "COMPLETED" };
   } catch (error: any) {
-    await prisma.importJob.update({
-      where: { id: jobId },
+    await prisma.importJob.updateMany({
+      where: { id: jobId, workspaceId, status: "IMPORTING" },
       data: {
         status: "FAILED",
         processingStep: "IDLE",
@@ -542,7 +524,7 @@ async function createStudentUser(tx: any, workspaceId: string, norm: any) {
   }
 
   const generatedEmail = norm.email || `aluno.${crypto.randomBytes(4).toString("hex")}@atlasfit.internal`;
-  const defaultPassword = await bcryptjs.hash("AtlasFit123!", 10);
+
 
   const newUser = await tx.user.create({
     data: {
@@ -555,7 +537,9 @@ async function createStudentUser(tx: any, workspaceId: string, norm: any) {
       height: norm.height ?? null,
       gender: norm.gender ?? null,
       role: "STUDENT",
-      password: defaultPassword,
+      password: null,
+      setupToken: crypto.randomUUID(),
+      setupTokenExpiresAt: newSetupTokenExpiry(),
     },
   });
 

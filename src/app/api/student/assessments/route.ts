@@ -1,8 +1,12 @@
+import { withRequestMemo } from "@/lib/request-memo";
+import { authorizeGymStudent } from "@/modules/workspaces/application/student-authority";
+import { handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
+import { getStudentWorkspaceMember } from "@/lib/student-auth";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado. Por favor, faça login.", { status: 401 });
@@ -10,19 +14,14 @@ export async function GET(req: Request) {
 
   try {
     // 1. Localizar membro ativo para identificar o workspace e o aluno
-    const member = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        role: "STUDENT",
-        isActive: true,
-      },
-    });
+    const member = await getStudentWorkspaceMember(session.user.id);
 
     if (!member) {
       return new NextResponse("Membro ativo do workspace não encontrado.", { status: 404 });
     }
 
     const workspaceId = member.workspaceId;
+    if (member.workspace.type === "GYM") await authorizeGymStudent(workspaceId, member.id, session.user.id, "health.read.assigned", { allowSelf: true });
 
     // 2. Buscar histórico de avaliações físicas
     const evaluations = await prisma.physicalEvaluation.findMany({
@@ -68,7 +67,9 @@ export async function GET(req: Request) {
       plan: member.plan,
     });
   } catch (error) {
-    console.error("Student Assessments API GET Error:", error);
+    const denied = handleWorkspaceAccessError(error); if (denied) return denied;
+    console.error("Student Assessments API GET Error:", { errorType: error instanceof Error ? error.name : "UnknownError" });
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);

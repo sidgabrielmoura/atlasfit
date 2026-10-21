@@ -1,5 +1,7 @@
 "use client";
 
+import { PersonalSubscriptionCheckout } from "@/components/application/personal-subscription-checkout";
+
 import { motion } from "framer-motion";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -74,7 +76,8 @@ export default function SubscriptionPage() {
   const [data, setData] = useState<ApiResponse | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState<string | null>(null);
+  const [checkoutPlan, setCheckoutPlan] = useState<{ id: string; name: string } | null>(null);
+  const isProcessing = checkoutPlan?.id ?? null;
   const [billingCycle, setBillingCycle] = useState<"mensal" | "anual">("mensal");
   const [expandedPlans, setExpandedPlans] = useState<Record<string, boolean>>({});
 
@@ -106,45 +109,12 @@ export default function SubscriptionPage() {
     loadSubscriptionData();
   }, [loadSubscriptionData]);
 
-  const handlePlanAction = async (planId: string, planName: string, isCurrent: boolean) => {
+  const handlePlanAction = (planId: string, planName: string, isCurrent: boolean) => {
     if (isCurrent) return;
-
-    setIsProcessing(planId);
-
-    try {
-      const response = await fetch("/api/personal/subscription", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          planId,
-        }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(errorText || "Falha ao alterar plano.");
-      }
-
-      const result = await response.json();
-
-      if (result.checkoutUrl) {
-        toast.success("Link de pagamento gerado! Redirecionando de forma segura...");
-        // Pequena pausa para garantir a leitura do toast
-        await new Promise((resolve) => setTimeout(resolve, 1200));
-        window.location.href = result.checkoutUrl;
-      } else {
-        toast.success(`Plano alterado para ${planName} com sucesso!`);
-        await loadSubscriptionData();
-      }
-    } catch (err: any) {
-      console.error("Error upgrading plan:", err);
-      toast.error(err.message || "Não foi possível processar a alteração do plano.");
-    } finally {
-      setIsProcessing(null);
-    }
+    setCheckoutPlan({ id: planId, name: planName });
   };
+
+  if (!isLoading && !data && error) return <div className="space-y-4 p-6"><p role="alert" className="text-destructive">{error}</p><Button onClick={() => void loadSubscriptionData()}>Tentar novamente</Button></div>;
 
   if (isLoading || !data) {
     return (
@@ -229,6 +199,7 @@ export default function SubscriptionPage() {
   if (!subscription) {
     return (
       <div className="flex-1 space-y-8 p-4 md:p-8 pt-6 w-full animate-in fade-in duration-300">
+        <PersonalSubscriptionCheckout plan={checkoutPlan} onClose={() => setCheckoutPlan(null)} />
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Assinatura</h2>
           <p className="text-muted-foreground mt-1">Escolha um plano para começar a usar o AtlasFit.</p>
@@ -405,6 +376,7 @@ export default function SubscriptionPage() {
 
   return (
     <div className="flex-1 space-y-8 p-4 md:p-8 pt-6 w-full animate-in fade-in duration-300 max-w-400 mx-auto">
+        <PersonalSubscriptionCheckout plan={checkoutPlan} onClose={() => setCheckoutPlan(null)} />
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Assinatura</h2>

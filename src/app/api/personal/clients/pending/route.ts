@@ -1,19 +1,19 @@
+import { withRequestMemo } from "@/lib/request-memo";
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
+import { newSetupTokenExpiry } from "@/lib/auth/setup-token-policy";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import crypto from "crypto";
+import { requirePersonalWorkspaceAccess, handleWorkspaceAccessError } from "@/modules/workspaces";
 
-async function verifyWorkspaceAccess(userId: string, workspaceId: string) {
-  const memberCheck = await prisma.workspaceMember.findFirst({
-    where: {
-      userId,
-      workspaceId,
-    },
-  });
-  return !!memberCheck;
+async function verifyWorkspaceAccess(userId: string, workspaceId: string, capability: "students.read" | "students.manage" = "students.manage") {
+  const context = await requirePersonalWorkspaceAccess({ workspaceId, capability });
+  return context.userId === userId;
 }
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -27,7 +27,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    const hasAccess = await verifyWorkspaceAccess(session.user.id, workspaceId);
+    const hasAccess = await verifyWorkspaceAccess(session.user.id, workspaceId, "students.read");
     if (!hasAccess) {
       return new NextResponse("Acesso negado a este workspace.", { status: 403 });
     }
@@ -57,13 +57,16 @@ export async function GET(req: Request) {
 
     return NextResponse.json(formattedPending);
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
     console.error("GET pending students error:", error);
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 // PUT: Edit pending student details
 export async function PUT(req: Request) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -115,6 +118,7 @@ export async function PUT(req: Request) {
 
     return new NextResponse("Pré-cadastro atualizado com sucesso.", { status: 200 });
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
     console.error("PUT pending student error:", error);
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }
@@ -122,6 +126,7 @@ export async function PUT(req: Request) {
 
 // DELETE: Reject/Remove pending student
 export async function DELETE(req: Request) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -155,6 +160,7 @@ export async function DELETE(req: Request) {
 
     return new NextResponse("Pré-cadastro rejeitado/removido com sucesso.", { status: 200 });
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
     console.error("DELETE pending student error:", error);
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }
@@ -162,6 +168,7 @@ export async function DELETE(req: Request) {
 
 // POST: Approve pending student and make them official
 export async function POST(req: Request) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -249,10 +256,11 @@ export async function POST(req: Request) {
           });
         }
 
-        if (!existingUser.password && !existingUser.setupToken) {
+        if (!existingUser.password && (!existingUser.setupToken || !existingUser.setupTokenExpiresAt || existingUser.setupTokenExpiresAt <= new Date())) {
           await tx.user.update({
             where: { id: finalUserId },
-            data: { setupToken: crypto.randomUUID() },
+            data: { setupTokenExpiresAt: newSetupTokenExpiry(),
+setupToken: crypto.randomUUID() },
           });
         }
       } else {
@@ -262,7 +270,8 @@ export async function POST(req: Request) {
             name: pendingStudent.name,
             email: pendingStudent.email,
             password: null,
-            setupToken,
+            setupTokenExpiresAt: newSetupTokenExpiry(),
+setupToken,
             role: "STUDENT",
             whatsapp: pendingStudent.whatsapp,
             cpfCnpj: pendingStudent.cpfCnpj,
@@ -290,6 +299,7 @@ export async function POST(req: Request) {
 
     return new NextResponse("Aluno aprovado e ativado com sucesso.", { status: 200 });
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
     console.error("POST pending student approval error:", error);
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }

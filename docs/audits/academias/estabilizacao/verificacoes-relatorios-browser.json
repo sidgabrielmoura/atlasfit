@@ -1,0 +1,30 @@
+{
+  "startedAt": "2026-10-09T19:21:50.531Z",
+  "synthetic": true,
+  "configuredDatabaseChanged": false,
+  "samples": [
+    {
+      "width": 390,
+      "overflow": false,
+      "noticeVisible": true,
+      "screenshot": "docs/audits/academias/estabilizacao/relatorios-agregacao/390.png"
+    },
+    {
+      "width": 1280,
+      "overflow": false,
+      "noticeVisible": true,
+      "screenshot": "docs/audits/academias/estabilizacao/relatorios-agregacao/1280.png"
+    }
+  ],
+  "errors": [],
+  "http": {
+    "status": 200,
+    "historyCoverage": {
+      "legacyPaidExpensesCount": 4,
+      "unallocatedPaymentsCount": 4,
+      "complete": false
+    }
+  },
+  "success": true,
+  "finishedAt": "2026-10-09T19:22:37.231Z"
+}

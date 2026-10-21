@@ -1,8 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
-import { useAbly } from "@/providers/ably-provider";
 import { motion, AnimatePresence } from "framer-motion";
 import { useSnapshot } from "valtio";
 import { workspaceStore } from "@/stores/workspace.store";
@@ -73,8 +71,6 @@ export default function StudentDashboardPage() {
   const workspaceSnap = useSnapshot(workspaceStore);
   const activeWs = workspaceSnap.activeWorkspace;
 
-  const { data: session } = useSession();
-  const ablyClient = useAbly();
 
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
@@ -82,61 +78,31 @@ export default function StudentDashboardPage() {
   const [activeWorkoutIdx, setActiveWorkoutIdx] = useState(0);
   const [selectedDayIdx, setSelectedDayIdx] = useState(new Date().getDay());
   const [mounted, setMounted] = useState(false);
-  const [lockStatus, setLockStatus] = useState<{
-    status: "OK" | "WARNING" | "LOCKED";
-    daysUntilLock: number | null;
-    overdueBilling: any | null;
-  }>({ status: "OK", daysUntilLock: null, overdueBilling: null });
-
-  const fetchLockStatus = async () => {
-    try {
-      const res = await fetch("/api/student/lock-status");
-      if (res.ok) {
-        const json = await res.json();
-        setLockStatus(json);
-      }
-    } catch { }
-  };
-
-  useEffect(() => {
-    fetchLockStatus();
-  }, []);
-
-  useEffect(() => {
-    if (!ablyClient || !session?.user?.id) return;
-    const userChannel = ablyClient.channels.get(`user:${session.user.id}`);
-
-    const handleWalletUpdate = () => {
-      fetchLockStatus();
-    };
-
-    userChannel.subscribe("wallet:updated", handleWalletUpdate);
-    return () => {
-      userChannel.unsubscribe("wallet:updated", handleWalletUpdate);
-    };
-  }, [ablyClient, session?.user?.id]);
-
   useEffect(() => {
     setMounted(true);
+    if (!activeWs?.id) return;
+    const controller = new AbortController();
     async function loadDashboardData() {
       setLoading(true);
+      setData(null);
       setError(null);
       try {
-        const res = await fetch("/api/student/dashboard");
+        const res = await fetch("/api/student/dashboard", { signal: controller.signal });
         if (!res.ok) {
           throw new Error("Erro ao buscar dados do dashboard do aluno.");
         }
         const dashboardData = await res.json();
+        if (dashboardData.workspace?.id !== activeWs?.id) throw new Error("O contexto mudou. Recarregue a página.");
         setData(dashboardData);
-      } catch (err: any) {
-        console.error(err);
-        setError(err.message || "Erro ao carregar os dados.");
+      } catch (err: unknown) {
+        if (!controller.signal.aborted) setError(err instanceof Error ? err.message : "Erro ao carregar os dados.");
       } finally {
-        setLoading(false);
+        if (!controller.signal.aborted) setLoading(false);
       }
     }
     loadDashboardData();
-  }, []);
+    return () => controller.abort();
+  }, [activeWs?.id]);
 
   if (loading) {
     return <StudentDashboardSkeleton />;
@@ -706,7 +672,7 @@ export default function StudentDashboardPage() {
                 <TrendingUp className="size-4 text-primary" />
                 Evolução Corporal
               </CardTitle>
-              <CardDescription className="text-xs">Peso histórico</CardDescription>
+              <CardDescription className="text-xs">Última medição de cada mês · até 24 meses</CardDescription>
             </div>
             {evolutionPercent !== 0 && (
               <Badge variant="secondary" className="bg-emerald-500/10 text-emerald-500 border-none font-bold text-[10px]">
@@ -925,7 +891,7 @@ export default function StudentDashboardPage() {
               {(finance.status === "Pendente" || finance.status === "Atrasado" || finance.status === "Expirado") && (
                 <div className="space-y-3 pt-2">
                   <p className="text-xs text-amber-500 leading-relaxed font-medium">
-                    Existe uma cobrança pendente de <strong>R$ {finance.pendingAmount}</strong>. Regularize para evitar o bloqueio de seus treinos.
+                    Existe uma cobrança pendente de <strong>R$ {finance.pendingAmount}</strong>. {finance.kind === "GYM_MANUAL" ? "Consulte os recebimentos registrados pela academia." : "Regularize para evitar o bloqueio de seus treinos."}
                   </p>
                   <Button asChild className="w-full h-10 rounded-xl text-xs font-bold bg-amber-500 hover:bg-amber-600 text-black shadow-sm cursor-pointer">
                     <Link href="/student/finance">

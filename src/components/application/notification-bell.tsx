@@ -1,6 +1,9 @@
 "use client";
+import { useCoalescedRefresh } from "@/hooks/use-coalesced-refresh";
 
-import { useState, useEffect } from "react";
+import { runRealtimeOperation } from "@/lib/realtime-operation";
+
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useSnapshot } from "valtio";
 import { workspaceStore } from "@/stores/workspace.store";
@@ -118,6 +121,8 @@ const CATEGORY_ICONS: Record<string, any> = {
 export function NotificationBell() {
   const workspaceSnap = useSnapshot(workspaceStore);
   const activeWorkspaceId = workspaceSnap.activeWorkspaceId;
+  const notificationRequestVersion = useRef(0);
+  const academy = workspaceSnap.activeWorkspace?.type === "GYM";
 
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
@@ -131,15 +136,16 @@ export function NotificationBell() {
   const [isPrefsOpen, setIsPrefsOpen] = useState(false);
 
   const fetchNotifications = async () => {
+    const version = ++notificationRequestVersion.current;
     try {
       setLoading(true);
       const url = activeWorkspaceId
-        ? `/api/personal/notifications?workspaceId=${activeWorkspaceId}`
-        : "/api/personal/notifications";
+        ? `/api/notifications?workspaceId=${activeWorkspaceId}`
+        : "/api/notifications";
       const res = await fetch(url);
       if (res.ok) {
         const data = await res.json();
-        setNotifications(data);
+        if (version === notificationRequestVersion.current && workspaceStore.activeWorkspaceId === activeWorkspaceId) setNotifications(data);
       }
     } catch (error) {
       console.error(error);
@@ -148,9 +154,11 @@ export function NotificationBell() {
     }
   };
 
+  const scheduleNotificationRefresh = useCoalescedRefresh(fetchNotifications, activeWorkspaceId);
+
   const fetchPreferences = async () => {
     try {
-      const res = await fetch("/api/personal/notifications/preferences");
+      const res = await fetch("/api/notifications/preferences");
       if (res.ok) {
         const data = await res.json();
         setPreferences(data);
@@ -164,15 +172,16 @@ export function NotificationBell() {
   const ably = useAbly();
 
   useEffect(() => {
+    setNotifications([]);
     fetchNotifications();
     fetchPreferences();
 
     const handleNewMessage = () => {
-      fetchNotifications();
+      scheduleNotificationRefresh();
     };
 
     window.addEventListener("fcm-message-received", handleNewMessage);
-    return () => window.removeEventListener("fcm-message-received", handleNewMessage);
+    return () => { ++notificationRequestVersion.current; window.removeEventListener("fcm-message-received", handleNewMessage); };
   }, [activeWorkspaceId]);
 
   // Escuta tempo real do Ably para novas notificações do usuário
@@ -186,37 +195,27 @@ export function NotificationBell() {
       const notification = msg.data;
       if (!notification || !notification.id) return;
 
-      setNotifications((prev) => {
-        if (prev.some((n) => n.id === notification.id)) return prev;
-        return [notification, ...prev];
-      });
-
-      // Toca efeito sonoro de notificação
-      playRestChimeSound();
-
-      // Exibe toast contextual com id único para evitar duplicações
-      toast(notification.title || "Nova Notificação", {
-        id: notification.id,
-        description: notification.description,
-      });
+      // The HTTP endpoint revalidates current membership and selected workspace.
+      // A realtime payload never supplies content directly to another tenant.
+      scheduleNotificationRefresh();
     };
 
-    channel.subscribe("notification:new", handleNewNotification);
+    runRealtimeOperation(() => channel.subscribe("notification:new", handleNewNotification));
 
     return () => {
       channel.unsubscribe("notification:new", handleNewNotification);
     };
-  }, [ably, session?.user?.id]);
+  }, [ably, session?.user?.id, activeWorkspaceId]);
 
   const unreadCount = notifications.filter((n) => !n.isRead).length;
 
   const handleMarkAsRead = async (id: string) => {
     try {
       setMarkingId(id);
-      const res = await fetch(`/api/personal/notifications/${id}`, {
+      const res = await fetch(`/api/notifications/${encodeURIComponent(id)}${activeWorkspaceId ? "?workspaceId=" + encodeURIComponent(activeWorkspaceId) : ""}`, {
         method: "PATCH"
       });
-      if (res.ok) {
+      if (res.ok && workspaceStore.activeWorkspaceId === activeWorkspaceId) {
         setNotifications((prev) =>
           prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
         );
@@ -232,10 +231,10 @@ export function NotificationBell() {
   const handleDelete = async (id: string) => {
     try {
       setDeletingId(id);
-      const res = await fetch(`/api/personal/notifications/${id}`, {
+      const res = await fetch(`/api/notifications/${encodeURIComponent(id)}${activeWorkspaceId ? "?workspaceId=" + encodeURIComponent(activeWorkspaceId) : ""}`, {
         method: "DELETE"
       });
-      if (res.ok) {
+      if (res.ok && workspaceStore.activeWorkspaceId === activeWorkspaceId) {
         setNotifications((prev) => prev.filter((n) => n.id !== id));
         toast.success("Notificação excluída.");
       }
@@ -250,12 +249,12 @@ export function NotificationBell() {
     try {
       setMarkingAll(true);
       const url = activeWorkspaceId
-        ? `/api/personal/notifications?workspaceId=${activeWorkspaceId}`
-        : "/api/personal/notifications";
+        ? `/api/notifications?workspaceId=${activeWorkspaceId}`
+        : "/api/notifications";
       const res = await fetch(url, {
         method: "PATCH"
       });
-      if (res.ok) {
+      if (res.ok && workspaceStore.activeWorkspaceId === activeWorkspaceId) {
         setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
         toast.success("Todas as notificações foram lidas.");
       }
@@ -270,12 +269,12 @@ export function NotificationBell() {
     try {
       setClearing(true);
       const url = activeWorkspaceId
-        ? `/api/personal/notifications?workspaceId=${activeWorkspaceId}`
-        : "/api/personal/notifications";
+        ? `/api/notifications?workspaceId=${activeWorkspaceId}`
+        : "/api/notifications";
       const res = await fetch(url, {
         method: "DELETE"
       });
-      if (res.ok) {
+      if (res.ok && workspaceStore.activeWorkspaceId === activeWorkspaceId) {
         setNotifications([]);
         toast.success("Histórico de notificações limpo.");
       }
@@ -307,7 +306,7 @@ export function NotificationBell() {
 
     try {
       setSavingPrefs(true);
-      const res = await fetch("/api/personal/notifications/preferences", {
+      const res = await fetch("/api/notifications/preferences", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ [category]: updatedCategory })
@@ -333,6 +332,7 @@ export function NotificationBell() {
             variant="ghost"
             size="icon"
             className="relative rounded-full hover:bg-neutral-400/10 transition-colors"
+            aria-label="Abrir notificações"
           >
             <Bell className="size-5 text-muted-foreground hover:text-foreground transition-colors" />
             {unreadCount > 0 && (
@@ -344,6 +344,7 @@ export function NotificationBell() {
         </PopoverTrigger>
         <PopoverContent
           align="end"
+          aria-label="Notificações"
           className="w-80 p-0! overflow-hidden border-border/50 bg-card/95 backdrop-blur-xl shadow-2xl rounded-2xl"
         >
           <div className="flex items-center justify-between px-4 py-2 bg-secondary/20">
@@ -544,7 +545,7 @@ export function NotificationBell() {
             ) : (
               <div className="space-y-4">
                 {(Object.keys(preferences) as Array<keyof PreferencesSettings>)
-                  .filter((key) => ACTIVE_CATEGORIES.includes(key))
+                  .filter((key) => academy ? ["TRAINING", "ASSESSMENT", "NUTRITION", "SYSTEM", "MESSAGE"].includes(key) : ACTIVE_CATEGORIES.includes(key))
                   .map((key) => {
                     const Icon = CATEGORY_ICONS[key] || Info;
                     return (

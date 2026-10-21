@@ -1,6 +1,8 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useRef } from "react";
+import { runRealtimeOperation } from "@/lib/realtime-operation";
+
+import React, { createContext, useContext, useEffect, useRef, useState } from "react";
 import * as Ably from "ably";
 import { useSession } from "next-auth/react";
 import { useSnapshot } from "valtio";
@@ -10,6 +12,13 @@ import { playRestChimeSound } from "@/lib/audio/sound-alert";
 import { toast } from "sonner";
 
 const AblyContext = createContext<Ably.Realtime | null>(null);
+
+function canSubscribe(capability: string | undefined, channelName: string) {
+  try {
+    const capabilities = JSON.parse(capability || "{}");
+    return Array.isArray(capabilities[channelName]) && capabilities[channelName].includes("subscribe");
+  } catch { return false; }
+}
 
 const playNotificationSound = () => {
   if (typeof window === "undefined") return;
@@ -64,13 +73,17 @@ export function AblyProvider({ children }: AblyProviderProps) {
   const chatSnap = useSnapshot(chatStore);
 
   const activeWorkspaceId = workspaceSnap.activeWorkspaceId;
+  const isGymWorkspace = workspaceSnap.activeWorkspace?.type === "GYM";
   const activeConversationId = chatSnap.activeConversationId;
   const userId = session?.user?.id;
   const userName = session?.user?.name || "Usuário";
 
   const ablyRef = useRef<Ably.Realtime | null>(null);
-  const workspaceChannelRef = useRef<Ably.RealtimeChannel | null>(null);
-  const conversationChannelRef = useRef<Ably.RealtimeChannel | null>(null);
+  const scope = JSON.stringify([userId, activeWorkspaceId, isGymWorkspace]);
+  const [authorized, setAuthorized] = useState<{ client: Ably.Realtime; scope: string; capability: string } | null>(null);
+  // Mask the previous client during render, before passive-effect cleanup runs.
+  const ablyClient = authorized?.scope === scope && authorized.client === ablyRef.current ? authorized.client : null;
+  const capability = authorized?.scope === scope ? authorized.capability : undefined;
 
   // 1. Initialize Ably Connection
   useEffect(() => {
@@ -78,43 +91,50 @@ export function AblyProvider({ children }: AblyProviderProps) {
 
     // Create client using token request authentication
     const client = new Ably.Realtime({
-      authUrl: "/api/ably/token",
-      autoConnect: true,
+      authUrl: activeWorkspaceId ? `/api/ably/token?workspaceId=${encodeURIComponent(activeWorkspaceId)}` : "/api/ably/token",
+      autoConnect: false,
     });
 
     ablyRef.current = client;
 
-    client.connection.on("connected", () => {
-      console.log("[Ably Realtime] Connected successfully.");
-    });
-
-    client.connection.on("failed", (err) => {
-      console.error("[Ably Realtime] Connection failed:", err);
+    let disposed = false;
+    // A new scope gets a new connection and fresh server-issued capabilities.
+    // Subscriptions are exposed only after authorization succeeds.
+    void client.auth.authorize().then(token => {
+      if (!disposed && ablyRef.current === client) setAuthorized({ client, scope, capability: token.capability });
+    }).catch(() => {
+      if (!disposed) console.warn("[Ably] Autorização de tempo real indisponível.");
+      client.close();
     });
 
     return () => {
+      disposed = true;
       client.close();
-      ablyRef.current = null;
+      if (ablyRef.current === client) ablyRef.current = null;
     };
-  }, [userId]);
+  }, [userId, activeWorkspaceId, isGymWorkspace, scope]);
 
   // 2. Subscribe to Workspace Chat Channel & Presence
   useEffect(() => {
-    const client = ablyRef.current;
+    const client = ablyClient;
     if (!client || !activeWorkspaceId || !userId) return;
 
-    const channelName = `workspace:${activeWorkspaceId}:chat`;
+    let disposed = false;
+    const current = () => !disposed && ablyRef.current === client && workspaceStore.activeWorkspaceId === activeWorkspaceId;
+    const channelName = `user:${userId}:workspace:${activeWorkspaceId}:chat`;
+    if (!canSubscribe(capability, channelName)) return;
     const channel = client.channels.get(channelName);
-    workspaceChannelRef.current = channel;
 
     // Listen to new conversations in the workspace
-    channel.subscribe("conversation:new", (message) => {
+    runRealtimeOperation(() => channel.subscribe("conversation:new", (message) => {
       const conv = message.data;
+      if (!current() || conv?.workspaceId !== activeWorkspaceId) return;
       chatActions.addConversation(conv);
-    });
+    }));
     // Listen to conversation list updates (last message, etc.)
-    channel.subscribe("conversation:update", (message) => {
+    runRealtimeOperation(() => channel.subscribe("conversation:update", (message) => {
       const { conversationId, messageId, lastMessage, lastMessageAt, senderId } = message.data;
+      if (!current() || !chatStore.conversations.some(conversation => conversation.id === conversationId && conversation.workspaceId === activeWorkspaceId)) return;
       chatActions.updateConversation(conversationId, lastMessage, lastMessageAt, senderId);
 
       // Increment unread count and trigger delivery receipt if we are not currently viewing this conversation
@@ -130,25 +150,31 @@ export function AblyProvider({ children }: AblyProviderProps) {
           }).catch((err) => console.error("Error sending delivery receipt:", err));
         }
       }
-    });
+    }));
 
     // Handle presence: Mark users as online/offline
-    channel.presence.subscribe((presenceMsg) => {
+    const presenceName = isGymWorkspace ? `workspace:${activeWorkspaceId}:user:${userId}:presence` : `workspace:${activeWorkspaceId}:presence`;
+    if (!canSubscribe(capability, presenceName)) {
+      return () => { disposed = true; channel.unsubscribe(); void runRealtimeOperation(() => channel.detach()); };
+    }
+    const presenceChannel = client.channels.get(presenceName);
+    runRealtimeOperation(() => presenceChannel.presence.subscribe((presenceMsg) => {
+      if (!current()) return;
       const { action, clientId } = presenceMsg;
       if (action === "enter" || action === "present" || action === "update") {
         chatActions.setPresence(clientId, true);
       } else if (action === "leave") {
         chatActions.setPresence(clientId, false);
       }
-    });
+    }));
 
     // Enter presence on the workspace channel
-    channel.presence.enter({ name: userName });
+    runRealtimeOperation(() => presenceChannel.presence.enter({ name: userName }));
 
     // Fetch initial presence members
-    channel.presence.get()
+    presenceChannel.presence.get()
       .then((members) => {
-        if (members) {
+        if (members && current()) {
           members.forEach((m) => {
             if (m.clientId) {
               chatActions.setPresence(m.clientId, true);
@@ -161,23 +187,57 @@ export function AblyProvider({ children }: AblyProviderProps) {
       });
 
     return () => {
-      channel.presence.leave();
+      disposed = true;
+      runRealtimeOperation(() => presenceChannel.presence.leave());
+      presenceChannel.presence.unsubscribe();
+      void runRealtimeOperation(() => presenceChannel.detach());
       channel.unsubscribe();
-      workspaceChannelRef.current = null;
     };
-  }, [activeWorkspaceId, userId, userName]);
+  }, [ablyClient, capability, activeWorkspaceId, isGymWorkspace, userId, userName]);
+
+  // GYM presence is visible only for contacts from the server's unit/portfolio scope.
+  useEffect(() => {
+    const client = ablyClient;
+    if (!client || !isGymWorkspace || !activeWorkspaceId || !userId) return;
+    const controller = new AbortController();
+    const current = () => !controller.signal.aborted && ablyRef.current === client && workspaceStore.activeWorkspaceId === activeWorkspaceId;
+    const channels: Ably.RealtimeChannel[] = [];
+    void (async () => {
+      const response = await fetch(`/api/chat/contacts?workspaceId=${encodeURIComponent(activeWorkspaceId)}`, { signal: controller.signal });
+      if (!response.ok) return;
+      const contacts: unknown = await response.json();
+      if (!Array.isArray(contacts) || !current()) return;
+      for (const contact of contacts) {
+        if (typeof contact !== "object" || !contact || typeof contact.id !== "string") continue;
+        const presence = client.channels.get(`workspace:${activeWorkspaceId}:user:${contact.id}:presence`);
+        channels.push(presence);
+        if (!canSubscribe(capability, presence.name)) continue;
+        runRealtimeOperation(() => presence.presence.subscribe(message => { if (current()) chatActions.setPresence(message.clientId, message.action !== "leave"); }));
+        const members = await presence.presence.get();
+        if (!current()) return;
+        for (const member of members) if (member.clientId) chatActions.setPresence(member.clientId, true);
+      }
+    })().catch(error => { if (!controller.signal.aborted) console.error("[GYM Contact Presence]", error); });
+    return () => {
+      controller.abort();
+      for (const presence of channels) { presence.presence.unsubscribe(); void runRealtimeOperation(() => presence.detach()); }
+    };
+  }, [ablyClient, capability, activeWorkspaceId, isGymWorkspace, userId]);
 
   // 3. Subscribe to Active Conversation Channel
   useEffect(() => {
-    const client = ablyRef.current;
+    const client = ablyClient;
     if (!client || !activeConversationId || !userId) return;
 
+    let disposed = false;
+    const current = () => !disposed && ablyRef.current === client && workspaceStore.activeWorkspaceId === activeWorkspaceId && chatStore.activeConversationId === activeConversationId;
     const channelName = `conversation:${activeConversationId}`;
+    if (!canSubscribe(capability, channelName)) return;
     const channel = client.channels.get(channelName);
-    conversationChannelRef.current = channel;
 
     // Listen to new messages
-    channel.subscribe("message:new", (event) => {
+    runRealtimeOperation(() => channel.subscribe("message:new", (event) => {
+      if (!current()) return;
       const msg = event.data;
       chatActions.addMessage(activeConversationId, msg);
 
@@ -189,33 +249,37 @@ export function AblyProvider({ children }: AblyProviderProps) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ conversationId: activeConversationId }),
         }).then((res) => {
-          if (res.ok) {
+          if (res.ok && current()) {
             chatActions.resetUnread(activeConversationId, userId);
           }
         });
       }
-    });
+    }));
 
     // Listen to status updates (read, delivered)
-    channel.subscribe("message:status", (event) => {
+    runRealtimeOperation(() => channel.subscribe("message:status", (event) => {
+      if (!current()) return;
       const { messageId, status } = event.data;
       chatActions.updateMessageStatus(activeConversationId, messageId, status);
-    });
+    }));
 
     // Listen to edited messages
-    channel.subscribe("message:update", (event) => {
+    runRealtimeOperation(() => channel.subscribe("message:update", (event) => {
+      if (!current()) return;
       const updatedMsg = event.data;
       chatActions.updateMessageContent(activeConversationId, updatedMsg.id, updatedMsg.content);
-    });
+    }));
 
     // Listen to deleted messages
-    channel.subscribe("message:delete", (event) => {
+    runRealtimeOperation(() => channel.subscribe("message:delete", (event) => {
+      if (!current()) return;
       const { messageId, deletedMessage } = event.data;
       chatActions.deleteMessage(activeConversationId, messageId, deletedMessage);
-    });
+    }));
 
     // Listen to bulk read notifications from the other user
-    channel.subscribe("message:read_all", (event) => {
+    runRealtimeOperation(() => channel.subscribe("message:read_all", (event) => {
+      if (!current()) return;
       const { readerId } = event.data;
       if (readerId !== userId) {
         const msgs = chatStore.messages[activeConversationId] || [];
@@ -225,15 +289,17 @@ export function AblyProvider({ children }: AblyProviderProps) {
           }
         });
       }
-    });
+    }));
 
     // Listen to typing status indicator
-    channel.subscribe("typing", (event) => {
+    const typingChannel = client.channels.get(`conversation:${activeConversationId}:typing`);
+    runRealtimeOperation(() => typingChannel.subscribe("typing", (event) => {
+      if (!current()) return;
       const { userId: typerId, name: typerName, isTyping } = event.data;
-      if (typerId !== userId) {
+      if (typerId !== userId && event.clientId === typerId) {
         chatActions.setTyping(activeConversationId, typerId, typerName, isTyping);
       }
-    });
+    }));
 
     // Automatically mark existing unread messages as read on entry
     fetch("/api/chat/messages/read", {
@@ -241,27 +307,33 @@ export function AblyProvider({ children }: AblyProviderProps) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ conversationId: activeConversationId }),
     }).then((res) => {
-      if (res.ok) {
+      if (res.ok && current()) {
         chatActions.resetUnread(activeConversationId, userId);
       }
     });
 
     return () => {
+      disposed = true;
       channel.unsubscribe();
-      conversationChannelRef.current = null;
+      typingChannel.unsubscribe();
+      void runRealtimeOperation(() => typingChannel.detach());
+      void runRealtimeOperation(() => channel.detach());
     };
-  }, [activeConversationId, userId]);
+  }, [ablyClient, capability, activeWorkspaceId, activeConversationId, userId]);
 
   // 4. Global Migration Realtime Listener for Sound Alerts & Toast Notifications
   useEffect(() => {
-    const client = ablyRef.current;
+    const client = ablyClient;
     if (!client || !activeWorkspaceId) return;
 
-    const migrationChannel = client.channels.get(`migration:${activeWorkspaceId}`);
+    const channelName = `migration:${activeWorkspaceId}`;
+    if (!canSubscribe(capability, channelName)) return;
+    const migrationChannel = client.channels.get(channelName);
+    let disposed = false;
 
     const handleMigrationUpdate = (message: any) => {
       const payload = message.data;
-      if (!payload) return;
+      if (!payload || disposed || ablyRef.current !== client || workspaceStore.activeWorkspaceId !== activeWorkspaceId) return;
 
       if (payload.status === "REVIEW" || payload.status === "COMPLETED") {
         playRestChimeSound();
@@ -276,15 +348,17 @@ export function AblyProvider({ children }: AblyProviderProps) {
       }
     };
 
-    migrationChannel.subscribe("job_updated", handleMigrationUpdate);
+    runRealtimeOperation(() => migrationChannel.subscribe("job_updated", handleMigrationUpdate));
 
     return () => {
+      disposed = true;
       migrationChannel.unsubscribe("job_updated", handleMigrationUpdate);
+      void runRealtimeOperation(() => migrationChannel.detach());
     };
-  }, [activeWorkspaceId]);
+  }, [ablyClient, capability, activeWorkspaceId]);
 
   return (
-    <AblyContext.Provider value={ablyRef.current}>
+    <AblyContext.Provider value={ablyClient}>
       {children}
     </AblyContext.Provider>
   );

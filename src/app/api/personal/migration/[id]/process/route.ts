@@ -1,3 +1,6 @@
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
+import { assertPersonalImportJobAccess } from "@/lib/migration/access";
+import { requirePersonalWorkspaceAccess, handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
@@ -7,6 +10,7 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -15,6 +19,8 @@ export async function POST(
   const { id: jobId } = await params;
 
   try {
+    await assertPersonalImportJobAccess(jobId);
+
     const job = await prisma.importJob.findUnique({
       where: { id: jobId },
     });
@@ -28,6 +34,8 @@ export async function POST(
 
     return NextResponse.json({ success: true, jobId, status: updatedJob?.status || "REVIEW" });
   } catch (error: any) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
+
     console.error("[POST process] Erro:", error);
     const errStr = String(error?.message || "") + " " + JSON.stringify(error || {});
     const isRateLimit =

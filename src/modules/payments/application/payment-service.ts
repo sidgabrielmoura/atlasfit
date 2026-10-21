@@ -1,5 +1,5 @@
 import prisma from "@/lib/prisma";
-import { AsaasAdapter } from "../providers/asaas/asaas-adapter";
+import { AsaasAdapter, asaasEnvironment } from "../providers/asaas/asaas-adapter";
 import {
   PaymentProvider,
   ProviderEnvironment,
@@ -14,12 +14,20 @@ import {
 import { calculatePlatformFee } from "../domain/fee-calculator";
 import { CreateAccountInput } from "../domain/types";
 import crypto from "crypto";
+import { serializableTransaction } from "@/modules/workspaces/application/transaction";
+import { resolvePersonalBillingStudent } from "../webhooks/personal-billing-student";
+import { webhookProcessor } from "../webhooks/webhook-processor";
 import { publishToChannel } from "@/lib/ably";
 import { encryptSubAccountApiKey, decryptSubAccountApiKey } from "../providers/asaas/subaccount-crypto";
 import { EmailService } from "@/lib/emails/service";
 
 export class PaymentService {
   private adapter = new AsaasAdapter();
+
+  private assertAccountEnvironment(account: { provider: PaymentProvider; environment: ProviderEnvironment; closedAt: Date | null; deletedAt: Date | null }) {
+    if (account.provider !== PaymentProvider.ASAAS || account.environment !== asaasEnvironment()) throw new Error("ASAAS_ACCOUNT_ENVIRONMENT_MISMATCH");
+    if (account.closedAt || account.deletedAt) throw new Error("ASAAS_ACCOUNT_UNAVAILABLE");
+  }
 
   async getAccountByUserId(personalUserId: string) {
     return prisma.paymentProviderAccount.findUnique({
@@ -33,10 +41,24 @@ export class PaymentService {
     });
   }
 
+  async getAccountByWorkspaceId(workspaceId: string) {
+    return prisma.paymentProviderAccount.findUnique({
+      where: { workspaceId },
+      include: {
+        balanceSnapshots: {
+          orderBy: { capturedAt: "desc" },
+          take: 1
+        }
+      }
+    });
+  }
+
   async onboardPersonalAccount(input: CreateAccountInput) {
     const existing = await prisma.paymentProviderAccount.findUnique({
       where: { personalUserId: input.personalUserId }
     });
+
+    if (existing) this.assertAccountEnvironment(existing);
 
     if (existing && (existing.status === FinancialAccountStatus.APPROVED || existing.kycStatus === WalletKycStatus.APPROVED)) {
       return existing;
@@ -126,11 +148,34 @@ export class PaymentService {
       throw new Error("Conta financeira não encontrada para este usuário");
     }
 
+    this.assertAccountEnvironment(account);
+
+    const drafts = await prisma.studentBilling.findMany({ where: {
+      providerAccountId: account.id, status: StudentBillingStatus.DRAFT, providerBillingId: null,
+      providerStatus: { in: ["CREATION_IN_PROGRESS", "CREATION_RECONCILIATION_REQUIRED"] },
+    }, orderBy: [{ createdAt: "asc" }, { id: "asc" }], take: 100 });
+    for (const billing of drafts) {
+      if (!billing.workspaceId || !billing.workspacePaymentId) throw new Error("BILLING_OBLIGATION_REVIEW_REQUIRED");
+      const payment = await this.adapter.findPaymentByReference(billing.billingReference, account.providerAccountId);
+      if (!payment) continue; // Absence in a read response does not authorize another POST.
+      const cents = Math.round(payment.value * 100);
+      if (!Number.isSafeInteger(cents) || BigInt(cents) !== billing.grossAmountInCents || payment.customer !== billing.gatewayCustomerId) throw new Error("BILLING_PROVIDER_FACTS_CONFLICT");
+      await serializableTransaction(async tx => {
+        await resolvePersonalBillingStudent(billing.workspaceId, billing.studentUserId, personalUserId, tx);
+        await tx.studentBilling.updateMany({ where: { id: billing.id, providerAccountId: account.id, status: StudentBillingStatus.DRAFT, providerBillingId: null }, data: {
+          providerBillingId: payment.id, providerStatus: payment.status, status: StudentBillingStatus.PENDING,
+          hostedInvoiceUrl: payment.invoiceUrl,
+        } });
+      });
+    }
+
     const pendingBillings = await prisma.studentBilling.findMany({
       where: {
         providerAccountId: account.id,
-        status: StudentBillingStatus.PENDING
-      }
+        status: { in: [StudentBillingStatus.PENDING, StudentBillingStatus.CONFIRMED, StudentBillingStatus.OVERDUE] }
+      },
+      orderBy: [{ dueDate: "asc" }, { id: "asc" }],
+      take: 100
     });
 
     for (const billing of pendingBillings) {
@@ -144,79 +189,7 @@ export class PaymentService {
         remotePayment &&
         ["RECEIVED", "CONFIRMED", "DUNNING_RECEIVED", "RECEIVED_IN_CASH"].includes(remotePayment.status)
       ) {
-        const isSettled = remotePayment.status === "RECEIVED" || remotePayment.status === "DUNNING_RECEIVED" || remotePayment.status === "RECEIVED_IN_CASH";
-        const newStatus = isSettled ? StudentBillingStatus.SETTLED : StudentBillingStatus.CONFIRMED;
-
-        await prisma.$transaction(async (tx) => {
-          await tx.studentBilling.update({
-            where: { id: billing.id },
-            data: {
-              status: newStatus,
-              confirmedAt: billing.confirmedAt || new Date(),
-              settledAt: isSettled ? new Date() : billing.settledAt,
-              paidAt: billing.paidAt || new Date()
-            }
-          });
-
-          await tx.walletLedgerEntry.upsert({
-            where: { idempotencyKey: `LEDGER_CONFIRM_${billing.id}_SYNC` },
-            create: {
-              providerAccountId: account.id,
-              billingId: billing.id,
-              idempotencyKey: `LEDGER_CONFIRM_${billing.id}_SYNC`,
-              type: isSettled ? LedgerEntryType.PAYMENT_SETTLED : LedgerEntryType.PAYMENT_CONFIRMED,
-              direction: LedgerDirection.CREDIT,
-              amountInCents: billing.personalNetEstimatedInCents,
-              occurredAt: new Date(),
-              description: `Pagamento sincronizado para ${billing.title}`
-            },
-            update: {}
-          });
-
-        });
-
-        if (isSettled) {
-          await this.processActivationFeeRecovery(
-            account.id,
-            billing.personalNetEstimatedInCents,
-            billing.id
-          );
-        }
-
-        const studentMember = await prisma.workspaceMember.findFirst({
-          where: { userId: billing.studentUserId, role: "STUDENT" }
-        });
-
-        if (studentMember) {
-          await prisma.workspacePayment.updateMany({
-            where: {
-              workspaceId: studentMember.workspaceId,
-              status: "pendente"
-            },
-            data: { status: "pago" }
-          });
-
-          await publishToChannel(`workspace:${studentMember.workspaceId}`, "financial:updated", {
-            type: "FINANCIAL_PAYMENT_UPDATED",
-            workspaceId: studentMember.workspaceId,
-            billingId: billing.id,
-            timestamp: new Date().toISOString()
-          });
-        }
-
-        await publishToChannel(`user:${personalUserId}`, "wallet:updated", {
-          type: "BALANCE_UPDATED",
-          billingId: billing.id,
-          timestamp: new Date().toISOString()
-        });
-
-        if (billing.studentUserId) {
-          await publishToChannel(`user:${billing.studentUserId}`, "wallet:updated", {
-            type: "BALANCE_UPDATED",
-            billingId: billing.id,
-            timestamp: new Date().toISOString()
-          });
-        }
+        await webhookProcessor.recordProviderPaymentSnapshot({ billingId: billing.id, providerAccountId: account.id, payment: remotePayment });
       }
     }
 
@@ -251,6 +224,8 @@ export class PaymentService {
       throw new Error("Conta financeira não encontrada para este usuário.");
     }
 
+    this.assertAccountEnvironment(account);
+
     return this.adapter.resendAccountActivationEmail(account.providerAccountId);
   }
 
@@ -265,6 +240,7 @@ export class PaymentService {
     dueDate: Date;
     idempotencyKey: string;
   }) {
+    if (!params.idempotencyKey?.trim() || params.idempotencyKey.length > 200 || !Number.isFinite(params.dueDate.getTime()) || params.amountInCents <= BigInt(0) || params.amountInCents > BigInt(Number.MAX_SAFE_INTEGER)) throw new Error("INVALID_BILLING_REQUEST");
     const account = await prisma.paymentProviderAccount.findUnique({
       where: { personalUserId: params.personalUserId }
     });
@@ -273,11 +249,15 @@ export class PaymentService {
       throw new Error("Você precisa ativar sua conta financeira antes de criar cobranças");
     }
 
+    this.assertAccountEnvironment(account);
+
     const existingBilling = await prisma.studentBilling.findUnique({
       where: { idempotencyKey: params.idempotencyKey }
     });
 
     if (existingBilling) {
+      if (existingBilling.providerAccountId !== account.id || existingBilling.studentUserId !== params.studentUserId || existingBilling.grossAmountInCents !== params.amountInCents || existingBilling.paymentMethod !== params.paymentMethod || existingBilling.dueDate.getTime() !== params.dueDate.getTime() || existingBilling.title !== params.title || (existingBilling.description ?? null) !== (params.description ?? null)) throw new Error("BILLING_IDEMPOTENCY_CONFLICT");
+      if (!existingBilling.providerBillingId) throw new Error("BILLING_RECONCILIATION_REQUIRED");
       return existingBilling;
     }
 
@@ -290,13 +270,7 @@ export class PaymentService {
     }
 
     // IDOR Defense: Garantir que o aluno pertence ao workspace do personal
-    const studentWorkspaceMember = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: params.studentUserId,
-        role: "STUDENT",
-        workspace: { ownerId: params.personalUserId }
-      }
-    });
+    const studentWorkspaceMember = await resolvePersonalBillingStudent(null, params.studentUserId, params.personalUserId);
 
     if (!studentWorkspaceMember) {
       throw new Error("Aluno não autorizado ou não vinculado a um workspace do personal trainer.");
@@ -346,6 +320,7 @@ export class PaymentService {
 
     const feePercent = parseFloat(process.env.ATLASFIT_FEE_PERCENTAGE || "3.5");
     const feeFixedCents = BigInt(Math.round(parseFloat(process.env.ATLASFIT_FEE_FIXED || "1.00") * 100));
+    if (!Number.isFinite(feePercent) || feePercent < 0 || feeFixedCents < BigInt(0)) throw new Error("INVALID_BILLING_FEE");
 
     const feeCalc = calculatePlatformFee({
       grossAmountInCents: params.amountInCents,
@@ -355,30 +330,18 @@ export class PaymentService {
 
     const billingRef = `BILL_${crypto.randomBytes(8).toString("hex").toUpperCase()}`;
 
-    const chargeResult = await this.adapter.createOneTimeCharge(
-      {
-        providerAccountId: account.providerAccountId,
-        providerCustomerId: customerResult.providerCustomerId,
-        billingReference: billingRef,
-        idempotencyKey: params.idempotencyKey,
-        title: params.title,
-        description: params.description,
-        amountInCents: params.amountInCents,
-        paymentMethod: params.paymentMethod,
-        dueDate: params.dueDate,
-        platformFeePercent: feePercent,
-        platformFeeFixedInCents: feeFixedCents
-      },
-      account.providerAccountId
-    );
-
-    const billing = await prisma.studentBilling.create({
+    // Commit the unique request and its obligation before a money command can leave the process.
+    const reservation = await serializableTransaction(async tx => {
+    const member = await resolvePersonalBillingStudent(studentWorkspaceMember.workspaceId, params.studentUserId, params.personalUserId, tx);
+    const obligation = await tx.workspacePayment.create({ data: { workspaceId: member.workspaceId, studentName: student.name || "Aluno", planName: params.title || "Mensalidade Atlas Pay", amount: Number(params.amountInCents) / 100, status: "pendente", method: params.paymentMethod === WalletPaymentMethod.CREDIT_CARD ? "CREDIT_CARD" : "PIX", billingOrigin: "AUTOMATIC" } });
+    const billing = await tx.studentBilling.create({
       data: {
         providerAccountId: account.id,
+        workspaceId: member.workspaceId,
+        workspacePaymentId: obligation.id,
         studentUserId: params.studentUserId,
         gatewayCustomerId: customerResult.providerCustomerId,
-        providerBillingId: chargeResult.providerBillingId,
-        providerStatus: chargeResult.providerStatus,
+        providerStatus: "CREATION_IN_PROGRESS",
         idempotencyKey: params.idempotencyKey,
         billingReference: billingRef,
         title: params.title,
@@ -388,15 +351,12 @@ export class PaymentService {
         personalNetEstimatedInCents: feeCalc.personalNetInCents,
         feeRuleVersionId: "v1.0",
         paymentMethod: params.paymentMethod,
-        status: StudentBillingStatus.PENDING,
+        status: StudentBillingStatus.DRAFT,
         dueDate: params.dueDate,
-        hostedInvoiceUrl: chargeResult.hostedInvoiceUrl,
-        pixPayloadEncrypted: chargeResult.pixPayloadEncrypted,
-        pixExpirationAt: chargeResult.pixExpirationAt
       }
     });
 
-    await prisma.paymentSplit.create({
+    await tx.paymentSplit.create({
       data: {
         billingId: billing.id,
         receiverType: "PLATFORM",
@@ -407,25 +367,27 @@ export class PaymentService {
       }
     });
 
-    const studentMember = await prisma.workspaceMember.findFirst({
-      where: { userId: params.studentUserId, role: "STUDENT" }
-    });
-
-    if (studentMember) {
-      await prisma.workspacePayment.create({
-        data: {
-          workspaceId: studentMember.workspaceId,
-          studentName: student.name || "Aluno",
-          planName: params.title || "Mensalidade Atlas Pay",
-          amount: Number(params.amountInCents) / 100,
-          status: "pendente",
-          method: params.paymentMethod === WalletPaymentMethod.CREDIT_CARD ? "CREDIT_CARD" : "PIX",
-          billingOrigin: "AUTOMATIC"
-        }
-      });
-    }
-
     return billing;
+    });
+    try {
+      const charge = await this.adapter.createOneTimeCharge({
+        providerAccountId: account.providerAccountId, providerCustomerId: customerResult.providerCustomerId,
+        billingReference: reservation.billingReference, idempotencyKey: params.idempotencyKey,
+        title: params.title, description: params.description, amountInCents: params.amountInCents,
+        paymentMethod: params.paymentMethod, dueDate: params.dueDate,
+        platformFeePercent: feePercent, platformFeeFixedInCents: feeFixedCents,
+      }, account.providerAccountId);
+      return await prisma.studentBilling.update({ where: { id: reservation.id }, data: {
+        providerBillingId: charge.providerBillingId, providerStatus: charge.providerStatus,
+        status: StudentBillingStatus.PENDING, hostedInvoiceUrl: charge.hostedInvoiceUrl,
+        pixPayloadEncrypted: charge.pixPayloadEncrypted, pixExpirationAt: charge.pixExpirationAt,
+      } });
+    } catch (error) {
+      // A timeout or failed local commit is not proof that Asaas rejected the charge.
+      // Keep the durable request; a retry never sends another POST.
+      await prisma.studentBilling.updateMany({ where: { id: reservation.id, status: StudentBillingStatus.DRAFT }, data: { providerStatus: "CREATION_RECONCILIATION_REQUIRED" } }).catch(() => {});
+      throw error;
+    }
   }
 
   async requestPayout(params: {
@@ -442,6 +404,8 @@ export class PaymentService {
     if (!account) {
       throw new Error("Conta financeira não encontrada");
     }
+
+    this.assertAccountEnvironment(account);
 
     // 1. Pre-check idempotencyKey to prevent duplicate external transfers
     const existingPayout = await prisma.walletPayoutRequest.findUnique({
@@ -556,7 +520,7 @@ export class PaymentService {
     return payoutResultRecord;
   }
 
-  async getWalletOverview(personalUserId: string) {
+  async getWalletOverview(personalUserId: string, options: { reconcile?: boolean } = {}) {
     let account = await prisma.paymentProviderAccount.findUnique({
       where: { personalUserId },
       include: {
@@ -583,7 +547,7 @@ export class PaymentService {
       return null;
     }
 
-    if (account.providerAccountId && account.status !== FinancialAccountStatus.APPROVED) {
+    if (options.reconcile && account.providerAccountId && account.status !== FinancialAccountStatus.APPROVED) {
       try {
         const remoteStatus = await this.adapter.getFinancialAccountStatus(account.providerAccountId);
         if (remoteStatus.status !== account.status) {
@@ -758,7 +722,8 @@ export class PaymentService {
     availableNetCents: bigint,
     billingId: string
   ) {
-    const reservation = await prisma.$transaction(async (tx) => {
+    const reservation = await serializableTransaction(async (tx) => {
+      await tx.$queryRaw`SELECT id FROM "PaymentProviderAccount" WHERE id = ${providerAccountId} FOR NO KEY UPDATE`;
       const account = await tx.paymentProviderAccount.findUnique({
         where: { id: providerAccountId }
       });
@@ -770,7 +735,7 @@ export class PaymentService {
       const existingOp = await tx.activationFeeRecoveryOperation.findFirst({
         where: {
           billingId,
-          status: { in: ["RESERVED", "SUBMITTED", "COMPLETED"] }
+          status: { notIn: ["FAILED", "CANCELLED"] }
         }
       });
 

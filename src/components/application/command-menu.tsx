@@ -66,16 +66,18 @@ export function CommandMenu() {
 
   return (
     <>
-      <div
+      <button
+        type="button"
+        aria-label="Pesquisar na plataforma"
         onClick={() => setOpen(true)}
-        className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-secondary/50 border border-border/40 text-muted-foreground hover:bg-secondary hover:text-foreground transition-all cursor-pointer group"
+        className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-xl bg-secondary/50 border border-border/40 text-foreground hover:bg-secondary transition-all cursor-pointer group"
       >
         <Search className="size-3.5 group-hover:text-primary transition-colors" />
         <span className="text-xs font-semibold">Pesquisar...</span>
         <kbd className="hidden md:inline-flex h-5 items-center gap-0.5 rounded-md border border-border/60 bg-muted/80 px-1.5 font-mono text-[10px] font-medium">
           <span>⌘</span>K
         </kbd>
-      </div>
+      </button>
 
       <CommandDialog open={open} onOpenChange={setOpen} className="top-1/2 -translate-y-1/2 max-w-2xl">
         <Command className="rounded-none bg-transparent">

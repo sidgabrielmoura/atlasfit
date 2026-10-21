@@ -1,3 +1,4 @@
+import { withRequestMemo } from "@/lib/request-memo";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
@@ -32,7 +33,7 @@ function getEventTime(date: Date): string {
   return formatter.format(date);
 }
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado. Por favor, faça login.", { status: 401 });
@@ -232,10 +233,11 @@ export async function GET(req: Request) {
       workspaceName: member.workspace.name,
     });
   } catch (error) {
-    console.error("Student Agenda API GET Error:", error);
+    console.error("Student Agenda API GET Error:", { errorType: error instanceof Error ? error.name : "UnknownError" });
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 export async function PATCH(req: Request) {
   const session = await auth();
@@ -265,7 +267,7 @@ export async function PATCH(req: Request) {
       task: updatedTask,
     });
   } catch (error) {
-    console.error("Student Agenda API PATCH Error:", error);
+    console.error("Student Agenda API PATCH Error:", { errorType: error instanceof Error ? error.name : "UnknownError" });
     return new NextResponse("Erro ao atualizar o status do compromisso.", { status: 500 });
   }
 }

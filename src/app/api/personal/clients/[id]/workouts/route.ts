@@ -1,15 +1,21 @@
+import { withRequestMemo } from "@/lib/request-memo";
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
+import { authorizePersonalStudent } from "@/modules/workspaces/application/personal-student-authority";
+import { handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { NotificationService } from "@/lib/notifications/service";
+import { assertActorAuthority } from "@/modules/workspaces/application/actor-authority";
 
 
 // GET /api/personal/clients/[id]/workouts
 // Retorna os treinos atribuídos ao aluno ordenados por dia da semana (dayOfWeek)
-export async function GET(
+async function handleGET(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -25,6 +31,8 @@ export async function GET(
 
   try {
     // Validar workspace
+    
+    await authorizePersonalStudent(workspaceId, studentId, session.user.id, "workouts.read");
     const memberCheck = await prisma.workspaceMember.findFirst({
       where: {
         userId: session.user.id,
@@ -89,10 +97,13 @@ export async function GET(
 
     return NextResponse.json(formattedWorkouts);
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
+
     console.error("GET student workouts error:", error);
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 // POST /api/personal/clients/[id]/workouts
 // Cria um treino exclusivo para o aluno do zero OU clona um treino pronto do workspace para o aluno
@@ -100,6 +111,7 @@ export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -130,6 +142,8 @@ export async function POST(
     }
 
     // Validar se o personal trainer logado é membro do workspace
+    
+    await authorizePersonalStudent(workspaceId, studentId, session.user.id, "workouts.manage.assigned");
     const memberCheck = await prisma.workspaceMember.findFirst({
       where: {
         userId: session.user.id,
@@ -172,6 +186,11 @@ export async function POST(
 
       if (!templateWorkout) {
         return new NextResponse("Treino de modelo não encontrado.", { status: 404 });
+      }
+      if (templateWorkout.workspaceId) {
+        const sourceWorkspace = await prisma.workspace.findUnique({ where: { id: templateWorkout.workspaceId }, select: { type: true } });
+        if (sourceWorkspace?.type !== "PERSONAL") return new NextResponse("Modelo incompatível com a assessoria PERSONAL.", { status: 403 });
+        await assertActorAuthority(prisma, templateWorkout.workspaceId, session.user.id, "workouts.read");
       }
 
       // Evitar clonagem cross-tenant de modelos de treino
@@ -374,6 +393,8 @@ export async function POST(
 
     return NextResponse.json(createdWorkout, { status: 201 });
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
+
     console.error("POST student workouts error:", error);
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }

@@ -1,0 +1,10 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "crons": [
+    { "path": "/api/cron/gym-recurrence", "schedule": "*/15 * * * *" },
+    { "path": "/api/cron/process-recurrence", "schedule": "7 * * * *" },
+    { "path": "/api/cron/deliveries", "schedule": "*/2 * * * *" },
+    { "path": "/api/cron/gym-purge", "schedule": "*/5 * * * *" },
+    { "path": "/api/cron/engage-push", "schedule": "*/15 * * * *" }
+  ]
+}

@@ -1,0 +1,1 @@
+require('./gym-check-runner.cjs')('mfa-reauth', ['--config', 'vitest.gym.config.ts', 'tests/gym/mfa.integration.ts', 'tests/gym/workspace-closure.integration.ts', 'tests/gym/workspace-administration.integration.ts']);

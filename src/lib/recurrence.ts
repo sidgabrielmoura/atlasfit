@@ -1,6 +1,8 @@
+import { jobRetryAt } from "@/lib/job-retry";
 import prisma from "./prisma";
-import { NotificationService } from "@/lib/notifications/service";
-import { EmailService } from "@/lib/emails/service";
+import { enqueueNotification } from "@/lib/notifications/delivery";
+import { serializableTransaction } from "@/modules/workspaces/application/transaction";
+
 
 function alignToDueDay(date: Date, dueDay: number): Date {
   const targetDate = new Date(date);
@@ -63,255 +65,35 @@ export function calculateNextDueDate(
 
 export async function processRecurringPaymentsForMember(memberId: string) {
   const now = new Date();
-
-  // Find active student membership with active recurrence configuration
-  const member = await prisma.workspaceMember.findUnique({
-    where: { id: memberId },
-    include: { 
-      user: true,
-      workspace: true
-    },
+  return serializableTransaction(async tx => {
+    await tx.$queryRaw`SELECT id FROM "WorkspaceMember" WHERE id = ${memberId} FOR UPDATE`;
+    const member = await tx.workspaceMember.findUnique({ where: { id: memberId }, include: { user: { select: { name: true } }, workspace: { select: { type: true, isActive: true, ownerId: true } } } });
+    if (!member || member.workspace.type !== "PERSONAL" || !member.workspace.isActive || member.role !== "STUDENT" || !member.isActive || member.billingControlType === "MANUAL" || !member.billingIsActive || !member.billingNextDueDate || member.billingNextDueDate > now) return { generated: 0 };
+    if (!Number.isFinite(member.billingPrice) || member.billingPrice <= 0) throw new Error("INVALID_RECURRENCE_AMOUNT");
+    let due = member.billingNextDueDate, generated = 0;
+    while (due <= now && generated < 24) {
+      const next = calculateNextDueDate(due, member.billingPeriodicity, member.billingCustomIntervalCount || 1, member.billingCustomIntervalUnit || "meses", member.billingDueDay);
+      if (!Number.isFinite(next.getTime()) || next <= due) throw new Error("INVALID_RECURRENCE_INTERVAL");
+      const payment = await tx.workspacePayment.create({ data: { workspaceId: member.workspaceId, studentName: member.user.name || "Sem Nome", planName: member.billingDescription || `Mensalidade — Plano ${member.plan}`, amount: member.billingPrice, status: "pendente", method: member.billingPaymentMethod || "PIX", createdAt: due, billingOrigin: "RECURRENCE", billingMode: member.billingControlType, generatedAt: now, paidAt: null, actionType: "RECURRENCE_GENERATED", isAutomaticBilled: false } });
+      await tx.auditLog.create({ data: { action: "PERSONAL_RECURRENCE_OBLIGATION_CREATED", entity: "Recurrence", entityId: payment.id, severity: "info" } });
+      const amount = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(member.billingPrice);
+      const common = { type: "PAYMENT_PENDING", category: "FINANCE", workspaceId: member.workspaceId, priority: "NORMAL" };
+      await enqueueNotification(tx, { ...common, userId: member.userId, requestKey: `recurrence:${payment.id}:student`, title: "Mensalidade disponível", description: `Sua mensalidade de ${amount} foi gerada e está pendente de pagamento.` });
+      if (member.workspace.ownerId) await enqueueNotification(tx, { ...common, userId: member.workspace.ownerId, requestKey: `recurrence:${payment.id}:owner`, title: "Nova cobrança gerada", description: `Uma cobrança de ${amount} para ${member.user.name || "o aluno"} está pendente de pagamento.` });
+      due = next; generated++;
+    }
+    await tx.workspaceMember.update({ where: { id: member.id }, data: { billingLastGeneratedDate: now, billingNextDueDate: due, planEndDate: due } });
+    return { generated };
   });
-
-  if (
-    !member ||
-    member.role !== "STUDENT" ||
-    !member.isActive ||
-    member.billingControlType === "MANUAL" ||
-    !member.billingIsActive ||
-    !member.billingNextDueDate
-  ) {
-    return;
-  }
-
-  let nextDue = new Date(member.billingNextDueDate);
-
-  // If next due date is in the future, nothing to do
-  if (nextDue > now) {
-    return;
-  }
-
-  const generatedNotifications: Array<{
-    userId: string;
-    type: string;
-    category: string;
-    title: string;
-    description: string;
-    workspaceId: string;
-  }> = [];
-
-  // Process all past-due billing cycles up to today
-  await prisma.$transaction(async (tx) => {
-    let currentNextDue = new Date(nextDue);
-
-    while (currentNextDue <= now) {
-      // 1. Create WorkspacePayment (Cobrança)
-      const paymentStatus = member.billingControlType === "AUTOMATIC" ? "pago" : "pendente";
-      const paymentDate = new Date(currentNextDue);
-
-      const newPayment = await tx.workspacePayment.create({
-        data: {
-          workspaceId: member.workspaceId,
-          studentName: member.user.name || "Sem Nome",
-          planName: member.billingDescription || `Mensalidade — Plano ${member.plan}`,
-          amount: member.billingPrice,
-          status: paymentStatus,
-          method: member.billingPaymentMethod || "PIX",
-          createdAt: paymentDate,
-          updatedAt: new Date(),
-          billingOrigin: "RECURRENCE",
-          billingMode: member.billingControlType,
-          generatedAt: new Date(),
-          paidAt: member.billingControlType === "AUTOMATIC" ? new Date() : null,
-          actionType: member.billingControlType === "AUTOMATIC" ? "AUTOMATIC" : null,
-          isAutomaticBilled: member.billingControlType === "AUTOMATIC",
-        },
-      });
-
-      // 2. Register Audit Logs
-      await tx.auditLog.create({
-        data: {
-          action: `Cobrança recorrente criada automaticamente para o aluno ${member.user.name || "Sem Nome"}.`,
-          entity: "Recurrence",
-          entityId: newPayment.id,
-          severity: "info",
-        },
-      });
-
-      if (member.billingControlType === "AUTOMATIC") {
-        await tx.auditLog.create({
-          data: {
-            action: `Baixa automática executada para a cobrança ${newPayment.id} do aluno ${member.user.name || "Sem Nome"}.`,
-            entity: "Recurrence",
-            entityId: newPayment.id,
-            severity: "info",
-          },
-        });
-      }
-
-      // Collect notification details
-      const amountStr = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(member.billingPrice);
-      const trainerUserId = member.workspace?.ownerId;
-
-      if (paymentStatus === "pago") {
-        generatedNotifications.push({
-          userId: member.userId,
-          type: "PAYMENT_CONFIRMED",
-          category: "FINANCE",
-          title: "Mensalidade Regularizada 🎉",
-          description: `Sua mensalidade no valor de ${amountStr} foi baixada automaticamente com sucesso. Bons treinos!`,
-          workspaceId: member.workspaceId,
-        });
-
-        if (trainerUserId) {
-          generatedNotifications.push({
-            userId: trainerUserId,
-            type: "PAYMENT_CONFIRMED",
-            category: "FINANCE",
-            title: "Mensalidade Recebida 💸",
-            description: `A mensalidade de ${member.user.name || "Sem Nome"} no valor de ${amountStr} foi recebida e baixada automaticamente.`,
-            workspaceId: member.workspaceId,
-          });
-        }
-      } else {
-        generatedNotifications.push({
-          userId: member.userId,
-          type: "PAYMENT_PENDING",
-          category: "FINANCE",
-          title: "Mensalidade Disponível 💳",
-          description: `Sua mensalidade no valor de ${amountStr} foi gerada e está disponível para pagamento.`,
-          workspaceId: member.workspaceId,
-        });
-
-        if (trainerUserId) {
-          generatedNotifications.push({
-            userId: trainerUserId,
-            type: "PAYMENT_PENDING",
-            category: "FINANCE",
-            title: "Nova Fatura Gerada 💳",
-            description: `Uma nova cobrança de ${amountStr} foi aberta para o aluno ${member.user.name || "Sem Nome"}.`,
-            workspaceId: member.workspaceId,
-          });
-        }
-      }
-
-      // 3. Move to next cycle
-      currentNextDue = calculateNextDueDate(
-        currentNextDue,
-        member.billingPeriodicity,
-        member.billingCustomIntervalCount || 1,
-        member.billingCustomIntervalUnit || "meses",
-        member.billingDueDay
-      );
-    }
-
-    // 4. Update member details
-    await tx.workspaceMember.update({
-      where: { id: member.id },
-      data: {
-        billingLastGeneratedDate: new Date(),
-        billingNextDueDate: currentNextDue,
-        planEndDate: currentNextDue,
-      },
-    });
-  });
-
-  // Send notifications and transactional emails outside the transaction boundary
-  for (const notif of generatedNotifications) {
-    try {
-      await NotificationService.sendNotification({
-        userId: notif.userId,
-        type: notif.type,
-        category: notif.category,
-        title: notif.title,
-        description: notif.description,
-        workspaceId: notif.workspaceId,
-        priority: "NORMAL",
-      });
-    } catch (err) {
-      console.error("Failed to send recurrence notification:", err);
-    }
-  }
-
-  // Transactional Email dispatches
-  try {
-    const amountStr = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(member.billingPrice);
-    const dueDateStr = new Intl.DateTimeFormat("pt-BR").format(new Date(member.billingNextDueDate || now));
-    const trainerUser = member.workspace?.ownerId
-      ? await prisma.user.findUnique({ where: { id: member.workspace.ownerId }, select: { name: true, email: true } })
-      : null;
-
-    if (member.billingControlType === "AUTOMATIC") {
-      // Payment receipt to student
-      if (member.user.email) {
-        EmailService.sendPaymentReceiptStudent({
-          to: member.user.email,
-          studentName: member.user.name || "Aluno(a)",
-          trainerName: trainerUser?.name || "Seu Personal",
-          planName: member.billingDescription || `Plano ${member.plan}`,
-          amountFormatted: amountStr,
-          paymentMethod: member.billingPaymentMethod || "PIX",
-          paidAtFormatted: new Intl.DateTimeFormat("pt-BR", { dateStyle: "short", timeStyle: "short" }).format(now),
-        }).catch((err) => console.warn("[RecurrenceEmail] Student receipt dispatch failed:", err));
-      }
-
-      // Payment alert to trainer
-      if (trainerUser?.email) {
-        EmailService.sendPaymentConfirmedTrainer({
-          to: trainerUser.email,
-          trainerName: trainerUser.name || "Personal",
-          studentName: member.user.name || "Aluno(a)",
-          amountFormatted: amountStr,
-          paymentMethod: member.billingPaymentMethod || "PIX",
-        }).catch((err) => console.warn("[RecurrenceEmail] Trainer confirmation dispatch failed:", err));
-      }
-    } else {
-      // Pending invoice email to student
-      if (member.user.email) {
-        EmailService.sendNewInvoiceBilling({
-          to: member.user.email,
-          studentName: member.user.name || "Aluno(a)",
-          trainerName: trainerUser?.name || "Seu Personal",
-          workspaceName: member.workspace?.name || "AtlasFit",
-          description: member.billingDescription || `Mensalidade ${member.plan}`,
-          amountFormatted: amountStr,
-          dueDateFormatted: dueDateStr,
-        }).catch((err) => console.warn("[RecurrenceEmail] Student invoice dispatch failed:", err));
-      }
-    }
-  } catch (emailErr) {
-    console.warn("[Recurrence] Error in transactional email processing:", emailErr);
-  }
 }
 
 export async function processRecurringPayments(workspaceId?: string) {
   const now = new Date();
-
-  // Find all active student members with active recurrence configs
-  const members = await prisma.workspaceMember.findMany({
-    where: {
-      ...(workspaceId ? { workspaceId } : {}),
-      role: "STUDENT",
-      isActive: true,
-      billingIsActive: true,
-      billingNextDueDate: {
-        lte: now,
-      },
-      NOT: {
-        billingControlType: "MANUAL",
-      },
-    },
-    select: {
-      id: true,
-    },
-  });
-
-  // Process sequentially to avoid lock issues on NeonDB
+  const members = await prisma.workspaceMember.findMany({ where: { ...(workspaceId ? { workspaceId } : {}), workspace: { type: "PERSONAL", isActive: true }, role: "STUDENT", isActive: true, billingIsActive: true, billingNextDueDate: { lte: now }, OR: [{ billingRetryAt: null }, { billingRetryAt: { lte: now } }], NOT: { billingControlType: "MANUAL" } }, select: { id: true, billingFailureCount: true }, take: 100, orderBy: [{ billingNextDueDate: "asc" }, { id: "asc" }] });
+  let processed = 0, failed = 0;
   for (const member of members) {
-    try {
-      await processRecurringPaymentsForMember(member.id);
-    } catch (err) {
-      console.error(`Failed to process recurrence for member ${member.id}:`, err);
-    }
+    try { await processRecurringPaymentsForMember(member.id); if (member.billingFailureCount) await prisma.workspaceMember.update({ where: { id: member.id }, data: { billingRetryAt: null, billingFailureCount: 0 } }); processed++; }
+    catch { failed++; await prisma.workspaceMember.update({ where: { id: member.id }, data: { billingRetryAt: jobRetryAt(member.billingFailureCount, now, 60 * 60_000), billingFailureCount: { increment: 1 } } }); }
   }
+  return { processed, failed, hasMore: members.length === 100 };
 }

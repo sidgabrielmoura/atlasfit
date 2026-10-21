@@ -1,3 +1,6 @@
+import { financeOverviewSchema, type FinanceOverview } from "@/modules/workspaces/domain/superadmin-finance";
+import { isAxiosError } from "axios";
+import { workspaceAdministrationErrorMessage, workspaceAdministrationResultSchema } from "@/modules/workspaces/domain/workspace-administration-contract";
 import { proxy, subscribe, useSnapshot } from "valtio";
 import api from "@/lib/axios";
 
@@ -25,6 +28,10 @@ export function useSuperAdminSnapshot() {
 }
 
 interface SuperAdminState {
+  metricsLoading: boolean;
+  metricsError: string | null;
+  workspacesError: string | null;
+  workspacesLoading: boolean;
   metrics: any;
   users: any[];
   workspaces: any[];
@@ -39,7 +46,9 @@ interface SuperAdminState {
   plans: any[];
   coupons: any[];
   muscleGroups: any[];
-  financeData: any;
+  financeData: FinanceOverview | null;
+  financeLoading: boolean;
+  financeError: string | null;
   logFilters: {
     search: string;
     userId: string;
@@ -65,6 +74,10 @@ interface SuperAdminState {
 const storageKey = "atlasfit_superadmin_store";
 
 const initialState: SuperAdminState = {
+  metricsLoading: false,
+  metricsError: null,
+  workspacesError: null,
+  workspacesLoading: false,
   metrics: null,
   users: [],
   workspaces: [],
@@ -80,6 +93,8 @@ const initialState: SuperAdminState = {
   coupons: [],
   muscleGroups: [],
   financeData: null,
+  financeLoading: false,
+  financeError: null,
   logFilters: {
     search: "",
     userId: "all",
@@ -105,7 +120,7 @@ const initialState: SuperAdminState = {
 const getPersistedState = () => {
   if (typeof window === "undefined") return initialState;
   const saved = localStorage.getItem(storageKey);
-  return saved ? { ...initialState, ...JSON.parse(saved) } : initialState;
+  return saved ? { ...initialState, ...JSON.parse(saved), financeData: null, financeLoading: false, financeError: null, metrics: null, metricsLoading: false, metricsError: null } : initialState;
 };
 
 export const superAdminStore = proxy<SuperAdminState>(getPersistedState());
@@ -118,14 +133,15 @@ subscribe(superAdminStore, () => {
 
 export const superAdminActions = {
   async fetchMetrics() {
-    superAdminStore.isLoading = true;
+    superAdminStore.metricsLoading = true;
+    superAdminStore.metricsError = null;
     try {
       const { data } = await api.get("/superadmin/stats");
       superAdminStore.metrics = data;
-    } catch (err: any) {
-      superAdminStore.error = err.message;
+    } catch (error: unknown) {
+      superAdminStore.metricsError = "Não foi possível carregar os indicadores. Tente novamente.";
     } finally {
-      superAdminStore.isLoading = false;
+      superAdminStore.metricsLoading = false;
     }
   },
 
@@ -142,15 +158,18 @@ export const superAdminActions = {
   },
 
   async fetchWorkspaces() {
-    superAdminStore.isLoading = true;
+    superAdminStore.workspacesLoading = true;
+    superAdminStore.workspacesError = null;
     try {
       const { data } = await api.get("/superadmin/workspaces");
       superAdminStore.workspaces = data;
-    } catch (err: any) {
-      superAdminStore.error = err.message;
-    } finally {
-      superAdminStore.isLoading = false;
-    }
+      return true;
+    } catch (error: unknown) {
+      superAdminStore.workspacesError = isAxiosError<unknown>(error)
+        ? workspaceAdministrationErrorMessage(error.response?.data, "Não foi possível atualizar a lista de workspaces.")
+        : "Não foi possível atualizar a lista de workspaces.";
+      return false;
+    } finally { superAdminStore.workspacesLoading = false; }
   },
 
   async fetchLogs() {
@@ -280,7 +299,7 @@ export const superAdminActions = {
       throw new Error(err.response?.data || err.message);
     }
   },
-  async createWorkspace(data: { name: string; slug: string; ownerId: string }) {
+  async createWorkspace(data: { name: string; slug: string; ownerId: string; type?: "PERSONAL" | "GYM"; gymConfig?: any }) {
     try {
       await api.post("/superadmin/workspaces", data);
       await superAdminActions.fetchWorkspaces();
@@ -288,24 +307,26 @@ export const superAdminActions = {
       throw new Error(err.response?.data || err.message);
     }
   },
-  async updateWorkspace(id: string, data: any) {
+  async updateWorkspace(id: string, data: unknown) {
     try {
-      await api.patch(`/superadmin/workspaces/${id}`, data);
-      await superAdminActions.fetchWorkspaces();
-    } catch (err: any) {
-      throw new Error(err.response?.data || err.message);
+      const response = await api.patch<unknown>(`/superadmin/workspaces/${id}`, data);
+      workspaceAdministrationResultSchema.parse(response.data);
+      return await superAdminActions.fetchWorkspaces();
+    } catch (error: unknown) {
+      throw new Error(isAxiosError<unknown>(error)
+        ? workspaceAdministrationErrorMessage(error.response?.data, "Não foi possível atualizar o workspace.")
+        : error instanceof Error ? error.message : "Não foi possível atualizar o workspace.");
     }
   },
   async fetchFinance() {
-    superAdminStore.isLoading = true;
+    superAdminStore.financeLoading = true;
+    superAdminStore.financeError = null;
     try {
-      const res = await api.get("/superadmin/finance");
-      superAdminStore.financeData = res.data;
-    } catch (err: any) {
-      superAdminStore.error = err.message;
-    } finally {
-      superAdminStore.isLoading = false;
-    }
+      const res = await api.get<unknown>("/superadmin/finance");
+      superAdminStore.financeData = financeOverviewSchema.parse(res.data);
+    } catch (error: unknown) {
+      superAdminStore.financeError = "Não foi possível atualizar o financeiro. Tente novamente.";
+    } finally { superAdminStore.financeLoading = false; }
   },
   async fetchPlans() {
     superAdminStore.isLoading = true;
@@ -423,6 +444,22 @@ export const superAdminActions = {
       ]);
     } catch (err: any) {
       throw new Error(err.response?.data || err.message);
+    }
+  },
+  async mergeExercises(sourceExerciseId: string, targetExerciseId: string) {
+    try {
+      const response = await api.post("/superadmin/exercises/merge", {
+        sourceExerciseId,
+        targetExerciseId,
+      });
+      await Promise.all([
+        superAdminActions.fetchExercises(),
+        superAdminActions.fetchPendingExercises(),
+        superAdminActions.fetchNeedsConfigExercises(),
+      ]);
+      return response.data;
+    } catch (err: any) {
+      throw new Error(err.response?.data?.message || err.response?.data || err.message);
     }
   },
   async updateSettings(settings: { key: string; value: string }[]) {

@@ -1,18 +1,20 @@
+import { withRequestMemo } from "@/lib/request-memo";
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { processRecurringPaymentsForMember } from "@/lib/recurrence";
+import {
+  requirePersonalWorkspaceAccess as requireWorkspaceAccess,
+  handleWorkspaceAccessError,
+} from "@/modules/workspaces";
 
 interface RouteParams {
   params: Promise<{ id: string }>;
 }
 
-export async function GET(req: Request, { params }: RouteParams) {
-  const session = await auth();
-  if (!session?.user) {
-    return new NextResponse("Não autorizado.", { status: 401 });
-  }
-
+async function handleGET(req: Request, { params }: RouteParams) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const { id: studentId } = await params;
   const { searchParams } = new URL(req.url);
   const workspaceId = searchParams.get("workspaceId");
@@ -22,23 +24,18 @@ export async function GET(req: Request, { params }: RouteParams) {
   }
 
   try {
-    // 1. Verify that the logged-in trainer belongs to this workspace
-    const trainerMember = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        workspaceId,
-      },
+    // 1. Verify workspace access and capability (or student accessing their own finance)
+    const context = await requireWorkspaceAccess({
+      workspaceId,
+      capability: "invoices.read",
+      resourceOwnerId: studentId,
     });
 
-    if (!trainerMember) {
-      return new NextResponse("Acesso negado a este workspace.", { status: 403 });
-    }
-
-    // 2. Fetch the student profile & member details to obtain name and active plan
+    // 2. Fetch the student profile & member details in verified workspace
     let studentMember = await prisma.workspaceMember.findFirst({
       where: {
         userId: studentId,
-        workspaceId,
+        workspaceId: context.workspaceId,
         role: "STUDENT",
       },
       include: {
@@ -50,27 +47,13 @@ export async function GET(req: Request, { params }: RouteParams) {
       return new NextResponse("Aluno não encontrado neste workspace.", { status: 404 });
     }
 
-    // Process recurring payments for this member before rendering history
-    await processRecurringPaymentsForMember(studentMember.id);
-
-    // Re-fetch member to have the latest configuration and planEndDate
-    const updatedMember = await prisma.workspaceMember.findUnique({
-      where: { id: studentMember.id },
-      include: {
-        user: true,
-      }
-    });
-    if (updatedMember) {
-      studentMember = updatedMember;
-    }
-
     const studentName = studentMember.user.name || "Sem Nome";
     const studentPlan = studentMember.plan || "Mensal";
 
-    // 3. Find payments matching student's name
+    // 3. Find payments matching student's name in this workspace
     let payments = await prisma.workspacePayment.findMany({
       where: {
-        workspaceId,
+        workspaceId: context.workspaceId,
         studentName,
       },
       orderBy: {
@@ -78,44 +61,33 @@ export async function GET(req: Request, { params }: RouteParams) {
       },
     });
 
-    // 4. If payments are empty, do not seed anymore to keep database clean.
-
-    // 5. Compute metric summaries for the student
+    // 4. Compute metric summaries for the student
     const totalReceived = payments
       .filter((p) => p.status === "pago")
       .reduce((sum, p) => sum + p.amount, 0);
 
-    const totalPending = payments
-      .filter((p) => p.status === "pendente")
-      .reduce((sum, p) => sum + p.amount, 0);
-
-    const totalOverdue = payments
-      .filter((p) => p.status === "atrasado")
-      .reduce((sum, p) => sum + p.amount, 0);
+    const pendingCount = payments.filter((p) => p.status === "pendente").length;
+    const paidCount = payments.filter((p) => p.status === "pago").length;
 
     return NextResponse.json({
-      metrics: {
+      summary: {
         totalReceived,
-        totalPending,
-        totalOverdue,
-      },
-      recurrence: {
-        billingControlType: studentMember.billingControlType,
-        billingPrice: studentMember.billingPrice,
-        billingPeriodicity: studentMember.billingPeriodicity,
-        billingCustomIntervalCount: studentMember.billingCustomIntervalCount,
-        billingCustomIntervalUnit: studentMember.billingCustomIntervalUnit,
-        billingDueDay: studentMember.billingDueDay,
-        billingFirstDueDate: studentMember.billingFirstDueDate ? studentMember.billingFirstDueDate.toISOString().split("T")[0] : null,
-        billingStartDate: studentMember.billingStartDate ? studentMember.billingStartDate.toISOString().split("T")[0] : null,
+        pendingCount,
+        paidCount,
+        currentPlan: studentPlan,
+        billingControlType: studentMember.billingControlType || "MANUAL",
+        billingPrice: studentMember.billingPrice || 0.0,
+        billingPeriodicity: studentMember.billingPeriodicity || "MENSAL",
+        billingDueDay: studentMember.billingDueDay || 10,
+        billingStartDate: studentMember.billingStartDate,
+        billingNextDueDate: studentMember.billingNextDueDate,
         billingDescription: studentMember.billingDescription,
         billingCategory: studentMember.billingCategory,
         billingPaymentMethod: studentMember.billingPaymentMethod,
-        billingIsActive: studentMember.billingIsActive,
-        billingSource: (studentMember as any).billingSource || "MANUAL",
-        asaasSubscriptionId: (studentMember as any).asaasSubscriptionId || null,
-        billingCreatedAt: (studentMember as any).billingCreatedAt ? (studentMember as any).billingCreatedAt.toISOString() : (studentMember as any).createdAt?.toISOString() || null,
-        planEndDate: studentMember.planEndDate ? studentMember.planEndDate.toISOString().split("T")[0] : null,
+        billingIsActive: studentMember.billingIsActive ?? true,
+        billingSource: studentMember.billingSource || "MANUAL",
+        asaasSubscriptionId: studentMember.asaasSubscriptionId,
+        planEndDate: studentMember.planEndDate,
       },
       payments: payments.map((p) => ({
         id: p.id,
@@ -123,24 +95,24 @@ export async function GET(req: Request, { params }: RouteParams) {
         amount: p.amount,
         status: p.status,
         method: p.method,
-        createdAt: p.createdAt.toISOString(),
+        createdAt: p.createdAt,
         billingOrigin: p.billingOrigin,
         billingMode: p.billingMode,
         isAutomaticBilled: p.isAutomaticBilled,
       })),
     });
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error);
+    if (accessError) return accessError;
+
     console.error("GET student finance history error:", error);
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 export async function POST(req: Request, { params }: RouteParams) {
-  const session = await auth();
-  if (!session?.user) {
-    return new NextResponse("Não autorizado.", { status: 401 });
-  }
-
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const { id: studentId } = await params;
 
   try {
@@ -151,23 +123,17 @@ export async function POST(req: Request, { params }: RouteParams) {
       return new NextResponse("Campos obrigatórios ausentes.", { status: 400 });
     }
 
-    // Verify trainer belongs to the workspace
-    const trainerMember = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        workspaceId,
-      },
+    // Verify workspace access and capability
+    const context = await requireWorkspaceAccess({
+      workspaceId,
+      capability: "invoices.issue",
     });
 
-    if (!trainerMember) {
-      return new NextResponse("Acesso negado a este workspace.", { status: 403 });
-    }
-
-    // Fetch student's name
+    // Fetch student's name strictly in verified workspace
     const studentMember = await prisma.workspaceMember.findFirst({
       where: {
         userId: studentId,
-        workspaceId,
+        workspaceId: context.workspaceId,
         role: "STUDENT",
       },
       include: {
@@ -180,34 +146,31 @@ export async function POST(req: Request, { params }: RouteParams) {
     }
 
     const studentName = studentMember.user.name || "Sem Nome";
-    const paymentDate = createdAt ? new Date(createdAt) : new Date();
 
     const newPayment = await prisma.workspacePayment.create({
       data: {
-        workspaceId,
+        workspaceId: context.workspaceId,
         studentName,
         planName,
         amount: parseFloat(amount),
         status,
         method,
-        createdAt: paymentDate,
-        updatedAt: new Date(),
+        createdAt: createdAt ? new Date(createdAt) : new Date(),
       },
     });
 
-    return NextResponse.json(newPayment);
+    return NextResponse.json(newPayment, { status: 201 });
   } catch (error) {
-    console.error("POST client dynamic payment error:", error);
+    const accessError = handleWorkspaceAccessError(error);
+    if (accessError) return accessError;
+
+    console.error("POST student payment error:", error);
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }
 }
 
 export async function PUT(req: Request, { params }: RouteParams) {
-  const session = await auth();
-  if (!session?.user) {
-    return new NextResponse("Não autorizado.", { status: 401 });
-  }
-
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const { id: studentId } = await params;
 
   try {
@@ -236,21 +199,16 @@ export async function PUT(req: Request, { params }: RouteParams) {
       return new NextResponse("ID do workspace é obrigatório.", { status: 400 });
     }
 
-    const trainerMember = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        workspaceId,
-      },
+    // Verify workspace access and capability
+    const context = await requireWorkspaceAccess({
+      workspaceId,
+      capability: "invoices.issue",
     });
-
-    if (!trainerMember) {
-      return new NextResponse("Acesso negado a este workspace.", { status: 403 });
-    }
 
     const studentMember = await prisma.workspaceMember.findFirst({
       where: {
         userId: studentId,
-        workspaceId,
+        workspaceId: context.workspaceId,
         role: "STUDENT",
       },
     });
@@ -259,7 +217,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
       return new NextResponse("Aluno não encontrado neste workspace.", { status: 404 });
     }
 
-    const updateData: any = {};
+    const updateData: any = { billingRetryAt: null, billingFailureCount: 0 };
     if (billingControlType !== undefined) updateData.billingControlType = billingControlType;
     if (billingPrice !== undefined) updateData.billingPrice = parseFloat(billingPrice);
     if (billingPeriodicity !== undefined) updateData.billingPeriodicity = billingPeriodicity;
@@ -305,7 +263,7 @@ export async function PUT(req: Request, { params }: RouteParams) {
         action: actionLog,
         entity: "Recurrence",
         entityId: studentMember.id,
-        userId: session.user.id,
+        userId: context.userId,
         severity: "info",
       },
     });
@@ -317,6 +275,9 @@ export async function PUT(req: Request, { params }: RouteParams) {
 
     return NextResponse.json(updatedMember);
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error);
+    if (accessError) return accessError;
+
     console.error("PUT student recurrence error:", error);
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }

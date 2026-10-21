@@ -1,11 +1,18 @@
+import { getStudentWorkspaceMember } from "@/lib/student-auth";
+import { authorizeGymStudent } from "@/modules/workspaces/application/student-authority";
+import { attachGymProgressPhoto } from "@/modules/workspaces/application/gym-progress-photo";
+import { isGymWorkspace, deleteGymStoredObject } from "@/modules/workspaces/application/gym-storage";
+import { handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
+import { withAuditedRequest } from "@/lib/audited-request";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { storageService } from "@/lib/storage.service";
 import { NotificationService } from "@/lib/notifications/service";
+import { recordGymProgress, removeGymEvolutionRecord } from "@/modules/workspaces/application/gym-progress-commands";
 
 
-export async function GET(req: Request) {
+export const GET = withAuditedRequest(async function GET(req: Request) {
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado. Por favor, faça login.", { status: 401 });
@@ -13,19 +20,15 @@ export async function GET(req: Request) {
 
   try {
     // 1. Locate active student membership to identify the workspace
-    const member = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        role: "STUDENT",
-        isActive: true,
-      },
-    });
+    const member = await getStudentWorkspaceMember(session.user.id);
 
     if (!member) {
       return new NextResponse("Membro ativo do workspace não encontrado.", { status: 404 });
     }
 
     const workspaceId = member.workspaceId;
+    const gym = await isGymWorkspace(workspaceId);
+    if (gym) await authorizeGymStudent(workspaceId, member.id, session.user.id, "health.read.assigned", { allowSelf: true });
 
     // 2. Fetch chronological student progress (weight & circumferences)
     const progress = await prisma.studentProgress.findMany({
@@ -63,31 +66,28 @@ export async function GET(req: Request) {
       }
     });
   } catch (error) {
-    console.error("Student Evolution API GET Error:", error);
+    const denied = handleWorkspaceAccessError(error); if (denied) return denied;
+    console.error("Student Evolution API GET Error:", { errorType: error instanceof Error ? error.name : "UnknownError" });
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
-}
+});
 
-export async function POST(req: Request) {
+export const POST = withAuditedRequest(async function POST(req: Request) {
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
   }
 
   try {
-    const member = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        role: "STUDENT",
-        isActive: true,
-      },
-    });
+    const member = await getStudentWorkspaceMember(session.user.id);
 
     if (!member) {
       return new NextResponse("Workspace associado não encontrado.", { status: 404 });
     }
 
     const workspaceId = member.workspaceId;
+    const gym = await isGymWorkspace(workspaceId);
+    if (gym) await authorizeGymStudent(workspaceId, member.id, session.user.id, "health.read.assigned", { allowSelf: true });
     const body = await req.json();
     const { action } = body;
 
@@ -100,7 +100,7 @@ export async function POST(req: Request) {
         notes
       } = body;
 
-      const newProgress = await prisma.studentProgress.create({
+      const newProgress = gym ? await recordGymProgress(workspaceId, member.id, session.user.id, body) : await prisma.studentProgress.create({
         data: {
           studentId: session.user.id,
           workspaceId,
@@ -151,15 +151,7 @@ export async function POST(req: Request) {
         return new NextResponse("photoUrl é obrigatório para envio de foto.", { status: 400 });
       }
 
-      const newPhoto = await prisma.studentProgressPhoto.create({
-        data: {
-          studentId: session.user.id,
-          workspaceId,
-          photoUrl,
-          objectKey: objectKey || null,
-          date: new Date(),
-        },
-      });
+      const newPhoto = gym ? await attachGymProgressPhoto({ workspaceId, studentMemberId: member.id, actorUserId: session.user.id, photoUrl, objectKey }) : await prisma.studentProgressPhoto.create({ data: { studentId: session.user.id, workspaceId, photoUrl, objectKey: objectKey || null, date: new Date() } });
 
       // Marcar notificações de solicitação de foto pendentes como lidas
       await prisma.notification.updateMany({
@@ -197,18 +189,24 @@ export async function POST(req: Request) {
 
     return new NextResponse("Ação inválida ou não especificada.", { status: 400 });
   } catch (error) {
-    console.error("Student Evolution API POST Error:", error);
+    const denied = handleWorkspaceAccessError(error); if (denied) return denied;
+    console.error("Student Evolution API POST Error:", { errorType: error instanceof Error ? error.name : "UnknownError" });
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
-}
+});
 
-export async function DELETE(req: Request) {
+export const DELETE = withAuditedRequest(async function DELETE(req: Request) {
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
   }
 
   try {
+    const member = await prisma.workspaceMember.findFirst({ where: { userId: session.user.id, role: "STUDENT", isActive: true } });
+    if (!member) return new NextResponse("Vínculo estudantil indisponível.", { status: 403 });
+    const workspaceId = member.workspaceId;
+    const gym = await isGymWorkspace(workspaceId);
+    if (gym) await authorizeGymStudent(workspaceId, member.id, session.user.id, "health.manage.assigned", { allowSelf: true });
     const { searchParams } = new URL(req.url);
     const type = searchParams.get("type");
     const id = searchParams.get("id");
@@ -222,24 +220,29 @@ export async function DELETE(req: Request) {
         where: {
           id,
           studentId: session.user.id,
+          workspaceId,
         },
       });
 
       if (photoRecord) {
         if (photoRecord.objectKey) {
-          await storageService.deleteObject(photoRecord.objectKey);
+          if (gym) await deleteGymStoredObject(photoRecord.objectKey, workspaceId, session.user.id, session.user.id);
+          else await storageService.deleteObject(photoRecord.objectKey);
         }
-        await prisma.studentProgressPhoto.delete({
+        if (gym) await removeGymEvolutionRecord(workspaceId, member.id, session.user.id, "photo", id);
+        else await prisma.studentProgressPhoto.delete({
           where: {
             id,
           },
         });
       }
     } else if (type === "progress") {
-      await prisma.studentProgress.delete({
+      if (gym) await removeGymEvolutionRecord(workspaceId, member.id, session.user.id, "progress", id);
+      else await prisma.studentProgress.delete({
         where: {
           id,
           studentId: session.user.id,
+          workspaceId,
         },
       });
     } else {
@@ -248,7 +251,8 @@ export async function DELETE(req: Request) {
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Student Evolution API DELETE Error:", error);
+    const denied = handleWorkspaceAccessError(error); if (denied) return denied;
+    console.error("Student Evolution API DELETE Error:", { errorType: error instanceof Error ? error.name : "UnknownError" });
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
-}
+});

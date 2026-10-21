@@ -1,3 +1,4 @@
+import { withRequestMemo } from "@/lib/request-memo";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
@@ -5,8 +6,9 @@ import bcryptjs from "bcryptjs";
 import { logSystemError } from "@/lib/logger";
 import { NotificationService } from "@/lib/notifications/service";
 import { NotificationType, NotificationCategory, NotificationPriority } from "@/lib/notifications/types";
+import { adminUserSelect, createAdminUserSchema } from "@/lib/auth/admin-user-service";
 
-export async function GET() {
+async function handleGET() {
   const session = await auth();
 
   if (session?.user?.role !== "SUPERADMIN") {
@@ -15,27 +17,22 @@ export async function GET() {
 
   try {
     const users = await prisma.user.findMany({
-      include: {
+      select: {
+        ...adminUserSelect,
         workspaces: {
-          include: {
-            workspace: true
-          }
+          select: { id: true, role: true, isActive: true, workspace: { select: { id: true, name: true, slug: true, type: true, isActive: true } } }
         }
       },
       orderBy: { createdAt: "desc" }
     });
 
-    const sanitizedUsers = users.map((u) => {
-      const { password, ...userWithoutPassword } = u;
-      return userWithoutPassword;
-    });
-
-    return NextResponse.json(sanitizedUsers);
+    return NextResponse.json(users);
   } catch (error) {
     await logSystemError({ action: "GET_USERS", error, entity: "USER" });
     return new NextResponse("Internal Error", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -45,8 +42,9 @@ export async function POST(req: Request) {
   }
 
   try {
-    const body = await req.json();
-    const { name, email, password, role } = body;
+    const parsed = createAdminUserSchema.safeParse(await req.json());
+    if (!parsed.success) return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
+    const { name, email, password, role } = parsed.data;
 
     if (!name || !email || !password || !role) {
       return new NextResponse("Missing required fields", { status: 400 });
@@ -69,7 +67,8 @@ export async function POST(req: Request) {
           email,
           password: hashedPassword,
           role,
-        }
+        },
+        select: adminUserSelect,
       });
 
       if (role === "TRAINER") {
@@ -89,8 +88,6 @@ export async function POST(req: Request) {
       return user;
     });
 
-    // Remove password from response
-    const { password: _, ...userWithoutPassword } = newUser;
 
     try {
       await NotificationService.sendToSuperAdmins({
@@ -105,7 +102,7 @@ export async function POST(req: Request) {
       console.error("Erro ao notificar superadmins sobre novo usuário:", notifErr);
     }
 
-    return NextResponse.json(userWithoutPassword, { status: 201 });
+    return NextResponse.json(newUser, { status: 201 });
   } catch (error) {
     await logSystemError({ action: "POST_USER_CREATE", error, entity: "USER" });
     return new NextResponse("Internal Error", { status: 500 });

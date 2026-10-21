@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { webhookProcessor } from "@/modules/payments/webhooks/webhook-processor";
+import { webhookProcessor, WebhookIngressError } from "@/modules/payments/webhooks/webhook-processor";
 import { enforceWalletRateLimit } from "@/modules/payments/security/wallet-security";
 
 export async function POST(req: NextRequest) {
@@ -17,9 +17,9 @@ export async function POST(req: NextRequest) {
     });
 
     const result = await webhookProcessor.receiveWebhook(headersObj, rawBody);
-    return NextResponse.json({ success: true, ...result });
+    const accepted = ["PROCESSED", "DUPLICATE", "REVIEW_REQUIRED"].includes(result.status);
+    return NextResponse.json({ success: accepted, ...result }, { status: accepted ? 200 : 503 });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "Erro ao processar webhook";
-    return NextResponse.json({ success: false, error: message }, { status: 400 });
+    return NextResponse.json({ success: false, error: error instanceof WebhookIngressError ? error.message : "Recepção do evento indisponível." }, { status: error instanceof WebhookIngressError ? error.statusCode : 503 });
   }
 }

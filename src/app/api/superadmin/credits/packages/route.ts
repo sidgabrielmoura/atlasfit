@@ -1,3 +1,4 @@
+import { withRequestMemo } from "@/lib/request-memo";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
@@ -11,7 +12,7 @@ async function requireSuperAdmin() {
   return session;
 }
 
-export async function GET() {
+async function handleGET() {
   const session = await requireSuperAdmin();
   if (!session) return new NextResponse("Não autorizado.", { status: 401 });
 
@@ -27,6 +28,7 @@ export async function GET() {
     return new NextResponse("Erro ao listar pacotes.", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 export async function POST(req: Request) {
   const session = await requireSuperAdmin();

@@ -1,9 +1,15 @@
+import { Prisma } from "@prisma/client";
+import { runChatMutation } from "@/modules/workspaces/application/chat-authority";
+import { serializableTransaction } from "@/modules/workspaces/application/transaction";
+import { assertChatConversation } from "@/modules/workspaces/application/chat-authority";
+import { handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
+import { withAuditedRequest } from "@/lib/audited-request";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { publishToChannel } from "@/lib/ably";
 
-export async function PATCH(
+export const PATCH = withAuditedRequest(async function PATCH(
   req: Request,
   { params }: { params: Promise<{ messageId: string }> }
 ) {
@@ -38,13 +44,14 @@ export async function PATCH(
       return new NextResponse("Acesso negado.", { status: 403 });
     }
 
+    await assertChatConversation(existingMessage.conversationId, userId);
     // Edit message content
     if (content !== undefined) {
       if (existingMessage.senderId !== userId) {
         return new NextResponse("Apenas o remetente pode editar esta mensagem.", { status: 403 });
       }
 
-      const updatedMessage = await prisma.message.update({
+      const updatedMessage = await runChatMutation(existingMessage.conversationId, userId, "GYM_CHAT_MESSAGE_UPDATED", tx => tx.message.update({
         where: { id: messageId },
         data: {
           content,
@@ -55,7 +62,7 @@ export async function PATCH(
           },
           replyTo: true,
         },
-      });
+      }));
 
       // Notify Ably about edited message
       await publishToChannel(`conversation:${existingMessage.conversationId}`, "message:update", updatedMessage);
@@ -65,7 +72,7 @@ export async function PATCH(
 
     // Update message status (Sent, Delivered, Read)
     if (status !== undefined) {
-      const updatedMessage = await prisma.message.update({
+      const updatedMessage = await runChatMutation(existingMessage.conversationId, userId, "GYM_CHAT_MESSAGE_UPDATED", tx => tx.message.update({
         where: { id: messageId },
         data: {
           status,
@@ -76,7 +83,7 @@ export async function PATCH(
           },
           replyTo: true,
         },
-      });
+      }));
 
       // Notify Ably about status change
       await publishToChannel(`conversation:${existingMessage.conversationId}`, "message:status", {
@@ -89,12 +96,13 @@ export async function PATCH(
 
     return new NextResponse("Sem modificações solicitadas.", { status: 400 });
   } catch (error) {
+    const denied = handleWorkspaceAccessError(error); if (denied) return denied;
     console.error("[API Message PATCH] Error:", error);
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
-}
+});
 
-export async function DELETE(
+export const DELETE = withAuditedRequest(async function DELETE(
   req: Request,
   { params }: { params: Promise<{ messageId: string }> }
 ) {
@@ -119,15 +127,17 @@ export async function DELETE(
       return new NextResponse("Apenas o remetente pode excluir esta mensagem.", { status: 403 });
     }
 
+    await assertChatConversation(existingMessage.conversationId, userId);
     // Soft delete: clear attachments, clear replyToId, and change text content to "Esta mensagem foi excluída"
     // Run inside transaction to safely update conversation metadata if this was the last message
-    const { deletedMessage, conversation } = await prisma.$transaction(async (tx) => {
+    const { deletedMessage, conversation } = await serializableTransaction(async (tx) => {
+      await assertChatConversation(existingMessage.conversationId, userId, tx);
       const msg = await tx.message.update({
         where: { id: messageId },
         data: {
           type: "TEXT",
           content: "Esta mensagem foi excluída.",
-          attachment: undefined,
+          attachment: Prisma.DbNull,
           replyToId: null,
         },
         include: {
@@ -158,6 +168,7 @@ export async function DELETE(
         });
       }
 
+      if ((await tx.workspace.findUniqueOrThrow({ where: { id: conv!.workspaceId }, select: { type: true } })).type === "GYM") await tx.auditLog.create({ data: { userId, action: "GYM_CHAT_MESSAGE_DELETED", entity: "MESSAGE", entityId: msg.id } });
       return { deletedMessage: msg, conversation: updatedConv };
     });
 
@@ -180,7 +191,8 @@ export async function DELETE(
 
     return NextResponse.json(deletedMessage);
   } catch (error) {
+    const denied = handleWorkspaceAccessError(error); if (denied) return denied;
     console.error("[API Message DELETE] Error:", error);
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
-}
+});

@@ -1,3 +1,6 @@
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
+import { authorizePersonalStudent } from "@/modules/workspaces/application/personal-student-authority";
+import { handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
@@ -7,6 +10,7 @@ interface RouteParams {
 }
 
 export async function DELETE(req: Request, { params }: RouteParams) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -29,6 +33,8 @@ export async function DELETE(req: Request, { params }: RouteParams) {
     }
 
     // Verify trainer is member of the workspace
+    
+    await authorizePersonalStudent(fileRecord.workspaceId, studentId, session.user.id, fileRecord.category === "exames" ? "health.manage.assigned" : "workouts.manage.assigned");
     const trainerCheck = await prisma.workspaceMember.findFirst({
       where: {
         userId: session.user.id,
@@ -46,6 +52,8 @@ export async function DELETE(req: Request, { params }: RouteParams) {
 
     return new NextResponse(null, { status: 204 });
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
+
     console.error("DELETE student file error:", error);
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }

@@ -1,28 +1,29 @@
+import { redactPrivateText } from "./privacy/log-redaction";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
+import { currentAuditIdentity, withAuditIdentity, type AuditIdentity } from "./audit-context";
+
+async function resolveLogIdentity(fallbackUserId?: string | null): Promise<AuditIdentity | undefined> {
+  const current = currentAuditIdentity();
+  if (current) return current;
+  try {
+    const user = (await auth())?.user;
+    if (user?.id) {
+      if (user.isImpersonated && !user.originalAdminUserId) throw new Error("INVALID_AUDIT_IDENTITY");
+      return { actorUserId: user.isImpersonated ? user.originalAdminUserId! : user.id, effectiveUserId: user.id, impersonated: Boolean(user.isImpersonated) };
+    }
+  } catch { /* Background commands have no request session. */ }
+  return fallbackUserId ? { actorUserId: fallbackUserId, effectiveUserId: fallbackUserId, impersonated: false } : undefined;
+}
 
 /**
  * Sanitizes and redacts PII and sensitive data before persisting to audit logs or stdout.
  */
-export function redactSensitiveData(input: string): string {
-  if (!input) return "";
-
-  return input
-    // Redact password parameters
-    .replace(/(password|senha|secret|token|apiKey|access_token|refresh_token)\s*[:=]\s*["']?[^"',\s}]+["']?/gi, "$1: [REDACTED]")
-    // Redact Bearer tokens
-    .replace(/Bearer\s+[A-Za-z0-9\-._~+/]+=*/gi, "Bearer [REDACTED]")
-    // Redact CPFs
-    .replace(/\b\d{3}\.\d{3}\.\d{3}-\d{2}\b/g, "[CPF_REDACTED]")
-    // Redact Credit Card Numbers
-    .replace(/\b\d{4}[ -]?\d{4}[ -]?\d{4}[ -]?\d{4}\b/g, "[CARD_REDACTED]")
-    // Redact CVV
-    .replace(/(cvv|cvc)\s*[:=]\s*["']?\d{3,4}["']?/gi, "$1: [REDACTED]");
-}
+export const redactSensitiveData = redactPrivateText;
 
 interface SystemErrorParams {
   action: string;
-  error: any;
+  error: unknown;
   entity?: string;
   entityId?: string;
   userId?: string;
@@ -51,12 +52,13 @@ export async function logSystemError({
       }
     }
 
-    const rawErrorMessage = error instanceof Error ? error.message : String(error);
+    const rawErrorMessage = error instanceof Error ? error.name : "UnknownError";
     const sanitizedError = redactSensitiveData(rawErrorMessage);
     const logAction = `${action.toUpperCase()}_FAIL: ${sanitizedError}`.substring(0, 190);
 
     // Save to the database
-    const createdLog = await prisma.auditLog.create({
+    const identity = await resolveLogIdentity(finalUserId);
+    const createdLog = await withAuditIdentity(identity, () => prisma.auditLog.create({
       data: {
         userId: finalUserId || undefined,
         action: logAction,
@@ -64,12 +66,13 @@ export async function logSystemError({
         entityId: entityId || null,
         ip: ip ? redactSensitiveData(ip) : null,
         severity: "danger", // Errors are always recorded as danger severity
+        metadata: { phase: "FAILED" },
       },
-    });
+    }));
 
     return createdLog;
   } catch (logErr) {
-    console.error("[SYSTEM_ERROR_LOG_FAILURE] Failed to record system error:", logErr);
+    console.error("[SYSTEM_ERROR_LOG_FAILURE] Failed to record system error:");
     return null;
   }
 }
@@ -106,7 +109,8 @@ export async function logAuditEvent({
 
     const sanitizedAction = redactSensitiveData(action.toUpperCase());
 
-    const createdLog = await prisma.auditLog.create({
+    const identity = await resolveLogIdentity(finalUserId);
+    const createdLog = await withAuditIdentity(identity, () => prisma.auditLog.create({
       data: {
         userId: finalUserId || null,
         action: sanitizedAction,
@@ -115,7 +119,7 @@ export async function logAuditEvent({
         ip: ip ? redactSensitiveData(ip) : null,
         severity,
       },
-    });
+    }));
 
     return createdLog;
   } catch (logErr) {

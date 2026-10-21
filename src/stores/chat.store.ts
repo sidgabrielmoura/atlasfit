@@ -90,6 +90,19 @@ export const chatStore = proxy<ChatState>({
 });
 
 export const chatActions = {
+  resetWorkspace() {
+    for (const upload of chatStore.activeUploads) upload.cancelUpload?.();
+    chatStore.conversations = [];
+    chatStore.activeConversationId = null;
+    chatStore.messages = {};
+    chatStore.nextCursors = {};
+    chatStore.isTyping = {};
+    chatStore.presence = {};
+    chatStore.replyToMessage = null;
+    chatStore.activeUploads = [];
+    chatStore.isLoadingConversations = false;
+    chatStore.isLoadingMessages = false;
+  },
   setConversations(conversations: Conversation[]) {
     chatStore.conversations = conversations;
   },

@@ -1,12 +1,16 @@
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
+import { newSetupTokenExpiry } from "@/lib/auth/setup-token-policy";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import crypto from "crypto";
+import { requirePersonalWorkspaceAccess, handleWorkspaceAccessError } from "@/modules/workspaces";
 
 export async function POST(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -31,6 +35,8 @@ export async function POST(
     }
 
     const workspaceId = lead.workspaceId;
+    if (!workspaceId) return NextResponse.json({ error: "Assessoria do lead não encontrada." }, { status: 404 });
+    await requirePersonalWorkspaceAccess({ workspaceId, capability: "students.manage" });
 
     let studentUser = await prisma.user.findUnique({
       where: { email },
@@ -61,13 +67,14 @@ export async function POST(
           });
         }
 
-        if (!studentUser.password && !studentUser.setupToken) {
+        if (!studentUser.password && (!studentUser.setupToken || !studentUser.setupTokenExpiresAt || studentUser.setupTokenExpiresAt <= new Date())) {
           setupToken = crypto.randomUUID();
           await tx.user.update({
             where: { id: studentUser.id },
-            data: { setupToken },
+            data: { setupTokenExpiresAt: newSetupTokenExpiry(),
+setupToken },
           });
-        } else if (studentUser.setupToken) {
+        } else if (!studentUser.password && studentUser.setupToken && studentUser.setupTokenExpiresAt && studentUser.setupTokenExpiresAt > new Date()) {
           setupToken = studentUser.setupToken;
         }
       } else {
@@ -77,7 +84,8 @@ export async function POST(
             name,
             email,
             password: null,
-            setupToken,
+            setupTokenExpiresAt: newSetupTokenExpiry(),
+setupToken,
             role: "STUDENT",
             whatsapp: whatsapp || null,
           },
@@ -112,6 +120,7 @@ export async function POST(
       setupToken: setupToken || null,
     });
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
     console.error("Lead conversion error:", error);
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }

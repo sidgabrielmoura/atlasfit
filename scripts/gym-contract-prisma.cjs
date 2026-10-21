@@ -1,0 +1,12 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const { spawnSync } = require('node:child_process');
+fs.mkdirSync('.tmp', { recursive: true });
+const schema = path.resolve('prisma/schema.prisma').replaceAll('\\', '/');
+fs.writeFileSync('.tmp/gym-contract-prisma.config.ts', `import { defineConfig } from 'prisma/config';\nexport default defineConfig({schema: ${JSON.stringify(schema)}, datasource: {url: 'postgresql://atlasfit_test@127.0.0.1:56432/atlasfit_gym_stabilization_20261001'}});\n`);
+const operation = process.argv[2] || 'generate';
+if (!['generate', 'validate'].includes(operation)) throw new Error('Operação inválida.');
+const environment = Object.fromEntries(Object.entries(process.env).filter(([key]) => /^(PATH|PATHEXT|SYSTEMROOT|WINDIR|TEMP|TMP|APPDATA|LOCALAPPDATA|USERPROFILE|COMSPEC|PROCESSOR_ARCHITECTURE)$/i.test(key)));
+environment.DATABASE_URL = 'postgresql://atlasfit_test@127.0.0.1:56432/atlasfit_gym_stabilization_20261001';
+const result = spawnSync(process.execPath, ['node_modules/prisma/build/index.js', operation, '--config', '.tmp/gym-contract-prisma.config.ts'], { env: environment, stdio: 'inherit' });
+process.exitCode = result.status ?? 1;

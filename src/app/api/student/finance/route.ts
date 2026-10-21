@@ -1,36 +1,53 @@
+import { withRequestMemo } from "@/lib/request-memo";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { getStudentWorkspaceMember } from "@/lib/student-auth";
+import { personalStudentBillingScope } from "@/lib/student-billing-scope";
+import { getGymStudentFinance } from "@/modules/workspaces/application/gym-student-finance";
+import { handleWorkspaceAccessError } from "@/modules/workspaces";
 import { AsaasAdapter } from "@/modules/payments/providers/asaas/asaas-adapter";
-import { StudentBillingStatus, LedgerEntryType, LedgerDirection } from "@prisma/client";
-import { publishToChannel } from "@/lib/ably";
+import { StudentBillingStatus } from "@prisma/client";
 import { enforceWalletRateLimit } from "@/modules/payments/security/wallet-security";
+import { webhookProcessor } from "@/modules/payments/webhooks/webhook-processor";
 
 const adapter = new AsaasAdapter();
 
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
   try {
     const session = await auth();
     if (!session?.user?.id) {
       return NextResponse.json({ error: "Não autorizado" }, { status: 401 });
     }
 
+    const studentMember = await getStudentWorkspaceMember(session.user.id);
+    if (!studentMember) return NextResponse.json({ error: "Selecione um vínculo estudantil ativo." }, { status: 409 });
+    if (studentMember.workspace.type === "GYM") {
+      const rawPage = new URL(req.url).searchParams.get("page") || "1";
+      if (!/^[1-9]\d{0,4}$/.test(rawPage)) return NextResponse.json({ error: "Página inválida." }, { status: 400 });
+      return NextResponse.json(await getGymStudentFinance(studentMember.workspaceId, studentMember.id, session.user.id, Number(rawPage)));
+    }
+
     // 1. Rate Limit Enforcement (Prevenção de sobrecarga em consultas externas ao Asaas)
-    const rateLimitResult = await enforceWalletRateLimit(req, "STUDENT_FINANCE_READ", session.user.id);
+    const rateLimitResult = await enforceWalletRateLimit(req, req.method === "POST" ? "WALLET_SYNC" : "STUDENT_FINANCE_READ", session.user.id);
     if (!rateLimitResult.allowed) {
       return rateLimitResult.response;
     }
 
     const studentUserId = session.user.id;
+    const billingScope = personalStudentBillingScope(studentUserId, studentMember.workspaceId, studentMember.workspace.ownerId);
 
+    if (req.method === "POST") {
     const studentPendingBillings = await prisma.studentBilling.findMany({
       where: {
-        studentUserId,
-        status: StudentBillingStatus.PENDING
+        ...billingScope,
+        status: { in: [StudentBillingStatus.PENDING, StudentBillingStatus.CONFIRMED, StudentBillingStatus.OVERDUE] }
       },
       include: {
-        account: true
-      }
+        account: { select: { providerAccountId: true } }
+      },
+      orderBy: [{ dueDate: "asc" }, { id: "asc" }],
+      take: 10
     });
 
     for (const billing of studentPendingBillings) {
@@ -44,85 +61,30 @@ export async function GET(req: NextRequest) {
         remotePayment &&
         ["RECEIVED", "CONFIRMED", "DUNNING_RECEIVED", "RECEIVED_IN_CASH"].includes(remotePayment.status)
       ) {
-        const isSettled = remotePayment.status === "RECEIVED" || remotePayment.status === "DUNNING_RECEIVED" || remotePayment.status === "RECEIVED_IN_CASH";
-        const newStatus = isSettled ? StudentBillingStatus.SETTLED : StudentBillingStatus.CONFIRMED;
-
-        await prisma.$transaction(async (tx) => {
-          await tx.studentBilling.update({
-            where: { id: billing.id },
-            data: {
-              status: newStatus,
-              confirmedAt: billing.confirmedAt || new Date(),
-              settledAt: isSettled ? new Date() : billing.settledAt,
-              paidAt: billing.paidAt || new Date()
-            }
-          });
-
-          await tx.walletLedgerEntry.upsert({
-            where: { idempotencyKey: `LEDGER_CONFIRM_${billing.id}_STUDENT_SYNC` },
-            create: {
-              providerAccountId: billing.providerAccountId,
-              billingId: billing.id,
-              idempotencyKey: `LEDGER_CONFIRM_${billing.id}_STUDENT_SYNC`,
-              type: isSettled ? LedgerEntryType.PAYMENT_SETTLED : LedgerEntryType.PAYMENT_CONFIRMED,
-              direction: LedgerDirection.CREDIT,
-              amountInCents: billing.personalNetEstimatedInCents,
-              occurredAt: new Date(),
-              description: `Pagamento sincronizado para ${billing.title}`
-            },
-            update: {}
-          });
-        });
-
-        const studentMember = await prisma.workspaceMember.findFirst({
-          where: { userId: studentUserId, role: "STUDENT" }
-        });
-
-        if (studentMember) {
-          await prisma.workspacePayment.updateMany({
-            where: {
-              workspaceId: studentMember.workspaceId,
-              status: "pendente"
-            },
-            data: { status: "pago" }
-          });
-
-          await publishToChannel(`workspace:${studentMember.workspaceId}`, "financial:updated", {
-            type: "FINANCIAL_PAYMENT_UPDATED",
-            workspaceId: studentMember.workspaceId,
-            billingId: billing.id,
-            timestamp: new Date().toISOString()
-          });
-        }
-
-        if (billing.account?.personalUserId) {
-          await publishToChannel(`user:${billing.account.personalUserId}`, "wallet:updated", {
-            type: "BALANCE_UPDATED",
-            billingId: billing.id,
-            timestamp: new Date().toISOString()
-          });
-        }
-
-        await publishToChannel(`user:${studentUserId}`, "wallet:updated", {
-          type: "BALANCE_UPDATED",
-          billingId: billing.id,
-          timestamp: new Date().toISOString()
-        });
+        await webhookProcessor.recordProviderPaymentSnapshot({ billingId: billing.id, providerAccountId: billing.providerAccountId, payment: remotePayment });
       }
     }
 
-    const studentMember = await prisma.workspaceMember.findFirst({
-      where: { userId: studentUserId, role: "STUDENT" },
-      include: { workspace: true }
-    });
+    }
 
+    const rawPage = new URL(req.url).searchParams.get("page") || "1";
+    if (!/^[1-9]\d{0,3}$/.test(rawPage) || Number(rawPage) > 1000) return NextResponse.json({ error: "Página inválida." }, { status: 400 });
+    const page = Number(rawPage);
     const billings = await prisma.studentBilling.findMany({
-      where: { studentUserId },
-      orderBy: { createdAt: "desc" }
+      where: billingScope,
+      select: { id: true, title: true, grossAmountInCents: true, dueDate: true, status: true, paymentMethod: true, pixPayloadEncrypted: true, hostedInvoiceUrl: true, paidAt: true, createdAt: true },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      take: 51, skip: (page - 1) * 50
     });
 
+    const statusTotals = await prisma.studentBilling.groupBy({ by: ["status"], where: billingScope, _sum: { grossAmountInCents: true }, _count: { _all: true } });
+    const sumStatuses = (statuses: string[]) => statusTotals.filter(row => statuses.includes(row.status)).reduce((sum, row) => sum + (row._sum.grossAmountInCents || BigInt(0)), BigInt(0)).toString();
+    const totals = { pendingInCents: sumStatuses(["PENDING", "OVERDUE", "CONFIRMED"]), paidInCents: sumStatuses(["SETTLED", "AVAILABLE"]) };
+    const hasMore = billings.length > 50;
+    if (hasMore) billings.pop();
+    const nextDue = await prisma.studentBilling.findFirst({ where: { ...billingScope, status: { in: ["PENDING", "OVERDUE", "CONFIRMED"] } }, orderBy: [{ dueDate: "asc" }, { id: "asc" }], select: { dueDate: true } });
     const pendingBillings = billings
-      .filter((b) => b.status === "PENDING" || b.status === "OVERDUE")
+      .filter((b) => b.status === "PENDING" || b.status === "OVERDUE" || b.status === "CONFIRMED")
       .map((b) => ({
         id: b.id,
         title: b.title,
@@ -135,7 +97,7 @@ export async function GET(req: NextRequest) {
       }));
 
     const paidBillings = billings
-      .filter((b) => b.status === "SETTLED" || b.status === "CONFIRMED")
+      .filter((b) => b.status === "SETTLED" || b.status === "AVAILABLE")
       .map((b) => ({
         id: b.id,
         title: b.title,
@@ -145,9 +107,7 @@ export async function GET(req: NextRequest) {
         hostedInvoiceUrl: b.hostedInvoiceUrl || undefined
       }));
 
-    const nextDueDate = pendingBillings.length > 0
-      ? pendingBillings[0].dueDate
-      : null;
+    const nextDueDate = nextDue?.dueDate.toISOString() || null;
 
     const activeRecurrence = studentMember && studentMember.billingIsActive && (studentMember.billingControlType === "AUTOMATIC" || studentMember.billingControlType === "CONFIRMATION" || (studentMember as any).billingSource === "ATLAS_PAY")
       ? {
@@ -172,10 +132,16 @@ export async function GET(req: NextRequest) {
       },
       activeRecurrence,
       pendingBillings,
+      totals,
+      pagination: { page, pageSize: 50, hasMore },
       paidBillings
     });
   } catch (err: unknown) {
+    const accessError = handleWorkspaceAccessError(err); if (accessError) return accessError;
     const msg = err instanceof Error ? err.message : "Erro ao buscar finanças do aluno";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
+
+export const POST = handleGET;

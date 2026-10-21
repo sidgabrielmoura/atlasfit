@@ -1,0 +1,248 @@
+{
+  "startedAt": "2026-10-14T11:39:40.685Z",
+  "readOnly": true,
+  "target": "CONFIGURED",
+  "targetFingerprint": "6686efe8f8b6de82ea731d3713ed8e828aa1f85233c4e05f9f10b00b41a6ac6c",
+  "relations": [
+    {
+      "table": "WorkspaceMember",
+      "field": "unitId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "WorkspaceMember",
+      "field": "assignedStaffId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "WorkoutLog",
+      "field": "workoutId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "Notification",
+      "field": "dispatchId",
+      "status": "SCHEMA_UNAVAILABLE",
+      "code": "42P01",
+      "applicableGymRecords": "0"
+    },
+    {
+      "table": "StudentBilling",
+      "field": "workspacePaymentId",
+      "status": "SCHEMA_UNAVAILABLE",
+      "code": "42703",
+      "applicableGymRecords": "0"
+    },
+    {
+      "table": "StudentBilling",
+      "field": "providerAccountId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "StudentBilling",
+      "field": "enrollmentId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "WorkspaceInvitation",
+      "field": "unitId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymStudentProfile",
+      "field": "memberId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymGuardian",
+      "field": "studentMemberId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymEnrollment",
+      "field": "studentMemberId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymEnrollment",
+      "field": "planVersionId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymEnrollment",
+      "field": "scheduledPlanVersionId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymEnrollment",
+      "field": "supersedesEnrollmentId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymEnrollment",
+      "field": "unitId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymEnrollment",
+      "field": "billingPayerGuardianId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymContractAcceptance",
+      "field": "enrollmentId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymEnrollmentEvent",
+      "field": "enrollmentId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymInvoice",
+      "field": "studentMemberId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymInvoice",
+      "field": "enrollmentId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymInvoice",
+      "field": "billingId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymPayment",
+      "field": "cashDrawerSessionId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymPayment",
+      "field": "financialAccountId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymFinancialAccount",
+      "field": "unitId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymAccountTransfer",
+      "field": "fromAccountId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymAccountTransfer",
+      "field": "toAccountId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymExpense",
+      "field": "unitId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymExpense",
+      "field": "supplierId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymExpense",
+      "field": "categoryId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymExpense",
+      "field": "financialAccountId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymCashDrawerSession",
+      "field": "unitId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymCashDrawerSession",
+      "field": "financialAccountId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "WorkspaceRoleGrant",
+      "field": "unitId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymPaymentAllocation",
+      "field": "invoiceId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymExpensePayment",
+      "field": "financialAccountId",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymInvoice",
+      "field": "identity",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymEnrollment",
+      "field": "identity",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymContractAcceptance",
+      "field": "identity",
+      "status": "READ",
+      "count": "0"
+    },
+    {
+      "table": "GymInvoiceItem",
+      "field": "planVersionId",
+      "status": "READ",
+      "count": "0"
+    }
+  ],
+  "gymWorkspaces": "1",
+  "success": true,
+  "readyToMigrate": false,
+  "finishedAt": "2026-10-14T11:39:53.829Z"
+}

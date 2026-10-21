@@ -1,9 +1,10 @@
+import { withRequestMemo } from "@/lib/request-memo";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { superadminCreateStatus } from "@/lib/roadmap/services";
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   try {
     const session = await auth();
     if (session?.user?.role !== "SUPERADMIN") {
@@ -26,6 +27,7 @@ export async function GET(req: Request) {
     return new NextResponse("Erro ao listar colunas", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 export async function POST(req: Request) {
   try {

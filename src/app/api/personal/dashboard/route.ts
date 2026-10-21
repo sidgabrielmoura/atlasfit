@@ -1,8 +1,14 @@
+import { personalTrainingSummary } from "@/lib/personal-training-summary";
+import { personalPaymentSummary } from "@/lib/personal-payment-summary";
+import { withRequestMemo } from "@/lib/request-memo";
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { requirePersonalWorkspaceAccess, handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado. Por favor, faça login.", { status: 401 });
@@ -16,64 +22,21 @@ export async function GET(req: Request) {
   }
 
   try {
-    const member = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        workspaceId,
-      },
-      include: {
-        workspace: true,
-      },
-    });
-
-    if (!member) {
-      return new NextResponse("Workspace não encontrado ou acesso não autorizado.", { status: 403 });
-    }
-
+    await requirePersonalWorkspaceAccess({ workspaceId, allowedRoles: ["OWNER", "MANAGER", "TRAINER", "ASSISTANT", "FINANCE"] });
     const now = new Date();
 
-    // 1. Fetch Student Members from Database
-    const studentMembers = await prisma.workspaceMember.findMany({
-      where: {
-        workspaceId,
-        role: "STUDENT",
-      },
-      include: {
-        user: true,
-      },
-    });
-
-    const totalActive = studentMembers.filter((m) => m.isActive).length;
-
-    // 2. Fetch Payments from Database (strictly real records, no seeding)
-    const payments = await prisma.workspacePayment.findMany({
-      where: { workspaceId },
-      orderBy: { createdAt: "desc" },
-    });
-
-    // 3. Compute MRR based on current month paid payments
-    const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-    const endOfCurrentMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59);
-
-    const paidCurrentMonthPayments = payments.filter(
-      (p) => p.status === "pago" && p.createdAt >= startOfCurrentMonth && p.createdAt <= endOfCurrentMonth
-    );
-    const mrr = paidCurrentMonthPayments.reduce((sum, p) => sum + p.amount, 0);
-
-    // 4. Calculate Average Ticket
-    const avgTicket = paidCurrentMonthPayments.length > 0
-      ? mrr / paidCurrentMonthPayments.length
-      : (payments.filter((p) => p.status === "pago").reduce((sum, p) => sum + p.amount, 0) / (payments.filter((p) => p.status === "pago").length || 1) || 0.0);
-
-    // 5. Calculate Churn / Inactive Students
-    const tenDaysAgo = new Date();
-    tenDaysAgo.setDate(tenDaysAgo.getDate() - 10);
-
-    const inactiveMembers = studentMembers.filter((m) => {
-      if (!m.lastActive) return true;
-      return m.lastActive < tenDaysAgo || !m.isActive;
-    });
-    const inactiveCount = inactiveMembers.length;
+    const tenDaysAgo = new Date(now.getTime() - 10 * 86400000);
+    const fiveDaysAgo = new Date(now.getTime() - 5 * 86400000);
+    const [students] = await prisma.$queryRaw<Array<{ total: number; active: number; inactive: number; risk: number; progress: number }>>`
+      SELECT count(*)::int AS total, count(*) FILTER (WHERE "isActive")::int AS active,
+        count(*) FILTER (WHERE "lastActive" IS NULL OR "lastActive"<${tenDaysAgo} OR NOT "isActive")::int AS inactive,
+        count(*) FILTER (WHERE "isActive" AND ("lastActive" IS NULL OR ("lastActive">${tenDaysAgo} AND "lastActive"<=${fiveDaysAgo})))::int AS risk,
+        COALESCE(avg(progress),0)::float8 AS progress FROM "WorkspaceMember" WHERE "workspaceId"=${workspaceId} AND role='STUDENT'
+    `;
+    const totalActive = students.active, inactiveCount = students.inactive, churnRiskCount = students.risk;
+    const completionRate = Math.round(students.progress), avgEvolution = completionRate;
+    const inactiveMembers = await prisma.workspaceMember.findMany({ where: { workspaceId, role: "STUDENT", OR: [{ lastActive: null }, { lastActive: { lt: tenDaysAgo } }, { isActive: false }] }, select: { id: true, lastActive: true, user: { select: { name: true } } }, orderBy: [{ lastActive: { sort: "asc", nulls: "first" } }, { id: "asc" }], take: 5 });
+    const { mrr, avgTicket, allTimeChurn: financialChurn, months } = await personalPaymentSummary(workspaceId, now);
 
     const formattedInactiveStudents = inactiveMembers.slice(0, 5).map((m) => {
       const days = m.lastActive
@@ -93,21 +56,9 @@ export async function GET(req: Request) {
       };
     });
 
-    const churnRiskCount = studentMembers.filter((m) => {
-      if (!m.isActive) return false;
-      if (!m.lastActive) return true;
-      const days = Math.floor((now.getTime() - m.lastActive.getTime()) / (1000 * 60 * 60 * 24));
-      return days >= 5 && days < 10;
-    }).length;
-
-    // 6. Plan Distribution from Database
+    const plans = await prisma.workspaceMember.groupBy({ by: ["plan"], where: { workspaceId, role: "STUDENT", isActive: true }, _count: { _all: true } });
     const plansCount: Record<string, number> = {};
-    studentMembers.forEach((m) => {
-      if (m.isActive) {
-        const planName = m.plan || "Mensal";
-        plansCount[planName] = (plansCount[planName] || 0) + 1;
-      }
-    });
+    for (const plan of plans) plansCount[plan.plan || "Mensal"] = (plansCount[plan.plan || "Mensal"] || 0) + plan._count._all;
 
     const planDistribution = Object.entries(plansCount).map(([plan, count], idx) => {
       let planPrice = 150;
@@ -123,35 +74,11 @@ export async function GET(req: Request) {
       };
     });
 
-    // 7. Monthly Revenue History
     const monthNames = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
-    const revenueHistory = [];
-    for (let i = 5; i >= 0; i--) {
-      const targetMonth = new Date(now.getFullYear(), now.getMonth() - i, 1);
-      const startOfMonth = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), 1);
-      const endOfMonth = new Date(targetMonth.getFullYear(), targetMonth.getMonth() + 1, 0, 23, 59, 59);
-
-      const currentSum = payments
-        .filter((p) => p.status === "pago" && p.createdAt >= startOfMonth && p.createdAt <= endOfMonth)
-        .reduce((sum, p) => sum + p.amount, 0);
-
-      const startOfPrevMonth = new Date(targetMonth.getFullYear(), targetMonth.getMonth() - 1, 1);
-      const endOfPrevMonth = new Date(targetMonth.getFullYear(), targetMonth.getMonth(), 0, 23, 59, 59);
-      const previousSum = payments
-        .filter((p) => p.status === "pago" && p.createdAt >= startOfPrevMonth && p.createdAt <= endOfPrevMonth)
-        .reduce((sum, p) => sum + p.amount, 0);
-
-      revenueHistory.push({
-        month: monthNames[targetMonth.getMonth()],
-        current: currentSum,
-        previous: previousSum,
-      });
-    }
+    const revenueHistory = months.slice(1).map((month, i) => ({ month: monthNames[month.start.getMonth()], current: month.revenue, previous: months[i].revenue }));
 
     // 8. Top Students based on streak and progress
-    const sortedStudents = [...studentMembers]
-      .sort((a, b) => b.streak - a.streak || b.progress - a.progress)
-      .slice(0, 5);
+    const sortedStudents = await prisma.workspaceMember.findMany({ where: { workspaceId, role: "STUDENT" }, select: { id: true, streak: true, progress: true, user: { select: { name: true } } }, orderBy: [{ streak: "desc" }, { progress: "desc" }, { id: "asc" }], take: 5 });
 
     const topStudentsWeek = sortedStudents.map((m, idx) => ({
       id: idx + 1,
@@ -167,21 +94,21 @@ export async function GET(req: Request) {
       where: { workspaceId },
       orderBy: { createdAt: "desc" },
       take: 5,
-      include: { student: true },
+      select: { id: true, createdAt: true, student: { select: { name: true } }, type: true },
     });
 
     const recentPhotos = await prisma.studentProgressPhoto.findMany({
       where: { workspaceId },
       orderBy: { createdAt: "desc" },
       take: 5,
-      include: { student: true },
+      select: { id: true, createdAt: true, student: { select: { name: true } } },
     });
 
     const recentProgLogs = await prisma.studentProgress.findMany({
       where: { workspaceId },
       orderBy: { createdAt: "desc" },
       take: 5,
-      include: { student: true },
+      select: { id: true, createdAt: true, student: { select: { name: true } }, weight: true },
     });
 
     interface UnifiedActivity {
@@ -262,244 +189,21 @@ export async function GET(req: Request) {
       }
     }
 
-    const completionRate = studentMembers.length > 0
-      ? Math.round(studentMembers.reduce((acc, m) => acc + m.progress, 0) / studentMembers.length)
-      : 0;
-
-    const avgEvolution = studentMembers.length > 0
-      ? Math.round(studentMembers.reduce((acc, m) => acc + m.progress, 0) / studentMembers.length)
-      : 0;
-    const financialChurn = payments.length > 0
-      ? parseFloat(((payments.filter((p) => p.status === "atrasado").length / payments.length) * 100).toFixed(1))
-      : 0.0;
-
-    // Fetch all workouts in this workspace to map workoutExerciseId to exercise name
-    const workspaceWorkouts = await prisma.workout.findMany({
-      where: { workspaceId },
-      include: {
-        exercises: {
-          include: {
-            exercise: true,
-          },
-        },
-      },
-    });
-
-    const exerciseNameMap: Record<string, string> = {};
-    workspaceWorkouts.forEach((w) => {
-      w.exercises.forEach((we) => {
-        exerciseNameMap[we.id] = we.exercise.name;
-      });
-    });
-
-    // Fetch all-time completed workout logs for this workspace to calculate effort perception, PRs, and frequency
-    const allWorkspaceLogs = await prisma.workoutLog.findMany({
-      where: { workspaceId },
-      include: {
-        student: {
-          select: {
-            name: true,
-          },
-        },
-      },
-      orderBy: {
-        createdAt: "desc",
-      },
-    });
-
-    // Calculate dynamic Perception of Effort (trainingFeedback)
-    const feedbackCounts = {
-      1: 0,
-      2: 0,
-      3: 0,
-      4: 0,
-      5: 0,
-    };
-
-    allWorkspaceLogs.forEach((log: any) => {
-      if (log.effortScore >= 1 && log.effortScore <= 5) {
-        feedbackCounts[log.effortScore as 1 | 2 | 3 | 4 | 5]++;
-      }
-    });
-
-    const trainingFeedback = [
-      { difficulty: "Muito Fácil", count: feedbackCounts[1], fill: "var(--chart-5)" },
-      { difficulty: "Fácil", count: feedbackCounts[2], fill: "var(--chart-4)" },
-      { difficulty: "Adequado", count: feedbackCounts[3], fill: "var(--chart-1)" },
-      { difficulty: "Difícil", count: feedbackCounts[4], fill: "var(--chart-2)" },
-      { difficulty: "Muito Difícil", count: feedbackCounts[5], fill: "var(--chart-3)" },
-    ];
-
-    // Calculate dynamic Load Evolution (Evolução de Cargas) over last 6 weeks
-    const weeksData = [
-      { label: "Sem 1", start: new Date(now.getTime() - 42 * 24 * 60 * 60 * 1000), end: new Date(now.getTime() - 35 * 24 * 60 * 60 * 1000) },
-      { label: "Sem 2", start: new Date(now.getTime() - 35 * 24 * 60 * 60 * 1000), end: new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000) },
-      { label: "Sem 3", start: new Date(now.getTime() - 28 * 24 * 60 * 60 * 1000), end: new Date(now.getTime() - 21 * 24 * 60 * 60 * 1000) },
-      { label: "Sem 4", start: new Date(now.getTime() - 21 * 24 * 60 * 60 * 1000), end: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000) },
-      { label: "Sem 5", start: new Date(now.getTime() - 14 * 24 * 60 * 60 * 1000), end: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000) },
-      { label: "Sem 6", start: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000), end: now },
-    ];
-
-    const startOf6Weeks = new Date(now.getTime() - 42 * 24 * 60 * 60 * 1000);
-    const dbWorkoutLogs = allWorkspaceLogs.filter((log) => log.createdAt >= startOf6Weeks);
-
-    const calculatedLoadEvolution = weeksData.map((week) => {
-      let totalWeightInWeek = 0;
-      let weightCountInWeek = 0;
-
-      const weekLogs = dbWorkoutLogs.filter(
-        (log: any) => log.createdAt >= week.start && log.createdAt < week.end
-      );
-
-      weekLogs.forEach((log: any) => {
-        if (log.loads && typeof log.loads === "object") {
-          const loadsRecord = log.loads as Record<string, any>;
-          for (const exerciseId in loadsRecord) {
-            const exerciseLoads = loadsRecord[exerciseId];
-            if (Array.isArray(exerciseLoads)) {
-              exerciseLoads.forEach((loadVal: any) => {
-                const parsed = parseFloat(loadVal);
-                if (!isNaN(parsed) && parsed > 0) {
-                  totalWeightInWeek += parsed;
-                  weightCountInWeek++;
-                }
-              });
-            }
-          }
-        }
-      });
-
-      const avgLoad = weightCountInWeek > 0 ? Math.round(totalWeightInWeek / weightCountInWeek) : 0;
-      return {
-        week: week.label,
-        avg: avgLoad,
-      };
-    });
-
-    const activeWeeks = calculatedLoadEvolution.filter((w) => w.avg > 0);
-    const hasRealLoads = activeWeeks.length > 0;
-
-    let loadEvolution: { week: string; avg: number; benchmark: number }[] = [];
-
-    if (hasRealLoads) {
-      const overallAvg = activeWeeks.reduce((acc, w) => acc + w.avg, 0) / activeWeeks.length;
-      loadEvolution = calculatedLoadEvolution.map((w, index) => {
-        const benchmarkVal = Math.round(overallAvg * (0.88 + index * 0.02));
-        return {
-          week: w.week,
-          avg: w.avg,
-          benchmark: benchmarkVal,
-        };
-      });
-    } else {
-      loadEvolution = [];
-    }
-
-    // Calculate dynamic Personal Records (PRs)
-    interface PRRecord {
-      studentId: string;
-      studentName: string;
-      exerciseName: string;
-      maxLoad: number;
-      date: string;
-    }
-
-    const prsMap: Record<string, PRRecord> = {};
-
-    allWorkspaceLogs.forEach((log: any) => {
-      if (log.loads && typeof log.loads === "object") {
-        const loadsRecord = log.loads as Record<string, any>;
-        const studentName = log.student?.name || "Aluno";
-        const logDateStr = `${log.createdAt.getDate().toString().padStart(2, "0")}/${(log.createdAt.getMonth() + 1).toString().padStart(2, "0")}`;
-
-        for (const weId in loadsRecord) {
-          const exerciseName = exerciseNameMap[weId];
-          if (!exerciseName) continue;
-
-          const exerciseLoads = loadsRecord[weId];
-          if (Array.isArray(exerciseLoads)) {
-            let maxInLog = 0;
-            exerciseLoads.forEach((loadVal: any) => {
-              const parsed = parseFloat(loadVal);
-              if (!isNaN(parsed) && parsed > 0) {
-                maxInLog = parsed;
-              }
-            });
-
-            if (maxInLog > 0) {
-              const key = `${log.studentId}_${exerciseName}`;
-              if (!prsMap[key] || prsMap[key].maxLoad < maxInLog) {
-                prsMap[key] = {
-                  studentId: log.studentId,
-                  studentName,
-                  exerciseName,
-                  maxLoad: maxInLog,
-                  date: logDateStr,
-                };
-              }
-            }
-          }
-        }
-      }
-    });
-
-    const prsList = Object.values(prsMap);
-    prsList.sort((a, b) => b.maxLoad - a.maxLoad);
-
-    const personalRecords = prsList.slice(0, 3).map((pr, idx) => {
-      const previousBestVal = Math.round(pr.maxLoad * 0.9);
-      return {
-        id: idx + 1,
-        student: pr.studentName,
-        exercise: pr.exerciseName,
-        value: `${pr.maxLoad}kg`,
-        date: pr.date,
-        previousBest: `${previousBestVal}kg`,
-        avatarFallback: pr.studentName ? pr.studentName.split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2) : "AL",
-      };
-    });
-
-    // Calculate dynamic weekly frequency check-ins for the current week
-    const startOfWeek = new Date(now);
-    const currentDay = now.getDay();
-    const distanceToMonday = currentDay === 0 ? -6 : 1 - currentDay;
-    startOfWeek.setDate(now.getDate() + distanceToMonday);
-    startOfWeek.setHours(0, 0, 0, 0);
-
-    const currentWeekLogs = allWorkspaceLogs.filter((log: any) => log.createdAt >= startOfWeek);
-
-    const weekdayCounts = {
-      Seg: 0,
-      Ter: 0,
-      Qua: 0,
-      Qui: 0,
-      Sex: 0,
-      Sáb: 0,
-      Dom: 0,
-    };
-
-    const daysMap = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-
-    currentWeekLogs.forEach((log: any) => {
-      const logDayIndex = log.createdAt.getDay();
-      const logDayName = daysMap[logDayIndex] as keyof typeof weekdayCounts;
-      weekdayCounts[logDayName]++;
-    });
-
-    const weeklyFrequencyData = [
-      { day: "Seg", count: weekdayCounts["Seg"] },
-      { day: "Ter", count: weekdayCounts["Ter"] },
-      { day: "Qua", count: weekdayCounts["Qua"] },
-      { day: "Qui", count: weekdayCounts["Qui"] },
-      { day: "Sex", count: weekdayCounts["Sex"] },
-      { day: "Sáb", count: weekdayCounts["Sáb"] },
-      { day: "Dom", count: weekdayCounts["Dom"] },
-    ];
+    const training = await personalTrainingSummary(workspaceId, now);
+    const labels = ["Muito Fácil", "Fácil", "Adequado", "Difícil", "Muito Difícil"];
+    const trainingFeedback = labels.map((difficulty, i) => ({ difficulty, count: training.feedback.find(row => row.effortScore === i + 1)?._count._all || 0, fill: `var(--chart-${[5,4,1,2,3][i]})` }));
+    const evolution = Array.from({ length: 6 }, (_, i) => ({ week: `Sem ${i + 1}`, avg: training.evolution.find(row => row.week === i)?.average || 0 }));
+    const activeWeeks = evolution.filter(row => row.avg > 0);
+    const overallAvg = activeWeeks.reduce((sum, row) => sum + row.avg, 0) / (activeWeeks.length || 1);
+    const loadEvolution = activeWeeks.length ? evolution.map((row, i) => ({ ...row, benchmark: Math.round(overallAvg * (0.88 + i * 0.02)) })) : [];
+    const personalRecords = training.records.map((record, i) => ({ id: i + 1, student: record.studentName, exercise: record.exerciseName, value: `${record.maxLoad}kg`, date: `${String(record.date.getDate()).padStart(2, "0")}/${String(record.date.getMonth() + 1).padStart(2, "0")}`, previousBest: `${Math.round(record.maxLoad * 0.9)}kg`, avatarFallback: record.studentName.split(" ").map(name => name[0]).join("").toUpperCase().slice(0, 2) }));
+    const days = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
+    const weeklyFrequencyData = [1,2,3,4,5,6,0].map(day => ({ day: days[day], count: training.frequency.find(row => row.day === day)?.count || 0 }));
 
     const trainingConsistency = {
       overall: completionRate,
       trending: "up" as const,
-      weeklyData: studentMembers.length > 0 ? [
+      weeklyData: students.total > 0 ? [
         { week: "Sem 1", rate: Math.max(0, completionRate - 8) },
         { week: "Sem 2", rate: Math.max(0, completionRate - 5) },
         { week: "Sem 3", rate: Math.max(0, completionRate - 3) },
@@ -547,7 +251,10 @@ export async function GET(req: Request) {
 
     return NextResponse.json(payload);
   } catch (error) {
+    const access = handleWorkspaceAccessError(error);
+    if (access) return access;
     console.error("Dashboard API Error:", error);
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);

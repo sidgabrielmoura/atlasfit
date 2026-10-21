@@ -111,23 +111,21 @@ export class LegalAcceptanceService {
    * Fetches active published document by type
    */
   static async getActiveDocument(type: LegalDocumentType) {
-    let doc = await prisma.legalDocument.findFirst({
+    const now = new Date();
+    const query = {
       where: {
         type,
         status: LegalDocumentStatus.PUBLISHED,
+        publishedAt: { lte: now },
+        effectiveAt: { lte: now },
       },
-      orderBy: { publishedAt: "desc" },
-    });
+      orderBy: [{ effectiveAt: "desc" as const }, { publishedAt: "desc" as const }, { id: "desc" as const }],
+    };
+    let doc = await prisma.legalDocument.findFirst(query);
 
     if (!doc) {
       await this.seedInitialDocuments();
-      doc = await prisma.legalDocument.findFirst({
-        where: {
-          type,
-          status: LegalDocumentStatus.PUBLISHED,
-        },
-        orderBy: { publishedAt: "desc" },
-      });
+      doc = await prisma.legalDocument.findFirst(query);
     }
 
     return doc;
@@ -145,8 +143,20 @@ export class LegalAcceptanceService {
     userAgent?: string | null;
     source?: string;
     workspaceId?: string | null;
+    representedUserId?: string | null;
+    representationRole?: string | null;
   }) {
-    const { userId, documentType, acceptanceType = LegalAcceptanceType.TERMS_ACCEPTED, ipAddress, userAgent, source, workspaceId } = params;
+    const {
+      userId,
+      documentType,
+      acceptanceType = LegalAcceptanceType.TERMS_ACCEPTED,
+      ipAddress,
+      userAgent,
+      source,
+      workspaceId,
+      representedUserId,
+      representationRole,
+    } = params;
 
     let doc = params.documentVersion
       ? await prisma.legalDocument.findUnique({
@@ -171,6 +181,8 @@ export class LegalAcceptanceService {
     return prisma.legalAcceptance.create({
       data: {
         userId,
+        representedUserId: representedUserId || null,
+        representationRole: representationRole || null,
         documentId: doc.id,
         documentType: doc.type,
         documentVersion: doc.version,
@@ -206,6 +218,9 @@ export class LegalAcceptanceService {
           userId,
           documentType: LegalDocumentType.TERMS,
           documentVersion: activeTerms.version,
+          documentId: activeTerms.id,
+          documentHash: activeTerms.contentHash,
+          representedUserId: null,
         },
         orderBy: { acceptedAt: "desc" },
       });
@@ -228,6 +243,9 @@ export class LegalAcceptanceService {
           userId,
           documentType: LegalDocumentType.PRIVACY,
           documentVersion: activePrivacy.version,
+          documentId: activePrivacy.id,
+          documentHash: activePrivacy.contentHash,
+          representedUserId: null,
         },
         orderBy: { acceptedAt: "desc" },
       });

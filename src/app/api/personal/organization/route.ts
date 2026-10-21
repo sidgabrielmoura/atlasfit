@@ -1,17 +1,18 @@
+import { withRequestMemo } from "@/lib/request-memo";
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { batchVerifyAndDecayStreaks } from "@/lib/streak-helper";
 import { NotificationService } from "@/lib/notifications/service";
+import {
+  requirePersonalWorkspaceAccess as requireWorkspaceAccess,
+  handleWorkspaceAccessError,
+} from "@/modules/workspaces";
 
-
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return new NextResponse("Não autorizado. Por favor, faça login.", { status: 401 });
-    }
-
     const { searchParams } = new URL(req.url);
     const workspaceId = searchParams.get("workspaceId");
 
@@ -19,19 +20,13 @@ export async function GET(req: Request) {
       return new NextResponse("O ID do workspace é obrigatório.", { status: 400 });
     }
 
-    const memberCheck = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        workspaceId,
-      },
+    const context = await requireWorkspaceAccess({
+      workspaceId,
+      anyCapability: ["students.read", "workspace.manage", "reports.operational"],
     });
 
-    if (!memberCheck) {
-      return new NextResponse("Acesso negado a este workspace.", { status: 403 });
-    }
-
     // Verify and decay streaks in batch before loading dashboard stats
-    await batchVerifyAndDecayStreaks(workspaceId);
+    await batchVerifyAndDecayStreaks(context.workspaceId);
 
     const pendingStudents = await prisma.pendingStudent.findMany({
       where: { workspaceId },
@@ -275,18 +270,18 @@ export async function GET(req: Request) {
       intelligentStudentsList,
     });
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error);
+    if (accessError) return accessError;
+
     console.error("GET organization operational metrics error:", error);
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 export async function POST(req: Request) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return new NextResponse("Não autorizado", { status: 401 });
-    }
-
     const body = await req.json();
     const { workspaceId, title, time, type, date, studentId } = body;
 
@@ -294,16 +289,10 @@ export async function POST(req: Request) {
       return new NextResponse("Campos obrigatórios ausentes", { status: 400 });
     }
 
-    const memberCheck = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        workspaceId,
-      },
+    const context = await requireWorkspaceAccess({
+      workspaceId,
+      anyCapability: ["workouts.manage.assigned", "workspace.manage"],
     });
-
-    if (!memberCheck) {
-      return new NextResponse("Acesso negado", { status: 403 });
-    }
 
     const nowLocal = new Date(Date.now() - 3 * 60 * 60 * 1000);
     const todayStr = nowLocal.toISOString().split("T")[0];
@@ -313,7 +302,7 @@ export async function POST(req: Request) {
 
     const newTask = await prisma.trainerTask.create({
       data: {
-        workspaceId,
+        workspaceId: context.workspaceId,
         title,
         time,
         type,
@@ -339,18 +328,17 @@ export async function POST(req: Request) {
 
     return NextResponse.json(newTask);
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error);
+    if (accessError) return accessError;
+
     console.error("POST trainer task error:", error);
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
 }
 
 export async function PATCH(req: Request) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return new NextResponse("Não autorizado", { status: 401 });
-    }
-
     const body = await req.json();
     const { taskId, workspaceId, completed, title, time, type, date, studentId } = body;
 
@@ -358,19 +346,25 @@ export async function PATCH(req: Request) {
       return new NextResponse("ID da tarefa e ID do workspace são obrigatórios", { status: 400 });
     }
 
-    const memberCheck = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        workspaceId,
-      },
+    const context = await requireWorkspaceAccess({
+      workspaceId,
+      anyCapability: ["workouts.manage.assigned", "workspace.manage"],
     });
-
-    if (!memberCheck) {
-      return new NextResponse("Acesso negado", { status: 403 });
-    }
 
     if (taskId.startsWith("lead_task_")) {
       const cleanTaskId = taskId.replace("lead_task_", "");
+      // Chained ID validation: verify lead task belongs to this verified workspace
+      const leadTask = await prisma.leadTask.findFirst({
+        where: {
+          id: cleanTaskId,
+          lead: { workspaceId: context.workspaceId },
+        },
+      });
+
+      if (!leadTask) {
+        return new NextResponse("Tarefa não encontrada neste workspace.", { status: 404 });
+      }
+
       const updateData: any = {};
       if (typeof completed === "boolean") {
         updateData.status = completed ? "COMPLETED" : "PENDING";
@@ -387,7 +381,7 @@ export async function PATCH(req: Request) {
       });
       return NextResponse.json({
         id: `lead_task_${updatedLeadTask.id}`,
-        workspaceId,
+        workspaceId: context.workspaceId,
         title: updatedLeadTask.title,
         time: updatedLeadTask.time || "09:00",
         type: "crm_tarefa",
@@ -420,25 +414,24 @@ export async function PATCH(req: Request) {
     const updatedTask = await prisma.trainerTask.update({
       where: {
         id: taskId,
-        workspaceId,
+        workspaceId: context.workspaceId,
       },
       data: updateData,
     });
 
     return NextResponse.json(updatedTask);
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error);
+    if (accessError) return accessError;
+
     console.error("PATCH trainer task error:", error);
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
 }
 
 export async function DELETE(req: Request) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   try {
-    const session = await auth();
-    if (!session?.user?.id) {
-      return new NextResponse("Não autorizado", { status: 401 });
-    }
-
     const { searchParams } = new URL(req.url);
     const taskId = searchParams.get("taskId");
     const workspaceId = searchParams.get("workspaceId");
@@ -447,19 +440,25 @@ export async function DELETE(req: Request) {
       return new NextResponse("Campos obrigatórios ausentes", { status: 400 });
     }
 
-    const memberCheck = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        workspaceId,
-      },
+    const context = await requireWorkspaceAccess({
+      workspaceId,
+      anyCapability: ["workouts.manage.assigned", "workspace.manage"],
     });
-
-    if (!memberCheck) {
-      return new NextResponse("Acesso negado", { status: 403 });
-    }
 
     if (taskId.startsWith("lead_task_")) {
       const cleanTaskId = taskId.replace("lead_task_", "");
+      // Chained ID validation: verify lead task belongs to this verified workspace
+      const leadTask = await prisma.leadTask.findFirst({
+        where: {
+          id: cleanTaskId,
+          lead: { workspaceId: context.workspaceId },
+        },
+      });
+
+      if (!leadTask) {
+        return new NextResponse("Tarefa não encontrada neste workspace.", { status: 404 });
+      }
+
       await prisma.leadTask.delete({
         where: {
           id: cleanTaskId,
@@ -468,15 +467,30 @@ export async function DELETE(req: Request) {
       return NextResponse.json({ success: true });
     }
 
+    // Verify task belongs to this workspace
+    const trainerTask = await prisma.trainerTask.findFirst({
+      where: {
+        id: taskId,
+        workspaceId: context.workspaceId,
+      },
+    });
+
+    if (!trainerTask) {
+      return new NextResponse("Tarefa não encontrada neste workspace.", { status: 404 });
+    }
+
     await prisma.trainerTask.delete({
       where: {
         id: taskId,
-        workspaceId,
+        workspaceId: context.workspaceId,
       },
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error);
+    if (accessError) return accessError;
+
     console.error("DELETE trainer task error:", error);
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }

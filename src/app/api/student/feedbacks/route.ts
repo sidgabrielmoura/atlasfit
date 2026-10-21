@@ -1,10 +1,16 @@
+import { withRequestMemo } from "@/lib/request-memo";
+import { saveGymDailyFeedback } from "@/modules/workspaces/application/gym-student-health-events";
+import { readPrivacyJsonRequest } from "@/lib/privacy/request-body";
+import { authorizeGymStudent } from "@/modules/workspaces/application/student-authority";
+import { handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
+import { getStudentWorkspaceMember } from "@/lib/student-auth";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { NotificationService } from "@/lib/notifications/service";
 
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado. Por favor, faça login.", { status: 401 });
@@ -14,13 +20,7 @@ export async function GET(req: Request) {
 
   try {
     // 1. Fetch active workspace member details to get workspaceId
-    const member = await prisma.workspaceMember.findFirst({
-      where: {
-        userId,
-        role: "STUDENT",
-        isActive: true,
-      },
-    });
+    const member = await getStudentWorkspaceMember(userId);
 
     if (!member) {
       return NextResponse.json({
@@ -32,6 +32,7 @@ export async function GET(req: Request) {
     }
 
     const workspaceId = member.workspaceId;
+    if (member.workspace.type === "GYM") await authorizeGymStudent(workspaceId, member.id, session.user.id, req.method === "GET" ? "workouts.read" : "workouts.manage.assigned", { allowSelf: true });
 
     // 2. Check if a feedback was logged today
     const now = new Date();
@@ -131,10 +132,12 @@ export async function GET(req: Request) {
       recentObservations,
     });
   } catch (error) {
-    console.error("GET student feedbacks error:", error);
+    const denied = handleWorkspaceAccessError(error); if (denied) return denied;
+    console.error("GET student feedbacks error:", { errorType: error instanceof Error ? error.name : "UnknownError" });
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 export async function POST(req: Request) {
   const session = await auth();
@@ -145,14 +148,15 @@ export async function POST(req: Request) {
   const userId = session.user.id;
 
   try {
-    const body = await req.json();
-    const { energy, fatigue, humor } = body;
+    const body = await readPrivacyJsonRequest(req, 4096);
+    if (!body || typeof body !== "object" || Array.isArray(body)) return new NextResponse("Feedback inválido.", { status: 400 });
+    const { energy, fatigue, humor } = body as Record<string, unknown>;
 
     // Validation
     if (
-      typeof energy !== "number" ||
-      typeof fatigue !== "number" ||
-      typeof humor !== "number" ||
+      typeof energy !== "number" || !Number.isFinite(energy) ||
+      typeof fatigue !== "number" || !Number.isFinite(fatigue) ||
+      typeof humor !== "number" || !Number.isFinite(humor) ||
       energy < 0 ||
       energy > 100 ||
       fatigue < 0 ||
@@ -164,13 +168,7 @@ export async function POST(req: Request) {
     }
 
     // Resolve student's workspaceId
-    const member = await prisma.workspaceMember.findFirst({
-      where: {
-        userId,
-        role: "STUDENT",
-        isActive: true,
-      },
-    });
+    const member = await getStudentWorkspaceMember(userId);
 
     if (!member) {
       return new NextResponse("Inscrição de aluno não encontrada ou inativa neste workspace.", {
@@ -179,6 +177,9 @@ export async function POST(req: Request) {
     }
 
     const workspaceId = member.workspaceId;
+    if (member.workspace.type === "GYM") await authorizeGymStudent(workspaceId, member.id, session.user.id, req.method === "GET" ? "workouts.read" : "workouts.manage.assigned", { allowSelf: true });
+
+    if (member.workspace.type === "GYM") return NextResponse.json(await saveGymDailyFeedback(workspaceId, member.id, userId, { energy, fatigue, humor }));
 
     // Notify personal trainer about daily feedback
     const workspace = await prisma.workspace.findUnique({
@@ -240,7 +241,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ success: true, created, action: "create" });
     }
   } catch (error) {
-    console.error("POST student feedback error:", error);
+    const denied = handleWorkspaceAccessError(error); if (denied) return denied;
+    console.error("POST student feedback error:", { errorType: error instanceof Error ? error.name : "UnknownError" });
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
 }

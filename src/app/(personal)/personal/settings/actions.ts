@@ -1,8 +1,10 @@
 "use server";
 
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
 import { slugify } from "@/lib/utils";
+import { updateWorkspaceBranding } from "@/modules/workspaces/application/branding-service";
 
 export async function updateProfile(data: {
   name: string;
@@ -17,6 +19,7 @@ export async function updateProfile(data: {
   experience?: string;
   cref?: string;
 }) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) throw new Error("Selecione sua assessoria própria para editar o perfil.");
   const session = await auth();
   if (!session || !session.user || !session.user.id) {
     throw new Error("Não autorizado");
@@ -31,8 +34,8 @@ export async function updateProfile(data: {
     where: { id: session.user.id },
     data: {
       name: data.name,
-      image: data.image || null,
-      imageKey: data.imageKey || null,
+      image: data.image?.startsWith("/api/user/avatar?") ? undefined : data.image || null,
+      imageKey: data.image?.startsWith("/api/user/avatar?") ? undefined : data.imageKey || null,
       specialty: data.specialty || null,
       bio: data.bio || null,
       whatsapp: data.whatsapp || null,
@@ -42,6 +45,7 @@ export async function updateProfile(data: {
       experience: data.experience || null,
       cref: data.cref || null,
     },
+    select: { id: true, name: true, image: true, imageKey: true, specialty: true, bio: true, whatsapp: true, instagram: true, linkedin: true, city: true, experience: true, cref: true },
   });
 
   // Se o nome do treinador mudou, sincroniza o workspace caso o slug ainda refletisse o nome antigo
@@ -53,6 +57,7 @@ export async function updateProfile(data: {
       const ownedWorkspace = await prisma.workspace.findFirst({
         where: {
           ownerId: session.user.id,
+          type: "PERSONAL",
           slug: oldSlug,
         },
       });
@@ -93,104 +98,13 @@ export async function updateBrandSettings(
     workoutCoverKey?: string | null;
   }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) throw new Error("Selecione sua assessoria própria para editar a marca.");
   const session = await auth();
-  if (!session || !session.user || !session.user.id) {
-    throw new Error("Não autorizado");
-  }
-
-  const isSuperAdminOrImpersonated =
-    session.user.role === "SUPERADMIN" ||
-    (session.user as any).isImpersonated === true;
-
-  if (!isSuperAdminOrImpersonated) {
-    const member = await prisma.workspaceMember.findFirst({
-      where: {
-        workspaceId,
-        userId: session.user.id,
-        role: { in: ["OWNER", "TRAINER", "ASSISTANT"] },
-      },
-    });
-
-    if (!member) {
-      throw new Error("Permissão negada. Apenas administradores e proprietários podem alterar a marca.");
-    }
-  }
-
-  // Obter workspace atual para verificar o slug
-  const currentWorkspace = await prisma.workspace.findUnique({
-    where: { id: workspaceId },
+  if (!session?.user?.id) throw new Error('Não autorizado.');
+  const workspace = await updateWorkspaceBranding(workspaceId, session.user.id, 'PERSONAL', {
+    ...data,
+    slug: data.slug?.trim() ? slugify(data.slug.trim()) : undefined,
+    primaryColor: data.primaryColor?.trim() || '#2B4FCC',
   });
-
-  if (!currentWorkspace) {
-    throw new Error("Workspace não encontrado.");
-  }
-
-  // Determinar novo slug se fornecido ou se o nome mudou
-  let finalSlug = currentWorkspace.slug;
-  if (data.slug && data.slug.trim()) {
-    const candidateSlug = slugify(data.slug.trim());
-    if (candidateSlug && candidateSlug !== currentWorkspace.slug) {
-      const existing = await prisma.workspace.findFirst({
-        where: {
-          slug: candidateSlug,
-          id: { not: workspaceId },
-        },
-      });
-      if (existing) {
-        throw new Error(`O link/slug "${candidateSlug}" já está em uso por outro profissional. Por favor, escolha outro.`);
-      }
-      finalSlug = candidateSlug;
-    }
-  }
-
-  const updatedWorkspace = await prisma.workspace.update({
-    where: { id: workspaceId },
-    data: {
-      name: data.name.trim(),
-      slug: finalSlug,
-      slogan: data.slogan?.trim() || null,
-      primaryColor: data.primaryColor?.trim() || "#2B4FCC",
-      logoUrl: data.logoUrl?.trim() || null,
-      logoKey: data.logoKey || null,
-      watermarkUrl: data.watermarkUrl?.trim() || null,
-      watermarkKey: data.watermarkKey || null,
-      workoutCoverUrl: data.workoutCoverUrl?.trim() || null,
-      workoutCoverKey: data.workoutCoverKey || null,
-    },
-  });
-
-  await prisma.auditLog.create({
-    data: {
-      userId: session.user.id,
-      action: "WORKSPACE_UPDATE",
-      entity: "WORKSPACE",
-      entityId: workspaceId,
-      severity: "success",
-    },
-  });
-
-  const logo = updatedWorkspace.name
-    .split(" ")
-    .map((w) => w[0])
-    .join("")
-    .slice(0, 2)
-    .toUpperCase();
-
-  return {
-    success: true,
-    workspace: {
-      id: updatedWorkspace.id,
-      name: updatedWorkspace.name,
-      slug: updatedWorkspace.slug,
-      logo,
-      logoUrl: updatedWorkspace.logoUrl,
-      logoKey: updatedWorkspace.logoKey,
-      primaryColor: updatedWorkspace.primaryColor || "#2B4FCC",
-      slogan: updatedWorkspace.slogan,
-      watermarkUrl: updatedWorkspace.watermarkUrl,
-      watermarkKey: updatedWorkspace.watermarkKey,
-      workoutCoverUrl: updatedWorkspace.workoutCoverUrl,
-      workoutCoverKey: updatedWorkspace.workoutCoverKey,
-    },
-  };
+  return { success: true, workspace };
 }

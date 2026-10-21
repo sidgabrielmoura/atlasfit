@@ -1,28 +1,46 @@
 "use client";
 
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { ChevronRight, Plus, LogOut, Flame } from "lucide-react";
-import Link from "next/link";
+import { Badge } from "@/components/ui/badge";
+import {
+  ChevronRight,
+  Plus,
+  LogOut,
+  Flame,
+  Building2,
+  Dumbbell,
+  ShieldCheck,
+  Loader2,
+  MapPin,
+} from "lucide-react";
 import Image from "next/image";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { signOut } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { workspaceActions } from "@/stores/workspace.store";
+import { selectActiveWorkspace } from "@/modules/workspaces/application/actions";
+import { toast } from "sonner";
 
-interface WorkspaceProps {
+interface WorkspaceItem {
   id: string;
   name: string;
   slug: string;
+  type: "PERSONAL" | "GYM";
   logo: string;
   logoUrl?: string | null;
   primaryColor: string;
   plan: string;
+  roles: string[];
+  unitsCount: number;
+  defaultRoute: string;
 }
 
 interface SelectWorkspaceClientProps {
-  workspaces: WorkspaceProps[];
+  workspaces: WorkspaceItem[];
+  preferredWorkspaceId?: string | null;
   user: {
     name?: string | null;
     email?: string | null;
@@ -30,37 +48,76 @@ interface SelectWorkspaceClientProps {
   };
 }
 
-export default function SelectWorkspaceClient({ workspaces, user }: SelectWorkspaceClientProps) {
+const ROLE_LABELS: Record<string, string> = {
+  OWNER: "Titular / Dono",
+  MANAGER: "Gerente",
+  RECEPTIONIST: "Recepção",
+  FINANCE: "Financeiro",
+  TRAINER: "Treinador / Professor",
+  ASSISTANT: "Assistente",
+  STUDENT: "Aluno",
+};
+
+export default function SelectWorkspaceClient({ workspaces, user, preferredWorkspaceId }: SelectWorkspaceClientProps) {
   const router = useRouter();
+  const [selectingId, setSelectingId] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+  useEffect(() => { setReady(true); }, []);
+  const attemptedAutomaticSelection = useRef(false);
 
   const userInitials = user.name
     ? user.name
-      .split(" ")
-      .map((n) => n[0])
-      .join("")
-      .slice(0, 2)
-      .toUpperCase()
+        .split(" ")
+        .map((n) => n[0])
+        .join("")
+        .slice(0, 2)
+        .toUpperCase()
     : "U";
 
   const handleLogout = async () => {
+    workspaceActions.clear();
     await signOut({ callbackUrl: "/auth/student" });
   };
 
-  const handleSelectWorkspace = (workspace: WorkspaceProps) => {
-    // 1. Set active workspace cookie for Server-side parsing
-    document.cookie = `student_active_workspace_id=${workspace.id}; path=/; max-age=31536000; SameSite=Lax`;
+  const handleSelectWorkspace = async (workspace: WorkspaceItem) => {
+    if (selectingId) return;
 
-    // 2. Set active workspace inside Valtio client store
-    workspaceActions.setWorkspaces(workspaces);
-    workspaceActions.setActiveWorkspace(workspace);
+    setSelectingId(workspace.id);
+    const toastId = toast.loading(`Acessando ${workspace.name}...`);
 
-    // 3. Redirect to dashboard
-    router.push("/dashboard");
+    try {
+      const res = await selectActiveWorkspace(workspace.id);
+      if (res?.error) {
+        toast.error(res.error, { id: toastId });
+        setSelectingId(null);
+        return;
+      }
+
+      // Update local Valtio store
+      workspaceActions.setWorkspaces(workspaces);
+      if (res.workspace) workspaceActions.setActiveWorkspace(res.workspace);
+
+      toast.success("Workspace selecionado com sucesso!", { id: toastId });
+      router.push(res.defaultRoute || workspace.defaultRoute || "/dashboard");
+      router.refresh();
+    } catch (err) {
+      console.error("Erro ao selecionar workspace:", err);
+      toast.error("Ocorreu um erro ao selecionar o workspace. Tente novamente.", { id: toastId });
+      setSelectingId(null);
+    }
   };
+
+  useEffect(() => {
+    const preferred = workspaces.find(workspace => workspace.id === preferredWorkspaceId);
+    if ((preferred || workspaces.length === 1) && !attemptedAutomaticSelection.current) {
+      attemptedAutomaticSelection.current = true;
+      void handleSelectWorkspace(preferred || workspaces[0]);
+    }
+  }, [workspaces, preferredWorkspaceId]);
 
   return (
     <div className="min-h-screen bg-background flex flex-col items-center justify-center relative overflow-hidden">
-      {/* Background Orbs */}
+      {/* Ambient backgrounds */}
       <div className="absolute top-0 left-0 w-full h-full pointer-events-none overflow-hidden">
         <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-primary/10 rounded-full blur-[120px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-blue-500/10 rounded-full blur-[120px]" />
@@ -84,10 +141,10 @@ export default function SelectWorkspaceClient({ workspaces, user }: SelectWorksp
           </motion.div>
           <div className="space-y-2">
             <h1 className="text-3xl md:text-5xl font-extrabold tracking-tight">
-              Bem-vindo, <span className="text-primary">{user.name?.split(" ")[0] || "Aluno"}</span>
+              Bem-vindo, <span className="text-primary">{user.name?.split(" ")[0] || "Usuário"}</span>
             </h1>
-            <p className="text-muted-foreground text-lg max-w-md mx-auto">
-              Selecione em qual assessoria você deseja entrar agora para gerenciar seus treinos.
+            <p className="text-muted-foreground text-lg max-w-lg mx-auto">
+              Selecione em qual espaço ou academia você deseja operar neste momento.
             </p>
           </div>
         </div>
@@ -102,9 +159,9 @@ export default function SelectWorkspaceClient({ workspaces, user }: SelectWorksp
               <Flame className="size-8 opacity-40" />
             </div>
             <div className="space-y-2">
-              <h3 className="text-xl font-bold">Nenhuma assessoria vinculada</h3>
+              <h3 className="text-xl font-bold">Nenhum workspace vinculado</h3>
               <p className="text-sm text-muted-foreground">
-                Sua conta ainda não está associada a nenhuma assessoria ou personal trainer ativo. Entre em contato com seu treinador.
+                Sua conta ainda não está associada a nenhuma assessoria ou academia ativa. Entre em contato com seu gestor ou treinador.
               </p>
             </div>
             <Button onClick={handleLogout} variant="outline" className="w-full">
@@ -112,74 +169,126 @@ export default function SelectWorkspaceClient({ workspaces, user }: SelectWorksp
             </Button>
           </motion.div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 max-w-4xl mx-auto">
-            {workspaces.map((workspace, index) => (
-              <motion.div
-                key={workspace.id}
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: index * 0.1 }}
-              >
-                <div
-                  onClick={() => handleSelectWorkspace(workspace)}
-                  className="h-full cursor-pointer"
-                >
-                  <Card className="h-full hover:border-primary/50 transition-all duration-300 group hover:bg-primary/5 overflow-hidden border-border/50 bg-card/50 backdrop-blur-sm flex flex-col">
-                    <CardContent className="p-6 flex flex-row md:flex-col items-center md:items-start gap-4 md:gap-6 flex-1">
-                      <div
-                        className="flex aspect-square size-14 md:size-16 items-center justify-center rounded-2xl text-white font-bold text-xl md:text-2xl shadow-md transition-transform group-hover:scale-110 duration-300 overflow-hidden"
-                        style={{ backgroundColor: workspace.primaryColor }}
-                      >
-                        {workspace.logoUrl ? (
-                          <img
-                            src={workspace.logoUrl}
-                            alt={workspace.name}
-                            className="size-full object-cover"
-                          />
-                        ) : (
-                          workspace.logo
-                        )}
-                      </div>
-                      <div className="flex-1 min-w-0 md:w-full">
-                        <p className="font-bold text-xl truncate group-hover:text-primary transition-colors">
-                          {workspace.name}
-                        </p>
-                        <div className="flex items-center gap-2 mt-1">
-                          <span className="text-xs text-muted-foreground uppercase tracking-widest font-bold">
-                            Plano {workspace.plan}
-                          </span>
-                        </div>
-                      </div>
-                      <div className="hidden md:flex items-center gap-2 text-primary font-semibold text-sm opacity-0 group-hover:opacity-100 transition-opacity mt-auto pt-4">
-                        Acessar Workspace <ChevronRight className="size-4" />
-                      </div>
-                      <ChevronRight className="md:hidden size-5 text-muted-foreground group-hover:text-primary group-hover:translate-x-1 transition-all" />
-                    </CardContent>
-                  </Card>
-                </div>
-              </motion.div>
-            ))}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 max-w-5xl mx-auto">
+            {workspaces.map((workspace, index) => {
+              const isSelected = selectingId === workspace.id;
+              const isGym = workspace.type === "GYM";
 
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: workspaces.length * 0.1 }}
-            >
-              <Button variant="outline" className="w-full h-full min-h-[120px] md:min-h-[160px] border-dashed rounded-2xl gap-2 text-muted-foreground hover:text-primary hover:border-primary/50 hover:bg-primary/5 transition-all group flex-col p-6">
-                <div className="p-3 rounded-full bg-secondary group-hover:bg-primary/10 transition-colors">
-                  <Plus className="size-6" />
-                </div>
-                <span className="font-semibold">Entrar em outra assessoria</span>
-              </Button>
-            </motion.div>
+              return (
+                <motion.div
+                  key={workspace.id}
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: index * 0.08 }}
+                >
+                  <div
+                    role="button"
+                    tabIndex={!ready || selectingId ? -1 : 0}
+                    aria-label={`Acessar ${workspace.name}`}
+                    aria-disabled={!ready || Boolean(selectingId)}
+                    onKeyDown={event => { if ((event.key === "Enter" || event.key === " ") && ready && !selectingId) { event.preventDefault(); void handleSelectWorkspace(workspace); } }}
+                    onClick={() => ready && !selectingId && handleSelectWorkspace(workspace)}
+                    className={`h-full cursor-pointer transition-all ${
+                      selectingId && !isSelected ? "opacity-50 pointer-events-none" : ""
+                    }`}
+                  >
+                    <Card className={`h-full transition-all duration-300 group overflow-hidden border-border/50 bg-card/60 backdrop-blur-sm flex flex-col hover:border-primary/50 hover:shadow-lg hover:shadow-primary/5 ${
+                      isSelected ? "border-primary ring-2 ring-primary/20" : ""
+                    }`}>
+                      <CardContent className="p-6 flex flex-col gap-4 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <div
+                            className="flex aspect-square size-14 items-center justify-center rounded-2xl text-white font-bold text-xl shadow-md transition-transform group-hover:scale-105 duration-300 overflow-hidden shrink-0"
+                            style={{ backgroundColor: workspace.primaryColor }}
+                          >
+                            {workspace.logoUrl ? (
+                              <img
+                                src={workspace.logoUrl}
+                                alt={workspace.name}
+                                className="size-full object-cover"
+                              />
+                            ) : (
+                              workspace.logo
+                            )}
+                          </div>
+
+                          <div className="flex flex-col items-end gap-1">
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full flex items-center gap-1 ${
+                                isGym
+                                  ? "bg-purple-500/10 text-purple-600 dark:text-purple-400 border-purple-500/20"
+                                  : "bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20"
+                              }`}
+                            >
+                              {isGym ? (
+                                <>
+                                  <Building2 className="size-3" /> Academia
+                                </>
+                              ) : (
+                                <>
+                                  <Dumbbell className="size-3" /> Personal
+                                </>
+                              )}
+                            </Badge>
+
+                            {isGym && workspace.unitsCount > 0 && (
+                              <span className="text-[10px] text-muted-foreground flex items-center gap-0.5 font-medium">
+                                <MapPin className="size-2.5" /> {workspace.unitsCount} {workspace.unitsCount === 1 ? "unidade" : "unidades"}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="space-y-1.5 flex-1 min-w-0">
+                          <p className="font-bold text-lg truncate group-hover:text-primary transition-colors">
+                            {workspace.name}
+                          </p>
+                          <div className="flex flex-wrap gap-1">
+                            {workspace.roles.map((role) => (
+                              <span
+                                key={role}
+                                className="text-[10px] font-semibold text-muted-foreground bg-secondary/80 px-2 py-0.5 rounded-md"
+                              >
+                                {ROLE_LABELS[role] || role}
+                              </span>
+                            ))}
+                          </div>
+                        </div>
+
+                        <div className="pt-3 border-t border-border/40 flex items-center justify-between text-xs text-muted-foreground">
+                          <span className="font-medium text-[11px] truncate max-w-[150px]">
+                            {workspace.plan}
+                          </span>
+
+                          <div className="flex items-center gap-1 font-semibold text-primary text-xs">
+                            {isSelected ? (
+                              <>
+                                <Loader2 className="size-3.5 animate-spin" /> Entrando...
+                              </>
+                            ) : (
+                              <>
+                                Acessar <ChevronRight className="size-3.5 group-hover:translate-x-0.5 transition-transform" />
+                              </>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  </div>
+                </motion.div>
+              );
+            })}
           </div>
         )}
 
-        <div className="max-w-4xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6 pt-12 mt-12 border-t border-border/50">
+        <div className="max-w-5xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-6 pt-10 mt-10 border-t border-border/50">
           <div className="flex items-center gap-3">
             <Avatar className="size-10 border border-border/50">
               <AvatarImage src={user.image || ""} />
-              <AvatarFallback className="bg-secondary text-secondary-foreground text-xs font-bold">{userInitials}</AvatarFallback>
+              <AvatarFallback className="bg-secondary text-secondary-foreground text-xs font-bold">
+                {userInitials}
+              </AvatarFallback>
             </Avatar>
             <div className="text-left">
               <p className="text-sm font-semibold">{user.email}</p>
@@ -189,10 +298,10 @@ export default function SelectWorkspaceClient({ workspaces, user }: SelectWorksp
           <Button
             onClick={handleLogout}
             variant="ghost"
-            size="icon"
-            className="rounded-full text-muted-foreground hover:text-destructive transition-colors"
+            className="text-muted-foreground hover:text-destructive transition-colors gap-2"
           >
-            <LogOut className="size-5" />
+            <LogOut className="size-4" />
+            <span>Sair da conta</span>
           </Button>
         </div>
       </div>

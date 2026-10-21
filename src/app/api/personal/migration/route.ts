@@ -1,3 +1,9 @@
+import { uploadImportSource } from "@/lib/migration/source-upload";
+import { IMPORT_LIMITS } from "@/lib/migration/config/limits";
+import { withRequestMemo } from "@/lib/request-memo";
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
+import { assertPersonalImportJobAccess } from "@/lib/migration/access";
+import { requirePersonalWorkspaceAccess, handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
@@ -8,6 +14,7 @@ import { calculateTextSha256 } from "@/lib/migration/upload.service";
 const AI_MIGRATION_ENABLED = process.env.AI_MIGRATION_ENABLED !== "false";
 
 export async function POST(req: Request) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   if (!AI_MIGRATION_ENABLED) {
     return new NextResponse("Funcionalidade de migração desabilitada temporariamente.", { status: 403 });
   }
@@ -18,6 +25,8 @@ export async function POST(req: Request) {
   }
 
   try {
+    const requestSize = Number(req.headers.get("content-length") || "0");
+    if (requestSize > IMPORT_LIMITS.maxBatchSize + 1024 * 1024) return new NextResponse("Fontes acima do limite permitido.", { status: 413 });
     let workspaceId: string | undefined;
     let sourcePlatform: string | undefined;
     let rawText: string | undefined;
@@ -42,17 +51,7 @@ export async function POST(req: Request) {
       return new NextResponse("workspaceId é obrigatório.", { status: 400 });
     }
 
-    const member = await prisma.workspaceMember.findFirst({
-      where: {
-        userId: session.user.id,
-        workspaceId,
-        role: { in: ["OWNER", "TRAINER"] },
-      },
-    });
-
-    if (!member) {
-      return new NextResponse("Acesso negado a este workspace.", { status: 403 });
-    }
+    await requirePersonalWorkspaceAccess({ workspaceId, capability: "students.manage" });
 
     const quota = await checkImportQuota(workspaceId, session.user.id);
 
@@ -67,7 +66,8 @@ export async function POST(req: Request) {
       );
     }
 
-    const storageQuota = await checkStorageQuota(workspaceId, session.user.id, 5 * 1024 * 1024);
+    if ((rawText?.length || 0) > IMPORT_LIMITS.maxTextLength || files.length > IMPORT_LIMITS.maxImagesPerJob || files.reduce((sum, file) => sum + file.size, 0) > IMPORT_LIMITS.maxBatchSize) return new NextResponse("Fontes acima do limite permitido.", { status: 413 });
+    const storageQuota = await checkStorageQuota(workspaceId, session.user.id, files.reduce((sum, file) => sum + file.size, 0));
     if (!storageQuota.allowed) {
       return NextResponse.json(
         {
@@ -103,48 +103,21 @@ export async function POST(req: Request) {
       });
     }
 
-    // Save File Sources if provided
-    for (const file of files) {
-      const buffer = Buffer.from(await file.arrayBuffer());
-      const ext = file.name.split(".").pop()?.toLowerCase();
-
-      let type: "SPREADSHEET" | "PDF" | "IMAGE" | "TEXT" = "TEXT";
-      if (["csv", "xlsx", "xls"].includes(ext || "")) type = "SPREADSHEET";
-      else if (ext === "pdf") type = "PDF";
-      else if (["jpg", "jpeg", "png", "webp"].includes(ext || "")) type = "IMAGE";
-
-      let textContent: string | undefined = undefined;
-      if (type === "SPREADSHEET" && ext === "xlsx") {
-        textContent = `BASE64_XLSX:${buffer.toString("base64")}`;
-      } else if (type === "PDF" || type === "IMAGE") {
-        const mimeType = file.type || (type === "PDF" ? "application/pdf" : "image/png");
-        textContent = `BASE64_FILE:${mimeType}:${buffer.toString("base64")}`;
-      } else {
-        textContent = buffer.toString("utf-8");
-      }
-
-      await prisma.importSource.create({
-        data: {
-          importJobId: job.id,
-          type,
-          status: "PENDING",
-          originalName: file.name,
-          sizeBytes: file.size,
-          textContent,
-        },
-      });
-    }
+    for (let index = 0; index < files.length; index++) await uploadImportSource(files[index], job.id, workspaceId, index);
 
     await consumeImportQuota(workspaceId, session.user.id, quota.source);
 
     return NextResponse.json({ ...job, jobId: job.id, quota }, { status: 201 });
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
+
     console.error("[POST /api/personal/migration] Error:", error);
     return new NextResponse("Erro interno ao criar job de migração.", { status: 500 });
   }
 }
 
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -158,21 +131,7 @@ export async function GET(req: Request) {
   }
 
   try {
-    // Auto-recover/fail any job stuck in PROCESSING or IMPORTING for over 2 minutes
-    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000);
-    await prisma.importJob.updateMany({
-      where: {
-        workspaceId,
-        status: { in: ["PROCESSING", "IMPORTING"] },
-        updatedAt: { lt: twoMinutesAgo },
-      },
-      data: {
-        status: "FAILED",
-        processingStep: "IDLE",
-        errorCode: "TIMEOUT_EXCEEDED",
-        safeErrorMessage: "O processamento anterior foi interrompido. Clique em 'Tentar Novamente' para reprocessar com o novo modelo.",
-      },
-    });
+    await requirePersonalWorkspaceAccess({ workspaceId, capability: "students.manage" });
 
     const jobs = await prisma.importJob.findMany({
       where: {
@@ -185,7 +144,10 @@ export async function GET(req: Request) {
     });
 
     return NextResponse.json(jobs);
-  } catch {
+  } catch (error) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
+
     return new NextResponse("Erro ao listar jobs de migração.", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);

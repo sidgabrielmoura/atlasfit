@@ -1,0 +1,1 @@
+require('./gym-check-runner.cjs')('session-http', ['--config', 'vitest.gym-http.config.ts', '-t', 'HTTP sessão global e suporte|impersonação mantém executor|sessão de suporte não registra|conta existente exige login próprio|aprovação, novo aceite|HTTP portal do responsável'], { GYM_HTTP_ORIGIN: 'http://127.0.0.1:31173' });

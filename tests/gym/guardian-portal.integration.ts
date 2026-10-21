@@ -1,0 +1,114 @@
+import { randomUUID } from "node:crypto";
+import { afterAll, describe, expect, it } from "vitest";
+import prisma from "@/lib/prisma";
+import { getGuardianFinance, listGuardianDependents } from "@/modules/workspaces/application/guardian-portal";
+import { getGuardianLegalDocument, recordGuardianLegalAcceptance } from "@/modules/workspaces/application/guardian-legal-commands";
+import { getGymStudentFinance } from "@/modules/workspaces/application/gym-student-finance";
+import { guardianDependentSchema } from "@/modules/workspaces/domain/guardian-portal";
+import { gymStatementSchema } from "@/modules/workspaces/domain/gym-statement";
+import { calculateDocumentHash } from "@/lib/privacy/legal-acceptance.service";
+import { reportCalendarRange } from "@/modules/workspaces/domain/gym-report-calendar";
+import { reportDateBoundary } from "@/modules/workspaces/domain/gym-report-metrics";
+
+const database = new URL(process.env.DATABASE_URL || "http://invalid");
+if (database.hostname !== "127.0.0.1" || database.port !== "56432" || database.pathname !== "/atlasfit_gym_stabilization_20261001") throw new Error("Exige PostgreSQL descartável específico.");
+afterAll(async () => prisma.$disconnect());
+async function fixture() {
+  const owner = await prisma.user.create({ data: {} });
+  const parent = await prisma.user.create({ data: { cpfCnpj: "12345678909", birthDate: new Date("1990-01-15"), password: "segredo-parent-nao-exportar", medicalConditions: "saude-global-nao-exportar" } });
+  const student = await prisma.user.create({ data: { name: "Dependente sintético", birthDate: new Date("2013-01-15"), medicalConditions: "saude-global-aluno-nao-exportar" } });
+  const workspace = await prisma.workspace.create({ data: { subscription: { create: { status: "ACTIVE", maxStaff: 30, maxUnits: 5 } }, ownerId: owner.id, type: "GYM", name: "Portal sintético", slug: randomUUID(), settings: { create: { timezone: "America/New_York" } } } });
+  const unit = await prisma.gymUnit.create({ data: { workspaceId: workspace.id, name: "Unidade" } });
+  const member = await prisma.workspaceMember.create({ data: { workspaceId: workspace.id, userId: student.id, role: "STUDENT", unitId: unit.id, isMinor: false, studentProfile: { create: { medicalClearance: true } }, roleGrants: { create: { role: "STUDENT", unitId: unit.id } } } });
+  const guardian = await prisma.gymGuardian.create({ data: { workspaceId: workspace.id, studentMemberId: member.id, guardianUserId: parent.id, cpf: parent.cpfCnpj!, name: "Responsável", phone: "11900000000", relationship: "MAE", isFinancialResponsible: false, hasHealthAccess: false, verifiedAt: new Date() } });
+  return { owner, parent, student, workspace, unit, member, guardian };
+}
+describe("GYM PostgreSQL — portal do responsável", () => {
+  it("usa idade atual e poderes independentes; revogação, unidade, identidade e maioridade retiram o acesso", async () => {
+    const f = await fixture();
+    const rows = await listGuardianDependents(f.parent.id); expect(rows).toHaveLength(1);
+    expect(guardianDependentSchema.parse(rows[0])).toMatchObject({ student: { isMinor: true, medicalClearance: null }, powers: { isLegalRepresentative: true, isFinancialResponsible: false } });
+    await expect(getGuardianFinance(f.guardian.id, f.parent.id, { workspaceId: f.workspace.id })).rejects.toMatchObject({ statusCode: 403 });
+    await prisma.gymGuardian.update({ where: { id: f.guardian.id }, data: { isLegalRepresentative: false, isFinancialResponsible: true } });
+    expect((await listGuardianDependents(f.parent.id))[0]).toMatchObject({ contracts: [], student: { birthDate: null, age: undefined, medicalClearance: null, notes: null } });
+    await expect(getGuardianLegalDocument(f.workspace.id, f.guardian.id, f.parent.id, "TERMS")).rejects.toMatchObject({ statusCode: 403 });
+    expect((await getGuardianFinance(f.guardian.id, f.parent.id, { workspaceId: f.workspace.id })).invoices).toEqual([]);
+    expect(JSON.stringify(await listGuardianDependents(f.parent.id))).not.toMatch(/segredo-parent|saude-global|12345678909|verificationNotes|password|cpf/);
+    for (const invalid of [{ page: "0" }, { page: "1x" }, { page: "10001" }, { userId: f.student.id }]) await expect(getGuardianFinance(f.guardian.id, f.parent.id, { workspaceId: f.workspace.id, ...invalid })).rejects.toMatchObject({ statusCode: 400 });
+    await expect(getGuardianFinance(f.guardian.id, f.owner.id, { workspaceId: f.workspace.id })).rejects.toMatchObject({ statusCode: 403 });
+    await prisma.workspaceRoleGrant.updateMany({ where: { memberId: f.member.id }, data: { revokedAt: new Date() } });
+    expect(await listGuardianDependents(f.parent.id)).toEqual([]);
+    await expect(getGuardianFinance(f.guardian.id, f.parent.id, { workspaceId: f.workspace.id })).rejects.toMatchObject({ statusCode: 403 });
+    await prisma.workspaceRoleGrant.updateMany({ where: { memberId: f.member.id }, data: { revokedAt: null } });
+    await prisma.gymUnit.update({ where: { id: f.unit.id }, data: { isActive: false } });
+    expect(await listGuardianDependents(f.parent.id)).toEqual([]);
+    await prisma.gymUnit.update({ where: { id: f.unit.id }, data: { isActive: true } });
+    await prisma.user.update({ where: { id: f.parent.id }, data: { cpfCnpj: "52998224725" } });
+    expect(await listGuardianDependents(f.parent.id)).toEqual([]);
+    await prisma.user.update({ where: { id: f.parent.id }, data: { cpfCnpj: "12345678909" } });
+    await prisma.user.update({ where: { id: f.student.id }, data: { birthDate: new Date("1990-01-15") } });
+    expect(await listGuardianDependents(f.parent.id)).toEqual([]);
+    await expect(getGuardianFinance(f.guardian.id, f.parent.id, { workspaceId: f.workspace.id })).rejects.toMatchObject({ statusCode: 403 });
+    expect(await prisma.gymGuardian.count({ where: { id: f.guardian.id } })).toBe(1); // History is preserved, no implicit mutation.
+  });
+
+  it("financeiro mostra saldo parcial e reversão em centavos exatos, exclui dados estrangeiros e usa dia civil", async () => {
+    const f = await fixture();
+    await prisma.gymGuardian.update({ where: { id: f.guardian.id }, data: { isFinancialResponsible: true } });
+    const today = reportCalendarRange(new Date(), "America/New_York", "7d").endDate;
+    const midnight = reportDateBoundary(today, "America/New_York", false);
+    const invoice = async (dueDate: Date, amount: bigint, balance: bigint, status: "OPEN" | "PARTIALLY_PAID" | "CANCELLED" = "OPEN") => prisma.gymInvoice.create({ data: { workspaceId: f.workspace.id, studentMemberId: f.member.id, studentUserId: f.student.id, invoiceNumber: randomUUID(), title: "Obrigação sintética", dueDate, subtotalInCents: amount, totalInCents: amount, balanceRemainingInCents: balance, status, payerName: "Nome-nao-exportar", payerCpfCnpj: "Documento-nao-exportar", createdByUserId: f.owner.id } });
+    const current = await invoice(midnight, BigInt("9007199254740993"), BigInt("9007199254740993"));
+    const partial = await invoice(new Date(midnight.getTime() - 1000), BigInt(1000), BigInt(600), "PARTIALLY_PAID");
+    await invoice(new Date(midnight.getTime() - 1000), BigInt(99000), BigInt(99000), "CANCELLED");
+    const payment = async (amount: bigint, status: "CONFIRMED" | "REVERSED", allocationStatus: "ACTIVE" | "REVERSED") => prisma.gymPayment.create({ data: { workspaceId: f.workspace.id, paymentNumber: randomUUID(), receiptNumber: randomUUID(), idempotencyKey: randomUUID(), amountInCents: amount, paymentMethod: "BANK_TRANSFER_MANUAL", receivedByUserId: f.owner.id, payerName: "Pagador-nao-exportar", status, ...(status === "REVERSED" ? { reversedAt: new Date() } : {}), allocations: { create: { invoiceId: partial.id, allocatedAmountInCents: amount, status: allocationStatus } } } });
+    await payment(BigInt(400), "CONFIRMED", "ACTIVE"); await payment(BigInt(200), "REVERSED", "REVERSED");
+    const other = await prisma.workspace.create({ data: { ownerId: f.owner.id, type: "GYM", name: "Outro controlador", slug: randomUUID() } });
+    const alienMember = await prisma.workspaceMember.create({ data: { workspaceId: other.id, userId: f.student.id, role: "STUDENT" } });
+    const alienPlan = await prisma.gymPlan.create({ data: { workspaceId: other.id, name: "Plano estrangeiro" } });
+    const version = await prisma.gymPlanVersion.create({ data: { planId: alienPlan.id, name: alienPlan.name, priceInCents: BigInt(990000), termsText: "Outro" } });
+    const alienEnrollment = await prisma.gymEnrollment.create({ data: { workspaceId: other.id, studentMemberId: alienMember.id, planVersionId: version.id, priceInCents: version.priceInCents } });
+    const invalid = await invoice(midnight, BigInt(990000), BigInt(990000));
+    await prisma.gymInvoice.update({ where: { id: invalid.id }, data: { enrollmentId: alienEnrollment.id } });
+    await prisma.gymPayment.create({ data: { workspaceId: other.id, paymentNumber: randomUUID(), receiptNumber: `Recibo-estrangeiro-nao-exportar-${randomUUID()}`, idempotencyKey: randomUUID(), amountInCents: BigInt(9999), paymentMethod: "BANK_TRANSFER_MANUAL", payerName: "Outro", receivedByUserId: f.owner.id, allocations: { create: { invoiceId: partial.id, allocatedAmountInCents: BigInt(9999) } } } });
+    const statement = gymStatementSchema.parse(await getGuardianFinance(f.guardian.id, f.parent.id, { workspaceId: f.workspace.id }));
+    expect(statement.totals).toEqual({ outstandingInCents: "9007199254741593", overdueInCents: "600", receivedInCents: "400" });
+    expect(statement.invoices.find(row => row.id === current.id)?.overdue).toBe(false);
+    expect(statement.invoices.find(row => row.id === partial.id)).toMatchObject({ overdue: true, balanceInCents: "600", receipts: expect.arrayContaining([expect.objectContaining({ amountInCents: "200", reversed: true })]) });
+    expect(statement.pagination.total).toBe(3);
+    expect(JSON.stringify(statement)).not.toMatch(/Recibo-estrangeiro|Pagador-nao-exportar|Documento-nao-exportar|payer|idempotency|fingerprint/);
+    const own = await getGymStudentFinance(f.workspace.id, f.member.id, f.student.id);
+    expect(own.totals).toEqual(statement.totals);
+    await prisma.gymInvoice.createMany({ data: Array.from({ length: 28 }, () => ({ workspaceId: f.workspace.id, studentMemberId: f.member.id, studentUserId: f.student.id, invoiceNumber: randomUUID(), title: "Histórico paginado sintético", dueDate: midnight, subtotalInCents: BigInt(1), totalInCents: BigInt(1), balanceRemainingInCents: BigInt(1), payerName: "Pagador", createdByUserId: f.owner.id })) });
+    const page1 = await getGuardianFinance(f.guardian.id, f.parent.id, { workspaceId: f.workspace.id });
+    const page2 = await getGuardianFinance(f.guardian.id, f.parent.id, { workspaceId: f.workspace.id, page: 2 });
+    expect(page1.pagination).toEqual({ page: 1, limit: 30, total: 31, totalPages: 2 });
+    expect(page1.invoices).toHaveLength(30); expect(page2.invoices).toHaveLength(1);
+    expect(page1.invoices.map(row => row.id)).not.toContain(page2.invoices[0].id);
+    await prisma.workspace.update({ where: { id: f.workspace.id }, data: { isActive: false } });
+    await expect(getGuardianFinance(f.guardian.id, f.parent.id, { workspaceId: f.workspace.id })).rejects.toMatchObject({ statusCode: 403 });
+  });
+
+  it("recusa documento alterado com o mesmo ID e registra ciência de privacidade idempotente sem ativar contrato", async () => {
+    const f = await fixture();
+    const content = "Política sintética apenas para teste de representação.";
+    const document = await prisma.legalDocument.create({ data: { type: "PRIVACY", title: "Privacidade sintética", version: randomUUID(), content, contentHash: calculateDocumentHash(content), status: "PUBLISHED", publishedAt: new Date(), effectiveAt: new Date() } });
+    const shown = await getGuardianLegalDocument(f.workspace.id, f.guardian.id, f.parent.id, "PRIVACY");
+    expect(shown).toMatchObject({ id: document.id, documentHash: document.contentHash, acceptedAt: null });
+    const input = { workspaceId: f.workspace.id, guardianId: f.guardian.id, guardianUserId: f.parent.id, documentType: "PRIVACY", documentId: shown.id, documentHash: shown.documentHash, accepted: true };
+    await expect(recordGuardianLegalAcceptance({ ...input, documentHash: undefined })).rejects.toMatchObject({ statusCode: 400 });
+    const changed = content + " Conteúdo revisado sintético.";
+    await prisma.legalDocument.update({ where: { id: document.id }, data: { content: changed, contentHash: calculateDocumentHash(changed) } });
+    await expect(recordGuardianLegalAcceptance(input)).rejects.toMatchObject({ statusCode: 409 });
+    expect(await prisma.legalAcceptance.count({ where: { workspaceId: f.workspace.id } })).toBe(0);
+    const reloaded = await getGuardianLegalDocument(f.workspace.id, f.guardian.id, f.parent.id, "PRIVACY");
+    const results = await Promise.all([recordGuardianLegalAcceptance({ ...input, documentHash: reloaded.documentHash }), recordGuardianLegalAcceptance({ ...input, documentHash: reloaded.documentHash })]);
+    expect(results[0].id).toBe(results[1].id);
+    expect(await prisma.legalAcceptance.findUnique({ where: { id: results[0].id } })).toMatchObject({ acceptanceType: "PRIVACY_ACKNOWLEDGED", representedUserId: f.student.id, documentHash: reloaded.documentHash });
+    expect((await getGuardianLegalDocument(f.workspace.id, f.guardian.id, f.parent.id, "PRIVACY")).acceptedAt).not.toBeNull();
+    expect(await prisma.gymEnrollment.count({ where: { workspaceId: f.workspace.id } })).toBe(0);
+    expect(await prisma.gymInvoice.count({ where: { workspaceId: f.workspace.id } })).toBe(0);
+    await prisma.gymGuardian.update({ where: { id: f.guardian.id }, data: { revokedAt: new Date() } });
+    await expect(recordGuardianLegalAcceptance({ ...input, documentHash: reloaded.documentHash })).rejects.toMatchObject({ statusCode: 403 });
+  });
+});

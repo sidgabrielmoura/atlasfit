@@ -1,4 +1,13 @@
-import { PrismaClient, GlobalRole, WorkspaceRole } from "@prisma/client";
+import {
+  PrismaClient,
+  GlobalRole,
+  WorkspaceRole,
+  WorkspaceType,
+  GymBillingCycle,
+  GymEnrollmentStatus,
+  GymCashDrawerStatus,
+  GymCashMovementType,
+} from "@prisma/client";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { Pool } from "pg";
 import bcrypt from "bcryptjs";
@@ -23,7 +32,6 @@ async function main() {
   await prisma.plan.deleteMany();
   await prisma.user.deleteMany();
 
-  // 1. Create SuperAdmin
   const hashedPassword = await bcrypt.hash("admin123", 10);
   const superAdmin = await prisma.user.create({
     data: {
@@ -34,7 +42,6 @@ async function main() {
     },
   });
 
-  // 2. Create Plans
   const starterPlan = await prisma.plan.create({
     data: {
       name: "Starter",
@@ -48,12 +55,12 @@ async function main() {
     data: {
       name: "Professional",
       price: 299.0,
+
       features: "Alunos ilimitados, Suporte Prioritário, White Label, Dashboards Avançados",
       maxWorkspaces: 5,
     },
   });
 
-  // 3. Create Users (Trainers)
   const trainer1 = await prisma.user.create({
     data: {
       name: "Ricardo Silva",
@@ -286,7 +293,7 @@ async function main() {
 
   // 9. Create Transactions
   const oneDay = 24 * 60 * 60 * 1000;
-  
+
   // Create Approved Transactions
   const approvedTxData = [
     { userId: trainer1.id, amount: 299.0, status: "APPROVED", paymentMethod: "CREDIT_CARD", description: "Assinatura Pro - Ciclo 1", createdAt: new Date() },
@@ -325,14 +332,286 @@ async function main() {
     await prisma.transaction.create({ data: tx });
   }
 
+  // 7. SEED DO MÓDULO DE ACADEMIAS (GYM)
+  console.log("Criando Academia Atlas Gym Prime...");
+
+  // 7.1 Usuários da Academia
+  const gymOwner = await prisma.user.create({
+    data: {
+      name: "Carlos Gestor (Atlas Gym)",
+      email: "academia@atlasfit.com",
+      password: hashedPassword,
+      role: GlobalRole.USER,
+      twoFactorEnabled: false,
+      threeFactorEnabled: false,
+      emailVerified: new Date(),
+    },
+  });
+
+  const gymReceptionist = await prisma.user.create({
+    data: {
+      name: "Ana Recepção",
+      email: "recepcao@atlasfit.com",
+      password: hashedPassword,
+      role: GlobalRole.USER,
+      twoFactorEnabled: false,
+      threeFactorEnabled: false,
+      emailVerified: new Date(),
+    },
+  });
+
+  const gymTrainer = await prisma.user.create({
+    data: {
+      name: "Pedro Instrutor",
+      email: "professor@atlasfit.com",
+      password: hashedPassword,
+      role: GlobalRole.TRAINER,
+      twoFactorEnabled: false,
+      threeFactorEnabled: false,
+      emailVerified: new Date(),
+    },
+  });
+
+  const gymStudent = await prisma.user.create({
+    data: {
+      name: "Mariana Aluna",
+      email: "aluna@atlasfit.com",
+      password: hashedPassword,
+      role: GlobalRole.USER,
+      twoFactorEnabled: false,
+      threeFactorEnabled: false,
+      emailVerified: new Date(),
+    },
+  });
+
+  // 7.2 Workspace GYM
+  const gymWorkspace = await prisma.workspace.create({
+    data: {
+      name: "Atlas Gym Prime",
+      slug: "atlas-gym-prime",
+      type: WorkspaceType.GYM,
+      ownerId: gymOwner.id,
+      primaryColor: "#2563EB",
+    },
+  });
+
+  // 7.3 Assinatura do Workspace & Settings
+  await prisma.workspaceSubscription.create({
+    data: {
+      workspaceId: gymWorkspace.id,
+      status: "ACTIVE",
+      maxStudents: 500,
+      maxStaff: 20,
+      maxUnits: 3,
+      storageLimitMb: 10240,
+    },
+  });
+
+  await prisma.gymSettings.create({
+    data: {
+      workspaceId: gymWorkspace.id,
+      timezone: "America/Sao_Paulo",
+      billingGracePeriodDays: 5,
+      capacityLimit: 150,
+      requireGuardianSignature: true,
+      maxReceptionistDiscountPercentage: 10.0,
+      maxReceptionistDiscountInCents: BigInt(2000),
+    },
+  });
+
+  // 7.4 Unidade Física
+  const gymUnit = await prisma.gymUnit.create({
+    data: {
+      workspaceId: gymWorkspace.id,
+      name: "Unidade Central - Jardins",
+      slug: "unidade-central",
+      code: "UNI-01",
+      address: "Av. Paulista, 1500",
+      city: "São Paulo",
+      state: "SP",
+      postalCode: "01310-200",
+      phone: "(11) 3288-9000",
+      email: "paulista@atlasgym.com.br",
+      timezone: "America/Sao_Paulo",
+      isActive: true,
+    },
+  });
+
+  // 7.5 Membros e Grants
+  const ownerMember = await prisma.workspaceMember.create({
+    data: {
+      workspaceId: gymWorkspace.id,
+      userId: gymOwner.id,
+      role: WorkspaceRole.OWNER,
+      unitId: gymUnit.id,
+      isActive: true,
+    },
+  });
+  await prisma.workspaceRoleGrant.create({
+    data: {
+      memberId: ownerMember.id,
+      role: WorkspaceRole.OWNER,
+      unitId: gymUnit.id,
+    },
+  });
+  await prisma.gymStaffProfile.create({
+    data: { memberId: ownerMember.id, jobTitle: "Diretor Geral" },
+  });
+
+  const recMember = await prisma.workspaceMember.create({
+    data: {
+      workspaceId: gymWorkspace.id,
+      userId: gymReceptionist.id,
+      role: WorkspaceRole.RECEPTIONIST,
+      unitId: gymUnit.id,
+      isActive: true,
+    },
+  });
+  await prisma.workspaceRoleGrant.create({
+    data: {
+      memberId: recMember.id,
+      role: WorkspaceRole.RECEPTIONIST,
+      unitId: gymUnit.id,
+    },
+  });
+  await prisma.gymStaffProfile.create({
+    data: { memberId: recMember.id, jobTitle: "Recepcionista Líder" },
+  });
+
+  const trainerMember = await prisma.workspaceMember.create({
+    data: {
+      workspaceId: gymWorkspace.id,
+      userId: gymTrainer.id,
+      role: WorkspaceRole.TRAINER,
+      unitId: gymUnit.id,
+      isActive: true,
+    },
+  });
+  await prisma.workspaceRoleGrant.create({
+    data: {
+      memberId: trainerMember.id,
+      role: WorkspaceRole.TRAINER,
+      unitId: gymUnit.id,
+    },
+  });
+  await prisma.gymStaffProfile.create({
+    data: { memberId: trainerMember.id, cref: "123456-G/SP", jobTitle: "Instrutor Chefe" },
+  });
+
+  const studentMember = await prisma.workspaceMember.create({
+    data: {
+      workspaceId: gymWorkspace.id,
+      userId: gymStudent.id,
+      role: WorkspaceRole.STUDENT,
+      unitId: gymUnit.id,
+      isActive: true,
+    },
+  });
+  await prisma.gymStudentProfile.create({
+    data: { memberId: studentMember.id, registrationNumber: "AG-2026-001", status: "ACTIVE" },
+  });
+
+  // 7.6 Plano e Matrícula
+  const gymPlan = await prisma.gymPlan.create({
+    data: {
+      workspaceId: gymWorkspace.id,
+      name: "Plano Anual Prime VIP",
+      description: "Acesso total à musculação, esteiras, aulas coletivas e aplicativo AtlasFit.",
+      isActive: true,
+    },
+  });
+
+  const gymPlanVersion = await prisma.gymPlanVersion.create({
+    data: {
+      planId: gymPlan.id,
+      version: 1,
+      name: "Plano Anual Prime VIP - v1",
+      priceInCents: BigInt(14900),
+      billingCycle: GymBillingCycle.MONTHLY,
+      durationDays: 365,
+      termsText: "Termo de Adesão ao Plano Anual Prime VIP AtlasFit...",
+      termsVersion: "1.0",
+      isActive: true,
+    },
+  });
+
+  const nextYearDate = new Date(now.getTime() + 365 * 24 * 60 * 60 * 1000);
+  const gymEnrollment = await prisma.gymEnrollment.create({
+    data: {
+      workspaceId: gymWorkspace.id,
+      studentMemberId: studentMember.id,
+      planVersionId: gymPlanVersion.id,
+      unitId: gymUnit.id,
+      status: GymEnrollmentStatus.ACTIVE,
+      startDate: now,
+      endDate: nextYearDate,
+      priceInCents: BigInt(14900),
+      nextDueDate: new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000),
+      autoRenew: true,
+      accessGranted: true,
+      activatedAt: now,
+    },
+  });
+
+  await prisma.gymContractAcceptance.create({
+    data: {
+      enrollmentId: gymEnrollment.id,
+      workspaceId: gymWorkspace.id,
+      signerUserId: gymStudent.id,
+      representationRole: "SELF",
+      termsSnapshot: gymPlanVersion.termsText,
+      termsVersion: gymPlanVersion.termsVersion,
+      signedAt: now,
+    },
+  });
+
+  // 7.9 Caixa e Turno Aberto
+  const gymCashAccount = await prisma.gymFinancialAccount.create({
+    data: {
+      workspaceId: gymWorkspace.id,
+      unitId: gymUnit.id,
+      name: "Caixa Recepção - Principal",
+      accountType: "CASH",
+      balanceInCents: BigInt(15000),
+      initialBalanceInCents: BigInt(15000),
+      currency: "BRL",
+      isDefault: true,
+      isActive: true,
+    },
+  });
+
+  const cashDrawerSession = await prisma.gymCashDrawerSession.create({
+    data: {
+      workspaceId: gymWorkspace.id,
+      unitId: gymUnit.id,
+      financialAccountId: gymCashAccount.id,
+      sessionNumber: "CX-202609-000001",
+      status: GymCashDrawerStatus.OPEN,
+      openedByUserId: gymReceptionist.id,
+      openingAmountInCents: BigInt(15000),
+      expectedCashInCents: BigInt(15000),
+    },
+  });
+
+  await prisma.gymCashDrawerMovement.create({
+    data: {
+      sessionId: cashDrawerSession.id,
+      movementType: GymCashMovementType.OPENING,
+      amountInCents: BigInt(15000),
+      description: "Abertura de caixa com fundo de troco",
+      performedByUserId: gymReceptionist.id,
+    },
+  });
+
   console.log("Seed completed successfully! 🚀");
   console.log("\n=== Credentials ===");
-  console.log("SuperAdmin      → admin@atlasfit.com            / admin123");
-  console.log("Trainer (Active)→ ricardo@assessoria.com        / admin123");
-  console.log("Trainer (Active)→ amanda@fitcoach.com           / admin123");
-  console.log("Trainer (Trial) → trial_trainer@assessoria.com  / admin123");
-  console.log("Trainer (Expired)→ expired_trainer@assessoria.com/ admin123");
-  console.log("Student         → lucas@aluno.com               / admin123");
+  console.log("SuperAdmin       → admin@atlasfit.com            / admin123");
+  console.log("Trainer (Active) → ricardo@assessoria.com        / admin123");
+  console.log("Trainer (Active) → amanda@fitcoach.com           / admin123");
+  console.log("Gym Owner/Gestor → academia@atlasfit.com         / admin123  (Destino: /gym/dashboard)");
+  console.log("Gym Recepção     → recepcao@atlasfit.com         / admin123  (Destino: /gym/reception)");
+  console.log("Gym Professor    → professor@atlasfit.com        / admin123  (Destino: /gym/workouts)");
+  console.log("Gym Aluna        → aluna@atlasfit.com            / admin123  (Destino: /student/dashboard)");
 }
 
 main()

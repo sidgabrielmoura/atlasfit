@@ -1,37 +1,21 @@
+import { withRequestMemo } from "@/lib/request-memo";
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { AbacatePay, resolvePublicImageUrl } from "@/lib/abacatepay";
 import { logSystemError } from "@/lib/logger";
-import { isValidCPF } from "@/lib/cpf-validator";
+import { isValidCpfCnpj } from "@/lib/cpf-validator";
+import { z } from "zod";
+import { readPrivacyJsonRequest } from "@/lib/privacy/request-body";
+import { JsonRequestError } from "@/lib/http/read-json";
+import { validateApplicationOrigin, isAllowedOrigin } from "@/lib/auth/application-origin";
+import { isPersonalTrialActive } from "@/modules/workspaces/domain/personal-trial";
+import { isPersonalSubscriptionActive } from "@/modules/workspaces/application/personal-affiliation";
+import { handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
 
-function resolveValidTaxId(userCpfCnpj?: string | null): string {
-  if (userCpfCnpj) {
-    const clean = userCpfCnpj.replace(/\D/g, "");
-    if (clean.length === 11 && isValidCPF(clean)) return clean;
-    if (clean.length === 14) return clean;
-  }
-  return "39182374020";
-}
-
-function resolveValidCellphone(phone?: string | null): string {
-  if (!phone) return "11999999999";
-  const clean = phone.replace(/\D/g, "");
-  if (clean.length === 13 && clean.startsWith("55")) {
-    const national = clean.substring(2);
-    if (national.length === 11) return national;
-    return `+${clean}`;
-  }
-  if (clean.length === 11) {
-    return clean;
-  }
-  if (clean.length === 10) {
-    return `${clean.substring(0, 2)}9${clean.substring(2)}`;
-  }
-  return "11999999999";
-}
-
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
+  const restricted = await personalCommercialContextResponse({ allowExpired: true }); if (restricted) return restricted;
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -47,8 +31,7 @@ export async function GET(req: Request) {
       include: { plan: true },
     });
 
-    const isTrialActive = !!(freeTrial && new Date() < new Date(freeTrial.endDate));
-    const isTrialExpired = !!(freeTrial && new Date() > new Date(freeTrial.endDate));
+    const isTrialActive = isPersonalTrialActive(freeTrial);
 
     const user = await prisma.user.findUnique({
       where: { id: session.user.id },
@@ -56,7 +39,7 @@ export async function GET(req: Request) {
     });
     const isTestAccount = user?.isTestAccount || false;
 
-    let effectiveSub: any = subscription;
+    let effectiveSub: any = subscription ? { ...subscription, status: isPersonalSubscriptionActive(subscription) ? subscription.status : "expired" } : null;
     if (isTestAccount) {
       effectiveSub = {
         id: "test_account",
@@ -121,7 +104,8 @@ export async function GET(req: Request) {
         role: "STUDENT",
         isActive: true,
         workspace: {
-          ownerId: session.user.id
+          ownerId: session.user.id,
+          type: "PERSONAL"
         }
       }
     });
@@ -270,16 +254,30 @@ export async function GET(req: Request) {
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 export async function POST(req: Request) {
+  let createdTransactionId: string | undefined;
+  const restricted = await personalCommercialContextResponse({ allowExpired: true }); if (restricted) return restricted;
   try {
+    const origin = req.headers.get("origin");
+    if (req.headers.get("sec-fetch-site") === "cross-site" || (origin && !isAllowedOrigin(origin))) return new NextResponse("Origem da solicitação inválida.", { status: 403 });
     const session = await auth();
     if (!session?.user?.id) {
       return new NextResponse("Não autorizado.", { status: 401 });
     }
 
-    const body = await req.json();
+    const body = z.object({ planId: z.string().min(1).max(200), billing: z.object({ taxId: z.string().max(18), cellphone: z.string().max(20) }).strict() }).strict().parse(await readPrivacyJsonRequest(req, 2048));
     const { planId } = body;
+    const user = await prisma.user.findUnique({ where: { id: session.user.id }, select: { name: true, email: true } });
+    const taxId = body.billing.taxId.replace(/\D/g, "");
+    const cellphone = body.billing.cellphone.replace(/\D/g, "").replace(/^55(?=\d{10,11}$)/, "");
+    if (!isValidCpfCnpj(taxId) || !/^\d{2}9\d{8}$/.test(cellphone) || !user?.name?.trim() || !z.email().safeParse(user.email).success) {
+      return new NextResponse("Informe CPF/CNPJ e celular válidos do pagador e mantenha nome e email no seu perfil.", { status: 400 });
+    }
+    const apiKey = process.env.ABACATEPAY_API_KEY;
+    if (!apiKey || apiKey === "abc_dev_placeholder") return new NextResponse("Pagamento indisponível. O gateway de assinaturas ainda não foi configurado.", { status: 503 });
+    const returnOrigin = validateApplicationOrigin(process.env.AUTH_URL || process.env.NEXTAUTH_URL || process.env.APP_URL || "https://app.atlasfit.site");
 
     if (!planId) {
       return new NextResponse("ID do plano é obrigatório.", { status: 400 });
@@ -297,7 +295,7 @@ export async function POST(req: Request) {
       where: { userId: session.user.id }
     });
 
-    const isTrialActive = !!(freeTrial && new Date() < new Date(freeTrial.endDate));
+    const isTrialActive = isPersonalTrialActive(freeTrial);
 
     const transaction = await prisma.transaction.create({
       data: {
@@ -311,7 +309,7 @@ export async function POST(req: Request) {
       }
     });
 
-    const apiKey = process.env.ABACATEPAY_API_KEY;
+    createdTransactionId = transaction.id;
 
     if (apiKey && apiKey !== "abc_dev_placeholder") {
       const abacate = AbacatePay({ secret: apiKey });
@@ -389,9 +387,7 @@ export async function POST(req: Request) {
         }
       }
 
-      const user = await prisma.user.findUnique({
-        where: { id: session.user.id }
-      });
+      if (!abacateProductId) throw new Error("Não foi possível registrar o produto no gateway.");
 
       // Buscar todos os cupons ativos no banco
       const activeCoupons = await prisma.coupon.findMany({
@@ -404,7 +400,6 @@ export async function POST(req: Request) {
       const validMethods = rawMethods.filter((m: string) => m === "PIX" || m === "CARD") as Array<"PIX" | "CARD">;
       const methods = validMethods.length > 0 ? validMethods : (["CARD"] as Array<"PIX" | "CARD">);
 
-      const returnOrigin = req.headers.get("origin") || "http://localhost:3000";
       const completionUrl = `${returnOrigin}/subscription-expired/pending?transactionId=${transaction.id}`;
       const returnUrl = `${returnOrigin}/subscription-expired/pending?transactionId=${transaction.id}`;
 
@@ -415,16 +410,16 @@ export async function POST(req: Request) {
           checkout = await abacate.subscriptions.create({
             items: [
               {
-                id: abacateProductId || "prod_fallback",
+                id: abacateProductId,
                 quantity: 1
               }
             ],
             methods: ["CARD"],
             customer: {
-              name: user?.name || "Personal Trainer",
-              email: user?.email || "trainer@atlasfit.com",
-              cellphone: resolveValidCellphone(user?.whatsapp),
-              taxId: resolveValidTaxId(user?.cpfCnpj)
+              name: user.name!.trim(),
+              email: user.email!,
+              cellphone: cellphone,
+              taxId: taxId
             },
             allowCoupons: true,
             coupons: activeCouponCodes,
@@ -450,12 +445,12 @@ export async function POST(req: Request) {
             console.warn("Executando fallback para checkout avulso PIX no AbacatePay.");
             checkout = await abacate.checkouts.create({
               methods: ["PIX"],
-              items: [{ id: abacateProductId || "prod_fallback", quantity: 1 }],
+              items: [{ id: abacateProductId, quantity: 1 }],
               customer: {
-                name: user?.name || "Personal Trainer",
-                email: user?.email || "trainer@atlasfit.com",
-                cellphone: resolveValidCellphone(user?.whatsapp),
-                taxId: resolveValidTaxId(user?.cpfCnpj)
+                name: user.name!.trim(),
+                email: user.email!,
+                cellphone: cellphone,
+                taxId: taxId
               },
               allowCoupons: true,
               coupons: activeCouponCodes,
@@ -477,12 +472,12 @@ export async function POST(req: Request) {
         // Cobrança pontual exclusiva por PIX
         checkout = await abacate.checkouts.create({
           methods: ["PIX"],
-          items: [{ id: abacateProductId || "prod_fallback", quantity: 1 }],
+          items: [{ id: abacateProductId, quantity: 1 }],
           customer: {
-            name: user?.name || "Personal Trainer",
-            email: user?.email || "trainer@atlasfit.com",
-            cellphone: resolveValidCellphone(user?.whatsapp),
-            taxId: resolveValidTaxId(user?.cpfCnpj)
+            name: user.name!.trim(),
+            email: user.email!,
+            cellphone: cellphone,
+            taxId: taxId
           },
           allowCoupons: true,
           coupons: activeCouponCodes,
@@ -499,58 +494,22 @@ export async function POST(req: Request) {
       }
 
       return NextResponse.json({ success: true, checkoutUrl: checkout.url });
-    } else {
-      const startDate = isTrialActive ? new Date(freeTrial.endDate) : new Date();
-      const endDate = new Date(startDate);
-      endDate.setDate(endDate.getDate() + 30);
-
-      await prisma.subscription.upsert({
-        where: { userId: session.user.id },
-        update: {
-          planId: plan.id,
-          status: "active",
-          startDate,
-          endDate,
-          isPreSubscription: isTrialActive,
-        },
-        create: {
-          userId: session.user.id,
-          planId: plan.id,
-          status: "active",
-          startDate,
-          endDate,
-          isPreSubscription: isTrialActive,
-        },
-      });
-
-      await prisma.transaction.update({
-        where: { id: transaction.id },
-        data: { status: "APPROVED" }
-      });
-
-      await prisma.subscriptionActivity.create({
-        data: {
-          userId: session.user.id,
-          planId: plan.id,
-          type: isTrialActive ? "NEW_SUBSCRIPTION" : "UPGRADE",
-          amount: plan.price,
-          status: "success",
-        }
-      });
-
-      return NextResponse.json({
-        success: true,
-        checkoutUrl: `/subscription-expired/pending?transactionId=${transaction.id}`
-      });
     }
   } catch (error) {
+    if (error instanceof z.ZodError) return new NextResponse("Dados de cobrança inválidos.", { status: 400 });
+    if (error instanceof JsonRequestError) return new NextResponse(error.message, { status: error.statusCode });
+    const denied = handleWorkspaceAccessError(error); if (denied) return denied;
+    if (createdTransactionId) await prisma.transaction.update({ where: { id: createdTransactionId }, data: { status: "FAILED" } });
     await logSystemError({ action: "POST_SUBSCRIPTION_CHECKOUT", error, entity: "SUBSCRIPTION" });
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
 }
 
 export async function DELETE(req: Request) {
+  const restricted = await personalCommercialContextResponse({ allowExpired: true }); if (restricted) return restricted;
   try {
+    const origin = req.headers.get("origin");
+    if (req.headers.get("sec-fetch-site") === "cross-site" || (origin && !isAllowedOrigin(origin))) return new NextResponse("Origem da solicitação inválida.", { status: 403 });
     const session = await auth();
     if (!session?.user?.id) {
       return new NextResponse("Não autorizado.", { status: 401 });

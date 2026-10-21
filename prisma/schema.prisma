@@ -15,43 +15,57 @@ enum GlobalRole {
 
 enum WorkspaceRole {
   OWNER
+  MANAGER
+  RECEPTIONIST
+  FINANCE
   TRAINER
   ASSISTANT
   STUDENT
 }
 
+enum WorkspaceType {
+  PERSONAL
+  GYM
+}
+
 model User {
-  id                String            @id @default(cuid())
-  name              String?
-  email             String?           @unique
-  password          String?
-  setupToken        String?           @unique
-  emailVerified     DateTime?
-  image             String?
-  role              GlobalRole        @default(USER)
-  onboarded         Boolean           @default(false)
-  twoFactorEnabled  Boolean?
-  twoFactorSecret   String?
-  twoFactorType     String?           @default("EMAIL")
-  twoFactorBackupCodes String[]       @default([])
-  threeFactorEnabled Boolean?         @default(false)
-  isTestAccount     Boolean           @default(false)
-  objective         String?
-  gender            String?
-  birthDate         DateTime?
-  cpfCnpj           String?
-  experienceLevel   String?
-  medicalConditions String?           @db.Text
-  weight            Float?
-  height            Float?
-  accounts          Account[]
-  sessions          Session[]
-  workspaces        WorkspaceMember[]
-  auditLogs         AuditLog[]
-  createdExercises  Exercise[]        @relation("CreatedExercises")
-  workouts          Workout[]         @relation("CreatedWorkouts")
-  createdAt         DateTime          @default(now())
-  updatedAt         DateTime          @updatedAt
+  authoredTrainerTasks TrainerTask[] @relation("TrainerTaskAuthor")
+  gymCommunicationDispatches GymCommunicationDispatch[]
+  gymAdministrativeReviews GymAdministrativeReview[]
+  gymStorageObjects GymStorageObject[]
+  id                   String            @id @default(cuid())
+  name                 String?
+  email                String?           @unique
+  password             String?
+  sessionVersion       Int               @default(0)
+  setupToken           String?           @unique
+  setupTokenExpiresAt  DateTime?
+  emailVerified        DateTime?
+  image                String?
+  role                 GlobalRole        @default(USER)
+  onboarded            Boolean           @default(false)
+  twoFactorEnabled     Boolean?
+  twoFactorSecret      String?
+  twoFactorType        String?           @default("EMAIL")
+  twoFactorBackupCodes String[]          @default([])
+  threeFactorEnabled   Boolean?          @default(false)
+  isTestAccount        Boolean           @default(false)
+  objective            String?
+  gender               String?
+  birthDate            DateTime?
+  cpfCnpj              String?
+  experienceLevel      String?
+  medicalConditions    String?           @db.Text
+  weight               Float?
+  height               Float?
+  accounts             Account[]
+  sessions             Session[]
+  workspaces           WorkspaceMember[]
+  auditLogs            AuditLog[]
+  createdExercises     Exercise[]        @relation("CreatedExercises")
+  workouts             Workout[]         @relation("CreatedWorkouts")
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
 
   // Personal Trainer profile fields
   bio           String?
@@ -103,29 +117,51 @@ model User {
   geminiUsageLogs         GeminiUsageLog[]         @relation("GeminiUsageLogs")
   creditPurchases         CreditPurchase[]
   paymentProviderAccounts PaymentProviderAccount[] @relation("PaymentProviderAccounts")
+  studentGymInvoices      GymInvoice[]             @relation("StudentUserGymInvoices")
+  receivedGymPayments     GymPayment[]             @relation("StaffReceivedGymPayments")
+  reversedGymPayments     GymPayment[]             @relation("StaffReversedGymPayments")
+  transfersPerformed      GymAccountTransfer[]     @relation("TransfersPerformed")
+  createdExpenses         GymExpense[]             @relation("CreatedExpenses")
+  paidExpenses            GymExpense[]             @relation("PaidExpenses")
+  cancelledExpenses       GymExpense[]             @relation("CancelledExpenses")
+  recordedExpensePayments GymExpensePayment[]       @relation("ExpensePaymentsRecorded")
+  reversedExpensePayments GymExpensePayment[]       @relation("ExpensePaymentsReversed")
+  cashDrawersOpened       GymCashDrawerSession[]   @relation("CashDrawersOpened")
+  cashDrawersClosed       GymCashDrawerSession[]   @relation("CashDrawersClosed")
+  cashDrawersReconciled   GymCashDrawerSession[]   @relation("CashDrawersReconciled")
+  cashMovementsPerformed  GymCashDrawerMovement[]  @relation("CashMovementsPerformed")
 
-  roadmapFeatures     RoadmapFeature[]         @relation("RoadmapFeatureAuthor")
-  roadmapOfficialResp RoadmapFeature[]         @relation("RoadmapOfficialResponseAuthor")
-  roadmapVotes        RoadmapVote[]
-  roadmapComments     RoadmapComment[]
-  roadmapPollsCreated RoadmapPoll[]            @relation("RoadmapPollCreator")
-  roadmapPollVotes    RoadmapPollVote[]
-  roadmapAuditLogs    RoadmapAuditLog[]        @relation("RoadmapAuditActor")
-  roadmapFeaturesEdited RoadmapFeature[]       @relation("RoadmapFeatureEditedBy")
-  roadmapCommentsEdited RoadmapComment[]       @relation("RoadmapCommentEditedBy")
-  trainerVideos         TrainerVideo[]         @relation("TrainerVideos")
+  roadmapFeatures       RoadmapFeature[]  @relation("RoadmapFeatureAuthor")
+  roadmapOfficialResp   RoadmapFeature[]  @relation("RoadmapOfficialResponseAuthor")
+  roadmapVotes          RoadmapVote[]
+  roadmapComments       RoadmapComment[]
+  roadmapPollsCreated   RoadmapPoll[]     @relation("RoadmapPollCreator")
+  roadmapPollVotes      RoadmapPollVote[]
+  roadmapAuditLogs      RoadmapAuditLog[] @relation("RoadmapAuditActor")
+  roadmapFeaturesEdited RoadmapFeature[]  @relation("RoadmapFeatureEditedBy")
+  roadmapCommentsEdited RoadmapComment[]  @relation("RoadmapCommentEditedBy")
+  trainerVideos         TrainerVideo[]    @relation("TrainerVideos")
 
   // LGPD & Data Governance Relations
-  legalAcceptances    LegalAcceptance[]
-  privacyConsents     PrivacyConsent[]
-  dataSubjectRequests DataSubjectRequest[]
+  legalAcceptances            LegalAcceptance[]
+  representedLegalAcceptances LegalAcceptance[]    @relation("RepresentedLegalAcceptances")
+  privacyConsents             PrivacyConsent[]
+  dataSubjectRequests         DataSubjectRequest[]
+  guardianships               GymGuardian[]        @relation("UserAsGuardian")
+
+  // Gym Plan & Contract Relations
+  signedContracts         GymContractAcceptance[] @relation("SignerUser")
+  representedContracts    GymContractAcceptance[] @relation("RepresentedStudentUser")
+  billingPayerEnrollments GymEnrollment[]         @relation("BillingPayerUser")
 
   // Atlas Engage Push Notification Relations
   createdPushNotifications EngagePushNotification[] @relation("CreatedPushNotifications")
   pushLogs                 EngagePushLog[]          @relation("UserPushLogs")
 
   // Multi-Device TOTP / Google Authenticator
-  totpDevices              UserTotpDevice[]
+  totpDevices UserTotpDevice[]
+
+  @@index([cpfCnpj])
 }
 
 model UserTotpDevice {
@@ -142,43 +178,88 @@ model UserTotpDevice {
 }
 
 model Workspace {
-  id                String                  @id @default(cuid())
-  name              String
-  slug              String                  @unique
-  ownerId           String
-  isActive          Boolean                 @default(true)
-  slogan            String?
-  logoUrl           String?
-  primaryColor      String?                 @default("#ea580c")
-  watermarkUrl      String?
-  workoutCoverUrl   String?
-  logoKey           String?
-  watermarkKey      String?
-  workoutCoverKey   String?
-  importCredits     Int                     @default(0)
-  members           WorkspaceMember[]
-  plans             WorkspacePlan[]
-  payments          WorkspacePayment[]
-  pendingStudents   PendingStudent[]
-  trainerTasks      TrainerTask[]
-  workouts          Workout[]
-  progressHistory   StudentProgress[]
-  progressPhotos    StudentProgressPhoto[]
-  dailyFeedbacks    DailyFeedback[]
-  leads             Lead[]
-  tags              Tag[]
-  customFields      CustomFieldDefinition[]
-  notifications     Notification[]
-  engageExperiences EngageExperience[]
-  trainerVideos     TrainerVideo[]
-  createdAt         DateTime                @default(now())
-  updatedAt         DateTime                @updatedAt
-  conversations     Conversation[]
-  importJobs        ImportJob[]
-  creditPurchases   CreditPurchase[]
+  closedAt DateTime?
+  purgeAfter DateTime?
+  purgeJob GymPurgeJob?
+  deliveries DeliveryOutbox[]
+  verificationTokens VerificationToken[]
+  communicationDispatches GymCommunicationDispatch[]
+  administrativeReviews GymAdministrativeReview[]
+  gymStorageObjects GymStorageObject[]
+  id                              String                              @id @default(cuid())
+  name                            String
+  slug                            String                              @unique
+  ownerId                         String
+  type                            WorkspaceType                       @default(PERSONAL)
+  isActive                        Boolean                             @default(true)
+  slogan                          String?
+  logoUrl                         String?
+  primaryColor                    String?                             @default("#ea580c")
+  watermarkUrl                    String?
+  workoutCoverUrl                 String?
+  logoKey                         String?
+  watermarkKey                    String?
+  workoutCoverKey                 String?
+  importCredits                   Int                                 @default(0)
+  members                         WorkspaceMember[]
+  plans                           WorkspacePlan[]
+  payments                        WorkspacePayment[]
+  pendingStudents                 PendingStudent[]
+  trainerTasks                    TrainerTask[]
+  workouts                        Workout[]
+  progressHistory                 StudentProgress[]
+  progressPhotos                  StudentProgressPhoto[]
+  dailyFeedbacks                  DailyFeedback[]
+  leads                           Lead[]
+  tags                            Tag[]
+  customFields                    CustomFieldDefinition[]
+  notifications                   Notification[]
+  engageExperiences               EngageExperience[]
+  trainerVideos                   TrainerVideo[]
+  settings                        GymSettings?
+  units                           GymUnit[]
+  guardians                       GymGuardian[]
+  invitations                     WorkspaceInvitation[]
+  subscription                    WorkspaceSubscription?
+  gymPlans                        GymPlan[]
+  gymEnrollments                  GymEnrollment[]
+  paymentProviderAccount          PaymentProviderAccount?             @relation("WorkspacePaymentProviderAccount")
+  studentBillings                 StudentBilling[]                    @relation("WorkspaceStudentBillings")
+  gatewayCustomers                GatewayCustomer[]                   @relation("WorkspaceGatewayCustomers")
+  invoices                        GymInvoice[]                        @relation("WorkspaceGymInvoices")
+  paymentsReceived                GymPayment[]                        @relation("WorkspaceGymPayments")
+  financialAccounts               GymFinancialAccount[]               @relation("WorkspaceFinancialAccounts")
+  accountTransfers                GymAccountTransfer[]                @relation("WorkspaceAccountTransfers")
+  expenseCategories               GymExpenseCategory[]                @relation("WorkspaceExpenseCategories")
+  suppliers                       GymSupplier[]                       @relation("WorkspaceSuppliers")
+  expenses                        GymExpense[]                        @relation("WorkspaceExpenses")
+  cashDrawerSessions              GymCashDrawerSession[]              @relation("WorkspaceCashDrawerSessions")
+  reconciliationDivergences       GymReconciliationDivergence[]       @relation("WorkspaceReconciliationDivergences")
+  modalities                      GymModality[]                       @relation("WorkspaceGymModalities")
+  rooms                           GymRoom[]                           @relation("WorkspaceGymRooms")
+  classSchedules                  GymClassSchedule[]                  @relation("WorkspaceGymClassSchedules")
+  classSessions                   GymClassSession[]                   @relation("WorkspaceGymClassSessions")
+  classBookings                   GymClassBooking[]                   @relation("WorkspaceGymClassBookings")
+  classWaitlists                  GymClassWaitlist[]                  @relation("WorkspaceGymClassWaitlists")
+  accessGrants                    GymAccessGrant[]                    @relation("WorkspaceGymAccessGrants")
+  accessOverrides                 GymAccessOverride[]                 @relation("WorkspaceGymAccessOverrides")
+  accessDecisionLogs              GymAccessDecisionLog[]              @relation("WorkspaceGymAccessDecisionLogs")
+  accessDevices                   GymAccessDevice[]                   @relation("WorkspaceGymAccessDevices")
+  deviceCommands                  GymDeviceCommand[]                  @relation("WorkspaceGymDeviceCommands")
+  accessLogs                      GymAccessLog[]                      @relation("WorkspaceGymAccessLogs")
+  accessReconciliationDivergences GymAccessReconciliationDivergence[] @relation("WorkspaceGymAccessReconciliationDivergences")
+  createdAt                       DateTime                            @default(now())
+  updatedAt                       DateTime                            @updatedAt
+  conversations                   Conversation[]
+  importJobs                      ImportJob[]
+  creditPurchases                 CreditPurchase[]
+  legacyPaymentWebhookEvents      PaymentWebhookEvent[] @relation("GymLegacyPaymentWebhookEvents")
 }
 
 model WorkspaceMember {
+  authoredTasks TrainerTask[] @relation("TrainerTaskMemberAuthor")
+  billingRetryAt DateTime?
+  billingFailureCount Int @default(0)
   id          String        @id @default(cuid())
   userId      String
   workspaceId String
@@ -215,36 +296,64 @@ model WorkspaceMember {
   planEndDate                DateTime?
 
   // Configurações de execução de treinos do aluno neste workspace
-  canDoAnyWorkoutDay         Boolean   @default(false)
+  canDoAnyWorkoutDay Boolean @default(false)
 
+  // Relações de Gym e autorização granular
+  roleGrants                      WorkspaceRoleGrant[]
+  staffProfile                    GymStaffProfile?
+  studentProfile                  GymStudentProfile?
+  unitId                          String?
+  unit                            GymUnit?                            @relation("MemberPrimaryUnit", fields: [unitId], references: [id], onDelete: SetNull)
+  assignedStaffId                 String?
+  assignedStaff                   WorkspaceMember?                    @relation("StaffAssignedStudents", fields: [assignedStaffId], references: [id], onDelete: SetNull)
+  assignedStudents                WorkspaceMember[]                   @relation("StaffAssignedStudents")
+  isMinor                         Boolean                             @default(false)
+  guardians                       GymGuardian[]                       @relation("StudentGuardians")
+  gymEnrollments                  GymEnrollment[]
+  invoices                        GymInvoice[]                        @relation("StudentMemberInvoices")
+  instructorClassSchedules        GymClassSchedule[]                  @relation("InstructorClassSchedules")
+  instructorClassSessions         GymClassSession[]                   @relation("InstructorClassSessions")
+  substituteClassSessions         GymClassSession[]                   @relation("SubstituteInstructorClassSessions")
+  classBookings                   GymClassBooking[]                   @relation("StudentClassBookings")
+  classWaitlists                  GymClassWaitlist[]                  @relation("StudentClassWaitlists")
+  accessGrants                    GymAccessGrant[]                    @relation("StudentGymAccessGrants")
+  accessOverrides                 GymAccessOverride[]                 @relation("StudentGymAccessOverrides")
+  accessDecisionLogs              GymAccessDecisionLog[]              @relation("StudentGymAccessDecisionLogs")
+  accessLogs                      GymAccessLog[]                      @relation("StudentGymAccessLogs")
+  accessReconciliationDivergences GymAccessReconciliationDivergence[] @relation("StudentGymAccessReconciliationDivergences")
+
+  @@index([workspaceId, role, isActive])
   @@unique([userId, workspaceId])
+  @@index([unitId])
+  @@index([assignedStaffId])
 }
 
 model Plan {
-  id                     String                 @id @default(cuid())
+  id                     String                  @id @default(cuid())
   name                   String
   price                  Float
-  interval               String                 @default("month")
+  interval               String                  @default("month")
   features               String?
-  maxWorkspaces          Int                    @default(1)
+  maxWorkspaces          Int                     @default(1)
   maxStudents            Int?
-  importQuota            Int                    @default(25)
-  storageLimitMb         Int                    @default(1024)
-  paymentMethods         String?                @default("PIX")
+  importQuota            Int                     @default(25)
+  storageLimitMb         Int                     @default(1024)
+  paymentMethods         String?                 @default("PIX")
   imageUrl               String?
   subscriptions          Subscription[]
   subscriptionActivities SubscriptionActivity[]
+  workspaceSubscriptions WorkspaceSubscription[]
 }
 
 model Subscription {
-  id                 String    @id @default(cuid())
-  userId             String    @unique
-  planId             String
-  status             String
-  user               User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  plan               Plan      @relation(fields: [planId], references: [id])
-  startDate          DateTime  @default(now())
-  endDate            DateTime?
+  id                    String    @id @default(cuid())
+  userId                String    @unique
+  planId                String
+  status                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan                  Plan      @relation(fields: [planId], references: [id])
+  startDate             DateTime  @default(now())
+  endDate               DateTime?
   isPreSubscription     Boolean   @default(false)
   importQuotaUsed       Int       @default(0)
   importQuotaResetAt    DateTime?
@@ -297,8 +406,28 @@ model AuditLog {
   entityId  String?
   ip        String?
   severity  String   @default("info")
+  metadata  Json?
   user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   createdAt DateTime @default(now())
+  @@index([entity, entityId, createdAt])
+}
+
+// Uploads reserve capacity before issuing a presigned URL. Finalized objects retain
+// their verified size until deletion succeeds, including brand and chat assets.
+model GymStorageObject {
+  objectKey String @id
+  workspaceId String
+  actorUserId String
+  target String
+  size BigInt
+  status String @default("RESERVED")
+  expiresAt DateTime?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  actor User @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, status, expiresAt])
 }
 
 model Account {
@@ -329,6 +458,8 @@ model Session {
 }
 
 model VerificationToken {
+  workspaceId String?
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   identifier String
   token      String   @unique
   expires    DateTime
@@ -392,8 +523,8 @@ model TrainerVideo {
   workspace     Workspace?             @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
   exerciseLinks TrainerVideoExercise[]
 
-  createdAt     DateTime               @default(now())
-  updatedAt     DateTime               @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
   @@index([trainerId])
   @@index([workspaceId])
@@ -407,7 +538,7 @@ model TrainerVideoExercise {
   exercise   Exercise     @relation(fields: [exerciseId], references: [id], onDelete: Cascade)
   isDefault  Boolean      @default(true)
 
-  createdAt  DateTime     @default(now())
+  createdAt DateTime @default(now())
 
   @@unique([videoId, exerciseId])
   @@index([exerciseId])
@@ -464,6 +595,8 @@ model WorkoutExercise {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  @@index([workoutId, order, id])
+  @@index([exerciseId])
 }
 
 model SystemSetting {
@@ -550,6 +683,7 @@ model WorkspacePlan {
 }
 
 model WorkspacePayment {
+  gatewayBilling StudentBilling? @relation("BillingWorkspaceObligation")
   id          String   @id @default(cuid())
   workspaceId String
   studentName String
@@ -572,6 +706,7 @@ model WorkspacePayment {
   isAutomaticBilled Boolean   @default(false)
 
   workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  @@index([workspaceId, createdAt, id])
 }
 
 model PendingStudent {
@@ -591,6 +726,9 @@ model PendingStudent {
 }
 
 model TrainerTask {
+  authorMember  WorkspaceMember? @relation("TrainerTaskMemberAuthor", fields: [authorId, workspaceId], references: [userId, workspaceId], onDelete: Cascade)
+  authorId      String?
+  author        User? @relation("TrainerTaskAuthor", fields: [authorId], references: [id], onDelete: SetNull)
   id            String   @id @default(cuid())
   workspaceId   String
   title         String
@@ -607,6 +745,7 @@ model TrainerTask {
 
   @@index([workspaceId])
   @@index([scheduledDate])
+  @@index([workspaceId, authorId, scheduledDate])
   @@index([studentId])
 }
 
@@ -746,6 +885,8 @@ model WorkoutLog {
   @@index([studentId])
   @@index([workoutId])
   @@index([workspaceId])
+  @@index([workspaceId, studentId, completedAt, id])
+  @@index([workspaceId, createdAt, id])
 }
 
 model DailyFeedback {
@@ -857,19 +998,19 @@ model EngageExperience {
 }
 
 model EngageBanner {
-  id          String   @id @default(cuid())
-  imageUrl    String
-  title       String?
-  subtitle    String?
-  linkUrl     String?
-  buttonText  String?
-  targetRole  String   @default("ALL")
-  badgeText   String?
-  bgGradient  String?
-  isActive    Boolean  @default(true)
-  sortOrder   Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id         String   @id @default(cuid())
+  imageUrl   String
+  title      String?
+  subtitle   String?
+  linkUrl    String?
+  buttonText String?
+  targetRole String   @default("ALL")
+  badgeText  String?
+  bgGradient String?
+  isActive   Boolean  @default(true)
+  sortOrder  Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
 
   @@index([targetRole, isActive])
 }
@@ -919,73 +1060,74 @@ enum PushTriggerType {
 }
 
 model EngagePushNotification {
-  id              String          @id @default(cuid())
-  title           String
-  body            String          @db.Text
-  imageUrl        String?
-  targetRole      String          @default("ALL") // "ALL", "STUDENT", "TRAINER"
-  targetPlan      String          @default("ALL") // "ALL", "FREE_TRIAL", "ACTIVE_SUBSCRIPTION"
-  triggerType     PushTriggerType @default(SCHEDULED)
-  deepLink        String          @default("/student/workouts")
-  category        String          @default("TRAINING") // "TRAINING", "SYSTEM", "MARKETING", "GAMIFICATION"
+  id          String          @id @default(cuid())
+  title       String
+  body        String          @db.Text
+  imageUrl    String?
+  targetRole  String          @default("ALL") // "ALL", "STUDENT", "TRAINER"
+  targetPlan  String          @default("ALL") // "ALL", "FREE_TRIAL", "ACTIVE_SUBSCRIPTION"
+  triggerType PushTriggerType @default(SCHEDULED)
+  deepLink    String          @default("/student/workouts")
+  category    String          @default("TRAINING") // "TRAINING", "SYSTEM", "MARKETING", "GAMIFICATION"
 
   // Variação B para Teste A/B (Opcional)
-  titleB          String?
-  bodyB           String?         @db.Text
-  sentCountB      Int             @default(0)
-  clickCountB     Int             @default(0)
-  conversionCountB Int            @default(0)
+  titleB           String?
+  bodyB            String? @db.Text
+  sentCountB       Int     @default(0)
+  clickCountB      Int     @default(0)
+  conversionCountB Int     @default(0)
 
   // Regras de disparo
-  scheduleTime    String?         // Ex: "18:00" ou "08:00"
-  daysOfWeek      String?         // Ex: "1,2,3,4,5" (0=Dom, 1=Seg...)
-  inactivityDays  Int?            // Ex: 3 (após 3 dias sem treino)
-  
+  scheduleTime   String? // Ex: "18:00" ou "08:00"
+  daysOfWeek     String? // Ex: "1,2,3,4,5" (0=Dom, 1=Seg...)
+  inactivityDays Int? // Ex: 3 (após 3 dias sem treino)
+
   // Segmentação por treino do dia
-  targetWithWorkout    Boolean     @default(true) // Alunos com treino no dia
-  targetWithoutWorkout Boolean     @default(true) // Alunos sem treino no dia
-  onlyNotTrainedToday  Boolean     @default(false) // Apenas quem ainda NÃO treinou hoje
-  
+  targetWithWorkout    Boolean @default(true) // Alunos com treino no dia
+  targetWithoutWorkout Boolean @default(true) // Alunos sem treino no dia
+  onlyNotTrainedToday  Boolean @default(false) // Apenas quem ainda NÃO treinou hoje
+
   // Status e prioridade
-  isActive        Boolean         @default(true)
-  priority        String          @default("HIGH") // "HIGH", "NORMAL"
-  
+  isActive Boolean @default(true)
+  priority String  @default("HIGH") // "HIGH", "NORMAL"
+
   // Métricas consolidadas em tempo real (Variação A)
-  sentCount       Int             @default(0)
-  deliveredCount  Int             @default(0)
-  clickCount      Int             @default(0)
-  conversionCount Int             @default(0)
+  sentCount       Int @default(0)
+  deliveredCount  Int @default(0)
+  clickCount      Int @default(0)
+  conversionCount Int @default(0)
 
-  creatorId       String?
-  creator         User?           @relation("CreatedPushNotifications", fields: [creatorId], references: [id], onDelete: SetNull)
+  creatorId String?
+  creator   User?   @relation("CreatedPushNotifications", fields: [creatorId], references: [id], onDelete: SetNull)
 
-  createdAt       DateTime        @default(now())
-  updatedAt       DateTime        @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 
-  logs            EngagePushLog[]
+  logs EngagePushLog[]
 
   @@index([triggerType, isActive])
   @@index([targetRole])
 }
 
 model EngagePushLog {
-  id             String                 @id @default(cuid())
+  id             String    @id @default(cuid())
   notificationId String
   userId         String
-  variant        String                 @default("A") // "A" ou "B"
-  status         String                 // "SENT", "DELIVERED", "FAILED", "CLICKED", "CONVERTED"
+  variant        String    @default("A") // "A" ou "B"
+  status         String // "SENT", "DELIVERED", "FAILED", "CLICKED", "CONVERTED"
   errorReason    String?
   clickedAt      DateTime?
   convertedAt    DateTime?
-  sentAt         DateTime               @default(now())
+  sentAt         DateTime  @default(now())
 
-  notification   EngagePushNotification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
-  user           User                   @relation("UserPushLogs", fields: [userId], references: [id], onDelete: Cascade)
+  notification EngagePushNotification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  user         User                   @relation("UserPushLogs", fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
   @@index([notificationId])
   @@index([sentAt])
   @@index([status])
+  @@index([userId, sentAt])
 }
 
 model Lead {
@@ -1121,9 +1263,12 @@ model NotificationDevice {
   user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@index([userId])
+  @@index([userId, status, id])
 }
 
 model Notification {
+  dispatchId String?
+  dispatch GymCommunicationDispatch? @relation(fields: [dispatchId], references: [id], onDelete: Restrict)
   id          String     @id @default(cuid())
   userId      String
   type        String
@@ -1269,6 +1414,7 @@ model Message {
   @@index([conversationId])
   @@index([senderId])
   @@index([replyToId])
+  @@index([conversationId, createdAt, id])
 }
 
 model DataDeletionRequest {
@@ -1529,6 +1675,14 @@ model CreditPackage {
   purchases           CreditPurchase[]
 }
 
+// Permanent replay protection; contains no raw webhook/customer payload.
+model AbacateWebhookReceipt {
+  key         String   @id
+  eventType   String
+  payloadHash String
+  createdAt   DateTime @default(now())
+}
+
 model CreditPurchase {
   id                  String         @id @default(cuid())
   workspaceId         String
@@ -1659,6 +1813,7 @@ enum WebhookProcessingStatus {
   IGNORED
   FAILED_RETRYABLE
   FAILED_FINAL
+  REVIEW_REQUIRED
 }
 
 enum ReconciliationStatus {
@@ -1668,10 +1823,19 @@ enum ReconciliationStatus {
   FAILED
 }
 
+enum FinancialProfileType {
+  USER
+  WORKSPACE
+}
+
 model PaymentProviderAccount {
-  id             String @id @default(cuid())
-  personalUserId String @unique
-  personalUser   User   @relation("PaymentProviderAccounts", fields: [personalUserId], references: [id], onDelete: Restrict)
+  id             String               @id @default(cuid())
+  profileType    FinancialProfileType @default(USER)
+  personalUserId String?              @unique
+  personalUser   User?                @relation("PaymentProviderAccounts", fields: [personalUserId], references: [id], onDelete: Restrict)
+
+  workspaceId String?    @unique
+  workspace   Workspace? @relation("WorkspacePaymentProviderAccount", fields: [workspaceId], references: [id], onDelete: Restrict)
 
   provider                   PaymentProvider
   environment                ProviderEnvironment
@@ -1690,10 +1854,10 @@ model PaymentProviderAccount {
   documentLast4           String?
   payoutDestinationMasked String?
 
-  activationFeeTotalInCents     BigInt    @default(0)
-  activationFeeReservedInCents  BigInt    @default(0)
-  activationFeeRecoveredInCents BigInt    @default(0)
-  activationFeeStatus           String    @default("NOT_APPLICABLE")
+  activationFeeTotalInCents     BigInt @default(0)
+  activationFeeReservedInCents  BigInt @default(0)
+  activationFeeRecoveredInCents BigInt @default(0)
+  activationFeeStatus           String @default("NOT_APPLICABLE")
 
   lastProviderSyncAt DateTime?
   approvedAt         DateTime?
@@ -1701,18 +1865,19 @@ model PaymentProviderAccount {
   closedAt           DateTime?
   deletedAt          DateTime?
 
-  balanceSnapshots          WalletBalanceSnapshot[]
-  billings                   StudentBilling[]
-  subscriptions              StudentSubscription[]
-  payouts                    WalletPayoutRequest[]
-  ledgerEntries              WalletLedgerEntry[]
-  activationFeeOperations   ActivationFeeRecoveryOperation[]
+  balanceSnapshots        WalletBalanceSnapshot[]
+  billings                StudentBilling[]
+  subscriptions           StudentSubscription[]
+  payouts                 WalletPayoutRequest[]
+  ledgerEntries           WalletLedgerEntry[]
+  activationFeeOperations ActivationFeeRecoveryOperation[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([provider, environment, providerAccountId])
   @@index([status, kycStatus])
+  @@index([profileType, status])
 }
 
 model WalletBalanceSnapshot {
@@ -1738,8 +1903,14 @@ model GatewayCustomer {
   id                 String              @id @default(cuid())
   provider           PaymentProvider
   environment        ProviderEnvironment
-  personalUserId     String
-  studentUserId      String
+  personalUserId     String?
+  workspaceId        String?
+  workspace          Workspace?          @relation("WorkspaceGatewayCustomers", fields: [workspaceId], references: [id], onDelete: SetNull)
+  studentUserId      String?
+  payerUserId        String?
+  payerGuardianId    String?
+  payerCpfCnpj       String?
+  payerNameSnapshot  String?
   providerCustomerId String
   nameSnapshot       String
   documentLast4      String?
@@ -1750,6 +1921,8 @@ model GatewayCustomer {
   @@unique([provider, environment, personalUserId, studentUserId])
   @@unique([provider, environment, providerCustomerId])
   @@index([personalUserId, studentUserId])
+  @@index([workspaceId, payerCpfCnpj])
+  @@index([workspaceId, studentUserId])
 }
 
 model PersonalBillingPlan {
@@ -1807,9 +1980,17 @@ model StudentSubscription {
 }
 
 model StudentBilling {
+  workspacePaymentId String? @unique
+  workspacePayment WorkspacePayment? @relation("BillingWorkspaceObligation", fields: [workspacePaymentId], references: [id], onDelete: Restrict)
   id                String                 @id @default(cuid())
   providerAccountId String
   account           PaymentProviderAccount @relation(fields: [providerAccountId], references: [id], onDelete: Restrict)
+
+  workspaceId String?
+  workspace   Workspace? @relation("WorkspaceStudentBillings", fields: [workspaceId], references: [id], onDelete: SetNull)
+
+  enrollmentId String?
+  enrollment   GymEnrollment? @relation("EnrollmentBillings", fields: [enrollmentId], references: [id], onDelete: SetNull)
 
   subscriptionId String?
   subscription   StudentSubscription? @relation(fields: [subscriptionId], references: [id], onDelete: Restrict)
@@ -1818,6 +1999,11 @@ model StudentBilling {
   gatewayCustomerId String?
   providerBillingId String?
   providerStatus    String?
+
+  payerUserId     String?
+  payerGuardianId String?
+  payerName       String?
+  payerCpfCnpj    String?
 
   idempotencyKey   String  @unique
   billingReference String  @unique
@@ -1846,13 +2032,15 @@ model StudentBilling {
   chargebackAt  DateTime?
 
   hostedInvoiceUrl    String?
+  refundReason        String?
   pixPayloadEncrypted String?
   pixExpirationAt     DateTime?
 
-  attempts                  PaymentAttempt[]
-  splits                    PaymentSplit[]
-  ledgerEntries             WalletLedgerEntry[]
-  activationFeeOperations   ActivationFeeRecoveryOperation[]
+  attempts                PaymentAttempt[]
+  splits                  PaymentSplit[]
+  ledgerEntries           WalletLedgerEntry[]
+  activationFeeOperations ActivationFeeRecoveryOperation[]
+  gymInvoices             GymInvoice[]                     @relation("BillingGymInvoice")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1860,6 +2048,8 @@ model StudentBilling {
   @@unique([providerAccountId, providerBillingId])
   @@index([studentUserId, status, dueDate])
   @@index([providerAccountId, status, createdAt])
+  @@index([workspaceId, status])
+  @@index([enrollmentId])
 }
 
 model ActivationFeeRecoveryOperation {
@@ -1870,9 +2060,9 @@ model ActivationFeeRecoveryOperation {
   billing           StudentBilling         @relation(fields: [billingId], references: [id], onDelete: Restrict)
 
   amountInCents      BigInt
-  providerTransferId String?               @unique
-  externalReference  String?               @unique
-  status             String                @default("RESERVED")
+  providerTransferId String? @unique
+  externalReference  String? @unique
+  status             String  @default("RESERVED")
 
   failureReason String?
   createdAt     DateTime @default(now())
@@ -1984,6 +2174,8 @@ model PaymentWebhookEvent {
   eventType       String
   resourceType    String?
   resourceId      String?
+  gymWorkspaceId  String?
+  gymWorkspace    Workspace? @relation("GymLegacyPaymentWebhookEvents", fields: [gymWorkspaceId], references: [id], onDelete: Restrict)
 
   authenticityValidated Boolean
   payloadEncrypted      String?
@@ -1995,10 +2187,90 @@ model PaymentWebhookEvent {
   receivedAt  DateTime  @default(now())
   queuedAt    DateTime?
   processedAt DateTime?
+  processingStartedAt DateTime?
+  nextRetryAt DateTime?
+  deliveries DeliveryOutbox[]
 
   @@unique([provider, environment, providerEventId])
   @@index([processingStatus, receivedAt])
   @@index([resourceType, resourceId])
+  @@index([gymWorkspaceId, processingStatus, receivedAt])
+  @@index([processingStatus, nextRetryAt, processingStartedAt], map: "PaymentWebhookEvent_retry_idx")
+  @@index([processingStatus, processedAt], map: "PaymentWebhookEvent_retention_idx")
+}
+
+model DeliveryOutbox {
+  workspaceId String?
+  workspace Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  id String @id @default(cuid())
+  requestKey String @unique
+  fingerprint String
+  channel String
+  payloadEncrypted String?
+  webhookId String?
+  webhook PaymentWebhookEvent? @relation(fields: [webhookId], references: [id], onDelete: Restrict)
+  status String @default("QUEUED")
+  attempts Int @default(0)
+  nextAttemptAt DateTime @default(now())
+  leaseToken String?
+  leaseExpiresAt DateTime?
+  firstAttemptAt DateTime?
+  completedAt DateTime?
+  providerReceiptId String?
+  lastErrorCode String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status, nextAttemptAt, leaseExpiresAt])
+  @@index([webhookId])
+  @@index([workspaceId])
+}
+
+// Contains operational state only until the workspace is physically erased.
+model GymPurgeJob {
+  workspaceId String @id
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  requestKey String @unique
+  fingerprint String
+  mode String @default("SCHEDULED")
+  status String @default("QUEUED")
+  nextAttemptAt DateTime
+  attempts Int @default(0)
+  leaseToken String?
+  leaseExpiresAt DateTime?
+  storageCompletedAt DateTime?
+  legacyScanCursor String?
+  legacyScanComplete Boolean @default(false)
+  lastErrorCode String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([status, nextAttemptAt, leaseExpiresAt])
+}
+
+// Anonymous technical confirmation: no workspace/user IDs, names, slug or reason.
+model GymPurgeReceipt {
+  requestKey String @id
+  fingerprint String
+  deletedRows Int
+  deletedExclusiveUsers Int
+  completedAt DateTime @default(now())
+}
+
+model GymCommunicationDispatch {
+  id String @id @default(cuid())
+  workspaceId String
+  senderUserId String
+  requestKey String
+  fingerprint String
+  recipientsCount Int
+  targetAudience String
+  deepLinkUsed String
+  createdAt DateTime @default(now())
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  sender User @relation(fields: [senderUserId], references: [id], onDelete: Restrict)
+  notifications Notification[]
+  @@unique([workspaceId, requestKey])
+  @@index([workspaceId, createdAt])
 }
 
 model FeeRuleVersion {
@@ -2074,40 +2346,40 @@ model RoadmapCategory {
 }
 
 model RoadmapFeature {
-  id                  String           @id @default(cuid())
-  title               String
-  slug                String           @unique
-  description         String           @db.Text
-  authorId            String?
-  author              User?            @relation("RoadmapFeatureAuthor", fields: [authorId], references: [id], onDelete: SetNull)
-  statusId            String
-  status              RoadmapStatus    @relation(fields: [statusId], references: [id])
-  categoryId          String?
-  category            RoadmapCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
-  source              String           @default("COMMUNITY")
-  visibility          String           @default("PUBLIC")
-  priority            String?          @default("MEDIUM")
-  featured            Boolean          @default(false)
-  isCommunityChoice   Boolean          @default(false)
-  voteCount           Int              @default(0)
-  commentCount        Int              @default(0)
-  officialResponse    String?          @db.Text
-  officialResponseAt  DateTime?
+  id                   String           @id @default(cuid())
+  title                String
+  slug                 String           @unique
+  description          String           @db.Text
+  authorId             String?
+  author               User?            @relation("RoadmapFeatureAuthor", fields: [authorId], references: [id], onDelete: SetNull)
+  statusId             String
+  status               RoadmapStatus    @relation(fields: [statusId], references: [id])
+  categoryId           String?
+  category             RoadmapCategory? @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  source               String           @default("COMMUNITY")
+  visibility           String           @default("PUBLIC")
+  priority             String?          @default("MEDIUM")
+  featured             Boolean          @default(false)
+  isCommunityChoice    Boolean          @default(false)
+  voteCount            Int              @default(0)
+  commentCount         Int              @default(0)
+  officialResponse     String?          @db.Text
+  officialResponseAt   DateTime?
   officialResponseById String?
-  officialResponseBy  User?            @relation("RoadmapOfficialResponseAuthor", fields: [officialResponseById], references: [id], onDelete: SetNull)
-  estimatedRelease    String?
-  releasedAt          DateTime?
-  rank                Float            @default(0)
-  mergedIntoId        String?
-  editedAt            DateTime?
-  editedById          String?
-  editedBy            User?            @relation("RoadmapFeatureEditedBy", fields: [editedById], references: [id], onDelete: SetNull)
-  createdAt           DateTime         @default(now())
-  updatedAt           DateTime         @updatedAt
-  deletedAt           DateTime?
+  officialResponseBy   User?            @relation("RoadmapOfficialResponseAuthor", fields: [officialResponseById], references: [id], onDelete: SetNull)
+  estimatedRelease     String?
+  releasedAt           DateTime?
+  rank                 Float            @default(0)
+  mergedIntoId         String?
+  editedAt             DateTime?
+  editedById           String?
+  editedBy             User?            @relation("RoadmapFeatureEditedBy", fields: [editedById], references: [id], onDelete: SetNull)
+  createdAt            DateTime         @default(now())
+  updatedAt            DateTime         @updatedAt
+  deletedAt            DateTime?
 
-  votes               RoadmapVote[]
-  comments            RoadmapComment[]
+  votes    RoadmapVote[]
+  comments RoadmapComment[]
 
   @@index([statusId, rank])
   @@index([categoryId])
@@ -2129,22 +2401,22 @@ model RoadmapVote {
 }
 
 model RoadmapComment {
-  id          String         @id @default(cuid())
+  id          String           @id @default(cuid())
   featureId   String
-  feature     RoadmapFeature @relation(fields: [featureId], references: [id], onDelete: Cascade)
+  feature     RoadmapFeature   @relation(fields: [featureId], references: [id], onDelete: Cascade)
   authorId    String
-  author      User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  author      User             @relation(fields: [authorId], references: [id], onDelete: Cascade)
   parentId    String?
-  parent      RoadmapComment? @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+  parent      RoadmapComment?  @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
   replies     RoadmapComment[] @relation("CommentReplies")
-  content     String         @db.Text
-  isOfficial  Boolean        @default(false)
-  isModerated Boolean        @default(false)
+  content     String           @db.Text
+  isOfficial  Boolean          @default(false)
+  isModerated Boolean          @default(false)
   editedAt    DateTime?
   editedById  String?
-  editedBy    User?          @relation("RoadmapCommentEditedBy", fields: [editedById], references: [id], onDelete: SetNull)
-  createdAt   DateTime       @default(now())
-  updatedAt   DateTime       @updatedAt
+  editedBy    User?            @relation("RoadmapCommentEditedBy", fields: [editedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
   deletedAt   DateTime?
 
   @@index([featureId, createdAt])
@@ -2153,32 +2425,32 @@ model RoadmapComment {
 }
 
 model RoadmapPoll {
-  id               String              @id @default(cuid())
+  id               String    @id @default(cuid())
   title            String
-  description      String?             @db.Text
-  status           String              @default("ACTIVE")
-  startsAt         DateTime            @default(now())
+  description      String?   @db.Text
+  status           String    @default("ACTIVE")
+  startsAt         DateTime  @default(now())
   endsAt           DateTime?
-  resultVisibility String              @default("PUBLIC")
-  allowVoteChange  Boolean             @default(true)
+  resultVisibility String    @default("PUBLIC")
+  allowVoteChange  Boolean   @default(true)
   createdById      String
-  createdBy        User                @relation("RoadmapPollCreator", fields: [createdById], references: [id])
-  createdAt        DateTime            @default(now())
-  updatedAt        DateTime            @updatedAt
+  createdBy        User      @relation("RoadmapPollCreator", fields: [createdById], references: [id])
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
-  options          RoadmapPollOption[]
-  votes            RoadmapPollVote[]
+  options RoadmapPollOption[]
+  votes   RoadmapPollVote[]
 }
 
 model RoadmapPollOption {
-  id        String            @id @default(cuid())
+  id        String      @id @default(cuid())
   pollId    String
-  poll      RoadmapPoll       @relation(fields: [pollId], references: [id], onDelete: Cascade)
+  poll      RoadmapPoll @relation(fields: [pollId], references: [id], onDelete: Cascade)
   title     String
-  position  Int               @default(0)
-  voteCount Int               @default(0)
+  position  Int         @default(0)
+  voteCount Int         @default(0)
 
-  votes     RoadmapPollVote[]
+  votes RoadmapPollVote[]
 }
 
 model RoadmapPollVote {
@@ -2274,10 +2546,10 @@ enum SecurityIncidentStatus {
 model LegalDocument {
   id          String              @id @default(cuid())
   type        LegalDocumentType
-  version     String              // Ex: "1.0", "1.1", "2.0"
+  version     String // Ex: "1.0", "1.1", "2.0"
   title       String
   content     String              @db.Text
-  contentHash String              // SHA-256 hash of the exact published content
+  contentHash String // SHA-256 hash of the exact published content
   status      LegalDocumentStatus @default(DRAFT)
   publishedAt DateTime?
   effectiveAt DateTime?
@@ -2291,25 +2563,29 @@ model LegalDocument {
 }
 
 model LegalAcceptance {
-  id              String              @id @default(cuid())
-  userId          String
-  documentId      String
-  documentType    LegalDocumentType
-  documentVersion String
-  documentHash    String
-  acceptanceType  LegalAcceptanceType @default(TERMS_ACCEPTED)
-  acceptedAt      DateTime            @default(now())
-  ipAddress       String?
-  userAgent       String?             @db.Text
-  locale          String?             @default("pt-BR")
-  source          String?             @default("WEB") // "WEB", "MOBILE", "ONBOARDING", "SETUP_PASSWORD"
-  workspaceId     String?
-  createdAt       DateTime            @default(now())
+  id                 String              @id @default(cuid())
+  userId             String
+  representedUserId  String?
+  representationRole String?
+  documentId         String
+  documentType       LegalDocumentType
+  documentVersion    String
+  documentHash       String
+  acceptanceType     LegalAcceptanceType @default(TERMS_ACCEPTED)
+  acceptedAt         DateTime            @default(now())
+  ipAddress          String?
+  userAgent          String?             @db.Text
+  locale             String?             @default("pt-BR")
+  source             String?             @default("WEB")
+  workspaceId        String?
+  createdAt          DateTime            @default(now())
 
-  user     User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-  document LegalDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
+  user            User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  representedUser User?         @relation("RepresentedLegalAcceptances", fields: [representedUserId], references: [id], onDelete: SetNull)
+  document        LegalDocument @relation(fields: [documentId], references: [id], onDelete: Restrict)
 
   @@index([userId, documentType])
+  @@index([representedUserId])
   @@index([documentId])
   @@index([acceptedAt])
 }
@@ -2317,7 +2593,7 @@ model LegalAcceptance {
 model PrivacyConsent {
   id              String    @id @default(cuid())
   userId          String
-  purpose         String    // "MARKETING_EMAIL", "MARKETING_WHATSAPP", "OPTIONAL_AI_PROCESSING"
+  purpose         String
   grantedAt       DateTime  @default(now())
   revokedAt       DateTime?
   documentVersion String?
@@ -2332,6 +2608,8 @@ model PrivacyConsent {
 }
 
 model DataSubjectRequest {
+  processingRetryAt DateTime?
+  processingFailures Int @default(0)
   id              String                   @id @default(cuid())
   requesterUserId String
   workspaceId     String?
@@ -2351,28 +2629,1496 @@ model DataSubjectRequest {
 
   @@index([requesterUserId])
   @@index([status, type])
+  @@index([workspaceId, status, requestedAt])
 }
 
 model SecurityIncident {
-  id                  String                   @id @default(cuid())
-  title               String
-  detectedAt          DateTime                 @default(now())
-  confirmedAt         DateTime?
-  severity            SecurityIncidentSeverity @default(MEDIUM)
-  status              SecurityIncidentStatus   @default(DETECTED)
-  affectedSystems     String?                  @db.Text
-  dataCategories      String?                  @db.Text
-  affectedUsersCount  Int                      @default(0)
-  description         String                   @db.Text
-  containmentActions  String?                  @db.Text
-  mitigationActions   String?                  @db.Text
-  notificationRequired Boolean                 @default(false)
-  notificationAt      DateTime?
-  resolvedAt          DateTime?
-  closedAt            DateTime?
-  createdAt           DateTime                 @default(now())
-  updatedAt           DateTime                 @updatedAt
+  id                   String                   @id @default(cuid())
+  title                String
+  detectedAt           DateTime                 @default(now())
+  confirmedAt          DateTime?
+  severity             SecurityIncidentSeverity @default(MEDIUM)
+  status               SecurityIncidentStatus   @default(DETECTED)
+  affectedSystems      String?                  @db.Text
+  dataCategories       String?                  @db.Text
+  affectedUsersCount   Int                      @default(0)
+  description          String                   @db.Text
+  containmentActions   String?                  @db.Text
+  mitigationActions    String?                  @db.Text
+  notificationRequired Boolean                  @default(false)
+  notificationAt       DateTime?
+  resolvedAt           DateTime?
+  closedAt             DateTime?
+  createdAt            DateTime                 @default(now())
+  updatedAt            DateTime                 @updatedAt
 
   @@index([status, severity])
 }
 
+model GymSettings {
+  id                                String   @id @default(cuid())
+  workspaceId                       String   @unique
+  timezone                          String   @default("America/Sao_Paulo")
+  operatingHours                    Json?
+  billingGracePeriodDays            Int      @default(5)
+  capacityLimit                     Int?
+  allowMinorSelfCheckin             Boolean  @default(false)
+  requireGuardianSignature          Boolean  @default(true)
+  biometricValidationMode           String   @default("LOCAL_AGENT")
+  maxReceptionistDiscountPercentage Float    @default(10.0)
+  maxReceptionistDiscountInCents    BigInt   @default(2000)
+  version                           Int      @default(1)
+  createdAt                         DateTime @default(now())
+  updatedAt                         DateTime @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+}
+
+model GymUnit {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  slug        String?
+  code        String?
+  address     String?
+  city        String?
+  state       String?
+  postalCode  String?
+  phone       String?
+  email       String?
+  timezone    String   @default("America/Sao_Paulo")
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace                       Workspace                           @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  roleGrants                      WorkspaceRoleGrant[]
+  invitations                     WorkspaceInvitation[]
+  members                         WorkspaceMember[]                   @relation("MemberPrimaryUnit")
+  enrollments                     GymEnrollment[]
+  financialAccounts               GymFinancialAccount[]
+  expenses                        GymExpense[]
+  cashDrawerSessions              GymCashDrawerSession[]
+  rooms                           GymRoom[]                           @relation("UnitGymRooms")
+  classSchedules                  GymClassSchedule[]                  @relation("UnitGymClassSchedules")
+  classSessions                   GymClassSession[]                   @relation("UnitGymClassSessions")
+  accessOverrides                 GymAccessOverride[]                 @relation("UnitGymAccessOverrides")
+  accessDecisionLogs              GymAccessDecisionLog[]              @relation("UnitGymAccessDecisionLogs")
+  devices                         GymAccessDevice[]                   @relation("UnitGymAccessDevices")
+  accessLogs                      GymAccessLog[]                      @relation("UnitGymAccessLogs")
+  accessReconciliationDivergences GymAccessReconciliationDivergence[] @relation("UnitGymAccessReconciliationDivergences")
+
+  @@unique([workspaceId, slug])
+  @@index([workspaceId, isActive])
+}
+
+model WorkspaceRoleGrant {
+  id        String        @id @default(cuid())
+  memberId  String
+  role      WorkspaceRole
+  unitId    String?
+  grantedBy String?
+  grantedAt DateTime      @default(now())
+  revokedAt DateTime?
+  revokedBy String?
+
+  member WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+  unit   GymUnit?        @relation(fields: [unitId], references: [id], onDelete: SetNull)
+
+  @@unique([memberId, role, unitId])
+  @@index([memberId])
+  @@index([unitId])
+}
+
+model WorkspaceInvitation {
+  id          String        @id @default(cuid())
+  workspaceId String
+  unitId      String?
+  email       String
+  role        WorkspaceRole
+  tokenHash   String        @unique
+  invitedBy   String
+  cref        String?
+  jobTitle    String?
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  status      String        @default("PENDING") // "PENDING", "ACCEPTED", "EXPIRED", "REVOKED"
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  unit      GymUnit?  @relation(fields: [unitId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, email])
+  @@index([workspaceId, status])
+}
+
+model GymStaffProfile {
+  id                    String    @id @default(cuid())
+  memberId              String    @unique
+  cref                  String?
+  jobTitle              String?
+  bio                   String?
+  hireDate              DateTime?
+  terminationDate       DateTime?
+  emergencyContactName  String?
+  emergencyContactPhone String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  member WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+}
+
+model GymStudentProfile {
+  id                        String    @id @default(cuid())
+  memberId                  String    @unique
+  // Filled from WorkspaceMember by a database trigger for older writers.
+  workspaceId               String    @default("")
+  registrationRequestKey    String?   @unique
+  registrationRequestFingerprint String?
+  registrationNumber        String?
+  emergencyContactName      String?
+  emergencyContactPhone     String?
+  medicalClearance          Boolean   @default(false)
+  medicalClearanceExpiresAt DateTime?
+  notes                     String?   @db.Text
+  // Sensitive intake belongs to this controller, never to the shared User identity.
+  healthData                Json?
+  onboardedAt               DateTime?
+  privacyRestrictedAt       DateTime?
+  enrolledAt                DateTime  @default(now())
+  status                    String    @default("ACTIVE") // "ACTIVE", "INACTIVE", "SUSPENDED", "CANCELLED"
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+
+  member WorkspaceMember @relation(fields: [memberId], references: [id], onDelete: Cascade)
+
+  @@index([registrationNumber])
+  @@unique([workspaceId, registrationNumber])
+  @@index([status])
+}
+
+model GymGuardian {
+  id                     String    @id @default(cuid())
+  workspaceId            String
+  studentMemberId        String
+  guardianUserId         String?
+  name                   String
+  cpf                    String
+  email                  String?
+  phone                  String
+  relationship           String // "PAI", "MAE", "TUTOR_LEGAL", "OUTRO"
+  isLegalRepresentative  Boolean   @default(true)
+  isFinancialResponsible Boolean   @default(true)
+  isEmergencyContact     Boolean   @default(true)
+  hasHealthAccess        Boolean   @default(false)
+  verifiedAt             DateTime?
+  verificationNotes      String?
+  revokedAt              DateTime?
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  workspace        Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  studentMember    WorkspaceMember @relation("StudentGuardians", fields: [studentMemberId], references: [id], onDelete: Cascade)
+  guardianUser     User?           @relation("UserAsGuardian", fields: [guardianUserId], references: [id], onDelete: SetNull)
+  payerEnrollments GymEnrollment[] @relation("GuardianPayerEnrollments")
+
+  @@index([workspaceId, studentMemberId])
+  @@index([cpf])
+  @@index([guardianUserId])
+}
+
+enum WorkspaceSubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
+  INCOMPLETE
+}
+
+model WorkspaceSubscription {
+  id                     String                      @id @default(cuid())
+  workspaceId            String                      @unique
+  planId                 String?
+  status                 WorkspaceSubscriptionStatus @default(TRIAL)
+  startDate              DateTime                    @default(now())
+  endDate                DateTime?
+  trialEndsAt            DateTime?
+  maxStudents            Int                         @default(100)
+  maxStaff               Int                         @default(10)
+  maxUnits               Int                         @default(1)
+  maxDevices             Int                         @default(2)
+  storageLimitMb         Int                         @default(5120)
+  externalSubscriptionId String?                     @unique
+  externalCustomerId     String?
+  createdAt              DateTime                    @default(now())
+  updatedAt              DateTime                    @updatedAt
+
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  plan      Plan?     @relation(fields: [planId], references: [id])
+}
+
+enum GymBillingCycle {
+  MONTHLY
+  BIMONTHLY
+  QUARTERLY
+  SEMIANNUAL
+  ANNUAL
+  CUSTOM
+}
+
+enum GymEnrollmentStatus {
+  DRAFT
+  PENDING_ACCEPTANCE
+  PENDING_ACTIVATION
+  ACTIVE
+  PAUSED
+  CANCELLED
+  EXPIRED
+}
+
+model GymPlan {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  description String?  @db.Text
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace        @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  versions  GymPlanVersion[]
+
+  @@index([workspaceId, isActive])
+  @@index([workspaceId, isActive, createdAt, id], map: "GymPlan_catalog_idx")
+}
+
+model GymPlanVersion {
+  id                   String          @id @default(cuid())
+  planId               String
+  version              Int             @default(1)
+  name                 String
+  description          String?         @db.Text
+  priceInCents         BigInt
+  enrollmentFeeInCents BigInt          @default(0)
+  billingCycle         GymBillingCycle @default(MONTHLY)
+  durationDays         Int             @default(30)
+  classCreditsPerCycle Int?
+  allowedTimeStart     String?
+  allowedTimeEnd       String?
+  allowedDaysOfWeek    String?
+  allowsAllUnits       Boolean         @default(true)
+  termsText            String          @db.Text
+  termsVersion         String          @default("1.0")
+  isActive             Boolean         @default(true)
+  createdAt            DateTime        @default(now())
+
+  plan                 GymPlan          @relation(fields: [planId], references: [id], onDelete: Cascade)
+  enrollments          GymEnrollment[]
+  scheduledEnrollments GymEnrollment[]  @relation("ScheduledEnrollmentPlanVersion")
+  invoiceItems         GymInvoiceItem[] @relation("PlanVersionInvoiceItems")
+
+  @@unique([planId, version])
+  @@index([planId, isActive])
+}
+
+model GymEnrollment {
+  billingRetryAt DateTime?
+  billingFailureCount Int @default(0)
+  id                     String              @id @default(cuid())
+  workspaceId            String
+  studentMemberId        String
+  planVersionId          String
+  scheduledPlanVersionId String?
+  // Revisões comerciais preservam o contrato e os recebíveis anteriores.
+  supersedesEnrollmentId String?
+  changeKind String?
+  changeRequestKey String? @unique
+  changeRequestFingerprint String?
+  initialChargeInCents BigInt?
+  changeApprovedByUserId String?
+  changeReason String? @db.Text
+  unitId                 String?
+  status                 GymEnrollmentStatus @default(PENDING_ACCEPTANCE)
+  startDate              DateTime            @default(now())
+  endDate                DateTime?
+  autoRenew              Boolean             @default(true)
+  priceInCents           BigInt
+  enrollmentFeeInCents   BigInt              @default(0)
+  creditBalanceInCents   BigInt              @default(0)
+
+  // Pagador / Responsável financeiro
+  billingPayerUserId     String?
+  billingPayerGuardianId String?
+  billingPayerName       String?
+  billingPayerCpf        String?
+  billingPayerEmail      String?
+  billingPayerPhone      String?
+
+  // Recorrência e Integração com Gateway (GYM-042)
+  recurrenceMode         GymRecurrenceMode     @default(LOCAL)
+  providerSubscriptionId String?
+  retiredProviderSubscriptionId String?
+  billingAnchorDay Int?
+  subscriptionStatus     GymSubscriptionStatus @default(INACTIVE)
+  billingType            GymBillingType        @default(UNDEFINED)
+  checkoutUrl            String?
+  creditCardToken        String?
+  creditCardBrand        String?
+  creditCardLast4        String?
+  nextDueDate            DateTime?
+  nextCycleBillingDate   DateTime?
+  cycleCount             Int                   @default(0)
+  lastPaymentStatus      String?
+
+  // Controle de ativação e acesso físico (catraca)
+  accessGranted             Boolean   @default(false)
+  activatedAt               DateTime?
+  cancelledAt               DateTime?
+  cancellationReason        String?
+  cancellationEffectiveDate DateTime?
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+
+  workspace            Workspace       @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  studentMember        WorkspaceMember @relation(fields: [studentMemberId], references: [id], onDelete: Cascade)
+  planVersion          GymPlanVersion  @relation(fields: [planVersionId], references: [id])
+  scheduledPlanVersion GymPlanVersion? @relation("ScheduledEnrollmentPlanVersion", fields: [scheduledPlanVersionId], references: [id], onDelete: SetNull)
+  supersedesEnrollment GymEnrollment? @relation("EnrollmentRevision", fields: [supersedesEnrollmentId], references: [id], onDelete: Restrict)
+  revisions GymEnrollment[] @relation("EnrollmentRevision")
+  unit                 GymUnit?        @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  billingPayerUser     User?           @relation("BillingPayerUser", fields: [billingPayerUserId], references: [id], onDelete: SetNull)
+  billingPayerGuardian GymGuardian?    @relation("GuardianPayerEnrollments", fields: [billingPayerGuardianId], references: [id], onDelete: SetNull)
+
+  acceptance     GymContractAcceptance?
+  events         GymEnrollmentEvent[]
+  pauses         GymEnrollmentPause[]
+  billings       StudentBilling[]       @relation("EnrollmentBillings")
+  invoices       GymInvoice[]           @relation("EnrollmentInvoices")
+  classBookings  GymClassBooking[]      @relation("EnrollmentClassBookings")
+  classWaitlists GymClassWaitlist[]     @relation("EnrollmentClassWaitlists")
+  accessGrants   GymAccessGrant[]       @relation("EnrollmentGymAccessGrants")
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, studentMemberId])
+  @@index([planVersionId])
+  @@index([unitId])
+  @@index([providerSubscriptionId])
+  @@index([supersedesEnrollmentId])
+  @@index([retiredProviderSubscriptionId], map: "GymEnrollment_retiredSubscription_idx")
+  @@index([workspaceId, unitId, activatedAt], map: "GymEnrollment_contract_history_idx")
+}
+
+model GymContractAcceptance {
+  id                 String   @id @default(cuid())
+  enrollmentId       String   @unique
+  workspaceId        String
+  signerUserId       String
+  representedUserId  String?
+  representationRole String? // "SELF", "PAI", "MAE", "TUTOR_LEGAL", "OUTRO"
+  termsSnapshot      String   @db.Text
+  termsVersion       String
+  ipAddress          String?
+  userAgent          String?
+  signedAt           DateTime @default(now())
+
+  enrollment      GymEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  signerUser      User          @relation("SignerUser", fields: [signerUserId], references: [id])
+  representedUser User?         @relation("RepresentedStudentUser", fields: [representedUserId], references: [id], onDelete: SetNull)
+
+  @@index([workspaceId, signedAt])
+  @@index([signerUserId])
+}
+
+model GymEnrollmentEvent {
+  id            String               @id @default(cuid())
+  enrollmentId  String
+  workspaceId   String
+  fromStatus    GymEnrollmentStatus?
+  toStatus      GymEnrollmentStatus
+  reason        String?
+  actorId       String?
+  effectiveDate DateTime             @default(now())
+  createdAt     DateTime             @default(now())
+
+  enrollment GymEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@index([enrollmentId])
+  @@index([workspaceId, createdAt])
+  @@index([enrollmentId, effectiveDate, createdAt, id], map: "GymEnrollmentEvent_state_history_idx")
+}
+
+model GymEnrollmentPause {
+  processingRetryAt DateTime?
+  processingFailures Int @default(0)
+  id                String    @id @default(cuid())
+  enrollmentId      String
+  startDate         DateTime
+  endDate           DateTime
+  reason            String?
+  requestedByUserId String?
+  startedAt         DateTime?
+  resumedAt         DateTime?
+  extendEndDate     Boolean   @default(true)
+  billingResumePolicy String @default("SKIP")
+  createdAt         DateTime  @default(now())
+
+  enrollment GymEnrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@index([enrollmentId])
+}
+
+// ==========================================
+// PACOTE 4: FINANCEIRO DA ACADEMIA (GYM-041)
+// FATURAS, PAGAMENTOS PRESENCIAIS E ALOCAÇÕES
+// ==========================================
+
+enum GymInvoiceStatus {
+  DRAFT
+  OPEN
+  PARTIALLY_PAID
+  PAID
+  CANCELLED
+  REFUNDED
+}
+
+enum GymInvoiceItemType {
+  PLAN_SUBSCRIPTION
+  ENROLLMENT_FEE
+  DAILY_PASS
+  PRODUCT
+  SERVICE
+  PENALTY
+  OTHER
+}
+
+enum GymInPersonPaymentMethod {
+  CASH
+  EXTERNAL_POS_DEBIT
+  EXTERNAL_POS_CREDIT
+  BANK_TRANSFER_MANUAL
+  GATEWAY_ONLINE
+}
+
+enum GymPaymentStatus {
+  CONFIRMED
+  REVERSED
+}
+
+enum GymAllocationStatus {
+  ACTIVE
+  REVERSED
+}
+
+// GYM-042: Recorrência e Checkout Asaas
+enum GymRecurrenceMode {
+  LOCAL
+  PROVIDER
+}
+
+enum GymSubscriptionStatus {
+  INACTIVE
+  ACTIVE
+  OVERDUE
+  CANCELLED
+  EXPIRED
+}
+
+enum GymBillingType {
+  UNDEFINED
+  CREDIT_CARD
+  PIX
+  BOLETO
+}
+
+model GymInvoice {
+  id              String           @id @default(cuid())
+  workspaceId     String
+  studentMemberId String
+  studentUserId   String
+  enrollmentId    String?
+  billingId       String?
+  invoiceNumber   String           @unique
+  title           String
+  description     String?          @db.Text
+  status          GymInvoiceStatus @default(OPEN)
+  dueDate         DateTime
+  issueDate       DateTime         @default(now())
+  competenceMonth String?
+  recurrenceKey   String?          @unique
+  issuanceKey     String?          @unique
+  issuanceFingerprint String?
+
+  subtotalInCents         BigInt
+  discountInCents         BigInt @default(0)
+  totalInCents            BigInt
+  paidAmountInCents       BigInt @default(0)
+  openingPaidAmountInCents BigInt @default(0)
+  balanceRemainingInCents BigInt
+
+  discountPercentage         Float?
+  discountReason             String?
+  discountAuthorizedByUserId String?
+
+  payerType    String  @default("STUDENT") // STUDENT, GUARDIAN, CUSTOM
+  payerName    String
+  payerCpfCnpj String?
+  payerEmail   String?
+  payerPhone   String?
+
+  // Recorrência e Checkout Online (GYM-042)
+  providerSubscriptionId String?
+  cycleNumber            Int?
+  hostedCheckoutUrl      String?
+  pixQrCodePayload       String? @db.Text
+  pixQrCodeUrl           String?
+  bankSlipUrl            String?
+
+  createdByUserId    String
+  paidAt             DateTime?
+  cancelledAt        DateTime?
+  cancellationReason String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  workspace     Workspace       @relation("WorkspaceGymInvoices", fields: [workspaceId], references: [id], onDelete: Cascade)
+  studentMember WorkspaceMember @relation("StudentMemberInvoices", fields: [studentMemberId], references: [id], onDelete: Cascade)
+  studentUser   User            @relation("StudentUserGymInvoices", fields: [studentUserId], references: [id], onDelete: Restrict)
+  enrollment    GymEnrollment?  @relation("EnrollmentInvoices", fields: [enrollmentId], references: [id], onDelete: SetNull)
+  billing       StudentBilling? @relation("BillingGymInvoice", fields: [billingId], references: [id], onDelete: SetNull)
+
+  items       GymInvoiceItem[]
+  allocations GymPaymentAllocation[]
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, studentMemberId])
+  @@index([workspaceId, dueDate])
+  @@index([enrollmentId])
+  @@index([providerSubscriptionId])
+  @@index([enrollmentId, competenceMonth])
+}
+
+model GymInvoiceItem {
+  id               String             @id @default(cuid())
+  invoiceId        String
+  itemType         GymInvoiceItemType @default(PLAN_SUBSCRIPTION)
+  description      String
+  quantity         Int                @default(1)
+  unitPriceInCents BigInt
+  totalInCents     BigInt
+  planVersionId    String?
+
+  invoice     GymInvoice      @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  planVersion GymPlanVersion? @relation("PlanVersionInvoiceItems", fields: [planVersionId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([invoiceId])
+  @@index([planVersionId])
+}
+
+model GymPayment {
+  id               String                   @id @default(cuid())
+  workspaceId      String
+  paymentNumber    String                   @unique
+  receiptNumber    String                   @unique
+  idempotencyKey   String                   @unique
+  requestFingerprint String?
+  financialAccountId String?
+  amountInCents    BigInt
+  paymentMethod    GymInPersonPaymentMethod
+  status           GymPaymentStatus         @default(CONFIRMED)
+  paidAt           DateTime                 @default(now())
+  receivedByUserId String
+
+  // Origem verificável (POS / Transferência)
+  posCardBrand              String?
+  posAuthorizationCode      String?
+  posNsu                    String?
+  posTerminalId             String?
+  bankTransferProofUrl      String?
+  bankTransferTransactionId String?
+
+  // Snapshot do pagador
+  payerName    String
+  payerCpfCnpj String?
+
+  // Reversão
+  reversedAt       DateTime?
+  reversedByUserId String?
+  reversalReason   String?
+
+  // Documento fiscal / Recibo
+  taxDisclaimer String  @default("Este documento é um recibo comprobatório de pagamento e não substitui o documento fiscal (NFS-e/NFC-e).")
+  notes         String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  workspace           Workspace             @relation("WorkspaceGymPayments", fields: [workspaceId], references: [id], onDelete: Cascade)
+  receivedByUser      User                  @relation("StaffReceivedGymPayments", fields: [receivedByUserId], references: [id], onDelete: Restrict)
+  reversedByUser      User?                 @relation("StaffReversedGymPayments", fields: [reversedByUserId], references: [id], onDelete: SetNull)
+  cashDrawerSessionId String?
+  cashDrawerSession   GymCashDrawerSession? @relation(fields: [cashDrawerSessionId], references: [id], onDelete: SetNull)
+
+  allocations GymPaymentAllocation[]
+  financialAccount GymFinancialAccount? @relation(fields: [financialAccountId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, paidAt])
+  @@index([receivedByUserId])
+  @@index([cashDrawerSessionId])
+}
+
+model GymPaymentAllocation {
+  id                     String              @id @default(cuid())
+  paymentId              String
+  invoiceId              String
+  allocatedAmountInCents BigInt
+  status                 GymAllocationStatus @default(ACTIVE)
+  createdAt              DateTime            @default(now())
+
+  payment GymPayment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  invoice GymInvoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+
+  @@index([paymentId])
+  @@unique([paymentId, invoiceId])
+  @@index([invoiceId])
+  @@index([status])
+}
+
+enum GymFinancialAccountType {
+  CASH
+  BANK_ACCOUNT
+  GATEWAY_ONLINE
+  SAFE_RESERVE
+  OTHER
+}
+
+enum GymExpenseStatus {
+  PENDING
+  SCHEDULED
+  PAID
+  CANCELLED
+  OVERDUE
+}
+
+enum GymCashDrawerStatus {
+  OPEN
+  CLOSED
+  RECONCILED
+}
+
+enum GymCashMovementType {
+  OPENING
+  CASH_INFLOW_PAYMENT
+  SUPPLY
+  BLEED
+  EXPENSE_PAYMENT
+  CLOSING
+}
+
+model GymFinancialAccount {
+  id                    String                  @id @default(cuid())
+  workspaceId           String
+  unitId                String?
+  name                  String
+  accountType           GymFinancialAccountType @default(CASH)
+  balanceInCents        BigInt                  @default(0)
+  initialBalanceInCents BigInt                  @default(0)
+  currency              String                  @default("BRL")
+  bankName              String?
+  agencyNumber          String?
+  accountNumber         String?
+  isDefault             Boolean                 @default(false)
+  isActive              Boolean                 @default(true)
+  createdAt             DateTime                @default(now())
+  updatedAt             DateTime                @updatedAt
+
+  workspace         Workspace              @relation("WorkspaceFinancialAccounts", fields: [workspaceId], references: [id], onDelete: Cascade)
+  unit              GymUnit?               @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  drawerSessions    GymCashDrawerSession[]
+  expenses          GymExpense[]
+  outgoingTransfers GymAccountTransfer[]   @relation("FromAccountTransfers")
+  incomingTransfers GymAccountTransfer[]   @relation("ToAccountTransfers")
+  payments          GymPayment[]
+  expensePayments   GymExpensePayment[]
+
+  @@index([workspaceId, isActive])
+  @@index([workspaceId, accountType])
+}
+
+model GymAccountTransfer {
+  cashMovements GymCashDrawerMovement[]
+  id                String   @id @default(cuid())
+  workspaceId       String
+  fromAccountId     String
+  toAccountId       String
+  amountInCents     BigInt
+  transferredAt     DateTime @default(now())
+  description       String?
+  referenceId       String?
+  idempotencyKey    String? @unique
+  requestFingerprint String?
+  performedByUserId String
+  createdAt         DateTime @default(now())
+
+  workspace       Workspace           @relation("WorkspaceAccountTransfers", fields: [workspaceId], references: [id], onDelete: Cascade)
+  fromAccount     GymFinancialAccount @relation("FromAccountTransfers", fields: [fromAccountId], references: [id], onDelete: Restrict)
+  toAccount       GymFinancialAccount @relation("ToAccountTransfers", fields: [toAccountId], references: [id], onDelete: Restrict)
+  performedByUser User                @relation("TransfersPerformed", fields: [performedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([workspaceId, transferredAt])
+  @@index([fromAccountId])
+  @@index([toAccountId])
+}
+
+model GymExpenseCategory {
+  id          String   @id @default(cuid())
+  workspaceId String
+  name        String
+  code        String?
+  color       String?
+  isActive    Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  workspace Workspace    @relation("WorkspaceExpenseCategories", fields: [workspaceId], references: [id], onDelete: Cascade)
+  expenses  GymExpense[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId, isActive])
+}
+
+model GymSupplier {
+  id            String   @id @default(cuid())
+  workspaceId   String
+  tradeName     String
+  corporateName String?
+  cnpjCpf       String?
+  email         String?
+  phone         String?
+  contactName   String?
+  notes         String?  @db.Text
+  isActive      Boolean  @default(true)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  workspace Workspace    @relation("WorkspaceSuppliers", fields: [workspaceId], references: [id], onDelete: Cascade)
+  expenses  GymExpense[]
+
+  @@index([workspaceId, tradeName])
+  @@index([workspaceId, cnpjCpf])
+}
+
+model GymExpense {
+  id                 String           @id @default(cuid())
+  workspaceId        String
+  unitId             String?
+  supplierId         String?
+  supplierName       String?
+  categoryId         String
+  title              String
+  description        String?          @db.Text
+  documentNumber     String?
+  amountInCents      BigInt
+  penaltyInCents     BigInt           @default(0)
+  discountInCents    BigInt           @default(0)
+  paidAmountInCents  BigInt           @default(0)
+  dueDate            DateTime
+  competenceMonth    String // "YYYY-MM"
+  paidAt             DateTime?
+  status             GymExpenseStatus @default(PENDING)
+  financialAccountId String?
+  paymentMethod      String?
+  paymentProofUrl    String?
+  createdByUserId    String
+  paidByUserId       String?
+  cancellationReason String?
+  cancelledAt        DateTime?
+  cancelledByUserId  String?
+  createdAt          DateTime         @default(now())
+  updatedAt          DateTime         @updatedAt
+  idempotencyKey     String?          @unique
+  requestFingerprint String?
+
+  workspace        Workspace            @relation("WorkspaceExpenses", fields: [workspaceId], references: [id], onDelete: Cascade)
+  unit             GymUnit?             @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  supplier         GymSupplier?         @relation(fields: [supplierId], references: [id], onDelete: SetNull)
+  category         GymExpenseCategory   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  financialAccount GymFinancialAccount? @relation(fields: [financialAccountId], references: [id], onDelete: SetNull)
+  createdByUser    User                 @relation("CreatedExpenses", fields: [createdByUserId], references: [id], onDelete: Restrict)
+  paidByUser       User?                @relation("PaidExpenses", fields: [paidByUserId], references: [id], onDelete: SetNull)
+  cancelledByUser  User?                @relation("CancelledExpenses", fields: [cancelledByUserId], references: [id], onDelete: SetNull)
+  payments         GymExpensePayment[]
+
+  @@index([workspaceId, status])
+  @@index([workspaceId, dueDate])
+  @@index([workspaceId, competenceMonth])
+  @@index([categoryId])
+  @@index([supplierId])
+  @@index([financialAccountId])
+}
+
+// New internal payments only. Legacy aggregates are not fabricated as receipts.
+model GymExpensePayment {
+  id                 String   @id @default(cuid())
+  expenseId          String
+  financialAccountId String
+  amountInCents      BigInt
+  paidAt             DateTime
+  paymentMethod      String?
+  paymentProofUrl    String?
+  recordedByUserId   String
+  idempotencyKey     String   @unique
+  requestFingerprint String
+  reversedAt        DateTime?
+  reversedByUserId   String?
+  reversalReason    String?
+  createdAt         DateTime @default(now())
+  expense           GymExpense @relation(fields: [expenseId], references: [id], onDelete: Restrict)
+  financialAccount  GymFinancialAccount @relation(fields: [financialAccountId], references: [id], onDelete: Restrict)
+  recordedByUser    User @relation("ExpensePaymentsRecorded", fields: [recordedByUserId], references: [id], onDelete: Restrict)
+  reversedByUser    User? @relation("ExpensePaymentsReversed", fields: [reversedByUserId], references: [id], onDelete: Restrict)
+  @@index([expenseId, paidAt])
+}
+
+model GymCashDrawerSession {
+  id                   String              @id @default(cuid())
+  workspaceId          String
+  unitId               String?
+  financialAccountId   String
+  sessionNumber        String              @unique // CX-YYYYMM-XXXXXX
+  status               GymCashDrawerStatus @default(OPEN)
+  openedAt             DateTime            @default(now())
+  openedByUserId       String
+  openingAmountInCents BigInt
+  closedAt             DateTime?
+  closedByUserId       String?
+  expectedCashInCents  BigInt              @default(0)
+  actualCashInCents    BigInt?
+  differenceInCents    BigInt?
+  differenceReason     String?             @db.Text
+  notes                String?             @db.Text
+  reconciledAt         DateTime?
+  reconciledByUserId   String?
+  reconciliationNotes  String?             @db.Text
+  createdAt            DateTime            @default(now())
+  updatedAt            DateTime            @updatedAt
+
+  workspace        Workspace               @relation("WorkspaceCashDrawerSessions", fields: [workspaceId], references: [id], onDelete: Cascade)
+  unit             GymUnit?                @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  financialAccount GymFinancialAccount     @relation(fields: [financialAccountId], references: [id], onDelete: Restrict)
+  openedByUser     User                    @relation("CashDrawersOpened", fields: [openedByUserId], references: [id], onDelete: Restrict)
+  closedByUser     User?                   @relation("CashDrawersClosed", fields: [closedByUserId], references: [id], onDelete: SetNull)
+  reconciledByUser User?                   @relation("CashDrawersReconciled", fields: [reconciledByUserId], references: [id], onDelete: SetNull)
+  movements        GymCashDrawerMovement[]
+  payments         GymPayment[]
+
+  @@index([workspaceId, status])
+  @@index([financialAccountId])
+  @@index([openedByUserId])
+  @@index([openedAt])
+}
+
+model GymCashDrawerMovement {
+  id                String              @id @default(cuid())
+  sessionId         String
+  movementType      GymCashMovementType
+  amountInCents     BigInt
+  description       String?
+  performedByUserId String
+  paymentId         String?
+  expenseId         String?
+  accountTransferId String?
+  standaloneReviewedAt DateTime?
+  idempotencyKey    String? @unique
+  requestFingerprint String?
+  createdAt         DateTime            @default(now())
+
+  session         GymCashDrawerSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  accountTransfer GymAccountTransfer? @relation(fields: [accountTransferId], references: [id], onDelete: Restrict)
+  performedByUser User                 @relation("CashMovementsPerformed", fields: [performedByUserId], references: [id], onDelete: Restrict)
+
+  @@index([sessionId])
+  @@index([movementType])
+  @@unique([accountTransferId, movementType])
+}
+
+enum GymDivergenceType {
+  UNLINKED_GATEWAY_PAYMENT
+  PAID_GATEWAY_UNPAID_INVOICE
+  AMOUNT_MISMATCH
+  STATUS_MISMATCH
+  CHARGEBACK_DISPUTE
+  ORPHAN_INVOICE
+}
+
+enum GymDivergenceStatus {
+  PENDING
+  RESOLVED
+  IGNORED
+}
+
+model GymReconciliationDivergence {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation("WorkspaceReconciliationDivergences", fields: [workspaceId], references: [id], onDelete: Cascade)
+
+  divergenceType  GymDivergenceType
+  resourceType    String
+  resourceId      String
+  referenceNumber String?
+  studentName     String?
+
+  expectedAmountInCents BigInt @default(0)
+  actualAmountInCents   BigInt @default(0)
+  differenceInCents     BigInt @default(0)
+
+  description      String              @db.Text
+  status           GymDivergenceStatus @default(PENDING)
+  resolvedAt       DateTime?
+  resolvedByUserId String?
+  resolutionNotes  String?             @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([workspaceId, status])
+  @@index([resourceType, resourceId])
+}
+
+// Immutable administrative decisions. Original external facts are retained in snapshots.
+model GymAdministrativeReview {
+  id String @id @default(cuid())
+  workspaceId String
+  unitId String?
+  resourceType String
+  resourceId String
+  requestKey String
+  requestFingerprint String
+  actorUserId String
+  reason String @db.Text
+  evidenceReference String
+  beforeSnapshot Json
+  afterSnapshot Json
+  createdAt DateTime @default(now())
+  workspace Workspace @relation(fields: [workspaceId], references: [id], onDelete: Restrict)
+  actor User @relation(fields: [actorUserId], references: [id], onDelete: Restrict)
+
+  @@unique([workspaceId, requestKey])
+  @@index([workspaceId, resourceType, createdAt])
+  @@index([workspaceId, resourceId])
+}
+
+// ==========================================
+// PACOTE 5 — AULAS E AGENDAMENTOS (GYM-050)
+// ==========================================
+
+enum GymClassSessionStatus {
+  SCHEDULED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+model GymModality {
+  id                     String    @id @default(cuid())
+  workspaceId            String
+  workspace              Workspace @relation("WorkspaceGymModalities", fields: [workspaceId], references: [id], onDelete: Cascade)
+  name                   String
+  description            String?   @db.Text
+  color                  String    @default("#3b82f6") // hex code para diferenciação na grade
+  icon                   String?
+  defaultDurationMinutes Int       @default(50)
+  defaultCapacity        Int       @default(20)
+  isActive               Boolean   @default(true)
+  createdAt              DateTime  @default(now())
+  updatedAt              DateTime  @updatedAt
+
+  schedules GymClassSchedule[]
+  sessions  GymClassSession[]
+
+  @@unique([workspaceId, name])
+  @@index([workspaceId, isActive])
+}
+
+model GymRoom {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation("WorkspaceGymRooms", fields: [workspaceId], references: [id], onDelete: Cascade)
+  unitId      String
+  unit        GymUnit   @relation("UnitGymRooms", fields: [unitId], references: [id], onDelete: Cascade)
+  name        String
+  description String?   @db.Text
+  maxCapacity Int       @default(30)
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  schedules GymClassSchedule[]
+  sessions  GymClassSession[]
+
+  @@unique([workspaceId, unitId, name])
+  @@index([workspaceId, unitId, isActive])
+}
+
+model GymClassSchedule {
+  id                String          @id @default(cuid())
+  workspaceId       String
+  workspace         Workspace       @relation("WorkspaceGymClassSchedules", fields: [workspaceId], references: [id], onDelete: Cascade)
+  unitId            String
+  unit              GymUnit         @relation("UnitGymClassSchedules", fields: [unitId], references: [id], onDelete: Cascade)
+  modalityId        String
+  modality          GymModality     @relation(fields: [modalityId], references: [id], onDelete: Restrict)
+  roomId            String
+  room              GymRoom         @relation(fields: [roomId], references: [id], onDelete: Restrict)
+  instructorStaffId String
+  instructor        WorkspaceMember @relation("InstructorClassSchedules", fields: [instructorStaffId], references: [id], onDelete: Restrict)
+
+  dayOfWeek     Int // 0 (Domingo) a 6 (Sábado)
+  startTime     String // Formato "HH:mm" (ex: "08:00")
+  endTime       String // Formato "HH:mm" (ex: "08:50")
+  capacity      Int // Quantidade máxima de vagas ofertadas (<= room.maxCapacity)
+  allowWaitlist Boolean @default(true)
+  maxWaitlist   Int     @default(5)
+
+  startDate DateTime  @default(now())
+  endDate   DateTime?
+  isActive  Boolean   @default(true)
+  notes     String?   @db.Text
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+
+  sessions GymClassSession[]
+
+  @@index([workspaceId, dayOfWeek, isActive])
+  @@index([workspaceId, roomId, dayOfWeek])
+  @@index([workspaceId, instructorStaffId, dayOfWeek])
+}
+
+model GymClassSession {
+  id          String            @id @default(cuid())
+  workspaceId String
+  workspace   Workspace         @relation("WorkspaceGymClassSessions", fields: [workspaceId], references: [id], onDelete: Cascade)
+  unitId      String
+  unit        GymUnit           @relation("UnitGymClassSessions", fields: [unitId], references: [id], onDelete: Cascade)
+  scheduleId  String?
+  schedule    GymClassSchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+  modalityId  String
+  modality    GymModality       @relation(fields: [modalityId], references: [id], onDelete: Restrict)
+  roomId      String
+  room        GymRoom           @relation(fields: [roomId], references: [id], onDelete: Restrict)
+
+  instructorStaffId           String
+  instructor                  WorkspaceMember  @relation("InstructorClassSessions", fields: [instructorStaffId], references: [id], onDelete: Restrict)
+  substituteInstructorStaffId String?
+  substituteInstructor        WorkspaceMember? @relation("SubstituteInstructorClassSessions", fields: [substituteInstructorStaffId], references: [id], onDelete: SetNull)
+  substituteReason            String?          @db.Text
+  isSubstitute                Boolean          @default(false)
+
+  sessionDate   DateTime // YYYY-MM-DDT00:00:00.000Z
+  startsAt      DateTime // Horário real início com fuso
+  endsAt        DateTime // Horário real término com fuso
+  capacity      Int // Vagas desta sessão específica
+  allowWaitlist Boolean  @default(true)
+  maxWaitlist   Int      @default(5)
+
+  status                  GymClassSessionStatus @default(SCHEDULED)
+  bookedCount             Int                   @default(0)
+  waitlistCount           Int                   @default(0)
+  cancelledAt             DateTime?
+  cancellationReason      String?               @db.Text
+  cancellationActorUserId String?
+  notes                   String?               @db.Text
+
+  bookings  GymClassBooking[]  @relation("SessionClassBookings")
+  waitlists GymClassWaitlist[] @relation("SessionClassWaitlists")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([scheduleId, sessionDate])
+  @@index([workspaceId, sessionDate, status])
+  @@index([workspaceId, roomId, startsAt, endsAt])
+  @@index([workspaceId, instructorStaffId, startsAt, endsAt])
+}
+
+enum GymClassBookingStatus {
+  CONFIRMED
+  CANCELLED
+  LATE_CANCELLED
+  NO_SHOW
+  ATTENDED
+}
+
+enum GymClassWaitlistStatus {
+  WAITING
+  OFFERED
+  PROMOTED
+  EXPIRED
+  CANCELLED
+}
+
+model GymClassBooking {
+  id              String          @id @default(cuid())
+  workspaceId     String
+  workspace       Workspace       @relation("WorkspaceGymClassBookings", fields: [workspaceId], references: [id], onDelete: Cascade)
+  sessionId       String
+  session         GymClassSession @relation("SessionClassBookings", fields: [sessionId], references: [id], onDelete: Cascade)
+  studentMemberId String
+  studentMember   WorkspaceMember @relation("StudentClassBookings", fields: [studentMemberId], references: [id], onDelete: Cascade)
+  enrollmentId    String?
+  enrollment      GymEnrollment?  @relation("EnrollmentClassBookings", fields: [enrollmentId], references: [id], onDelete: SetNull)
+
+  bookedByUserId       String
+  status               GymClassBookingStatus @default(CONFIRMED)
+  bookedAt             DateTime              @default(now())
+  cancelledAt          DateTime?
+  cancellationReason   String?               @db.Text
+  cancelledByUserId    String?
+  checkInAt            DateTime?
+  checkInMethod        String? // MANUAL_STAFF, SELF_CHECKIN, RECEPTION
+  checkInStaffMemberId String?
+  checkedInByUserId    String?
+  notes                String?               @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sessionId, status])
+  @@index([studentMemberId, status])
+  @@index([workspaceId, bookedAt])
+}
+
+model GymClassWaitlist {
+  id              String          @id @default(cuid())
+  workspaceId     String
+  workspace       Workspace       @relation("WorkspaceGymClassWaitlists", fields: [workspaceId], references: [id], onDelete: Cascade)
+  sessionId       String
+  session         GymClassSession @relation("SessionClassWaitlists", fields: [sessionId], references: [id], onDelete: Cascade)
+  studentMemberId String
+  studentMember   WorkspaceMember @relation("StudentClassWaitlists", fields: [studentMemberId], references: [id], onDelete: Cascade)
+  enrollmentId    String?
+  enrollment      GymEnrollment?  @relation("EnrollmentClassWaitlists", fields: [enrollmentId], references: [id], onDelete: SetNull)
+
+  requestedByUserId String
+  position          Int
+  status            GymClassWaitlistStatus @default(WAITING)
+  offeredAt         DateTime?
+  offerExpiresAt    DateTime?
+  promotedBookingId String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([sessionId, status, position])
+  @@index([studentMemberId, status])
+  @@index([workspaceId, status])
+}
+
+// =========================================================================
+// PACOTE 6: CATRACA E ACESSO FÍSICO (GYM-060: POLÍTICA E PROJEÇÃO DE ACESSO)
+// =========================================================================
+
+enum GymAccessGrantStatus {
+  ACTIVE
+  SUSPENDED
+  REVOKED
+  EXPIRED
+}
+
+enum GymAccessDecision {
+  GRANTED
+  DENIED
+}
+
+model GymAccessGrant {
+  id              String          @id @default(cuid())
+  workspaceId     String
+  workspace       Workspace       @relation("WorkspaceGymAccessGrants", fields: [workspaceId], references: [id], onDelete: Cascade)
+  studentMemberId String
+  studentMember   WorkspaceMember @relation("StudentGymAccessGrants", fields: [studentMemberId], references: [id], onDelete: Cascade)
+  enrollmentId    String?
+  enrollment      GymEnrollment?  @relation("EnrollmentGymAccessGrants", fields: [enrollmentId], references: [id], onDelete: SetNull)
+
+  status            GymAccessGrantStatus @default(ACTIVE)
+  allowsAllUnits    Boolean              @default(true)
+  allowedUnitIds    Json? // string[] com IDs das filiais permitidas
+  allowedTimeStart  String? // "HH:mm" (ex: "06:00")
+  allowedTimeEnd    String? // "HH:mm" (ex: "22:00")
+  allowedDaysOfWeek String? // "1,2,3,4,5,6" (0=Dom..6=Sáb)
+  credentialType    String               @default("QR_CODE") // QR_CODE, RFID_CARD, BIOMETRIC, PIN
+  credentialCode    String? // Código físico ou hash seguro da credencial
+  validFrom         DateTime             @default(now())
+  validUntil        DateTime? // Data limite de validade do grant
+  ruleVersion       String               @default("1.0")
+  lastProjectedAt   DateTime             @default(now())
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([workspaceId, status])
+  @@index([studentMemberId, status])
+  @@index([credentialType, credentialCode])
+}
+
+model GymAccessOverride {
+  id              String          @id @default(cuid())
+  workspaceId     String
+  workspace       Workspace       @relation("WorkspaceGymAccessOverrides", fields: [workspaceId], references: [id], onDelete: Cascade)
+  studentMemberId String
+  studentMember   WorkspaceMember @relation("StudentGymAccessOverrides", fields: [studentMemberId], references: [id], onDelete: Cascade)
+  unitId          String?
+  unit            GymUnit?        @relation("UnitGymAccessOverrides", fields: [unitId], references: [id], onDelete: SetNull)
+
+  grantedByUserId  String
+  reason           String    @db.Text
+  validFrom        DateTime  @default(now())
+  validUntil       DateTime
+  isActive         Boolean   @default(true)
+  revokedAt        DateTime?
+  revokedByUserId  String?
+  revocationReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([workspaceId, studentMemberId, isActive])
+  @@index([validUntil])
+}
+
+model GymAccessDecisionLog {
+  id              String          @id @default(cuid())
+  workspaceId     String
+  workspace       Workspace       @relation("WorkspaceGymAccessDecisionLogs", fields: [workspaceId], references: [id], onDelete: Cascade)
+  studentMemberId String
+  studentMember   WorkspaceMember @relation("StudentGymAccessDecisionLogs", fields: [studentMemberId], references: [id], onDelete: Cascade)
+  unitId          String
+  unit            GymUnit         @relation("UnitGymAccessDecisionLogs", fields: [unitId], references: [id], onDelete: Cascade)
+
+  decision          GymAccessDecision
+  reasonCode        String // VALID_ACTIVE_MEMBERSHIP, OVERDUE_PAYMENT_BLOCKED, etc.
+  ruleVersion       String            @default("1.0")
+  factors           Json // Detalhamento dos fatores avaliados
+  evaluatorType     String            @default("TURNSTILE_ENGINE") // TURNSTILE_ENGINE, RECEPTION_PANEL, SIMULATOR
+  evaluatedByUserId String?
+  evaluatedAt       DateTime          @default(now())
+
+  @@index([workspaceId, evaluatedAt])
+  @@index([studentMemberId, evaluatedAt])
+  @@index([workspaceId, decision])
+}
+
+enum GymDeviceType {
+  TURNSTILE
+  FACIAL_TERMINAL
+  RFID_READER
+  BIOMETRIC_READER
+  DOOR_CONTROLLER
+}
+
+enum GymDeviceStatus {
+  ONLINE
+  OFFLINE
+  DEGRADED
+  MAINTENANCE
+}
+
+enum GymDeviceCommandType {
+  RELEASE_TURNSTILE
+  SYNC_USER
+  DELETE_USER
+  SYNC_CREDENTIAL
+  DELETE_CREDENTIAL
+  SET_CLOCK
+  REBOOT
+}
+
+enum GymDeviceCommandStatus {
+  PENDING
+  SENT
+  ACKNOWLEDGED
+  FAILED
+  EXPIRED
+}
+
+enum GymAccessDirection {
+  ENTRY
+  EXIT
+  UNKNOWN
+}
+
+model GymAccessDevice {
+  id          String    @id @default(cuid())
+  workspaceId String
+  workspace   Workspace @relation("WorkspaceGymAccessDevices", fields: [workspaceId], references: [id], onDelete: Cascade)
+  unitId      String
+  unit        GymUnit   @relation("UnitGymAccessDevices", fields: [unitId], references: [id], onDelete: Cascade)
+
+  name             String
+  deviceType       GymDeviceType @default(TURNSTILE)
+  manufacturer     String        @default("CONTROL_ID")
+  model            String?
+  serialNumber     String?
+  ipAddress        String?
+  port             Int?          @default(80)
+  externalDeviceId String?
+
+  deviceTokenHash   String? @unique
+  deviceTokenPrefix String?
+
+  status          GymDeviceStatus @default(OFFLINE)
+  firmwareVersion String?
+  lastHeartbeatAt DateTime?
+  lastSyncAt      DateTime?
+
+  config Json?
+
+  // Contingência de Recepção & Cache Offline
+  contingencyMode            Boolean   @default(false)
+  contingencyReason          String?
+  contingencyStartedAt       DateTime?
+  contingencyExpiresAt       DateTime?
+  contingencyStartedByUserId String?
+  lastOfflineSyncAt          DateTime?
+  cacheVersion               Int       @default(1)
+
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  commands   GymDeviceCommand[] @relation("DeviceGymCommands")
+  accessLogs GymAccessLog[]     @relation("DeviceGymAccessLogs")
+
+  @@index([workspaceId, unitId, status])
+  @@index([deviceTokenHash])
+  @@index([serialNumber])
+}
+
+model GymDeviceCommand {
+  id          String          @id @default(cuid())
+  workspaceId String
+  workspace   Workspace       @relation("WorkspaceGymDeviceCommands", fields: [workspaceId], references: [id], onDelete: Cascade)
+  deviceId    String
+  device      GymAccessDevice @relation("DeviceGymCommands", fields: [deviceId], references: [id], onDelete: Cascade)
+
+  commandType    GymDeviceCommandType
+  payload        Json?
+  idempotencyKey String?
+  status         GymDeviceCommandStatus @default(PENDING)
+
+  priority       Int       @default(0)
+  expiresAt      DateTime?
+  sentAt         DateTime?
+  acknowledgedAt DateTime?
+
+  resultPayload Json?
+  errorMessage  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([deviceId, status, priority])
+  @@index([workspaceId, commandType])
+  @@index([idempotencyKey])
+  @@unique([deviceId, idempotencyKey])
+}
+
+model GymAccessLog {
+  id              String           @id @default(cuid())
+  workspaceId     String
+  workspace       Workspace        @relation("WorkspaceGymAccessLogs", fields: [workspaceId], references: [id], onDelete: Cascade)
+  unitId          String
+  unit            GymUnit          @relation("UnitGymAccessLogs", fields: [unitId], references: [id], onDelete: Cascade)
+  deviceId        String?
+  device          GymAccessDevice? @relation("DeviceGymAccessLogs", fields: [deviceId], references: [id], onDelete: SetNull)
+  studentMemberId String?
+  studentMember   WorkspaceMember? @relation("StudentGymAccessLogs", fields: [studentMemberId], references: [id], onDelete: SetNull)
+
+  externalPersonId String?
+  credentialType   String?
+  credentialCode   String?
+
+  granted    Boolean            @default(true)
+  direction  GymAccessDirection @default(ENTRY)
+  reasonCode String?
+
+  rawEvent   Json?
+  accessedAt DateTime @default(now())
+
+  // Sincronização Offline, Sequência e Deduplicação
+  offlineSequenceId Int?
+  deduplicationKey  String?   @unique
+  wasOffline        Boolean   @default(false)
+  clockDriftMs      Int       @default(0)
+  syncedAt          DateTime?
+
+  reconciliationDivergence GymAccessReconciliationDivergence?
+
+  createdAt DateTime @default(now())
+
+  @@index([workspaceId, unitId, accessedAt])
+  @@index([studentMemberId, accessedAt])
+  @@index([deviceId, accessedAt])
+  @@index([externalPersonId])
+  @@index([deduplicationKey])
+  @@index([wasOffline])
+}
+
+enum GymAccessDivergenceSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum GymAccessDivergenceStatus {
+  OPEN
+  RESOLVED
+  DISMISSED
+}
+
+model GymAccessReconciliationDivergence {
+  id              String           @id @default(cuid())
+  workspaceId     String
+  workspace       Workspace        @relation("WorkspaceGymAccessReconciliationDivergences", fields: [workspaceId], references: [id], onDelete: Cascade)
+  unitId          String
+  unit            GymUnit          @relation("UnitGymAccessReconciliationDivergences", fields: [unitId], references: [id], onDelete: Cascade)
+  deviceId        String?
+  accessLogId     String?          @unique
+  accessLog       GymAccessLog?    @relation(fields: [accessLogId], references: [id], onDelete: SetNull)
+  studentMemberId String?
+  studentMember   WorkspaceMember? @relation("StudentGymAccessReconciliationDivergences", fields: [studentMemberId], references: [id], onDelete: SetNull)
+
+  divergenceType String // OFFLINE_REVOKED_GRANT_USED, INACTIVE_MEMBER_OFFLINE_PASSAGE, CLOCK_DRIFT_EXCESSIVE, UNKNOWN_CREDENTIAL_OFFLINE
+  severity       GymAccessDivergenceSeverity @default(MEDIUM)
+  status         GymAccessDivergenceStatus   @default(OPEN)
+
+  description  String @db.Text
+  snapshotData Json?
+
+  resolvedAt       DateTime?
+  resolvedByUserId String?
+  resolutionNotes  String?   @db.Text
+
+  detectedAt DateTime @default(now())
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([workspaceId, unitId, status])
+  @@index([studentMemberId, status])
+  @@index([detectedAt])
+}
+
+// Bounded operational heartbeat; business/financial audit history remains immutable.
+model ScheduledJobState {
+  id String @id
+  lastRunAt DateTime
+  lastSuccessAt DateTime?
+  success Boolean
+  durationMs Int
+  consecutiveFailures Int @default(0)
+}

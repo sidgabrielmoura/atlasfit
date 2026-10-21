@@ -1,3 +1,11 @@
+import { chatUserDto } from "@/lib/avatar-response";
+import { serializableTransaction } from "@/modules/workspaces/application/transaction";
+import { finalizeGymStorage, gymAttachmentKeys, gymStoredObjectMetadata, isGymWorkspace } from "@/modules/workspaces/application/gym-storage";
+import { WorkspaceAccessError } from "@/modules/workspaces/domain/types";
+import { STORAGE_CHAT_TYPES } from "@/lib/storage-upload-policy";
+import { assertChatConversation } from "@/modules/workspaces/application/chat-authority";
+import { handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
+import { withAuditedRequest } from "@/lib/audited-request";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
@@ -5,7 +13,7 @@ import { publishToChannel } from "@/lib/ably";
 import { NotificationService } from "@/lib/notifications/service";
 import { NotificationType, NotificationCategory } from "@/lib/notifications/types";
 
-export async function GET(req: Request) {
+export const GET = withAuditedRequest(async function GET(req: Request) {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -15,21 +23,15 @@ export async function GET(req: Request) {
     const { searchParams } = new URL(req.url);
     const conversationId = searchParams.get("conversationId");
     const cursor = searchParams.get("cursor");
-    const limit = parseInt(searchParams.get("limit") || "30", 10);
+    const requestedLimit = Number(searchParams.get("limit") || "30");
+    const limit = Number.isFinite(requestedLimit) ? Math.min(100, Math.max(1, Math.trunc(requestedLimit))) : 30;
 
     if (!conversationId) {
       return new NextResponse("conversationId é obrigatório.", { status: 400 });
     }
 
     const userId = session.user.id;
-
-    // Verify user is participant in conversation
-    const isParticipant = await prisma.conversationParticipant.findFirst({
-      where: { conversationId, userId },
-    });
-    if (!isParticipant) {
-      return new NextResponse("Acesso negado a esta conversa.", { status: 403 });
-    }
+    await assertChatConversation(conversationId, userId);
 
     // Query messages with cursor pagination
     const messages = await prisma.message.findMany({
@@ -37,15 +39,13 @@ export async function GET(req: Request) {
       take: limit + 1, // Get one extra to determine if there is a next page
       cursor: cursor ? { id: cursor } : undefined,
       skip: cursor ? 1 : 0,
-      orderBy: {
-        createdAt: "desc", // Latest first, client will reverse for display
-      },
+      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
       include: {
         sender: {
           select: {
             id: true,
             name: true,
-            image: true,
+            updatedAt: true,
           },
         },
         replyTo: {
@@ -67,21 +67,22 @@ export async function GET(req: Request) {
 
     let nextCursor: string | null = null;
     if (messages.length > limit) {
-      const nextItem = messages.pop(); // Remove extra item
-      nextCursor = nextItem?.id || null;
+      messages.pop();
+      nextCursor = messages[messages.length - 1]?.id || null;
     }
 
     return NextResponse.json({
-      messages,
+      messages: messages.map(message => ({ ...message, sender: chatUserDto(message.sender, conversationId) })),
       nextCursor,
     });
   } catch (error) {
+    const denied = handleWorkspaceAccessError(error); if (denied) return denied;
     console.error("[API Messages GET] Error:", error);
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
-}
+});
 
-export async function POST(req: Request) {
+export const POST = withAuditedRequest(async function POST(req: Request) {
   try {
     const session = await auth();
     if (!session?.user) {
@@ -96,17 +97,24 @@ export async function POST(req: Request) {
     }
 
     const userId = session.user.id;
-
-    // Verify user is participant in conversation
-    const isParticipant = await prisma.conversationParticipant.findFirst({
-      where: { conversationId, userId },
-    });
-    if (!isParticipant) {
-      return new NextResponse("Acesso negado a esta conversa.", { status: 403 });
+    const chat = await assertChatConversation(conversationId, userId);
+    const gym = await isGymWorkspace(chat.workspaceId);
+    const storedAttachments: { key: string; size: number }[] = [];
+    if (gym && attachment && ["IMAGE", "VIDEO", "AUDIO", "FILE"].includes(type)) {
+      const keys = gymAttachmentKeys(attachment);
+      if (!keys.length) throw new WorkspaceAccessError(400, "INVALID_REQUEST", "Anexos da academia exigem upload conferido.");
+      for (const key of keys) {
+        const verified = await gymStoredObjectMetadata(key, chat.workspaceId, `chat/${userId}`, 50 * 1024 * 1024, STORAGE_CHAT_TYPES);
+        storedAttachments.push({ key, size: verified.size });
+      }
     }
-
     // Create message in transaction
-    const { message, conversation } = await prisma.$transaction(async (tx) => {
+    const { message: storedMessage, conversation } = await serializableTransaction(async (tx) => {
+      await assertChatConversation(conversationId, userId, tx);
+      if (replyToId && !await tx.message.findFirst({ where: { id: replyToId, conversationId }, select: { id: true } })) throw new WorkspaceAccessError(404, "RESOURCE_NOT_FOUND", "Mensagem de resposta de outra conversa.");
+      for (const asset of storedAttachments) {
+        await finalizeGymStorage(tx, { workspaceId: chat.workspaceId, actorUserId: userId, objectKey: asset.key, target: "chat_attachment", size: asset.size });
+      }
       // 1. Create Message
       const msg = await tx.message.create({
         data: {
@@ -123,7 +131,7 @@ export async function POST(req: Request) {
             select: {
               id: true,
               name: true,
-              image: true,
+              updatedAt: true,
             },
           },
           replyTo: {
@@ -177,8 +185,11 @@ export async function POST(req: Request) {
         },
       });
 
+      if (gym) await tx.auditLog.create({ data: { userId, action: "GYM_CHAT_MESSAGE_CREATED", entity: "MESSAGE", entityId: msg.id } });
       return { message: msg, conversation: updatedConv };
     });
+
+    const message = { ...storedMessage, sender: chatUserDto(storedMessage.sender, conversationId) };
 
     // Publish to Ably channel for this conversation: new message event
     await publishToChannel(`conversation:${conversationId}`, "message:new", message);
@@ -291,7 +302,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json(message);
   } catch (error) {
+    const denied = handleWorkspaceAccessError(error); if (denied) return denied;
     console.error("[API Messages POST] Error:", error);
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
-}
+});

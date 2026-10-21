@@ -1,3 +1,5 @@
+import { withRequestMemo } from "@/lib/request-memo";
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
@@ -7,7 +9,8 @@ import {
   sanitizeWalletAccount
 } from "@/modules/payments/security/wallet-security";
 
-export async function GET(req: NextRequest) {
+async function handleGET(req: NextRequest) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -37,11 +40,8 @@ export async function GET(req: NextRequest) {
 
     const isLocked = !isSubscriptionActive && !user?.isTestAccount;
 
-    let overview = await paymentService.getWalletOverview(userId);
+    let overview = await paymentService.getWalletOverview(userId, { reconcile: false });
 
-    if (!overview) {
-      overview = await paymentService.healOrphanedAccountIfAny(userId);
-    }
 
     const hasValidWallet = !!overview &&
       Boolean(overview.providerAccountId) &&
@@ -60,3 +60,4 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ success: false, error: message }, { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);

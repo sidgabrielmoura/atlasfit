@@ -1,8 +1,9 @@
+import { withRequestMemo } from "@/lib/request-memo";
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 
-export async function GET() {
+async function handleGET() {
   try {
     const session = await auth();
     if (!session?.user?.id || session.user.role !== "SUPERADMIN") {
@@ -22,6 +23,7 @@ export async function GET() {
     return NextResponse.json({ error: msg }, { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 export async function POST(req: NextRequest) {
   try {

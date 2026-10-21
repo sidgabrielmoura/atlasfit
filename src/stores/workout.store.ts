@@ -1,6 +1,7 @@
 import { proxy, subscribe } from "valtio";
 
 export interface WorkoutState {
+  workspaceId: string | null;
   activeWorkout: any | null;
   currentStepIdx: number;
   totalTimer: number;
@@ -24,6 +25,7 @@ export interface WorkoutState {
 const storageKey = "atlasfit_workout_store";
 
 const initialState: WorkoutState = {
+  workspaceId: null,
   activeWorkout: null,
   currentStepIdx: 0,
   totalTimer: 0,
@@ -68,7 +70,13 @@ if (typeof window !== "undefined") {
 }
 
 export const workoutActions = {
+  bindWorkspace(workspaceId: string) {
+    // A persisted execution is reusable only when its original tenant is known.
+    if (workoutStore.workspaceId !== workspaceId) this.cancelWorkout();
+    workoutStore.workspaceId = workspaceId;
+  },
   startWorkout(workout: any, steps: any[], initialLoads: any, initialReps: any, initialRestTimes: any, initialDone: any) {
+    workoutStore.workspaceId = typeof workout.workspaceId === "string" ? workout.workspaceId : workoutStore.workspaceId;
     workoutStore.activeWorkout = workout;
     workoutStore.executionSteps = steps;
     workoutStore.currentStepIdx = 0;
@@ -97,6 +105,7 @@ export const workoutActions = {
   },
 
   cancelWorkout() {
+    workoutStore.workspaceId = null;
     workoutStore.activeWorkout = null;
     workoutStore.executionSteps = [];
     workoutStore.currentStepIdx = 0;

@@ -1,9 +1,16 @@
+import { withRequestMemo } from "@/lib/request-memo";
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import {
+  requirePersonalWorkspaceAccess as requireWorkspaceAccess,
+  handleWorkspaceAccessError,
+} from "@/modules/workspaces";
 
 // GET /api/personal/workouts
-export async function GET(req: Request) {
+async function handleGET(req: Request) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -16,10 +23,15 @@ export async function GET(req: Request) {
     const whereClause: any = {
       creatorId: session.user.id,
       studentId: null,
+      OR: [{ workspaceId: null }, { workspace: { type: "PERSONAL", isActive: true, members: { some: { userId: session.user.id, isActive: true } } } }],
     };
 
     if (workspaceId) {
-      whereClause.workspaceId = workspaceId;
+      const context = await requireWorkspaceAccess({
+        workspaceId,
+        capability: "workouts.read",
+      });
+      whereClause.workspaceId = context.workspaceId;
     }
 
     const workouts = await prisma.workout.findMany({
@@ -78,13 +90,18 @@ export async function GET(req: Request) {
 
     return NextResponse.json(formattedWorkouts);
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error);
+    if (accessError) return accessError;
+
     console.error("Error fetching workouts:", error);
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }
 }
+export const GET = withRequestMemo(handleGET);
 
 // POST /api/personal/workouts
 export async function POST(req: Request) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   try {
     const session = await auth();
     if (!session?.user?.id) {
@@ -99,16 +116,10 @@ export async function POST(req: Request) {
     }
 
     if (workspaceId) {
-      const workspaceMember = await prisma.workspaceMember.findFirst({
-        where: {
-          userId: session.user.id,
-          workspaceId,
-        },
+      await requireWorkspaceAccess({
+        workspaceId,
+        capability: "workouts.manage.assigned",
       });
-
-      if (!workspaceMember) {
-        return new NextResponse("Acesso negado ao workspace informado.", { status: 403 });
-      }
     }
 
     const workout = await prisma.$transaction(async (tx) => {
@@ -200,6 +211,9 @@ export async function POST(req: Request) {
 
     return NextResponse.json(workout, { status: 201 });
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error);
+    if (accessError) return accessError;
+
     console.error("Error creating workout:", error);
     return new NextResponse("Erro Interno do Servidor", { status: 500 });
   }

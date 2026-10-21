@@ -1,3 +1,6 @@
+import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
+import { authorizePersonalStudent } from "@/modules/workspaces/application/personal-student-authority";
+import { handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
@@ -10,6 +13,7 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string; photoId: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -35,6 +39,8 @@ export async function PATCH(
     }
 
     // Validar se o personal trainer pertence ao workspace da foto
+    
+    await authorizePersonalStudent(photo.workspaceId, studentId, session.user.id, "health.manage.assigned");
     const trainerMember = await prisma.workspaceMember.findFirst({
       where: {
         userId: session.user.id,
@@ -90,6 +96,8 @@ export async function PATCH(
 
     return NextResponse.json(updatedPhoto);
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
+
     console.error("PATCH progress photo error:", error);
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }
@@ -101,6 +109,7 @@ export async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string; photoId: string }> }
 ) {
+  const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const session = await auth();
   if (!session?.user) {
     return new NextResponse("Não autorizado.", { status: 401 });
@@ -122,6 +131,8 @@ export async function DELETE(
     }
 
     // Validar se o personal trainer pertence ao workspace
+    
+    await authorizePersonalStudent(photo.workspaceId, studentId, session.user.id, "health.manage.assigned");
     const trainerMember = await prisma.workspaceMember.findFirst({
       where: {
         userId: session.user.id,
@@ -140,6 +151,8 @@ export async function DELETE(
 
     return new NextResponse("Foto removida da linha do tempo.", { status: 200 });
   } catch (error) {
+    const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;
+
     console.error("DELETE progress photo error:", error);
     return new NextResponse("Erro interno do servidor.", { status: 500 });
   }

@@ -1,0 +1,1 @@
+require('./gym-check-runner.cjs')('postgresql-retirement', ['--config', 'vitest.gym.config.ts', 'tests/gym/module-retirement.integration.ts', 'tests/gym/reception-scope.integration.ts', 'tests/gym/import.integration.ts', 'tests/gym/operation-authority.integration.ts']);

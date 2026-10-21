@@ -1,0 +1,1 @@
+require('./gym-check-runner.cjs')('student-ingress-http', ['--config', 'vitest.gym-http.config.ts', '-t', 'HTTP ingresso adulto GYM|Server Actions de setup'], { GYM_HTTP_ORIGIN: 'http://127.0.0.1:31173' });

@@ -10,6 +10,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Não autorizado." }, { status: 401 });
   }
 
+  if (session.user.isImpersonated) return NextResponse.json({ error: "Encerre a impersonação para exportar dados próprios." }, { status: 403 });
   const ip = req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "127.0.0.1";
   // Rate limit: 2 exports per hour per user
   const limiter = await rateLimit(`data-export:${session.user.id}`, 2, 3600000);
@@ -35,7 +36,7 @@ export async function GET(req: Request) {
       },
     });
   } catch (error: any) {
-    console.error("[DATA_EXPORT_API_ERROR]", error);
-    return NextResponse.json({ error: error.message || "Erro ao gerar pacote de dados." }, { status: 500 });
+    console.error("[DATA_EXPORT_API_ERROR] Pacote não gerado.");
+    return NextResponse.json({ error: "Não foi possível gerar o pacote completo. Confira o armazenamento e tente novamente." }, { status: 500 });
   }
 }

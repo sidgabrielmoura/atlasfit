@@ -1,0 +1,11 @@
+const fs = require('node:fs');
+const ts = require('typescript');
+const file = 'src/modules/workspaces/application/gym-assessment-service.ts';
+let source = fs.readFileSync(file, 'utf8');
+const ast = ts.createSourceFile(file, source, ts.ScriptTarget.Latest, true);
+const service = ast.statements.find(s => ts.isClassDeclaration(s) && s.name?.text === 'GymAssessmentService');
+const method = service?.members.find(s => ts.isMethodDeclaration(s) && s.name?.getText(ast) === 'uploadStudentFile');
+if (!method?.body) throw new Error('Método de anexo não localizado.');
+source = source.slice(0, method.body.pos) + ' { return attachGymStudentFile(input); }' + source.slice(method.body.end);
+if (!source.includes('import { attachGymStudentFile }')) source = 'import { attachGymStudentFile } from "./student-file-mutations";\n' + source;
+fs.writeFileSync(file, source);

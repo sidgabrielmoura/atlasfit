@@ -64,7 +64,7 @@ function ImageInputWithToggle({
   useEffect(() => {
     const safeVal = value || "";
     if (safeVal) {
-      if (safeVal.startsWith("/api/storage/file") || safeVal.startsWith("blob:") || safeVal.startsWith("data:")) {
+      if ((safeVal.startsWith("/api/storage/file") || safeVal.startsWith("/api/user/avatar?")) || safeVal.startsWith("blob:") || safeVal.startsWith("data:")) {
         if (safeVal !== filePreview) {
           setInputType("file");
           setFilePreview(safeVal);
@@ -114,7 +114,7 @@ function ImageInputWithToggle({
   };
 
   const previewSrc = inputType === "file" ? filePreview : urlVal;
-  const hasPreview = !!previewSrc && (previewSrc.startsWith("/api/storage") || previewSrc.startsWith("blob:") || previewSrc.startsWith("data:") || previewSrc.startsWith("http://") || previewSrc.startsWith("https://"));
+  const hasPreview = !!previewSrc && ((previewSrc.startsWith("/api/storage") || previewSrc.startsWith("/api/user/avatar?")) || previewSrc.startsWith("blob:") || previewSrc.startsWith("data:") || previewSrc.startsWith("http://") || previewSrc.startsWith("https://"));
 
   return (
     <div className="space-y-3">

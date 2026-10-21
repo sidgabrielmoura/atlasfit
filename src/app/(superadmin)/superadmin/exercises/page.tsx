@@ -27,7 +27,9 @@ import {
   AlertTriangle,
   Send,
   MessageSquare,
-  Trash2
+  Trash2,
+  GitMerge,
+  ArrowRight
 } from "lucide-react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import {
@@ -67,6 +69,8 @@ import {
   SheetTitle,
   SheetDescription,
 } from "@/components/ui/sheet";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import api from "@/lib/axios";
 import { useAbly } from "@/providers/ably-provider";
 
 const generatePages = (currentPage: number, totalPages: number) => {
@@ -110,6 +114,15 @@ function ExercisesContent() {
   const [isPreviewModalOpen, setIsPreviewModalOpen] = useState(false);
   const [exerciseToDelete, setExerciseToDelete] = useState<any>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // States para Mesclagem de Exercícios
+  const [exerciseToMerge, setExerciseToMerge] = useState<any>(null);
+  const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
+  const [targetSearch, setTargetSearch] = useState("");
+  const [targetCandidates, setTargetCandidates] = useState<any[]>([]);
+  const [selectedTargetExercise, setSelectedTargetExercise] = useState<any>(null);
+  const [loadingCandidates, setLoadingCandidates] = useState(false);
+  const [isMerging, setIsMerging] = useState(false);
 
   const [searchPending, setSearchPending] = useState(initialSearch);
   const [searchConfig, setSearchConfig] = useState(initialSearch);
@@ -354,8 +367,9 @@ function ExercisesContent() {
   // Efeito secundário para atualização do chat ativo
   useEffect(() => {
     let interval: NodeJS.Timeout;
-    if (isReplyModalOpen && selectedAdjustment) {
+    if (isReplyModalOpen && selectedAdjustment && !ably) {
       interval = setInterval(async () => {
+        if (document.visibilityState === "hidden") return;
         try {
           const res = await fetch(`/api/personal/workouts/exercises/adjustments/${selectedAdjustment.id}/messages`);
           if (res.ok) {
@@ -365,12 +379,12 @@ function ExercisesContent() {
         } catch (error) {
           console.error("Erro no auto-refresh de mensagens:", error);
         }
-      }, 4000);
+      }, 30000);
     }
     return () => {
       if (interval) clearInterval(interval);
     };
-  }, [isReplyModalOpen, selectedAdjustment?.id]);
+  }, [isReplyModalOpen, selectedAdjustment?.id, ably]);
 
   const handleSendReply = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -501,6 +515,70 @@ function ExercisesContent() {
       setIsDeleting(false);
     }
   };
+
+  const openMergeModal = (exercise: any) => {
+    setExerciseToMerge(exercise);
+    setSelectedTargetExercise(null);
+    setIsMergeModalOpen(true);
+    const initialQuery = exercise.name.trim().split(" ")[0] || "";
+    setTargetSearch(initialQuery);
+    fetchMergeCandidates(initialQuery, exercise.id);
+  };
+
+  const fetchMergeCandidates = async (searchQuery: string, currentSourceId?: string) => {
+    const sourceId = currentSourceId || exerciseToMerge?.id;
+    setLoadingCandidates(true);
+    try {
+      const res = await api.get("/superadmin/exercises", {
+        params: {
+          search: searchQuery.trim(),
+          limit: 30,
+          status: "READY,APPROVED",
+        },
+      });
+      const list = res.data?.data || (Array.isArray(res.data) ? res.data : []);
+      const filtered = list.filter((item: any) => item.id !== sourceId);
+      setTargetCandidates(filtered);
+    } catch (err) {
+      console.error(err);
+      setTargetCandidates([]);
+    } finally {
+      setLoadingCandidates(false);
+    }
+  };
+
+  const handleMergeSubmit = async () => {
+    if (!exerciseToMerge || !selectedTargetExercise) {
+      toast.error("Selecione o exercício de destino para mesclar.");
+      return;
+    }
+    setIsMerging(true);
+    try {
+      const result = await superAdminActions.mergeExercises(
+        exerciseToMerge.id,
+        selectedTargetExercise.id
+      );
+      toast.success(
+        result.message ||
+        `Exercício mesclado com sucesso! ${result.transferredWorkouts || 0} treinos transferidos.`
+      );
+      setIsMergeModalOpen(false);
+      setExerciseToMerge(null);
+      setSelectedTargetExercise(null);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao mesclar exercícios.");
+    } finally {
+      setIsMerging(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!isMergeModalOpen || !exerciseToMerge) return;
+    const timer = setTimeout(() => {
+      fetchMergeCandidates(targetSearch, exerciseToMerge.id);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [targetSearch, isMergeModalOpen]);
 
   const pendingExercisesRaw = snap.pendingExercises || [];
   const needsConfigExercisesRaw = snap.needsConfigExercises || [];
@@ -684,6 +762,15 @@ function ExercisesContent() {
                                 <Button
                                   variant="ghost"
                                   size="icon"
+                                  title="Mesclar volume em outro exercício"
+                                  className="size-8 rounded-lg hover:bg-amber-500/10 text-muted-foreground hover:text-amber-500 transition-colors"
+                                  onClick={() => openMergeModal(ex)}
+                                >
+                                  <GitMerge className="size-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
                                   className="size-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
                                   onClick={() => openConfigModal(ex)}
                                 >
@@ -771,7 +858,7 @@ function ExercisesContent() {
             </div>
           </div>
 
-          <div className="space-y-6 lg:w-80 xl:w-96 shrink-0">
+          <div className="space-y-6 lg:w-80 xl:w-96 shrink-0 max-h-200 overflow-x-auto">
             <div className="space-y-4">
               <div className="flex items-center gap-3 px-1">
                 <div className="p-2 rounded-xl bg-rose-500/10 text-rose-600 border border-rose-500/20">
@@ -826,11 +913,18 @@ function ExercisesContent() {
 
             <hr className="border-border/40" />
 
-            <div className="flex items-center gap-3 px-1">
-              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/20">
-                <Clock className="size-5" />
+            <div className="flex items-center justify-between px-1">
+              <div className="flex items-center gap-3">
+                <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/20">
+                  <Clock className="size-5" />
+                </div>
+                <h2 className="text-xl font-bold tracking-tight leading-none">Aguardando Aprovação</h2>
               </div>
-              <h2 className="text-xl font-bold tracking-tight leading-none">Aguardando Aprovação</h2>
+              {pendingExercisesRaw.length > 0 && (
+                <Badge variant="outline" className="text-xs font-bold bg-amber-500/10 text-amber-600 border-amber-500/20">
+                  {pendingExercises.length}
+                </Badge>
+              )}
             </div>
 
             <div className="space-y-4">
@@ -851,87 +945,100 @@ function ExercisesContent() {
                   <Loader2 className="size-8 animate-spin text-amber-500" />
                   <p className="text-xs font-bold uppercase tracking-widest text-muted-foreground">Buscando pendências...</p>
                 </div>
-              ) : pendingExercises.map((ex: any) => (
-                <Card key={ex.id} className="border-border/40 bg-card/50 overflow-hidden group">
-                  <CardContent className="p-5 space-y-4">
-                    <div className="flex justify-between items-start gap-3">
-                      <div className="flex items-center gap-3 min-w-0 flex-1">
-                        <div
-                          className="cursor-pointer shrink-0"
-                          onClick={() => {
-                            setPreviewExercise(ex);
-                            setIsPreviewModalOpen(true);
-                          }}
-                        >
-                          <ExerciseThumbnail videoUrl={ex.videoUrl} className="size-10 rounded-lg" />
+              ) : pendingExercises.length > 0 ? (
+                <div className="space-y-3 pb-2">
+                  {pendingExercises.map((ex: any) => (
+                    <Card key={ex.id} className="border-border/40 bg-card/50 overflow-hidden group">
+                      <CardContent className="p-5 space-y-4">
+                        <div className="flex justify-between items-start gap-3">
+                          <div className="flex items-center gap-3 min-w-0 flex-1">
+                            <div
+                              className="cursor-pointer shrink-0"
+                              onClick={() => {
+                                setPreviewExercise(ex);
+                                setIsPreviewModalOpen(true);
+                              }}
+                            >
+                              <ExerciseThumbnail videoUrl={ex.videoUrl} className="size-10 rounded-lg" />
+                            </div>
+                            <div className="space-y-1 min-w-0">
+                              <h3
+                                className="text-sm font-bold tracking-tight group-hover:text-primary transition-colors cursor-pointer truncate"
+                                onClick={() => {
+                                  setPreviewExercise(ex);
+                                  setIsPreviewModalOpen(true);
+                                }}
+                              >
+                                {ex.name}
+                              </h3>
+                              <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest truncate">Criado por: {ex.creator?.name || "Desconhecido"}</p>
+                            </div>
+                          </div>
+                          <div className={cn(
+                            "p-1.5 rounded-lg border border-border/40 bg-secondary/50 shrink-0",
+                            ex.videoUrl ? "text-primary" : "text-muted-foreground/40"
+                          )}>
+                            <Video className="size-3.5" />
+                          </div>
                         </div>
-                        <div className="space-y-1 min-w-0">
-                          <h3
-                            className="text-sm font-bold tracking-tight group-hover:text-primary transition-colors cursor-pointer truncate"
+
+                        <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
+                          <Tag className="size-3" />
+                          <span className="truncate max-w-[150px]">
+                            {ex.muscleGroups && ex.muscleGroups.length > 0
+                              ? ex.muscleGroups.map((g: any) => g.name).join(", ")
+                              : (ex.muscleGroup?.name || "Sem Categoria")}
+                          </span>
+                          <span className="mx-1">•</span>
+                          <Clock className="size-3" />
+                          {new Date(ex.createdAt).toLocaleDateString()}
+                        </div>
+
+                        <div className="flex items-center gap-2 pt-2 border-t border-border/20">
+                          <Button
+                            onClick={() => handleApprove(ex.id)}
+                            disabled={processingId === ex.id}
+                            className="flex-1 h-9 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[10px] gap-1.5"
+                          >
+                            {processingId === ex.id ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCircle2 className="size-3.5" />}
+                            APROVAR
+                          </Button>
+                          <Button
+                            onClick={() => handleReject(ex.id)}
+                            disabled={processingId === ex.id}
+                            variant="outline"
+                            className="flex-1 h-9 rounded-lg border-rose-500/20 text-rose-600 hover:bg-rose-500/5 font-bold text-[10px] gap-1.5"
+                          >
+                            {processingId === ex.id ? <Loader2 className="size-3.5 animate-spin" /> : <XCircle className="size-3.5" />}
+                            RECUSAR
+                          </Button>
+                          <Button
+                            variant="outline"
+                            size="icon"
+                            title="Mesclar em exercício oficial existente"
+                            className="size-9 rounded-lg shrink-0 text-amber-600 hover:bg-amber-500/10 hover:text-amber-600 border-amber-500/20"
+                            onClick={() => openMergeModal(ex)}
+                          >
+                            <GitMerge className="size-3.5" />
+                          </Button>
+                          <Button
+                            variant="secondary"
+                            size="icon"
+                            className="size-9 rounded-lg shrink-0"
+                            disabled={!ex.videoUrl}
                             onClick={() => {
                               setPreviewExercise(ex);
                               setIsPreviewModalOpen(true);
                             }}
                           >
-                            {ex.name}
-                          </h3>
-                          <p className="text-[10px] text-muted-foreground font-bold uppercase tracking-widest truncate">Criado por: {ex.creator?.name || "Desconhecido"}</p>
+                            <Play className="size-3.5" />
+                          </Button>
                         </div>
-                      </div>
-                      <div className={cn(
-                        "p-1.5 rounded-lg border border-border/40 bg-secondary/50 shrink-0",
-                        ex.videoUrl ? "text-primary" : "text-muted-foreground/40"
-                      )}>
-                        <Video className="size-3.5" />
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 text-[10px] font-bold text-muted-foreground uppercase tracking-wider">
-                      <Tag className="size-3" />
-                      <span className="truncate max-w-[150px]">
-                        {ex.muscleGroups && ex.muscleGroups.length > 0
-                          ? ex.muscleGroups.map((g: any) => g.name).join(", ")
-                          : (ex.muscleGroup?.name || "Sem Categoria")}
-                      </span>
-                      <span className="mx-1">•</span>
-                      <Clock className="size-3" />
-                      {new Date(ex.createdAt).toLocaleDateString()}
-                    </div>
-
-                    <div className="flex items-center gap-2 pt-2 border-t border-border/20">
-                      <Button
-                        onClick={() => handleApprove(ex.id)}
-                        disabled={processingId === ex.id}
-                        className="flex-1 h-9 rounded-lg bg-emerald-500 hover:bg-emerald-600 text-white font-bold text-[10px] gap-1.5"
-                      >
-                        {processingId === ex.id ? <Loader2 className="size-3.5 animate-spin" /> : <CheckCircle2 className="size-3.5" />}
-                        APROVAR
-                      </Button>
-                      <Button
-                        onClick={() => handleReject(ex.id)}
-                        disabled={processingId === ex.id}
-                        variant="outline"
-                        className="flex-1 h-9 rounded-lg border-rose-500/20 text-rose-600 hover:bg-rose-500/5 font-bold text-[10px] gap-1.5"
-                      >
-                        {processingId === ex.id ? <Loader2 className="size-3.5 animate-spin" /> : <XCircle className="size-3.5" />}
-                        RECUSAR
-                      </Button>
-                      <Button
-                        variant="secondary"
-                        size="icon"
-                        className="size-9 rounded-lg shrink-0"
-                        disabled={!ex.videoUrl}
-                        onClick={() => {
-                          setPreviewExercise(ex);
-                          setIsPreviewModalOpen(true);
-                        }}
-                      >
-                        <Play className="size-3.5" />
-                      </Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              ) : null}
 
               {needsConfigExercisesRaw.length > 0 && (
                 <>
@@ -942,9 +1049,12 @@ function ExercisesContent() {
                       </div>
                       <h2 className="text-lg font-bold tracking-tight leading-none">Aguardando Configuração</h2>
                     </div>
+                    <Badge variant="outline" className="text-xs font-bold bg-primary/10 text-primary border-primary/20">
+                      {needsConfigExercises.length}
+                    </Badge>
                   </div>
 
-                  <div className="relative mb-4">
+                  <div className="relative mb-3">
                     <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
                     <Input
                       placeholder="Buscar por configurar..."
@@ -961,56 +1071,69 @@ function ExercisesContent() {
                     </div>
                   )}
 
-                  {needsConfigExercises.map((ex: any) => (
-                    <Card key={ex.id} className="border-primary/20 bg-primary/5 overflow-hidden group">
-                      <CardContent className="p-5 space-y-4">
-                        <div className="flex justify-between items-start gap-3">
-                          <div className="flex items-center gap-3 min-w-0 flex-1">
-                            <div
-                              className="cursor-pointer shrink-0"
-                              onClick={() => {
-                                setPreviewExercise(ex);
-                                setIsPreviewModalOpen(true);
-                              }}
-                            >
-                              <ExerciseThumbnail videoUrl={ex.videoUrl} className="size-10 rounded-lg" />
+                  {needsConfigExercises.length > 0 && (
+                    <div className="space-y-3 pb-2">
+                      {needsConfigExercises.map((ex: any) => (
+                        <Card key={ex.id} className="border-primary/20 bg-primary/5 overflow-hidden group">
+                          <CardContent className="p-5 space-y-4">
+                            <div className="flex justify-between items-start gap-3">
+                              <div className="flex items-center gap-3 min-w-0 flex-1">
+                                <div
+                                  className="cursor-pointer shrink-0"
+                                  onClick={() => {
+                                    setPreviewExercise(ex);
+                                    setIsPreviewModalOpen(true);
+                                  }}
+                                >
+                                  <ExerciseThumbnail videoUrl={ex.videoUrl} className="size-10 rounded-lg" />
+                                </div>
+                                <div className="space-y-1 min-w-0">
+                                  <h3
+                                    className="text-sm font-bold tracking-tight text-primary cursor-pointer hover:underline truncate"
+                                    onClick={() => {
+                                      setPreviewExercise(ex);
+                                      setIsPreviewModalOpen(true);
+                                    }}
+                                  >
+                                    {ex.name}
+                                  </h3>
+                                  <p className="text-[10px] text-primary/80 font-bold uppercase tracking-widest truncate">Status: Aprovado (Falta Vídeo)</p>
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-1 shrink-0">
+                                <Button
+                                  onClick={() => openMergeModal(ex)}
+                                  size="icon"
+                                  variant="ghost"
+                                  title="Mesclar volume em outro exercício"
+                                  className="text-amber-600 hover:bg-amber-500/10 hover:text-amber-600 size-8 rounded-lg"
+                                >
+                                  <GitMerge className="size-4" />
+                                </Button>
+                                <Button onClick={() => openConfigModal(ex)} size="icon" variant="ghost" className="text-primary hover:bg-primary/10 size-8 rounded-lg">
+                                  <Settings2 className="size-4" />
+                                </Button>
+                                <Button
+                                  onClick={() => setExerciseToDelete(ex)}
+                                  size="icon"
+                                  variant="ghost"
+                                  className="text-rose-600 hover:bg-rose-500/10 hover:text-rose-600 size-8 rounded-lg"
+                                >
+                                  <Trash2 className="size-4" />
+                                </Button>
+                              </div>
                             </div>
-                            <div className="space-y-1 min-w-0">
-                              <h3
-                                className="text-sm font-bold tracking-tight text-primary cursor-pointer hover:underline truncate"
-                                onClick={() => {
-                                  setPreviewExercise(ex);
-                                  setIsPreviewModalOpen(true);
-                                }}
-                              >
-                                {ex.name}
-                              </h3>
-                              <p className="text-[10px] text-primary/80 font-bold uppercase tracking-widest truncate">Status: Aprovado (Falta Vídeo)</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <Button onClick={() => openConfigModal(ex)} size="icon" variant="ghost" className="text-primary hover:bg-primary/10 size-8 rounded-lg">
-                              <Settings2 className="size-4" />
-                            </Button>
                             <Button
-                              onClick={() => setExerciseToDelete(ex)}
-                              size="icon"
-                              variant="ghost"
-                              className="text-rose-600 hover:bg-rose-500/10 hover:text-rose-600 size-8 rounded-lg"
+                              onClick={() => openConfigModal(ex)}
+                              className="w-full h-9 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-[10px] gap-1.5 shadow-lg shadow-primary/20"
                             >
-                              <Trash2 className="size-4" />
+                              <Video className="size-3.5" /> CONFIGURAR
                             </Button>
-                          </div>
-                        </div>
-                        <Button
-                          onClick={() => openConfigModal(ex)}
-                          className="w-full h-9 rounded-lg bg-primary hover:bg-primary/90 text-primary-foreground font-bold text-[10px] gap-1.5 shadow-lg shadow-primary/20"
-                        >
-                          <Video className="size-3.5" /> CONFIGURAR
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
+                          </CardContent>
+                        </Card>
+                      ))}
+                    </div>
+                  )}
                 </>
               )}
 
@@ -1475,6 +1598,31 @@ function ExercisesContent() {
               <span className="block">
                 O exercício <strong className="text-foreground">"{exerciseToDelete?.name}"</strong> será excluído permanentemente. Isso removerá todos os vínculos com treinos de alunos e treinadores, além de quaisquer solicitações de reajuste associadas.
               </span>
+              {exerciseToDelete?.usage > 0 && (
+                <div className="mt-3 rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-400 space-y-2">
+                  <div className="flex items-center gap-2 font-bold">
+                    <AlertTriangle className="size-4 shrink-0 text-amber-600 dark:text-amber-400" />
+                    <span>Exercício em uso ({exerciseToDelete.usage} treinos vinculados)</span>
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-muted-foreground">
+                    Ao excluir, todos os treinos que prescrevem este exercício perderão o vínculo. Para manter os treinos e consolidar o volume em um exercício oficial duplicado, utilize a mesclagem.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="w-full text-xs font-bold border-amber-500/40 hover:bg-amber-500/20 text-amber-700 dark:text-amber-300 gap-1.5"
+                    onClick={() => {
+                      const toMerge = exerciseToDelete;
+                      setExerciseToDelete(null);
+                      openMergeModal(toMerge);
+                    }}
+                  >
+                    <GitMerge className="size-3.5" />
+                    Mesclar Volume em Outro Exercício
+                  </Button>
+                </div>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
@@ -1502,6 +1650,224 @@ function ExercisesContent() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* MODAL DE MESCLAGEM DE EXERCÍCIOS & VOLUME DE TREINO */}
+      <Dialog open={isMergeModalOpen} onOpenChange={setIsMergeModalOpen}>
+        <DialogContent className="max-w-xl! w-[95%] rounded-2xl! bg-card border border-border p-5 sm:p-6 space-y-4">
+          <DialogHeader className="border-b border-border/40 pb-3">
+            <div className="flex items-center gap-2.5">
+              <div className="p-2 rounded-xl bg-amber-500/10 text-amber-600 border border-amber-500/20 shrink-0">
+                <GitMerge className="size-5" />
+              </div>
+              <div>
+                <DialogTitle className="text-lg sm:text-xl font-bold tracking-tight text-foreground">
+                  Mesclar Exercício & Consolidar Treinos
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                  Transfira todas as prescrições de treinos e o histórico de uso para outro exercício oficial antes de remover o duplicado.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {exerciseToMerge && (
+            <div className="space-y-4">
+              {/* Comparativo Visual Origem x Destino */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Card de Origem */}
+                <div className="rounded-xl border border-rose-500/30 bg-rose-500/5 p-3.5 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-rose-500">
+                      Exercício de Origem
+                    </span>
+                    <Badge variant="outline" className="text-[9px] font-bold border-rose-500/30 text-rose-500">
+                      Será excluído
+                    </Badge>
+                  </div>
+                  <div className="flex items-center gap-2.5">
+                    <ExerciseThumbnail videoUrl={exerciseToMerge.videoUrl} className="size-9 rounded-lg shrink-0" />
+                    <div className="min-w-0">
+                      <p className="font-bold text-sm text-foreground truncate">{exerciseToMerge.name}</p>
+                      <p className="text-[11px] text-muted-foreground truncate">
+                        {exerciseToMerge.muscleGroup?.name || "Sem categoria"}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="pt-2 border-t border-rose-500/20 flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground font-medium">Volume atual:</span>
+                    <span className="font-bold text-rose-600 dark:text-rose-400">
+                      {exerciseToMerge.usage || 0} treinos
+                    </span>
+                  </div>
+                </div>
+
+                {/* Card de Destino */}
+                <div className={cn(
+                  "rounded-xl border p-3.5 space-y-2 transition-all",
+                  selectedTargetExercise
+                    ? "border-emerald-500/40 bg-emerald-500/5"
+                    : "border-border/60 bg-secondary/10"
+                )}>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold uppercase tracking-wider text-emerald-600 dark:text-emerald-400">
+                      Exercício de Destino
+                    </span>
+                    {selectedTargetExercise ? (
+                      <Badge variant="outline" className="text-[9px] font-bold border-emerald-500/30 text-emerald-600 dark:text-emerald-400">
+                        Permanecerá ativo
+                      </Badge>
+                    ) : (
+                      <span className="text-[10px] font-bold text-muted-foreground">
+                        Pendente seleção
+                      </span>
+                    )}
+                  </div>
+
+                  {selectedTargetExercise ? (
+                    <>
+                      <div className="flex items-center gap-2.5">
+                        <ExerciseThumbnail videoUrl={selectedTargetExercise.videoUrl} className="size-9 rounded-lg shrink-0" />
+                        <div className="min-w-0">
+                          <p className="font-bold text-sm text-foreground truncate">{selectedTargetExercise.name}</p>
+                          <p className="text-[11px] text-muted-foreground truncate">
+                            {selectedTargetExercise.muscleGroup?.name || "Sem categoria"}
+                          </p>
+                        </div>
+                      </div>
+                      <div className="pt-2 border-t border-emerald-500/20 flex items-center justify-between text-xs">
+                        <span className="text-muted-foreground font-medium">Volume atual:</span>
+                        <span className="font-bold text-foreground">
+                          {selectedTargetExercise.usage || 0} treinos
+                        </span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="h-16 flex items-center justify-center text-center text-xs text-muted-foreground">
+                      Selecione um exercício abaixo
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Prévia do Impacto nos Treinos */}
+              {selectedTargetExercise && (
+                <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2.5">
+                    <div className="p-1.5 rounded-lg bg-primary/10 text-primary">
+                      <GitMerge className="size-4" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-foreground">Consolidação de Volume</p>
+                      <p className="text-[11px] text-muted-foreground">
+                        {exerciseToMerge.usage || 0} (antigo) + {selectedTargetExercise.usage || 0} (destino)
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-lg font-black text-primary">
+                      {(exerciseToMerge.usage || 0) + (selectedTargetExercise.usage || 0)}
+                    </span>
+                    <span className="text-[10px] font-bold text-muted-foreground block uppercase">treinos no total</span>
+                  </div>
+                </div>
+              )}
+
+              {/* Seletor com Busca de Exercícios Candidatos */}
+              <div className="space-y-2">
+                <Label className="text-xs font-bold text-foreground">
+                  Selecione o exercício oficial que receberá o volume:
+                </Label>
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
+                  <Input
+                    placeholder="Pesquisar exercício por nome..."
+                    value={targetSearch}
+                    onChange={(e) => setTargetSearch(e.target.value)}
+                    className="pl-9 h-9 text-xs rounded-xl"
+                  />
+                </div>
+
+                <ScrollArea className="h-44 rounded-xl border border-border/50 bg-secondary/5 p-2">
+                  {loadingCandidates ? (
+                    <div className="h-full flex items-center justify-center text-xs text-muted-foreground gap-2 py-8">
+                      <Loader2 className="size-4 animate-spin text-primary" />
+                      <span>Buscando exercícios...</span>
+                    </div>
+                  ) : targetCandidates.length === 0 ? (
+                    <div className="h-full flex items-center justify-center text-xs text-muted-foreground py-8 text-center">
+                      Nenhum exercício encontrado. Digite para buscar na biblioteca.
+                    </div>
+                  ) : (
+                    <div className="space-y-1.5">
+                      {targetCandidates.map((candidate) => {
+                        const isSelected = selectedTargetExercise?.id === candidate.id;
+                        return (
+                          <div
+                            key={candidate.id}
+                            onClick={() => setSelectedTargetExercise(candidate)}
+                            className={cn(
+                              "flex items-center justify-between p-2.5 rounded-lg border transition-all cursor-pointer text-xs",
+                              isSelected
+                                ? "border-primary bg-primary/10 text-primary font-bold shadow-xs"
+                                : "border-border/40 hover:bg-secondary/20 hover:border-border"
+                            )}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <ExerciseThumbnail videoUrl={candidate.videoUrl} className="size-7 rounded shrink-0" />
+                              <div className="min-w-0">
+                                <p className="font-semibold text-xs text-foreground truncate">{candidate.name}</p>
+                                <p className="text-[10px] text-muted-foreground truncate">
+                                  {candidate.muscleGroup?.name || "Sem categoria"}
+                                </p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0">
+                              <span className="text-[11px] font-bold text-muted-foreground">
+                                {candidate.usage || 0} treinos
+                              </span>
+                              {isSelected && <CheckCircle2 className="size-4 text-primary" />}
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </ScrollArea>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="gap-2 sm:gap-0 pt-2 border-t border-border/40">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => setIsMergeModalOpen(false)}
+              disabled={isMerging}
+              className="rounded-xl font-bold"
+            >
+              Cancelar
+            </Button>
+            <Button
+              type="button"
+              onClick={handleMergeSubmit}
+              disabled={!selectedTargetExercise || isMerging}
+              className="bg-primary text-primary-foreground font-bold rounded-xl gap-2"
+            >
+              {isMerging ? (
+                <>
+                  <Loader2 className="size-4 animate-spin" />
+                  Mesclando treinos...
+                </>
+              ) : (
+                <>
+                  <GitMerge className="size-4" />
+                  Confirmar e Mesclar Volume
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       <ExercisePreviewModal
         exercise={previewExercise}

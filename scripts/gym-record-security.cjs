@@ -1,0 +1,37 @@
+const fs = require('node:fs'), path = require('node:path'), assert = require('node:assert/strict');
+const { createHash } = require('node:crypto');
+const folder = 'docs/audits/academias/estabilizacao';
+const read = file => JSON.parse(fs.readFileSync(file, 'utf8'));
+const hash = file => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+assert.equal(hash('docs/audits/academias/achados.json'), '0cc3c815e28c2590e569d515ef1c3855e0a99595066f37ed2fa0059df143c225');
+const checks = read(folder + '/verificacoes-isoladas.json'), http = read(folder + '/verificacoes-http-lotes.json'), browser = read(folder + '/verificacoes-security-browser.json');
+for (const [label, passed] of [['mfa-reauth', 16], ['integracao-seguranca-completa', 264]]) { assert.equal(checks[label].success, true); assert.equal(checks[label].passed, passed); assert.equal(checks[label].failed, 0); }
+assert.equal(http.success, true); assert.equal(http.passed, 5); assert.equal(http.selected.length, 5); assert.equal(http.failed, 0);
+assert.equal(browser.success, true); assert.equal(browser.scenarios.length, 4); assert.deepEqual(browser.errors, []);
+const typeFile = folder + '/typecheck-mfa-reauth-verified.json'; assert.equal(read(typeFile).exitCode, 0);
+const target = folder + '/seguranca-encerramento'; fs.mkdirSync(target, { recursive: true }); const artifacts = [];
+function copy(source, name = path.basename(source)) { const file = target + '/' + name; fs.copyFileSync(source, file); artifacts.push({ file, sha256: hash(file) }); return file; }
+const exported = {};
+for (const label of ['mfa-reauth', 'integracao-seguranca-completa']) exported[label] = { ...checks[label], rawFile: copy(checks[label].rawFile) };
+for (const batch of http.batches) copy(batch.rawFile);
+const httpFile = copy(folder + '/verificacoes-http-lotes.json'); const browserFile = copy(browser.file, path.basename(path.dirname(browser.file)) + '-report.json'); for (const shot of browser.screenshots) copy(shot);
+for (const name of fs.readdirSync('.tmp/gym-stabilization').filter(name => /^(encerramento|mfa-reauth)-.+-raw\.json$/.test(name))) copy('.tmp/gym-stabilization/' + name);
+const sources = ['src/modules/workspaces/application/gym-closure.ts', 'src/modules/workspaces/application/workspace-administration.ts', 'src/modules/workspaces/application/superadmin-service.ts', 'src/app/api/gym/settings/closure/route.ts', 'src/components/application/gym-closure-form.tsx', 'src/app/(gym)/gym/settings/settings-client.tsx', 'src/lib/auth/mfa-service.ts', 'src/lib/auth/credential-proof.ts', 'src/lib/auth/mfa-settings-service.ts', 'src/lib/auth/mfa-reauthentication.ts', 'src/lib/auth/mfa-settings-http.ts', 'src/app/api/superadmin/security/reauthenticate/route.ts', 'src/app/api/superadmin/security/totp/verify/route.ts', 'src/app/api/superadmin/security/totp/devices/route.ts', 'src/app/api/superadmin/security/totp/devices/[id]/route.ts', 'src/app/api/superadmin/security/totp/disable/route.ts', 'src/app/api/superadmin/security/totp/toggle-3fa/route.ts', 'src/app/api/superadmin/security/totp/status/route.ts', 'src/components/auth/mfa-reauthentication-dialog.tsx', 'src/app/(superadmin)/superadmin/settings/page.tsx', 'tests/gym/mfa.integration.ts', 'tests/gym/workspace-closure.integration.ts', 'tests/gym/http.spec.ts', 'tests/gym/security-browser.fixture.tsx', 'scripts/gym-security-browser.cjs', 'scripts/gym-http-batches.cjs', 'scripts/gym-test-closure.cjs', 'scripts/gym-test-mfa-reauth.cjs', 'scripts/gym-test-security-regression.cjs', 'scripts/gym-record-security.cjs', folder + '/encerramento-mfa.md'];
+const manifest = folder + '/verificacoes-seguranca-encerramento.json';
+fs.writeFileSync(manifest, JSON.stringify({ recordedAt: new Date().toISOString(), checks: exported, http: { file: httpFile, sha256: hash(httpFile), passed: 5, failed: 0, selected: 5, excluded: 58 }, browser: { file: browserFile, sha256: hash(browserFile), scenarios: browser.scenarios, controlledTransport: true }, typescript: { file: copy(typeFile), exitCode: 0 }, artifacts, sources: sources.map(file => ({ file, sha256: hash(file) })), limitations: ['Sem implantação, purga ou cancelamento externo.', '057 conserva pendência de política/purga e homologação real.', '065 conserva política global e impersonação integral.', '58 casos HTTP fora do filtro; histórico completo de 60 permanece no manifesto realtime.'] }, null, 2) + '\n');
+const stateFile = folder + '/tratamento.json', states = read(stateFile);
+for (const suffix of ['057', '064']) {
+  const state = states['GYM-AUD-' + suffix];
+  if (state.completedBatch !== 'security-20261008') { state.history ??= []; state.history.push({ batch: 'before-security-20261008', state: state.state, correction: state.correction }); }
+  state.completedBatch = 'security-20261008';
+  state.state = suffix === '064' ? 'Corrigido e verificado' : 'Implementado, aguardando verificação específica';
+  state.correction = suffix === '064' ? 'Credentials exige prova única de MFA ligada a senha/versão/política e limita tentativas. HTTP de 2FA/3FA nega ausência, expiração, usuário estrangeiro e replay; aceita prova válida uma vez. Edição MFA exige reautenticação dos fatores atuais com prova específica TTL60, consumo atômico com alteração/auditoria/revogação; API estrita, impersonação recusada, formulário e cancelamento verificados. GET status não registra fator. Política global permanece no 065.' : 'Exclusão PERSONAL rejeita GYM. Encerramento próprio do titular implementado com conferência, confirmação/UUID, lock, recibo idempotente, cancelamento local/revogação de acesso e preservação de contratos/faturas/arquivos/identidade. Pendências externas, caixa e importação bloqueiam antes de gravar; reativação indevida recusada. Resta aprovar política e implementar/homologar purga/retencão real; não executou cancelamento externo.';
+  state.currentConfirmation = '264 integrações completas, 16 testes focais, cinco casos HTTP focais, quatro cenários React/Radix no Chrome e TypeScript aprovados. Transporte visual controlado; servidor/DB reais isolados. Sem alteração do banco configurado ou produção.';
+  state.validation.push('08/10/2026: verificacoes-seguranca-encerramento.json; 264 integrações/16 focais/5 HTTP/4 Chrome/TypeScript; falhas intermediárias preservadas.');
+  state.files = [...new Set([...state.files, ...sources.filter(file => !file.startsWith('scripts/')), manifest])];
+}
+fs.writeFileSync(stateFile, JSON.stringify(states, null, 2) + '\n');
+const main = 'docs/audits/academias/estabilizacao-modulo-academias.md'; let report = fs.readFileSync(main, 'utf8');
+report = report.replace(/Posição atual após implementação e verificações:[^\r\n]+/, 'Posição atual após implementação e verificações: 30 achados corrigidos e verificados, 13 retirados do escopo, 2 implementados aguardando verificação específica e 20 pendentes. São 22 achados abertos, detalhados na lista exaustiva.');
+if (!report.includes('<!-- security-20261008 -->')) report += '\n\n<!-- security-20261008 -->\n## MFA e encerramento — 08/10\n\nO achado 064 foi corrigido e verificado. O encerramento próprio 057 foi implementado e testado, conservando pendência de política/purga. O [manifesto](estabilizacao/verificacoes-seguranca-encerramento.json) registra 264 integrações, 16 testes focais, cinco HTTP, quatro cenários Chrome e TypeScript aprovados. Restam 22 achados abertos.\n';
+fs.writeFileSync(main, report); console.log(JSON.stringify({ closed: ['064'], implemented: ['057'], remaining: 22, integration: 264, http: 5, browser: 4 }));

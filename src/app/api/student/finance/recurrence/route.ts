@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import prisma from "@/lib/prisma";
+import { getStudentWorkspaceMember } from "@/lib/student-auth";
 import { paymentService } from "@/modules/payments/application/payment-service";
 
 export async function DELETE() {
@@ -11,13 +11,13 @@ export async function DELETE() {
     }
 
     const studentUserId = session.user.id;
-    const studentMember = await prisma.workspaceMember.findFirst({
-      where: { userId: studentUserId, role: "STUDENT" }
-    });
+    const studentMember = await getStudentWorkspaceMember(studentUserId);
 
     if (!studentMember) {
       return NextResponse.json({ error: "Aluno não encontrado" }, { status: 404 });
     }
+
+    if (studentMember.workspace.type === "GYM") return NextResponse.json({ error: "A academia opera mensalidades internas. Cancelamento de matrícula deve ser solicitado à academia." }, { status: 410 });
 
     await paymentService.cancelStudentSubscription(studentUserId, studentMember.workspaceId);
 

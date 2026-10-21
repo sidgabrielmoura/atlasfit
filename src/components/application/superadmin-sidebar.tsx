@@ -28,6 +28,7 @@ import {
   Wallet,
   Compass,
   CreditCard,
+  Sliders,
 } from "lucide-react";
 import {
   Sidebar,
@@ -62,6 +63,7 @@ const controlNavItems = [
 const accountsNavItems = [
   { title: "Usuários", href: "/superadmin/users", icon: Users },
   { title: "Workspaces", href: "/superadmin/workspaces", icon: Building2 },
+  { title: "Configurações de Academias", href: "/superadmin/gym-settings", icon: Sliders },
 ];
 
 const financeNavItems = [
@@ -148,7 +150,7 @@ export function SuperAdminSidebar() {
           </div>
           <div className="flex flex-col group-data-[collapsible=icon]:hidden">
             <span className="text-sm font-bold tracking-tight">AtlasFit Admin</span>
-            <span className="text-[10px] text-muted-foreground uppercase font-bold tracking-widest">SuperAdmin Access</span>
+            <span className="text-[10px] text-muted-foreground uppercase font-semibold tracking-wider">SuperAdmin Access</span>
           </div>
         </div>
       </SidebarHeader>

@@ -1,0 +1,12 @@
+const fs = require('node:fs');
+const { spawnSync } = require('node:child_process');
+const path = 'docs/audits/academias/estabilizacao/verificacoes-caixa-contratos.json';
+const report = JSON.parse(fs.readFileSync(path, 'utf8'));
+const startedAt = new Date().toISOString();
+const args = ['node_modules/typescript/bin/tsc', '--noEmit', '--incremental', 'false'];
+const result = spawnSync(process.execPath, args, { encoding: 'utf8' });
+report.typecheck = { startedAt, finishedAt: new Date().toISOString(), command: ['node', ...args].join(' '), exitCode: result.status, output: result.stdout + result.stderr };
+fs.writeFileSync(path, JSON.stringify(report, null, 2) + '\n');
+process.stdout.write(result.stdout); process.stderr.write(result.stderr);
+console.log(`TypeScript final caixa: exit ${result.status}.`);
+process.exitCode = result.status ?? 1;
