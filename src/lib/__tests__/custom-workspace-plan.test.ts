@@ -22,14 +22,20 @@ const { mockPrisma } = vi.hoisted(() => {
     },
     plan: {
       create: vi.fn(),
+      update: vi.fn(),
+      findUnique: vi.fn(),
+      findFirst: vi.fn(),
+      delete: vi.fn(),
     },
     workspaceSubscription: {
       upsert: vi.fn(),
+      update: vi.fn(),
     },
     subscription: {
       findUnique: vi.fn(),
       update: vi.fn(),
       create: vi.fn(),
+      delete: vi.fn(),
     },
     auditLog: {
       create: vi.fn(),
@@ -43,17 +49,146 @@ vi.mock("@/lib/prisma", () => ({
   default: mockPrisma,
 }));
 
-import { POST } from "@/app/api/superadmin/workspaces/[id]/custom-plan/route";
+import { POST, PATCH, PUT, DELETE } from "@/app/api/superadmin/workspaces/[id]/custom-plan/route";
+
+const offer = {
+  id: "plan-1", name: "Plano VIP", price: 100, interval: "month",
+  features: "Até 50 alunos ativos, Suporte prioritário", imageUrl: "https://example.com/plan.png",
+  maxWorkspaces: 2, maxStudents: 50, importQuota: 0, storageLimitMb: 0,
+  paymentMethods: "PIX,CARD", customWorkspaceId: "ws-1", publishedGlobalPlanId: null,
+};
+const input = {
+  name: "Plano VIP editado", price: 0, maxWorkspaces: 3, maxStudents: null,
+  features: "Alunos ilimitados, Suporte VIP", imageUrl: "https://example.com/new.png",
+  importQuota: 0, storageLimitMb: 0, periodicity: "ANUAL", paymentMethods: "PIX,CARD",
+  paymentMethod: "PIX", isRecurring: true, toleranceDays: 0,
+};
+function request(method: string, body: unknown) {
+  return new Request("http://localhost/api/superadmin/workspaces/ws-1/custom-plan", {
+    method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+  });
+}
+const context = () => ({ params: Promise.resolve({ id: "ws-1" }) });
+function assigned(type = "GYM", plan: Omit<typeof offer, "customWorkspaceId" | "publishedGlobalPlanId"> & { customWorkspaceId: string | null; publishedGlobalPlanId: string | null } = offer) {
+  const sub = { id: "sub-1", userId: "owner-1", planId: plan.id, plan, status: "PAST_DUE" };
+  mockPrisma.workspace.findUnique.mockResolvedValue({ id: "ws-1", type, ownerId: "owner-1", subscription: type === "GYM" ? sub : null });
+  mockPrisma.subscription.findUnique.mockResolvedValue(sub);
+  mockPrisma.plan.update.mockImplementation(async ({ data }: any) => ({ ...plan, ...data }));
+  return sub;
+}
 
 describe("Custom Workspace Plan API", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    mockPrisma.$transaction.mockImplementation(async (cb: any) => cb(mockPrisma));
     currentSession = {
       user: {
         id: "admin-1",
         role: "SUPERADMIN",
       },
     };
+  });
+
+  it.each(["GYM", "PERSONAL"])("edita %s sem criar plano ou alterar seu ID", async type => {
+    assigned(type);
+    const res = await PATCH(request("PATCH", { ...input, planId: offer.id }), context());
+    expect(res.status).toBe(200);
+    expect(mockPrisma.plan.create).not.toHaveBeenCalled();
+    expect(mockPrisma.plan.update).toHaveBeenCalledWith({ where: { id: offer.id }, data: expect.objectContaining({
+      name: input.name, price: 0, maxStudents: null, importQuota: 0, storageLimitMb: 0, features: input.features,
+    }) });
+    const update = type === "GYM" ? mockPrisma.workspaceSubscription.upsert.mock.calls[0][0].update : mockPrisma.subscription.update.mock.calls[0][0].data;
+    expect(update.planId).toBe(offer.id);
+    expect(update.priceInCents).toBe(0);
+    expect(update.status).toBeUndefined();
+    expect(mockPrisma.workspace.update).not.toHaveBeenCalled();
+  });
+
+  it("recusa edição de um plano que não é mais o atribuído", async () => {
+    assigned();
+    const res = await PATCH(request("PATCH", { ...input, planId: "old-plan" }), context());
+    expect(res.status).toBe(409);
+    expect(mockPrisma.plan.update).not.toHaveBeenCalled();
+    expect(mockPrisma.plan.create).not.toHaveBeenCalled();
+  });
+
+  it("publica cópia global com todos os dados persistidos e preserva a atribuição", async () => {
+    assigned();
+    mockPrisma.plan.create.mockResolvedValue({ ...offer, id: "global-1", customWorkspaceId: null });
+    const res = await PUT(request("PUT", { planId: offer.id }), context());
+    expect(res.status).toBe(200);
+    const { id, publishedGlobalPlanId, ...fields } = offer;
+    expect(mockPrisma.plan.create).toHaveBeenCalledWith({ data: { ...fields, customWorkspaceId: null } });
+    expect(mockPrisma.plan.update).toHaveBeenCalledWith({ where: { id }, data: { publishedGlobalPlanId: "global-1" } });
+    expect(mockPrisma.workspaceSubscription.upsert).not.toHaveBeenCalled();
+    expect(mockPrisma.subscription.update).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    { ...offer, customWorkspaceId: null },
+    { ...offer, publishedGlobalPlanId: "global-1" },
+  ])("bloqueia nova publicação quando já é global ou possui cópia", async plan => {
+    assigned("GYM", plan);
+    const res = await PUT(request("PUT", { planId: offer.id }), context());
+    expect(res.status).toBe(409);
+    expect(mockPrisma.plan.create).not.toHaveBeenCalled();
+  });
+
+  it("recusa publicação de oferta idêntica já existente no catálogo", async () => {
+    assigned();
+    mockPrisma.plan.findFirst.mockResolvedValue({ id: "matching-global" });
+    const res = await PUT(request("PUT", { planId: offer.id }), context());
+    expect(res.status).toBe(409);
+    expect(mockPrisma.plan.create).not.toHaveBeenCalled();
+  });
+
+  it("não aceita dados substitutos na request de publicação", async () => {
+    assigned();
+    const res = await PUT(request("PUT", { planId: offer.id, price: 999 }), context());
+    expect(res.status).toBe(400);
+    expect(mockPrisma.plan.create).not.toHaveBeenCalled();
+  });
+
+  it.each(["WORKSPACE", "GLOBAL"])("cria uma oferta com escopo %s", async scope => {
+    assigned();
+    mockPrisma.plan.create.mockResolvedValue({ ...offer, id: "new-plan" });
+    const res = await POST(request("POST", { ...input, scope }), context());
+    expect(res.status).toBe(200);
+    expect(mockPrisma.plan.create).toHaveBeenCalledWith({ data: expect.objectContaining({
+      customWorkspaceId: scope === "GLOBAL" ? null : "ws-1",
+    }) });
+  });
+
+  it("deleta plano exclusivo e cancela a licença do workspace", async () => {
+    assigned();
+    mockPrisma.plan.findUnique.mockResolvedValue({ _count: { subscriptions: 0, workspaceSubscriptions: 0, subscriptionActivities: 0 } });
+    const res = await DELETE(request("DELETE", { planId: offer.id }), context());
+    expect(res.status).toBe(200);
+    expect(mockPrisma.workspaceSubscription.update).toHaveBeenCalledWith({ where: { workspaceId: "ws-1" }, data: expect.objectContaining({ planId: null, status: "CANCELED" }) });
+    expect(mockPrisma.plan.delete).toHaveBeenCalledWith({ where: { id: offer.id } });
+  });
+
+  it("preserva planos exclusivos com histórico financeiro", async () => {
+    assigned();
+    mockPrisma.plan.findUnique.mockResolvedValue({ _count: { subscriptions: 0, workspaceSubscriptions: 0, subscriptionActivities: 1 } });
+    const res = await DELETE(request("DELETE", { planId: offer.id }), context());
+    expect(res.status).toBe(200);
+    expect(mockPrisma.plan.delete).not.toHaveBeenCalled();
+  });
+
+  it("remove a atribuição global sem excluir a oferta do catálogo", async () => {
+    assigned("PERSONAL", { ...offer, customWorkspaceId: null });
+    const res = await DELETE(request("DELETE", { planId: offer.id }), context());
+    expect(res.status).toBe(200);
+    expect(mockPrisma.subscription.delete).toHaveBeenCalledWith({ where: { id: "sub-1" } });
+    expect(mockPrisma.plan.delete).not.toHaveBeenCalled();
+  });
+
+  it.each([PATCH, PUT, DELETE])("protege todas as mutações contra usuários sem acesso", async handler => {
+    currentSession = { user: { id: "user", role: "USER" } };
+    const res = await handler(request("POST", { planId: offer.id }), context());
+    expect(res.status).toBe(401);
+    expect(mockPrisma.$transaction).not.toHaveBeenCalled();
   });
 
   it("rejeita requisições de usuários que não sejam superadmin", async () => {
@@ -209,7 +344,7 @@ describe("Custom Workspace Plan API", () => {
     });
   });
 
-  it("normaliza armazenamento informado em GB (ex: 3 -> 3072 MB)", async () => {
+  it("preserva a unidade MB, inclusive para valores menores que 50", async () => {
     mockPrisma.workspace.findUnique.mockResolvedValueOnce({
       id: "ws-3gb",
       name: "Academia 3GB",
@@ -230,7 +365,7 @@ describe("Custom Workspace Plan API", () => {
       body: JSON.stringify({
         name: "gym plan",
         price: 150,
-        storageLimitMb: 3, // Inserido como 3 pensando em 3 GB
+        storageLimitMb: 3,
       }),
     });
 
@@ -240,7 +375,7 @@ describe("Custom Workspace Plan API", () => {
     expect(mockPrisma.plan.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         name: "gym plan",
-        storageLimitMb: 3072, // 3 * 1024
+        storageLimitMb: 3,
       }),
     });
   });

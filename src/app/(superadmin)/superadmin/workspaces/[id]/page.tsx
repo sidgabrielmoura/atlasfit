@@ -85,7 +85,6 @@ import {
   Flame,
   CreditCard,
   Trash2,
-  Tag,
   Sliders,
   MapPin,
   ShieldCheck,
@@ -103,6 +102,7 @@ import {
   Sparkles,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { WorkspacePlanActions } from "@/components/application/workspace-plan-actions";
 import { GymPurgeForm } from "@/components/application/gym-purge-form";
 
 /* -------------------------------------------------------------------------
@@ -249,52 +249,12 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
   // State para aba ativa
   const [activeTab, setActiveTab] = useState<string>("geral");
 
-  // States para Plano Personalizado (Manual)
-  const [isSavingCustomPlan, setIsSavingCustomPlan] = useState(false);
-  const [customPlanForm, setCustomPlanForm] = useState({
-    name: "",
-    price: "",
-    maxWorkspaces: "1",
-    maxStudents: "",
-    isUnlimitedStudents: false,
-    importQuota: "25",
-    storageLimitMb: "1024",
-    features: "",
-    isRecurring: true,
-    periodicity: "MENSAL" as "MENSAL" | "TRIMESTRAL" | "SEMESTRAL" | "ANUAL",
-    paymentMethod: "PIX",
-    nextDueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-    autoSuspendEnabled: true,
-    toleranceDays: "5",
-  });
-
   const fetchWorkspace = async (navigateOnFailure = true) => {
     try {
       const res = await fetch(`/api/superadmin/workspaces/${unwrappedParams.id}`);
       if (!res.ok) throw new Error("Failed to fetch");
       const data = await res.json();
       setWorkspace(data);
-
-      if (data.subscription) {
-        const sub = data.subscription;
-        const plan = sub.plan;
-        setCustomPlanForm({
-          name: plan?.name || `Plano Personalizado - ${data.name}`,
-          price: sub.priceInCents ? (sub.priceInCents / 100).toFixed(2) : (plan?.price ? plan.price.toFixed(2) : "0.00"),
-          maxWorkspaces: String(plan?.maxWorkspaces || sub.maxUnits || 1),
-          maxStudents: plan?.maxStudents != null ? String(plan.maxStudents) : (sub.maxStudents != null ? String(sub.maxStudents) : ""),
-          isUnlimitedStudents: plan?.maxStudents == null && sub.maxStudents == null,
-          importQuota: String(plan?.importQuota ?? 25),
-          storageLimitMb: String(plan?.storageLimitMb || sub.storageLimitMb || 1024),
-          features: plan?.features || "",
-          isRecurring: sub.billingControlType === "MANUAL" ? true : true,
-          periodicity: (sub.periodicity || "MENSAL") as any,
-          paymentMethod: sub.paymentMethod || "PIX",
-          nextDueDate: sub.nextDueDate ? new Date(sub.nextDueDate).toISOString().split("T")[0] : new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
-          autoSuspendEnabled: sub.autoSuspendEnabled ?? true,
-          toleranceDays: String(sub.toleranceDays ?? 5),
-        });
-      }
 
       if (data.type === "GYM") {
         setGymLimits({
@@ -316,59 +276,6 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
       return false;
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const handleSaveCustomPlan = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanPrice = customPlanForm.price.replace(",", ".");
-    const priceNum = parseFloat(cleanPrice);
-    if (isNaN(priceNum) || priceNum < 0) {
-      toast.error("Informe um valor numérico válido para o plano.");
-      return;
-    }
-
-    const toleranceNum = parseInt(customPlanForm.toleranceDays, 10);
-    if (isNaN(toleranceNum) || toleranceNum < 0) {
-      toast.error("Informe dias de tolerância válidos.");
-      return;
-    }
-
-    setIsSavingCustomPlan(true);
-    try {
-      const res = await fetch(`/api/superadmin/workspaces/${unwrappedParams.id}/custom-plan`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: customPlanForm.name.trim() || `Plano Personalizado - ${workspace?.name}`,
-          price: priceNum,
-          maxWorkspaces: parseInt(customPlanForm.maxWorkspaces, 10) || 1,
-          maxStudents: customPlanForm.isUnlimitedStudents ? null : (parseInt(customPlanForm.maxStudents, 10) || null),
-          importQuota: parseInt(customPlanForm.importQuota, 10) || 25,
-          storageLimitMb: (() => {
-            const parsed = parseInt(customPlanForm.storageLimitMb, 10) || 1024;
-            return parsed > 0 && parsed <= 50 ? parsed * 1024 : parsed;
-          })(),
-          features: customPlanForm.features.trim() || undefined,
-          isRecurring: customPlanForm.isRecurring,
-          periodicity: customPlanForm.periodicity,
-          paymentMethod: customPlanForm.paymentMethod,
-          nextDueDate: customPlanForm.nextDueDate || undefined,
-          autoSuspendEnabled: customPlanForm.autoSuspendEnabled,
-          toleranceDays: toleranceNum,
-        }),
-      });
-
-      const json = await res.json();
-      if (!res.ok) throw new Error(json.error || "Erro ao salvar plano personalizado.");
-
-      toast.success("Plano personalizado salvo e ativado com sucesso!");
-      await fetchWorkspace(false);
-      setActiveTab("assinatura");
-    } catch (err: any) {
-      toast.error(err.message || "Não foi possível salvar o plano personalizado.");
-    } finally {
-      setIsSavingCustomPlan(false);
     }
   };
 
@@ -886,13 +793,6 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
             )}
           </TabsTrigger>
 
-          <TabsTrigger
-            value="plano-personalizado"
-            className="rounded-lg cursor-pointer h-9 px-4 text-xs font-bold gap-2 data-[state=active]:bg-background data-[state=active]:text-foreground data-[state=active]:shadow-xs transition-all"
-          >
-            <Sliders className="size-3.5 text-primary" />
-            <span>Plano Personalizado</span>
-          </TabsTrigger>
 
           {workspace.type === "GYM" && (
             <TabsTrigger
@@ -1252,14 +1152,7 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
                     Detalhes comerciais, quotas de capacidade e status de faturamento.
                   </CardDescription>
                 </div>
-                <Button
-                  onClick={() => setActiveTab("plano-personalizado")}
-                  size="sm"
-                  className="rounded-xl h-9 px-3.5 text-xs font-bold gap-1.5 cursor-pointer shadow-xs"
-                >
-                  <Sliders className="size-3.5" />
-                  <span>Configurar Plano Personalizado</span>
-                </Button>
+                <WorkspacePlanActions workspace={workspace} onChanged={() => fetchWorkspace(false)} />
               </CardHeader>
               <CardContent className="p-6 space-y-6">
                 {/* Cabeçalho do Plano */}
@@ -1381,7 +1274,6 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
                       />
                     </div>
 
-                    {/* Armazenamento */}
                     <div className="p-4 rounded-xl border border-border/40 bg-secondary/10 space-y-2">
                       <div className="flex items-center justify-between text-xs">
                         <span className="font-bold flex items-center gap-1.5 text-muted-foreground">
@@ -1487,13 +1379,7 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
                   </div>
 
                   <div className="pt-4 border-t border-border/40">
-                    <Button
-                      onClick={() => setActiveTab("plano-personalizado")}
-                      className="w-full rounded-xl h-10 text-xs font-bold gap-2 cursor-pointer shadow-xs"
-                    >
-                      <Sliders className="size-4" />
-                      <span>Alterar / Personalizar Plano</span>
-                    </Button>
+                    <WorkspacePlanActions workspace={workspace} onChanged={() => fetchWorkspace(false)} compact />
                   </div>
                 </CardContent>
               </Card>
@@ -1501,319 +1387,6 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
           </div>
         </TabsContent>
 
-        {/* -------------------------------------------------------------------
-            ABA 3: CONFIGURAÇÃO DE PLANO PERSONALIZADO (MANUAL)
-        ------------------------------------------------------------------- */}
-        <TabsContent value="plano-personalizado" className="space-y-6 animate-in fade-in duration-300">
-          <Card className="border-border/60 bg-card shadow-xs">
-            <CardHeader className="pb-4 border-b border-border/40">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <div>
-                  <CardTitle className="text-sm font-bold flex items-center gap-2">
-                    <Sliders className="size-4 text-primary" />
-                    <span>Criação & Configuração de Plano Manual / Personalizado</span>
-                  </CardTitle>
-                  <CardDescription className="text-xs">
-                    Defina limites sob medida de alunos, workspaces, importação e armazenamento, além do valor e regras de cobrança recorrente.
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-6">
-              <form onSubmit={handleSaveCustomPlan} className="space-y-6">
-                {/* 1. Identificação do Plano */}
-                <div className="space-y-4">
-                  <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-1.5">
-                    <Tag className="size-3.5" /> 1. Identificação do Plano
-                  </h4>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="planName" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                        Nome do Plano *
-                      </Label>
-                      <Input
-                        id="planName"
-                        required
-                        placeholder="Ex: Plano Personalizado VIP"
-                        value={customPlanForm.name}
-                        onChange={(e) => setCustomPlanForm((prev) => ({ ...prev, name: e.target.value }))}
-                        className="rounded-xl h-11 border-border/40 font-bold text-sm"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="planFeatures" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                        Recursos / Descrição Curta
-                      </Label>
-                      <Input
-                        id="planFeatures"
-                        placeholder="Ex: Alunos ilimitados, suporte prioritário, storage estendido"
-                        value={customPlanForm.features}
-                        onChange={(e) => setCustomPlanForm((prev) => ({ ...prev, features: e.target.value }))}
-                        className="rounded-xl h-11 border-border/40 text-xs"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2. Cotas e Limites Técnicos */}
-                <div className="space-y-4 pt-4 border-t border-border/30">
-                  <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-1.5">
-                    <Sliders className="size-3.5" /> 2. Limites e Cotas Técnicas
-                  </h4>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-                    {/* Limite de Alunos */}
-                    <div className="space-y-2 p-3.5 rounded-xl border border-border/40 bg-secondary/10">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="maxStudents" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                          Limite de Alunos
-                        </Label>
-                        <div className="flex items-center gap-1.5">
-                          <Switch
-                            id="unlimitedStudents"
-                            checked={customPlanForm.isUnlimitedStudents}
-                            onCheckedChange={(checked) =>
-                              setCustomPlanForm((prev) => ({ ...prev, isUnlimitedStudents: checked }))
-                            }
-                          />
-                          <Label htmlFor="unlimitedStudents" className="text-[10px] font-bold cursor-pointer">
-                            Ilimitado
-                          </Label>
-                        </div>
-                      </div>
-                      <Input
-                        id="maxStudents"
-                        type="number"
-                        min="1"
-                        disabled={customPlanForm.isUnlimitedStudents}
-                        placeholder={customPlanForm.isUnlimitedStudents ? "Ilimitado" : "Ex: 100"}
-                        value={customPlanForm.isUnlimitedStudents ? "" : customPlanForm.maxStudents}
-                        onChange={(e) => setCustomPlanForm((prev) => ({ ...prev, maxStudents: e.target.value }))}
-                        className="rounded-xl h-10 border-border/40 font-bold text-sm bg-background"
-                      />
-                    </div>
-
-                    {/* Limite de Workspaces */}
-                    <div className="space-y-2 p-3.5 rounded-xl border border-border/40 bg-secondary/10">
-                      <Label htmlFor="maxWorkspaces" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                        Workspaces / Unidades
-                      </Label>
-                      <Input
-                        id="maxWorkspaces"
-                        type="number"
-                        min="1"
-                        required
-                        placeholder="Ex: 1"
-                        value={customPlanForm.maxWorkspaces}
-                        onChange={(e) => setCustomPlanForm((prev) => ({ ...prev, maxWorkspaces: e.target.value }))}
-                        className="rounded-xl h-10 border-border/40 font-bold text-sm bg-background"
-                      />
-                    </div>
-
-                    {/* Quota de Importação */}
-                    <div className="space-y-2 p-3.5 rounded-xl border border-border/40 bg-secondary/10">
-                      <Label htmlFor="importQuota" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                        Quota de Importação
-                      </Label>
-                      <Input
-                        id="importQuota"
-                        type="number"
-                        min="0"
-                        required
-                        placeholder="Ex: 25"
-                        value={customPlanForm.importQuota}
-                        onChange={(e) => setCustomPlanForm((prev) => ({ ...prev, importQuota: e.target.value }))}
-                        className="rounded-xl h-10 border-border/40 font-bold text-sm bg-background"
-                      />
-                    </div>
-
-                    {/* Armazenamento em MB */}
-                    <div className="space-y-2 p-3.5 rounded-xl border border-border/40 bg-secondary/10">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="storageLimitMb" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                          Armazenamento (MB ou GB)
-                        </Label>
-                        <span className="text-[10px] text-muted-foreground font-bold">
-                          {(() => {
-                            const num = parseInt(customPlanForm.storageLimitMb, 10);
-                            if (isNaN(num) || num <= 0) return "";
-                            if (num <= 50) return `(${num} GB = ${num * 1024} MB)`;
-                            return `(${(num / 1024).toFixed(1)} GB)`;
-                          })()}
-                        </span>
-                      </div>
-                      <Input
-                        id="storageLimitMb"
-                        type="number"
-                        min="1"
-                        step="1"
-                        required
-                        placeholder="Ex: 3072 (ou 3 para 3 GB)"
-                        value={customPlanForm.storageLimitMb}
-                        onChange={(e) => setCustomPlanForm((prev) => ({ ...prev, storageLimitMb: e.target.value }))}
-                        className="rounded-xl h-10 border-border/40 font-bold text-sm bg-background"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* 3. Condições Comerciais & Recorrência */}
-                <div className="space-y-4 pt-4 border-t border-border/30">
-                  <h4 className="text-xs font-bold uppercase tracking-widest text-primary flex items-center gap-1.5">
-                    <DollarSign className="size-3.5" /> 3. Condições Comerciais, Recorrência e Tolerância
-                  </h4>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {/* Valor do Plano */}
-                    <div className="space-y-2">
-                      <Label htmlFor="planPrice" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                        Valor do Plano (R$) *
-                      </Label>
-                      <Input
-                        id="planPrice"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        required
-                        placeholder="Ex: 199.90"
-                        value={customPlanForm.price}
-                        onChange={(e) => setCustomPlanForm((prev) => ({ ...prev, price: e.target.value }))}
-                        className="rounded-xl h-11 border-border/40 font-bold text-sm"
-                      />
-                    </div>
-
-                    {/* Periodicidade */}
-                    <div className="space-y-2">
-                      <Label htmlFor="planPeriodicity" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                        Periodicidade de Cobrança *
-                      </Label>
-                      <Select
-                        value={customPlanForm.periodicity}
-                        onValueChange={(val: any) => setCustomPlanForm((prev) => ({ ...prev, periodicity: val }))}
-                      >
-                        <SelectTrigger id="planPeriodicity" className="rounded-xl h-11! w-full border-border/40 text-xs font-bold">
-                          <SelectValue placeholder="Selecione..." />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl">
-                          <SelectItem value="MENSAL">Mensal</SelectItem>
-                          <SelectItem value="TRIMESTRAL">Trimestral</SelectItem>
-                          <SelectItem value="SEMESTRAL">Semestral</SelectItem>
-                          <SelectItem value="ANUAL">Anual</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Forma de Pagamento */}
-                    <div className="space-y-2">
-                      <Label htmlFor="planPaymentMethod" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                        Forma de Pagamento
-                      </Label>
-                      <Select
-                        value={customPlanForm.paymentMethod}
-                        onValueChange={(val) => setCustomPlanForm((prev) => ({ ...prev, paymentMethod: val }))}
-                      >
-                        <SelectTrigger id="planPaymentMethod" className="rounded-xl h-11! w-full border-border/40 text-xs font-bold">
-                          <SelectValue placeholder="Selecione..." />
-                        </SelectTrigger>
-                        <SelectContent className="rounded-xl">
-                          <SelectItem value="PIX">PIX</SelectItem>
-                          <SelectItem value="BOLETO">Boleto Bancário</SelectItem>
-                          <SelectItem value="CREDIT_CARD">Cartão de Crédito</SelectItem>
-                          <SelectItem value="TRANSFER">Transferência Bancária</SelectItem>
-                          <SelectItem value="CASH">Dinheiro</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-
-                    {/* Próximo Vencimento */}
-                    <div className="space-y-2">
-                      <Label htmlFor="planNextDueDate" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                        Próximo Vencimento *
-                      </Label>
-                      <Input
-                        id="planNextDueDate"
-                        type="date"
-                        required
-                        value={customPlanForm.nextDueDate}
-                        onChange={(e) => setCustomPlanForm((prev) => ({ ...prev, nextDueDate: e.target.value }))}
-                        className="rounded-xl h-11 border-border/40 text-xs font-bold"
-                      />
-                    </div>
-
-                    {/* Dias de Tolerância */}
-                    <div className="space-y-2">
-                      <Label htmlFor="planToleranceDays" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                        Dias de Tolerância / Carência *
-                      </Label>
-                      <Input
-                        id="planToleranceDays"
-                        type="number"
-                        min="0"
-                        max="90"
-                        required
-                        value={customPlanForm.toleranceDays}
-                        onChange={(e) => setCustomPlanForm((prev) => ({ ...prev, toleranceDays: e.target.value }))}
-                        className="rounded-xl h-11 border-border/40 text-xs font-bold"
-                      />
-                      <p className="text-[10px] text-muted-foreground">
-                        Dias permitidos em atraso antes do bloqueio automático.
-                      </p>
-                    </div>
-
-                    {/* Suspensão Automática */}
-                    <div className="space-y-2 flex flex-col justify-center p-3 rounded-xl border border-border/40 bg-secondary/15">
-                      <div className="flex items-center justify-between">
-                        <Label htmlFor="planAutoSuspend" className="text-xs font-bold cursor-pointer">
-                          Suspensão Automática
-                        </Label>
-                        <Switch
-                          id="planAutoSuspend"
-                          checked={customPlanForm.autoSuspendEnabled}
-                          onCheckedChange={(checked) =>
-                            setCustomPlanForm((prev) => ({ ...prev, autoSuspendEnabled: checked }))
-                          }
-                        />
-                      </div>
-                      <p className="text-[10px] text-muted-foreground mt-1">
-                        Suspender o workspace automaticamente se ultrapassar os dias de tolerância.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Botões de Ação */}
-                <div className="flex items-center justify-end gap-3 pt-4 border-t border-border/40">
-                  <Button
-                    type="button"
-                    variant="outline"
-                    onClick={() => setActiveTab("assinatura")}
-                    className="rounded-xl h-11 px-5 font-bold text-xs cursor-pointer"
-                  >
-                    Cancelar
-                  </Button>
-                  <Button
-                    type="submit"
-                    disabled={isSavingCustomPlan}
-                    className="rounded-xl h-11 px-6 font-bold text-xs gap-2 cursor-pointer shadow-xs"
-                  >
-                    {isSavingCustomPlan ? (
-                      <>
-                        <Loader2 className="size-4 animate-spin" />
-                        <span>Salvando Plano...</span>
-                      </>
-                    ) : (
-                      <>
-                        <Save className="size-4" />
-                        <span>Salvar e Ativar Plano Personalizado</span>
-                      </>
-                    )}
-                  </Button>
-                </div>
-              </form>
-            </CardContent>
-          </Card>
-        </TabsContent>
 
         {workspace.type === "GYM" && (
           <TabsContent value="unidades" className="space-y-6 animate-in fade-in duration-300">

@@ -32,8 +32,6 @@ import {
    Clock,
    Smartphone,
    CheckCircle2,
-   Edit2,
-   Check,
    X,
    UploadCloud,
    ImageIcon,
@@ -50,6 +48,8 @@ import {
    DialogTitle,
    DialogFooter,
 } from "@/components/ui/dialog";
+import { buildAutoFeatures, updateFeaturesWithFields } from "@/components/application/plan-features";
+import { PlanFormFields } from "@/components/application/plan-form-fields";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
@@ -261,250 +261,6 @@ function SectionHeader({ title, icon: Icon, description }: { title: string; icon
    );
 }
 
-function isAutoFeature(feature: string): boolean {
-   const trimmed = feature.trim().toLowerCase();
-   if (/^até\s+\d+\s+alunos\s+ativos$/i.test(trimmed) || /^alunos\s+ilimitados$/i.test(trimmed)) return true;
-   if (/^\d+\s+importações\s+de\s+alunos\/mês$/i.test(trimmed) || /^importações\s+de\s+alunos\s+ilimitadas$/i.test(trimmed)) return true;
-   if (/^\d+\s+workspace(s)?\s+de\s+trabalho$/i.test(trimmed) || /^workspaces\s+ilimitados$/i.test(trimmed)) return true;
-   if (/^.*armazenamento\s+em\s+nuvem.*$/i.test(trimmed)) return true;
-   return false;
-}
-
-function buildAutoFeatures(maxStudents: string, importQuota: string, maxWorkspaces: string, storageLimitMb: string = "1024"): string[] {
-   const studentsNum = maxStudents ? parseInt(maxStudents) : null;
-   const studentsText = studentsNum && studentsNum > 0 ? `Até ${studentsNum} alunos ativos` : "Alunos ilimitados";
-
-   const quotaNum = importQuota ? parseInt(importQuota) : null;
-   const importsText = quotaNum && quotaNum > 0 ? `${quotaNum} importações de alunos/mês` : "Importações de alunos ilimitadas";
-
-   const wsNum = maxWorkspaces ? parseInt(maxWorkspaces) : 1;
-   const workspacesText = wsNum > 1 ? `${wsNum} workspaces de trabalho` : (wsNum === 1 ? "1 workspace de trabalho" : "Workspaces ilimitados");
-
-   const storageNum = storageLimitMb ? parseInt(storageLimitMb) : 1024;
-   let storageText = "Armazenamento em nuvem ilimitado";
-   if (storageNum > 0) {
-      if (storageNum >= 1024 && storageNum % 1024 === 0) {
-         storageText = `${storageNum / 1024} GB de armazenamento em nuvem`;
-      } else {
-         storageText = `${storageNum} MB de armazenamento em nuvem`;
-      }
-   }
-
-   return [studentsText, importsText, workspacesText, storageText];
-}
-
-function updateFeaturesWithFields(currentFeatures: string, maxStudents: string, importQuota: string, maxWorkspaces: string, storageLimitMb: string = "1024"): string {
-   const autoFeatures = buildAutoFeatures(maxStudents, importQuota, maxWorkspaces, storageLimitMb);
-   const existingList = currentFeatures ? currentFeatures.split(",").map(f => f.trim()).filter(Boolean) : [];
-
-   const customFeatures = existingList.filter(f => !isAutoFeature(f));
-
-   return [...autoFeatures, ...customFeatures].join(", ");
-}
-
-interface FeaturesManagerProps {
-   value: string;
-   onChange: (value: string) => void;
-   label?: string;
-}
-
-function FeaturesManager({ value, onChange, label }: FeaturesManagerProps) {
-   const [isAdding, setIsAdding] = useState(false);
-   const [newItemText, setNewItemText] = useState("");
-   const [editingIndex, setEditingIndex] = useState<number | null>(null);
-   const [editingText, setEditingText] = useState("");
-
-   const featuresList = value
-      ? value
-         .split(",")
-         .map((f) => f.trim())
-         .filter(Boolean)
-      : [];
-
-   const handleAddItem = () => {
-      const trimmed = newItemText.trim();
-      if (!trimmed) return;
-      if (featuresList.includes(trimmed)) {
-         toast.error("Esta vantagem já foi adicionada!");
-         return;
-      }
-      const newList = [...featuresList, trimmed];
-      onChange(newList.join(", "));
-      setNewItemText("");
-      setIsAdding(false);
-   };
-
-   const handleRemoveItem = (index: number) => {
-      const newList = featuresList.filter((_, i) => i !== index);
-      onChange(newList.join(", "));
-      if (editingIndex === index) {
-         setEditingIndex(null);
-         setEditingText("");
-      }
-   };
-
-   const handleStartEdit = (index: number, text: string) => {
-      setEditingIndex(index);
-      setEditingText(text);
-   };
-
-   const handleSaveEdit = (index: number) => {
-      const trimmed = editingText.trim();
-      if (!trimmed) {
-         handleRemoveItem(index);
-         return;
-      }
-      const newList = [...featuresList];
-      newList[index] = trimmed;
-      onChange(newList.join(", "));
-      setEditingIndex(null);
-      setEditingText("");
-   };
-
-   return (
-      <div className="space-y-3">
-         {label && (
-            <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground block">
-               {label}
-            </Label>
-         )}
-
-         <div className="space-y-2 max-h-55 overflow-y-auto pr-1">
-            {featuresList.length === 0 ? (
-               <p className="text-xs text-muted-foreground italic py-1">Nenhuma vantagem adicionada ainda.</p>
-            ) : (
-               featuresList.map((feature, index) => {
-                  const isEditing = editingIndex === index;
-                  const isAuto = isAutoFeature(feature);
-                  return (
-                     <div
-                        key={index}
-                        className="flex items-center justify-between gap-2 bg-secondary/20 hover:bg-secondary/35 border border-border/40 p-2.5 rounded-xl transition-all animate-in fade-in slide-in-from-top-1 duration-200"
-                     >
-                        {isEditing ? (
-                           <div className="flex items-center gap-2 flex-1">
-                              <Input
-                                 value={editingText}
-                                 onChange={(e) => setEditingText(e.target.value)}
-                                 className="h-8 rounded-lg text-xs py-1 px-2.5 flex-1 bg-background"
-                                 autoFocus
-                                 onKeyDown={(e) => {
-                                    if (e.key === "Enter") {
-                                       e.preventDefault();
-                                       handleSaveEdit(index);
-                                    }
-                                 }}
-                              />
-                              <Button
-                                 type="button"
-                                 size="icon"
-                                 onClick={() => handleSaveEdit(index)}
-                                 className="h-8 w-8 rounded-lg shrink-0 bg-emerald-600 hover:bg-emerald-500 text-white"
-                              >
-                                 <Check className="size-3.5" />
-                              </Button>
-                              <Button
-                                 type="button"
-                                 variant="ghost"
-                                 size="icon"
-                                 onClick={() => setEditingIndex(null)}
-                                 className="h-8 w-8 rounded-lg shrink-0 text-muted-foreground hover:text-foreground hover:bg-secondary"
-                              >
-                                 <X className="size-3.5" />
-                              </Button>
-                           </div>
-                        ) : (
-                           <>
-                              <div className="flex items-center gap-2 flex-1 min-w-0">
-                                 <BadgeCheck className="size-4 text-emerald-500 shrink-0" />
-                                 <span className="text-xs text-foreground font-medium truncate">
-                                    {feature}
-                                 </span>
-                                 {isAuto && (
-                                    <Badge variant="outline" className="text-[9px] font-bold border-primary/30 text-primary bg-primary/10 px-1.5 py-0 shrink-0">
-                                       Auto
-                                    </Badge>
-                                 )}
-                              </div>
-                              <div className="flex items-center gap-1 shrink-0">
-                                 <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleStartEdit(index, feature)}
-                                    className="h-7 w-7 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary"
-                                 >
-                                    <Edit2 className="size-3.5" />
-                                 </Button>
-                                 <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    onClick={() => handleRemoveItem(index)}
-                                    className="h-7 w-7 rounded-lg text-rose-500/80 hover:text-rose-500 hover:bg-rose-500/10"
-                                 >
-                                    <Trash2 className="size-3.5" />
-                                 </Button>
-                              </div>
-                           </>
-                        )}
-                     </div>
-                  );
-               })
-            )}
-         </div>
-
-         {/* Adicionar Vantagem */}
-         {isAdding ? (
-            <div className="flex items-center gap-2 bg-secondary/10 p-2 border border-dashed border-border/80 rounded-xl animate-in zoom-in-95 duration-200">
-               <Input
-                  placeholder="Nova vantagem..."
-                  value={newItemText}
-                  onChange={(e) => setNewItemText(e.target.value)}
-                  className="h-9 rounded-lg text-xs py-1 px-3 flex-1 bg-background"
-                  autoFocus
-                  onKeyDown={(e) => {
-                     if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleAddItem();
-                     }
-                  }}
-               />
-               <Button
-                  type="button"
-                  size="sm"
-                  onClick={() => handleAddItem()}
-                  className="h-9 px-3 rounded-lg font-bold shrink-0 bg-primary text-primary-foreground hover:bg-primary/95 text-xs"
-               >
-                  Confirmar
-               </Button>
-               <Button
-                  type="button"
-                  variant="ghost"
-                  size="icon"
-                  onClick={() => {
-                     setIsAdding(false);
-                     setNewItemText("");
-                  }}
-                  className="h-9 w-9 rounded-lg text-muted-foreground hover:text-foreground hover:bg-secondary shrink-0"
-               >
-                  <X className="size-4" />
-               </Button>
-            </div>
-         ) : (
-            <Button
-               type="button"
-               variant="outline"
-               onClick={() => setIsAdding(true)}
-               className="w-full h-9 rounded-xl border-dashed border-border/60 hover:border-primary/40 hover:bg-primary/5 text-xs font-bold text-muted-foreground hover:text-primary transition-all flex items-center justify-center gap-1.5"
-            >
-               <Plus className="size-3.5" /> Adicionar Vantagem
-            </Button>
-         )}
-      </div>
-   );
-}
-
 export default function SubscriptionsManagementPage() {
    const snap = useSuperAdminSnapshot();
    const [isModalOpen, setIsModalOpen] = useState(false);
@@ -583,36 +339,6 @@ export default function SubscriptionsManagementPage() {
       superAdminActions.fetchPlans();
       superAdminActions.fetchSubscriptions();
    }, []);
-
-   const updateFormQuantities = (updates: Partial<{ maxStudents: string; importQuota: string; maxWorkspaces: string; storageLimitMb: string }>) => {
-      setFormData((prev) => {
-         const nextStudents = updates.maxStudents !== undefined ? updates.maxStudents : prev.maxStudents;
-         const nextQuota = updates.importQuota !== undefined ? updates.importQuota : prev.importQuota;
-         const nextWs = updates.maxWorkspaces !== undefined ? updates.maxWorkspaces : prev.maxWorkspaces;
-         const nextStorage = updates.storageLimitMb !== undefined ? updates.storageLimitMb : prev.storageLimitMb;
-         const newFeatures = updateFeaturesWithFields(prev.features, nextStudents, nextQuota, nextWs, nextStorage);
-         return {
-            ...prev,
-            ...updates,
-            features: newFeatures,
-         };
-      });
-   };
-
-   const updateEditFormQuantities = (updates: Partial<{ maxStudents: string; importQuota: string; maxWorkspaces: string; storageLimitMb: string }>) => {
-      setEditFormData((prev) => {
-         const nextStudents = updates.maxStudents !== undefined ? updates.maxStudents : prev.maxStudents;
-         const nextQuota = updates.importQuota !== undefined ? updates.importQuota : prev.importQuota;
-         const nextWs = updates.maxWorkspaces !== undefined ? updates.maxWorkspaces : prev.maxWorkspaces;
-         const nextStorage = updates.storageLimitMb !== undefined ? updates.storageLimitMb : prev.storageLimitMb;
-         const newFeatures = updateFeaturesWithFields(prev.features, nextStudents, nextQuota, nextWs, nextStorage);
-         return {
-            ...prev,
-            ...updates,
-            features: newFeatures,
-         };
-      });
-   };
 
    const handleCreatePlan = async (e: React.FormEvent) => {
       e.preventDefault();
@@ -1338,129 +1064,7 @@ export default function SubscriptionsManagementPage() {
                   <DialogTitle className="text-xl font-black tracking-tight">Novo Plano de Assinatura</DialogTitle>
                </DialogHeader>
                <form onSubmit={handleCreatePlan} className="py-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                     <div className="space-y-4">
-                        <div className="space-y-2">
-                           <Label htmlFor="plan-name" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nome do Plano</Label>
-                           <Input
-                              id="plan-name"
-                              required
-                              placeholder="Ex: Pro Unlimited"
-                              value={formData.name}
-                              onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                              className="rounded-xl h-11"
-                           />
-                        </div>
-                        <div className="space-y-2">
-                           <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Métodos de Pagamento (AbacatePay)</Label>
-                           <Tabs
-                              value={formData.paymentMethods}
-                              onValueChange={(val) => setFormData({ ...formData, paymentMethods: val })}
-                              className="w-full"
-                           >
-                              <TabsList className="grid w-full grid-cols-3 rounded-xl h-11 p-1 bg-secondary/50">
-                                 <TabsTrigger value="PIX" className="rounded-lg font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                                    PIX
-                                 </TabsTrigger>
-                                 <TabsTrigger value="CARD" className="rounded-lg font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                                    Cartão
-                                 </TabsTrigger>
-                                 <TabsTrigger value="PIX,CARD" className="rounded-lg font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                                    Ambos
-                                 </TabsTrigger>
-                              </TabsList>
-                           </Tabs>
-                        </div>
-                        <div className="space-y-2">
-                           <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Modelo de Cobrança</Label>
-                           <Tabs
-                              value={formData.interval}
-                              onValueChange={(val) => setFormData({ ...formData, interval: val })}
-                              className="w-full"
-                           >
-                              <TabsList className="grid w-full grid-cols-2 rounded-xl h-11 p-1 bg-secondary/50">
-                                 <TabsTrigger value="month" className="rounded-lg font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                                    Mensal
-                                 </TabsTrigger>
-                                 <TabsTrigger value="year" className="rounded-lg font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                                    Anual
-                                 </TabsTrigger>
-                              </TabsList>
-                           </Tabs>
-                        </div>
-                        <div className="space-y-2">
-                           <Label htmlFor="plan-price" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                              Valor {formData.interval === "year" ? "Anual" : "Mensal"} (R$)
-                           </Label>
-                           <Input
-                              id="plan-price"
-                              type="number"
-                              step="0.01"
-                              required
-                              placeholder="0.00"
-                              value={formData.price}
-                              onChange={(e) => setFormData({ ...formData, price: e.target.value })}
-                              className="rounded-xl h-11"
-                           />
-                        </div>
-                        <div className="space-y-2">
-                           <Label htmlFor="plan-workspaces" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Limite de Workspaces</Label>
-                           <Input
-                              id="plan-workspaces"
-                              type="number"
-                              min="1"
-                              required
-                              placeholder="1"
-                              value={formData.maxWorkspaces}
-                              onChange={(e) => updateFormQuantities({ maxWorkspaces: e.target.value })}
-                              className="rounded-xl h-11"
-                           />
-                        </div>
-                        <div className="space-y-2">
-                           <Label htmlFor="plan-students" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Limite de Alunos</Label>
-                           <Input
-                              id="plan-students"
-                              type="number"
-                              min="1"
-                              placeholder="Ilimitado"
-                              value={formData.maxStudents}
-                              onChange={(e) => updateFormQuantities({ maxStudents: e.target.value })}
-                              className="rounded-xl h-11"
-                           />
-                        </div>
-                        <div className="space-y-2">
-                           <Label htmlFor="plan-imports" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Quota de Importações (alunos/mês)</Label>
-                           <Input
-                              id="plan-imports"
-                              type="number"
-                              min="0"
-                              placeholder="Ex: 25 (0 = ilimitadas)"
-                              value={formData.importQuota}
-                              onChange={(e) => updateFormQuantities({ importQuota: e.target.value })}
-                              className="rounded-xl h-11"
-                           />
-                        </div>
-                        <div className="space-y-2">
-                           <Label htmlFor="plan-storage" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Limite de Armazenamento (MB)</Label>
-                           <Input
-                              id="plan-storage"
-                              type="number"
-                              min="0"
-                              placeholder="Ex: 1024 (0 = ilimitado)"
-                              value={formData.storageLimitMb}
-                              onChange={(e) => updateFormQuantities({ storageLimitMb: e.target.value })}
-                              className="rounded-xl h-11"
-                           />
-                        </div>
-                     </div>
-
-                     <div className="space-y-4">
-                        <FeaturesManager
-                           value={formData.features}
-                           onChange={(val) => setFormData({ ...formData, features: val })}
-                           label="Destaques / Vantagens do Plano"
-                        />
-
+                  <PlanFormFields idPrefix="plan" value={formData} onChange={(updates) => setFormData(prev => ({ ...prev, ...updates }))}>
                         <div className="space-y-2 pt-2 border-t border-border/40">
                            <div className="flex items-center justify-between">
                               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
@@ -1547,8 +1151,7 @@ export default function SubscriptionsManagementPage() {
                               </div>
                            )}
                         </div>
-                     </div>
-                  </div>
+                  </PlanFormFields>
 
                   <DialogFooter className="pt-6 gap-2">
                      <Button type="button" variant="ghost" onClick={() => setIsModalOpen(false)} className="rounded-xl font-bold">
@@ -1569,127 +1172,7 @@ export default function SubscriptionsManagementPage() {
                   <DialogTitle className="text-xl font-black tracking-tight">Editar Oferta</DialogTitle>
                </DialogHeader>
                <form onSubmit={handleUpdatePlan} className="py-4">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                     <div className="space-y-4">
-                        <div className="space-y-2">
-                           <Label htmlFor="edit-plan-name" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Nome do Plano</Label>
-                           <Input
-                              id="edit-plan-name"
-                              required
-                              value={editFormData.name}
-                              onChange={(e) => setEditFormData({ ...editFormData, name: e.target.value })}
-                              className="rounded-xl h-11"
-                           />
-                        </div>
-                        <div className="space-y-2">
-                           <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Métodos de Pagamento (AbacatePay)</Label>
-                           <Tabs
-                              value={editFormData.paymentMethods}
-                              onValueChange={(val) => setEditFormData({ ...editFormData, paymentMethods: val })}
-                              className="w-full"
-                           >
-                              <TabsList className="grid w-full grid-cols-3 rounded-xl h-11 p-1 bg-secondary/50">
-                                 <TabsTrigger value="PIX" className="rounded-lg font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                                    PIX
-                                 </TabsTrigger>
-                                 <TabsTrigger value="CARD" className="rounded-lg font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                                    Cartão
-                                 </TabsTrigger>
-                                 <TabsTrigger value="PIX,CARD" className="rounded-lg font-bold text-xs data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                                    Ambos
-                                 </TabsTrigger>
-                              </TabsList>
-                           </Tabs>
-                        </div>
-                        <div className="space-y-2">
-                           <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Modelo de Cobrança</Label>
-                           <Tabs
-                              value={editFormData.interval}
-                              onValueChange={(val) => setEditFormData({ ...editFormData, interval: val })}
-                              className="w-full"
-                           >
-                              <TabsList className="grid w-full grid-cols-2 rounded-xl h-11 p-1 bg-secondary/50">
-                                 <TabsTrigger value="month" className="rounded-lg font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                                    Mensal
-                                 </TabsTrigger>
-                                 <TabsTrigger value="year" className="rounded-lg font-bold data-[state=active]:bg-background data-[state=active]:shadow-sm">
-                                    Anual
-                                 </TabsTrigger>
-                              </TabsList>
-                           </Tabs>
-                        </div>
-                        <div className="space-y-2">
-                           <Label htmlFor="edit-plan-price" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
-                              Valor {editFormData.interval === "year" ? "Anual" : "Mensal"} (R$)
-                           </Label>
-                           <Input
-                              id="edit-plan-price"
-                              type="number"
-                              step="0.01"
-                              required
-                              value={editFormData.price}
-                              onChange={(e) => setEditFormData({ ...editFormData, price: e.target.value })}
-                              className="rounded-xl h-11"
-                           />
-                        </div>
-                        <div className="space-y-2">
-                           <Label htmlFor="edit-plan-workspaces" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Limite de Workspaces</Label>
-                           <Input
-                              id="edit-plan-workspaces"
-                              type="number"
-                              min="1"
-                              required
-                              placeholder="1"
-                              value={editFormData.maxWorkspaces}
-                              onChange={(e) => updateEditFormQuantities({ maxWorkspaces: e.target.value })}
-                              className="rounded-xl h-11"
-                           />
-                        </div>
-                        <div className="space-y-2">
-                           <Label htmlFor="edit-plan-students" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Limite de Alunos</Label>
-                           <Input
-                              id="edit-plan-students"
-                              type="number"
-                              min="1"
-                              placeholder="Ilimitado"
-                              value={editFormData.maxStudents}
-                              onChange={(e) => updateEditFormQuantities({ maxStudents: e.target.value })}
-                              className="rounded-xl h-11"
-                           />
-                        </div>
-                        <div className="space-y-2">
-                           <Label htmlFor="edit-plan-imports" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Quota de Importações (alunos/mês)</Label>
-                           <Input
-                              id="edit-plan-imports"
-                              type="number"
-                              min="0"
-                              placeholder="Ex: 25 (0 = ilimitadas)"
-                              value={editFormData.importQuota}
-                              onChange={(e) => updateEditFormQuantities({ importQuota: e.target.value })}
-                              className="rounded-xl h-11"
-                           />
-                        </div>
-                        <div className="space-y-2">
-                           <Label htmlFor="edit-plan-storage" className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Limite de Armazenamento (MB)</Label>
-                           <Input
-                              id="edit-plan-storage"
-                              type="number"
-                              min="0"
-                              placeholder="Ex: 1024 (0 = ilimitado)"
-                              value={editFormData.storageLimitMb}
-                              onChange={(e) => updateEditFormQuantities({ storageLimitMb: e.target.value })}
-                              className="rounded-xl h-11"
-                           />
-                        </div>
-                     </div>
-
-                     <div className="space-y-4">
-                        <FeaturesManager
-                           value={editFormData.features}
-                           onChange={(val) => setEditFormData({ ...editFormData, features: val })}
-                           label="Destaques / Vantagens do Plano"
-                        />
-
+                  <PlanFormFields idPrefix="edit-plan" value={editFormData} onChange={(updates) => setEditFormData(prev => ({ ...prev, ...updates }))}>
                         <div className="space-y-2 pt-2 border-t border-border/40">
                            <div className="flex items-center justify-between">
                               <Label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
@@ -1776,8 +1259,7 @@ export default function SubscriptionsManagementPage() {
                               </div>
                            )}
                         </div>
-                     </div>
-                  </div>
+                  </PlanFormFields>
 
                   <DialogFooter className="pt-6 gap-2">
                      <div className="w-full flex justify-between">

@@ -121,6 +121,7 @@ async function handleGET(req: Request) {
       // Do NOT auto-create a Starter subscription — just return available plans
       // so the trainer can choose or be redirected to the subscription-expired page.
       const plansInDb = await prisma.plan.findMany({
+        where: { customWorkspaceId: null },
         orderBy: { price: "asc" }
       });
 
@@ -204,6 +205,7 @@ async function handleGET(req: Request) {
     const storageMetrics = await getAccountStorageQuotaMetrics(session.user.id);
 
     const plansInDb = await prisma.plan.findMany({
+      where: { customWorkspaceId: null },
       orderBy: { price: "asc" }
     });
 
@@ -353,7 +355,7 @@ export async function POST(req: Request) {
       where: { id: planId }
     });
 
-    if (!plan) {
+    if (!plan || plan.customWorkspaceId) {
       return new NextResponse("Plano não encontrado.", { status: 404 });
     }
 

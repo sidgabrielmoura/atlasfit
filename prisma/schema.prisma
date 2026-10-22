@@ -342,9 +342,16 @@ model Plan {
   storageLimitMb         Int                     @default(1024)
   paymentMethods         String?                 @default("PIX")
   imageUrl               String?
+  // A null owner identifies an offer available in the global catalog.
+  customWorkspaceId      String?
+  publishedGlobalPlanId  String?                 @unique
+  publishedGlobalPlan    Plan?                   @relation("PublishedWorkspacePlan", fields: [publishedGlobalPlanId], references: [id], onDelete: SetNull)
+  sourceWorkspacePlan    Plan?                   @relation("PublishedWorkspacePlan")
   subscriptions          Subscription[]
   subscriptionActivities SubscriptionActivity[]
   workspaceSubscriptions WorkspaceSubscription[]
+
+  @@index([customWorkspaceId])
 }
 
 model Subscription {

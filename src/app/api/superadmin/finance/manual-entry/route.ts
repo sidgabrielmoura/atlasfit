@@ -81,7 +81,7 @@ export async function POST(req: Request) {
         // Ensure plan exists for subscription
         let planId = user.subscription?.planId;
         if (!planId) {
-          const defaultPlan = await tx.plan.findFirst();
+          const defaultPlan = await tx.plan.findFirst({ where: { customWorkspaceId: null } });
 
           if (!defaultPlan) {
             throw new Error("Nenhum plano cadastrado no sistema.");
@@ -155,7 +155,7 @@ export async function POST(req: Request) {
 
         let gymPlanId = gymWorkspace.subscription?.planId;
         if (!gymPlanId) {
-          const defaultGymPlan = await tx.plan.findFirst();
+          const defaultGymPlan = await tx.plan.findFirst({ where: { customWorkspaceId: null } });
 
           gymPlanId = defaultGymPlan?.id || null;
         }

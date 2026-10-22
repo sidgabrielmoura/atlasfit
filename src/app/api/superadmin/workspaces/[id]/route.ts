@@ -11,6 +11,7 @@ import { WorkspaceAccessError } from "@/modules/workspaces/domain/types";
 import { auth } from "@/auth";
 import { logSystemError } from "@/lib/logger";
 import { serializeGymData } from "@/modules/workspaces/domain/gym-config";
+import { planOfferFields } from "@/lib/plan-offer";
 import {
   calculateSingleWorkspaceStorageUsage,
   getAccountStorageQuotaMetrics,
@@ -114,9 +115,15 @@ export const GET = withAuditedRequest(async function GET(
         }
       }
 
+      const assignedPlan = effectiveSubscription?.plan;
+      const isPlanPublishedGlobally = assignedPlan ? !assignedPlan.customWorkspaceId || Boolean(assignedPlan.publishedGlobalPlanId) || Boolean(await tx.plan.findFirst({
+        where: { customWorkspaceId: null, ...planOfferFields(assignedPlan) }, select: { id: true },
+      })) : false;
+
       return {
         ...workspace,
         subscription: effectiveSubscription,
+        isPlanPublishedGlobally,
         owner: workspace.members.find(m => m.userId === workspace.ownerId)?.user || null,
         studentsCount,
         staffCount,

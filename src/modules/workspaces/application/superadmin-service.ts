@@ -37,7 +37,11 @@ export class SuperAdminGymService {
         await tx.gymSettings.upsert({ where: { workspaceId: input.workspaceId }, create: { workspaceId: input.workspaceId, billingGracePeriodDays: defaults.defaultBillingGraceDays, requireGuardianSignature: defaults.defaultRequireGuardianSignature, ...scalar, operatingHours: hours }, update: { ...scalar, operatingHours: hours, version: { increment: 1 } } });
       }
       if (subscription) {
-        if (subscription.planId && !await tx.plan.findUnique({ where: { id: subscription.planId }, select: { id: true } })) throw new WorkspaceAccessError(404, "PLAN_NOT_FOUND", "Plano de licença não encontrado.");
+        if (subscription.planId) {
+          const plan = await tx.plan.findUnique({ where: { id: subscription.planId }, select: { id: true, customWorkspaceId: true } });
+          if (!plan) throw new WorkspaceAccessError(404, "PLAN_NOT_FOUND", "Plano de licença não encontrado.");
+          if (plan.customWorkspaceId && plan.customWorkspaceId !== input.workspaceId) throw new WorkspaceAccessError(409, "CONFIGURATION_CONFLICT", "Este plano personalizado pertence a outro workspace.");
+        }
         await tx.workspaceSubscription.upsert({ where: { workspaceId: input.workspaceId }, create: { workspaceId: input.workspaceId, status: "TRIAL", trialEndsAt: new Date(Date.now() + 30 * 86400000), maxStudents: defaults.defaultMaxStudents, maxStaff: defaults.defaultMaxStaff, maxUnits: defaults.defaultMaxUnits, storageLimitMb: defaults.defaultStorageLimitMb, ...subscription }, update: subscription });
       }
       const after = await tx.workspaceSubscription.findUnique({ where: { workspaceId: input.workspaceId }, select: { status: true, maxStudents: true, maxStaff: true, maxUnits: true, storageLimitMb: true, trialEndsAt: true, endDate: true } });

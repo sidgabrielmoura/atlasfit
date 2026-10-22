@@ -16,6 +16,7 @@ async function handleGET() {
     let plans: any[];
     try {
       plans = await prisma.plan.findMany({
+        where: { customWorkspaceId: null },
         include: {
           _count: {
             select: { subscriptions: { where: { status: { in: ["active", "ACTIVE"] } } } }
@@ -24,6 +25,7 @@ async function handleGET() {
       });
     } catch (err) {
       plans = await prisma.plan.findMany({
+        where: { customWorkspaceId: null },
         select: {
           id: true,
           name: true,

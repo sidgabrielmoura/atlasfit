@@ -98,7 +98,7 @@ async function handleGET(req: Request) {
     // Find the most expensive monthly plan in the database to use as simulator base price
     const mostExpensivePlan = await prisma.plan.findFirst({
       where: {
-        interval: "month"
+        interval: "month", customWorkspaceId: null
       },
       orderBy: {
         price: "desc"

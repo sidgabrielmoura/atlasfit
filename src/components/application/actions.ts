@@ -98,6 +98,7 @@ function slugify(text: string) {
 export async function getAvailablePlans() {
   try {
     return await prisma.plan.findMany({
+      where: { customWorkspaceId: null },
       orderBy: { price: "asc" },
     });
   } catch (error) {
