@@ -11,6 +11,10 @@ import { WorkspaceAccessError } from "@/modules/workspaces/domain/types";
 import { auth } from "@/auth";
 import { logSystemError } from "@/lib/logger";
 import { serializeGymData } from "@/modules/workspaces/domain/gym-config";
+import {
+  calculateSingleWorkspaceStorageUsage,
+  getAccountStorageQuotaMetrics,
+} from "@/lib/comprehensive-storage.service";
 
 export const GET = withAuditedRequest(async function GET(
   req: Request,
@@ -122,7 +126,22 @@ export const GET = withAuditedRequest(async function GET(
         mrr: gymFinancialOverview ? gymFinancialOverview.executive.mrrInCents / 100 : null,
       };
     });
-    return NextResponse.json(serializeGymData(result));
+
+    const storageUsage = await calculateSingleWorkspaceStorageUsage(id);
+    let accountStorageQuota: any = null;
+    if (result.ownerId) {
+      try {
+        accountStorageQuota = await getAccountStorageQuotaMetrics(result.ownerId);
+      } catch (err) {
+        // Fallback silencioso se owner não possuir subscription
+      }
+    }
+
+    return NextResponse.json(serializeGymData({
+      ...result,
+      storageUsage,
+      accountStorageQuota,
+    }));
   } catch (error) {
     const access = handleWorkspaceAccessError(error); if (access) return access;
     await logSystemError({ action: "GET_WORKSPACE_BY_ID", error, entity: "WORKSPACE", entityId: id });

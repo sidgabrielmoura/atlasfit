@@ -49,6 +49,48 @@ interface SubscriptionDetails {
       current: number;
       limit: number;
       unit: string;
+      percentage?: number;
+      currentMb?: number;
+      currentGb?: number;
+      totalUsedBytes?: number;
+      workspacesCount?: number;
+      breakdown?: {
+        cloud: {
+          totalBytes: number;
+          totalMb: number;
+          totalGb: number;
+          filesBytes: number;
+          photosBytes: number;
+          videosBytes: number;
+          importsBytes: number;
+          gymObjectsBytes: number;
+          brandAssetsBytes: number;
+          chatAttachmentsBytes: number;
+          totalFilesCount: number;
+        };
+        database: {
+          totalBytes: number;
+          totalMb: number;
+          totalGb: number;
+          studentsBytes: number;
+          studentsCount: number;
+          workoutsBytes: number;
+          workoutsCount: number;
+          exercisesBytes: number;
+          exercisesCount: number;
+          workoutLogsBytes: number;
+          workoutLogsCount: number;
+          evaluationsBytes: number;
+          evaluationsCount: number;
+          progressBytes: number;
+          progressCount: number;
+          messagesBytes: number;
+          messagesCount: number;
+          feedbacksBytes: number;
+          feedbacksCount: number;
+          totalRecordsCount: number;
+        };
+      };
     };
   };
 }
@@ -560,20 +602,45 @@ export default function SubscriptionPage() {
                       <div className="flex items-center justify-between text-xs">
                         <span className="font-semibold text-muted-foreground">Armazenamento</span>
                         <span className="font-bold">
-                          {subscription.usage.storage.current}{" "}
-                          <span className="text-muted-foreground font-normal">
-                            / {subscription.usage.storage.limit} {subscription.usage.storage.unit}
-                          </span>
+                          {(() => {
+                            const st = subscription.usage.storage;
+                            if (st.unit === "GB" && (st.currentGb ?? st.current) < 0.1 && (st.currentMb ?? 0) > 0) {
+                              return `${st.currentMb} MB / ${st.limit} GB`;
+                            }
+                            return `${st.current} ${st.unit} / ${st.limit} ${st.unit}`;
+                          })()}
                         </span>
                       </div>
                       <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
                         <div
                           className="h-full bg-primary rounded-full transition-all duration-500"
                           style={{
-                            width: `${(subscription.usage.storage.current / subscription.usage.storage.limit) * 100}%`,
+                            width: `${Math.min(
+                              100,
+                              Math.max(
+                                subscription.usage.storage.percentage ??
+                                  (subscription.usage.storage.current / subscription.usage.storage.limit) * 100,
+                                (subscription.usage.storage.currentMb ?? 0) > 0 ? 1 : 0
+                              )
+                            )}%`,
                           }}
                         />
                       </div>
+                      {subscription.usage.storage.breakdown && (
+                        <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5">
+                          <span>
+                            Mídias: {subscription.usage.storage.breakdown.cloud.totalMb.toFixed(1)} MB
+                          </span>
+                          <span>
+                            Dados: {subscription.usage.storage.breakdown.database.totalMb.toFixed(1)} MB
+                          </span>
+                        </div>
+                      )}
+                      {(subscription.usage.storage.workspacesCount ?? 1) > 1 && (
+                        <p className="text-[10px] text-muted-foreground/70">
+                          Consolidado de {subscription.usage.storage.workspacesCount} workspaces da conta.
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>

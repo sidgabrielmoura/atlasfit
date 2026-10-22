@@ -29,148 +29,48 @@ export interface StorageCheckResult {
   percentageUsed: number;
 }
 
+import {
+  calculateSingleWorkspaceStorageUsage,
+  getAccountStorageQuotaMetrics,
+} from "@/lib/comprehensive-storage.service";
+
 /**
  * Calculates current total storage used by a workspace (in bytes)
  */
 export async function getWorkspaceStorageBytes(workspaceId: string): Promise<{ totalBytes: number; fileCount: number }> {
-  return getStorageBytesForWorkspaces([workspaceId]);
-}
-
-async function getStorageBytesForWorkspaces(workspaceIds: string[]): Promise<{ totalBytes: number; fileCount: number }> {
-  if (workspaceIds.length === 0) return { totalBytes: 0, fileCount: 0 };
-  const where = { workspaceId: { in: workspaceIds } };
-  const [files, photos, imports] = await Promise.all([
-    prisma.studentFile.aggregate({ where, _sum: { size: true }, _count: { _all: true } }),
-    prisma.studentProgressPhoto.aggregate({ where, _sum: { size: true }, _count: { _all: true } }),
-    prisma.importSource.aggregate({ where: { importJob: { workspaceId: { in: workspaceIds } }, storageKey: { not: null } }, _sum: { sizeBytes: true }, _count: { _all: true } }),
-  ]);
-  const totalBytes = (files._sum.size ?? 0) + (photos._sum.size ?? 0) + (imports._sum.sizeBytes ?? 0);
-  const fileCount = files._count._all + photos._count._all + imports._count._all;
-  if (!Number.isSafeInteger(totalBytes) || totalBytes < 0 || !Number.isSafeInteger(fileCount)) throw new Error("Métrica de armazenamento fora do intervalo seguro.");
-  return { totalBytes, fileCount };
+  const usage = await calculateSingleWorkspaceStorageUsage(workspaceId);
+  return {
+    totalBytes: usage.totalUsedBytes,
+    fileCount: usage.breakdown.cloud.totalFilesCount,
+  };
 }
 
 /**
- * Calculates storage metrics for a specific Personal Trainer
+ * Calculates storage metrics for a specific Personal Trainer across all workspaces
  */
 export async function getPersonalTrainerStorageMetrics(userId: string): Promise<PersonalStorageMetric> {
-  let user: any = null;
-  try {
-    user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        isTestAccount: true,
-        freeTrial: {
-          select: { isActive: true },
-        },
-        workspaces: {
-          where: { workspace: { type: "PERSONAL" } },
-          select: { workspaceId: true },
-        },
-        subscription: {
-          include: { plan: true },
-        },
-      },
-    });
-  } catch (err: any) {
-    // Fallback if production DB hasn't run migration for new Plan columns like storageLimitMb
-    console.warn(`[Storage Quota] Fallback query for user ${userId} due to DB schema version:`, err?.message);
-    user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        isTestAccount: true,
-        freeTrial: {
-          select: { isActive: true },
-        },
-        workspaces: {
-          where: { workspace: { type: "PERSONAL" } },
-          select: { workspaceId: true },
-        },
-        subscription: {
-          select: {
-            id: true,
-            status: true,
-            plan: {
-              select: {
-                id: true,
-                name: true,
-                price: true,
-                interval: true,
-                features: true,
-                maxWorkspaces: true,
-                maxStudents: true,
-                importQuota: true,
-              },
-            },
-          },
-        },
-      },
-    });
-  }
-
-  if (!user) {
-    throw new Error("Usuário não encontrado.");
-  }
-
-  const workspaceIds = user.workspaces ? user.workspaces.map((w: any) => w.workspaceId) : [];
-  // Two aggregates cover every PERSONAL workspace without loading each file or
-  // issuing two queries per workspace. A failed read must not lower the quota.
-  const { totalBytes: totalUsedBytes, fileCount: totalFiles } = await getStorageBytesForWorkspaces(workspaceIds);
-
-  const plan = user.subscription?.plan;
-  let planName = plan?.name;
-  if (!planName) {
-    if (user.freeTrial?.isActive) {
-      planName = "Período de Teste (Trial)";
-    } else if (user.isTestAccount) {
-      planName = "Conta Teste";
-    } else {
-      planName = "Sem Plano";
-    }
-  }
-
-  const storageLimitMb = plan?.storageLimitMb ?? 1024; // Default: 1 GB
-  const isUnlimited = storageLimitMb === 0;
-
-  const totalUsedMb = parseFloat((totalUsedBytes / (1024 * 1024)).toFixed(2));
-  const totalUsedGb = parseFloat((totalUsedMb / 1024).toFixed(3));
-
-  let percentageUsed = 0;
-  if (!isUnlimited && storageLimitMb > 0) {
-    percentageUsed = parseFloat(((totalUsedMb / storageLimitMb) * 100).toFixed(1));
-  }
-
-  let status: "NORMAL" | "WARNING" | "EXCEEDED" = "NORMAL";
-  if (!isUnlimited) {
-    if (percentageUsed >= 100) {
-      status = "EXCEEDED";
-    } else if (percentageUsed >= 80) {
-      status = "WARNING";
-    }
-  }
+  const metric = await getAccountStorageQuotaMetrics(userId);
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { name: true, email: true, isTestAccount: true, freeTrial: { select: { isActive: true } } },
+  });
 
   return {
-    userId: user.id,
-    name: user.name || "Personal Trainer",
-    email: user.email || "Sem e-mail",
-    planName,
-    storageLimitMb,
-    isUnlimited,
-    totalUsedBytes,
-    totalUsedMb,
-    totalUsedGb,
-    percentageUsed,
-    totalFiles,
-    workspacesCount: workspaceIds.length,
-    status,
-    isTestAccount: !!user.isTestAccount,
-    isFreeTrial: !!user.freeTrial?.isActive,
+    userId: metric.userId,
+    name: user?.name || "Personal Trainer",
+    email: user?.email || "Sem e-mail",
+    planName: metric.planName,
+    storageLimitMb: metric.storageLimitMb,
+    isUnlimited: metric.isUnlimited,
+    totalUsedBytes: metric.totalUsedBytes,
+    totalUsedMb: metric.totalUsedMb,
+    totalUsedGb: metric.totalUsedGb,
+    percentageUsed: metric.percentageUsed,
+    totalFiles: metric.breakdown.cloud.totalFilesCount,
+    workspacesCount: metric.workspacesCount,
+    status: metric.status,
+    isTestAccount: !!user?.isTestAccount,
+    isFreeTrial: !!user?.freeTrial?.isActive,
   };
 }
 

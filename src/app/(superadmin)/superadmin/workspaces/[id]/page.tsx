@@ -1385,19 +1385,44 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
                     <div className="p-4 rounded-xl border border-border/40 bg-secondary/10 space-y-2">
                       <div className="flex items-center justify-between text-xs">
                         <span className="font-bold flex items-center gap-1.5 text-muted-foreground">
-                          <FileText className="size-3.5 text-purple-400" /> Armazenamento Contratado
+                          <FileText className="size-3.5 text-purple-400" /> Armazenamento
                         </span>
                         <span className="font-bold text-foreground">
                           {(() => {
                             const mb = workspace.subscription?.plan?.storageLimitMb || workspace.subscription?.storageLimitMb || 1024;
-                            const normalized = mb <= 50 ? mb * 1024 : mb;
-                            return normalized >= 1024 ? `${(normalized / 1024).toFixed(normalized % 1024 === 0 ? 0 : 1)} GB` : `${normalized} MB`;
+                            const normalizedLimit = mb <= 50 ? mb * 1024 : mb;
+                            const limitLabel = normalizedLimit >= 1024 ? `${(normalizedLimit / 1024).toFixed(normalizedLimit % 1024 === 0 ? 0 : 1)} GB` : `${normalizedLimit} MB`;
+
+                            const usedMb = workspace.accountStorageQuota?.totalUsedMb ?? workspace.storageUsage?.totalUsedMb ?? 0;
+                            const usedLabel = usedMb >= 1024 ? `${(usedMb / 1024).toFixed(2)} GB` : `${usedMb.toFixed(1)} MB`;
+
+                            return `${usedLabel} / ${limitLabel}`;
                           })()}
                         </span>
                       </div>
-                      <p className="text-[10px] text-muted-foreground">
-                        Espaço para fotos de evolução, vídeos de treino e anexos.
-                      </p>
+                      <Progress
+                        value={(() => {
+                          const mb = workspace.subscription?.plan?.storageLimitMb || workspace.subscription?.storageLimitMb || 1024;
+                          const normalizedLimit = mb <= 50 ? mb * 1024 : mb;
+                          if (normalizedLimit <= 0) return 0;
+                          const usedMb = workspace.accountStorageQuota?.totalUsedMb ?? workspace.storageUsage?.totalUsedMb ?? 0;
+                          return Math.min(100, Math.max(usedMb > 0 ? 1 : 0, Math.round((usedMb / normalizedLimit) * 100)));
+                        })()}
+                        className="h-2 bg-secondary"
+                      />
+                      <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5">
+                        <span>
+                          Mídias: {((workspace.storageUsage?.breakdown?.cloud?.totalMb ?? 0)).toFixed(1)} MB
+                        </span>
+                        <span>
+                          Banco: {((workspace.storageUsage?.breakdown?.database?.totalMb ?? 0)).toFixed(1)} MB
+                        </span>
+                      </div>
+                      {workspace.accountStorageQuota && workspace.accountStorageQuota.workspacesCount > 1 && (
+                        <p className="text-[9px] text-muted-foreground/75">
+                          Conta possui {workspace.accountStorageQuota.workspacesCount} workspaces ({workspace.accountStorageQuota.totalUsedMb.toFixed(1)} MB no total).
+                        </p>
+                      )}
                     </div>
 
                     {/* Workspaces */}

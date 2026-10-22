@@ -13,6 +13,7 @@ import { validateApplicationOrigin, isAllowedOrigin } from "@/lib/auth/applicati
 import { isPersonalTrialActive } from "@/modules/workspaces/domain/personal-trial";
 import { isPersonalSubscriptionActive } from "@/modules/workspaces/application/personal-affiliation";
 import { handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
+import { getAccountStorageQuotaMetrics } from "@/lib/comprehensive-storage.service";
 
 async function handleGET(req: Request) {
   const restricted = await personalCommercialContextResponse({ allowExpired: true }); if (restricted) return restricted;
@@ -200,10 +201,7 @@ async function handleGET(req: Request) {
     const studentLimit = getStudentLimit(effectiveSub.plan);
     const storageLimitInfo = getStorageLimit(effectiveSub.plan);
 
-    const simulatedStorage = Math.min(
-      Math.max(parseFloat((studentCount * 0.12 + 0.3).toFixed(1)), 0.1),
-      Math.max(0.1, storageLimitInfo.limit - 0.1)
-    );
+    const storageMetrics = await getAccountStorageQuotaMetrics(session.user.id);
 
     const plansInDb = await prisma.plan.findMany({
       orderBy: { price: "asc" }
@@ -301,9 +299,15 @@ async function handleGET(req: Request) {
             limit: studentLimit,
           },
           storage: {
-            current: simulatedStorage,
+            current: storageLimitInfo.unit === "GB" ? storageMetrics.totalUsedGb : storageMetrics.totalUsedMb,
             limit: storageLimitInfo.limit,
             unit: storageLimitInfo.unit,
+            percentage: storageMetrics.percentageUsed,
+            currentMb: storageMetrics.totalUsedMb,
+            currentGb: storageMetrics.totalUsedGb,
+            totalUsedBytes: storageMetrics.totalUsedBytes,
+            breakdown: storageMetrics.breakdown,
+            workspacesCount: storageMetrics.workspacesCount,
           }
         }
       },
