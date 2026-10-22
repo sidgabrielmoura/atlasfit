@@ -101,3 +101,122 @@ export async function processRecurringPayments(workspaceId?: string) {
   }
   return { processed, failed, hasMore: members.length === 100 };
 }
+
+export async function processPlatformManualSuspensions() {
+  const now = new Date();
+  let personalSuspended = 0;
+  let gymSuspended = 0;
+
+  // 1. Process Personal Trainers with manual recurrence overdue past tolerance days
+  const activePersonalSubs = await prisma.subscription.findMany({
+    where: {
+      billingControlType: "MANUAL",
+      autoSuspendEnabled: true,
+      status: "active",
+      nextDueDate: { not: null },
+    },
+  });
+
+  for (const sub of activePersonalSubs) {
+    if (!sub.nextDueDate) continue;
+    const tolerance = sub.toleranceDays ?? 5;
+    const toleranceLimit = new Date(sub.nextDueDate.getTime() + tolerance * 24 * 60 * 60 * 1000);
+
+    if (now > toleranceLimit) {
+      const personalWorkspaces = await prisma.workspace.findMany({
+        where: { ownerId: sub.userId, type: "PERSONAL", isActive: true },
+        select: { id: true },
+      });
+
+      for (const ws of personalWorkspaces) {
+        await prisma.workspace.update({
+          where: { id: ws.id },
+          data: { isActive: false },
+        });
+        try {
+          const { publishToChannel } = await import("@/lib/ably");
+          await publishToChannel(`workspace:${ws.id}`, "workspace:suspended", { workspaceId: ws.id });
+        } catch (e) {
+          console.warn("[ABLY_SUSPEND_WARN]", e);
+        }
+        personalSuspended++;
+      }
+
+      await prisma.auditLog.create({
+        data: {
+          action: "AUTO_SUSPEND_MANUAL_PERSONAL_SUBSCRIPTION",
+          entity: "Subscription",
+          entityId: sub.id,
+          severity: "warning",
+          metadata: {
+            userId: sub.userId,
+            nextDueDate: sub.nextDueDate.toISOString(),
+            toleranceDays: tolerance,
+          },
+        },
+      });
+    }
+  }
+
+  // 2. Process Gym Workspaces with manual recurrence overdue past tolerance days
+  const activeGymSubs = await prisma.workspaceSubscription.findMany({
+    where: {
+      billingControlType: "MANUAL",
+      autoSuspendEnabled: true,
+      status: "ACTIVE",
+      nextDueDate: { not: null },
+      workspace: { isActive: true },
+    },
+    select: {
+      id: true,
+      workspaceId: true,
+      nextDueDate: true,
+      toleranceDays: true,
+    },
+  });
+
+  for (const wsSub of activeGymSubs) {
+    if (!wsSub.nextDueDate) continue;
+    const tolerance = wsSub.toleranceDays ?? 5;
+    const toleranceLimit = new Date(wsSub.nextDueDate.getTime() + tolerance * 24 * 60 * 60 * 1000);
+
+    if (now > toleranceLimit) {
+      await prisma.$transaction([
+        prisma.workspace.update({
+          where: { id: wsSub.workspaceId },
+          data: { isActive: false },
+        }),
+        prisma.workspaceSubscription.update({
+          where: { id: wsSub.id },
+          data: { status: "EXPIRED" },
+        }),
+      ]);
+
+      try {
+        const { publishToChannel } = await import("@/lib/ably");
+        await publishToChannel(`workspace:${wsSub.workspaceId}`, "workspace:suspended", { workspaceId: wsSub.workspaceId });
+      } catch (e) {
+        console.warn("[ABLY_SUSPEND_WARN]", e);
+      }
+
+      gymSuspended++;
+
+      await prisma.auditLog.create({
+        data: {
+          action: "AUTO_SUSPEND_MANUAL_GYM_SUBSCRIPTION",
+          entity: "WorkspaceSubscription",
+          entityId: wsSub.id,
+          severity: "warning",
+          metadata: {
+            workspaceId: wsSub.workspaceId,
+            nextDueDate: wsSub.nextDueDate.toISOString(),
+            toleranceDays: tolerance,
+          },
+        },
+      });
+    }
+  }
+
+  return { personalSuspended, gymSuspended };
+}
+

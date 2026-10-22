@@ -366,7 +366,8 @@ export default function SuperAdminSettingsPage() {
       const settingsToUpdate = [
         { key: "platform_name", value: formData.platform_name || "AtlasFit" },
         { key: "primary_domain", value: formData.primary_domain || "atlasfit.app" },
-        { key: "support_email", value: formData.support_email || "noreply@atlasfit.app" }
+        { key: "support_email", value: formData.support_email || "noreply@atlasfit.app" },
+        { key: "support_whatsapp", value: formData.support_whatsapp || "" }
       ];
       await superAdminActions.updateSettings(settingsToUpdate);
       toast.success("Configurações salvas com sucesso!");
@@ -509,6 +510,15 @@ export default function SuperAdminSettingsPage() {
               <Input
                 value={getSetting("support_email", "noreply@atlasfit.app")}
                 onChange={(e) => handleInputChange("support_email", e.target.value)}
+                className="h-11 rounded-xl border-border/60 bg-background"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-[10px] font-black uppercase tracking-widest text-muted-foreground ml-1">WhatsApp de Suporte (DDD + Número)</label>
+              <Input
+                placeholder="Ex: 5511999999999"
+                value={getSetting("support_whatsapp", "")}
+                onChange={(e) => handleInputChange("support_whatsapp", e.target.value)}
                 className="h-11 rounded-xl border-border/60 bg-background"
               />
             </div>

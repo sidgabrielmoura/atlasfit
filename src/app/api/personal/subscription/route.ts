@@ -31,6 +31,51 @@ async function handleGET(req: Request) {
       include: { plan: true },
     });
 
+    if (!subscription) {
+      const ownedWsSub = await prisma.workspaceSubscription.findFirst({
+        where: {
+          workspace: {
+            ownerId: session.user.id,
+          },
+        },
+        include: { plan: true },
+      });
+      if (ownedWsSub) {
+        subscription = {
+          id: ownedWsSub.id,
+          userId: session.user.id,
+          planId: ownedWsSub.planId || "",
+          status: (ownedWsSub.status === "ACTIVE" || ownedWsSub.status === "TRIAL") ? "active" : "expired",
+          startDate: ownedWsSub.startDate,
+          endDate: ownedWsSub.endDate,
+          isPreSubscription: false,
+          importQuotaUsed: 0,
+          importQuotaResetAt: null,
+          abacateSubscriptionId: null,
+          abacateCustomerId: null,
+          billingControlType: ownedWsSub.billingControlType,
+          nextDueDate: ownedWsSub.nextDueDate,
+          priceInCents: ownedWsSub.priceInCents,
+          paymentMethod: ownedWsSub.paymentMethod,
+          periodicity: ownedWsSub.periodicity,
+          autoSuspendEnabled: ownedWsSub.autoSuspendEnabled,
+          toleranceDays: ownedWsSub.toleranceDays,
+          plan: ownedWsSub.plan || {
+            name: "Plano do Workspace",
+            price: (ownedWsSub.priceInCents || 0) / 100,
+            interval: "month",
+            features: null,
+            maxWorkspaces: ownedWsSub.maxUnits,
+            maxStudents: ownedWsSub.maxStudents,
+            importQuota: 25,
+            storageLimitMb: ownedWsSub.storageLimitMb,
+            paymentMethods: ownedWsSub.paymentMethod,
+            imageUrl: null,
+          },
+        } as any;
+      }
+    }
+
     const isTrialActive = isPersonalTrialActive(freeTrial);
 
     const user = await prisma.user.findUnique({
@@ -47,6 +92,7 @@ async function handleGET(req: Request) {
           name: "Conta Teste",
           price: 0,
           maxStudents: 999999,
+          storageLimitMb: 102400,
         },
         status: "active",
         startDate: new Date(),
@@ -60,6 +106,7 @@ async function handleGET(req: Request) {
           name: "Free Trial",
           price: 0,
           maxStudents: 50,
+          storageLimitMb: 5120,
         },
         status: isTrialActive ? "trial" : "expired",
         startDate: freeTrial.startDate,
@@ -124,23 +171,38 @@ async function handleGET(req: Request) {
       return 999999;
     };
 
-    const getStorageLimit = (planName: string) => {
-      const name = planName.toLowerCase();
-      if (name.includes("starter") || name.includes("basic") || name.includes("trial")) {
-        return { limit: 5, unit: "GB" };
+    const getStorageLimit = (plan: any) => {
+      let limitMb = plan?.storageLimitMb;
+      if (typeof limitMb !== "number" || isNaN(limitMb) || limitMb <= 0) {
+        const name = (plan?.name || "").toLowerCase();
+        if (name.includes("starter") || name.includes("basic") || name.includes("trial")) {
+          limitMb = 5120; // 5 GB
+        } else if (name.includes("professional") || name.includes("pro")) {
+          limitMb = 20480; // 20 GB
+        } else {
+          limitMb = 102400; // 100 GB default fallback
+        }
       }
-      if (name.includes("professional") || name.includes("pro")) {
-        return { limit: 20, unit: "GB" };
+
+      // If stored as small integer (e.g. 1 to 50), it represents GB
+      if (limitMb <= 50) {
+        return { limit: limitMb, unit: "GB", limitMb: limitMb * 1024 };
       }
-      return { limit: 100, unit: "GB" };
+
+      if (limitMb >= 1024) {
+        const gb = Math.round((limitMb / 1024) * 10) / 10;
+        return { limit: gb, unit: "GB", limitMb };
+      }
+
+      return { limit: limitMb, unit: "MB", limitMb };
     };
 
     const studentLimit = getStudentLimit(effectiveSub.plan);
-    const storageLimitInfo = getStorageLimit(effectiveSub.plan.name);
+    const storageLimitInfo = getStorageLimit(effectiveSub.plan);
 
     const simulatedStorage = Math.min(
-      Math.max(parseFloat((studentCount * 0.12 + 0.3).toFixed(1)), 0.5),
-      storageLimitInfo.limit - 0.2
+      Math.max(parseFloat((studentCount * 0.12 + 0.3).toFixed(1)), 0.1),
+      Math.max(0.1, storageLimitInfo.limit - 0.1)
     );
 
     const plansInDb = await prisma.plan.findMany({

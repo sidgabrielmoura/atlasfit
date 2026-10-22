@@ -376,7 +376,7 @@ export default function SubscriptionPage() {
 
   return (
     <div className="flex-1 space-y-8 p-4 md:p-8 pt-6 w-full animate-in fade-in duration-300 max-w-400 mx-auto">
-        <PersonalSubscriptionCheckout plan={checkoutPlan} onClose={() => setCheckoutPlan(null)} />
+      <PersonalSubscriptionCheckout plan={checkoutPlan} onClose={() => setCheckoutPlan(null)} />
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-3xl font-bold tracking-tight">Assinatura</h2>
@@ -831,7 +831,7 @@ export default function SubscriptionPage() {
               <h3 className="text-xl font-bold tracking-tight">Histórico de Cobranças</h3>
               <p className="text-muted-foreground text-xs">Acesse e audite seus faturamentos e comprovantes recentes.</p>
             </div>
-            <Card className="border-border/50 bg-card overflow-hidden shadow-none rounded-2xl">
+            <Card className="border-border/50 p-0 bg-card overflow-hidden shadow-none rounded-2xl">
               <div className="overflow-x-auto w-full">
                 <table className="w-full text-left border-collapse text-xs">
                   <thead>

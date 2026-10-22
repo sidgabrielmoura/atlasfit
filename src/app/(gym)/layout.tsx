@@ -10,6 +10,7 @@ import { PersonalHeaderWorkspace as WorkspaceHeader } from "@/components/applica
 import { Separator } from "@/components/ui/separator";
 import { NotificationBell } from "@/components/application/notification-bell";
 import { TopBannerCarousel } from "@/components/application/top-banner-carousel";
+import { PlatformBillingTopBanner } from "@/components/application/platform-billing-top-banner";
 
 
 export default async function GymLayout({
@@ -56,6 +57,7 @@ export default async function GymLayout({
       <WorkspaceInitializer workspace={{ ...workspace, roles: context.roles, defaultRoute: context.defaultRoute, logo: workspace.name.slice(0, 2).toUpperCase(), plan: "Academia" }} />
       <GymSidebar />
       <SidebarInset className="min-w-0">
+        <PlatformBillingTopBanner role="GYM" />
         <header className="flex h-18 w-full shrink-0 items-center justify-between gap-2 border-b px-4">
           <div className="flex min-w-0 items-center gap-2">
             <SidebarTrigger className="mx-4 hidden px-4 md:inline-flex" />

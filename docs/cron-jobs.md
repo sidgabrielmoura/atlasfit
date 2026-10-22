@@ -90,13 +90,14 @@ A segurança de todas as rotas de cron é centralizada na função `isCronAuthor
 
 ---
 
-### 3.5. Process Recurrence (Cobranças Recorrentes Personal & Retenção)
+### 3.5. Process Recurrence (Cobranças Recorrentes Personal, Suspensões Manuais & Retenção)
 - **Caminho:** `/api/cron/process-recurrence`
 - **Arquivo Fonte:** [`src/app/api/cron/process-recurrence/route.ts`](file:///c:/Users/gabriel/development/atlasfit/src/app/api/cron/process-recurrence/route.ts)
 - **Método HTTP:** `GET`
 - **Finalidade:**
   - Processa a geração de mensalidades recorrentes para alunos do módulo **Personal Trainer** (planos mensais, trimestrais, semestrais ou personalizados).
   - Gera obrigações financeiras pendentes (`WorkspacePayment`) e agenda as notificações de cobrança para o aluno e o personal.
+  - **Suspensão Automática de Lançamentos Manuais (Personal & Academia):** Avalia assinaturas da plataforma AtlasFit configuradas manualmente via SuperAdmin (`billingControlType: "MANUAL"` e `autoSuspendEnabled: true`). Se o pagamento estiver atrasado e ultrapassar os **dias de tolerância** configurados (`now > nextDueDate + toleranceDays`), o workspace correspondente é suspenso automaticamente (`isActive: false`), gerando log de auditoria e emitindo o evento Ably `workspace:suspended` para desconectar sessões ativas em tempo real.
   - Executa a política de retenção de payloads de migrações externas antigas.
 - **Recorrência Recomendada:** 1 vez ao dia de madrugada (`0 2 * * *`, às 02:00).
 - **Exemplo de URL:** `https://seu-dominio.com/api/cron/process-recurrence?secret=SEU_CRON_SECRET`

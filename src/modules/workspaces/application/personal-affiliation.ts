@@ -9,8 +9,27 @@ import { permitsOwnAccount } from "@/lib/auth/account-eligibility";
 import type { Prisma } from "@prisma/client";
 import { randomUUID } from "node:crypto";
 
-export function isPersonalSubscriptionActive(subscription: { status: string; startDate: Date; endDate: Date | null } | null, now = new Date()) {
-  if (!subscription || subscription.startDate > now || (subscription.endDate && subscription.endDate <= now)) return false;
+export function isPersonalSubscriptionActive(
+  subscription: {
+    status: string;
+    startDate: Date;
+    endDate: Date | null;
+    billingControlType?: string | null;
+    toleranceDays?: number | null;
+    autoSuspendEnabled?: boolean | null;
+  } | null,
+  now = new Date()
+) {
+  if (!subscription || subscription.startDate > now) return false;
+  if (subscription.billingControlType === "MANUAL" && subscription.endDate) {
+    const tolerance = subscription.toleranceDays ?? 5;
+    const toleranceLimit = new Date(subscription.endDate.getTime() + tolerance * 24 * 60 * 60 * 1000);
+    if (subscription.autoSuspendEnabled && now > toleranceLimit) {
+      return false;
+    }
+    return subscription.status.toLowerCase() === "active";
+  }
+  if (subscription.endDate && subscription.endDate <= now) return false;
   return subscription.status.toLowerCase() === "active" || (subscription.status.toLowerCase() === "canceled" && subscription.endDate !== null);
 }
 

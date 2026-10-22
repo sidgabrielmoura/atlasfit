@@ -11,6 +11,7 @@ const timezone = "America/Sao_Paulo" as const;
 const transactionSelect = {
   id: true, amount: true, status: true, paymentMethod: true, description: true, createdAt: true,
   user: { select: { id: true, name: true, email: true, subscription: { select: { plan: { select: { id: true, name: true } } } } } },
+  workspace: { select: { id: true, name: true, type: true } },
 } satisfies Prisma.TransactionSelect;
 
 /** Legacy Float BRL must contain exact whole cents; never hide fractional cents. */

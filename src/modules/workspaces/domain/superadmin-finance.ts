@@ -4,7 +4,8 @@ export const financeTransactionSchema = z.object({
   id: z.string(), amount: z.number().finite(), status: z.string(),
   paymentMethod: z.string().nullable(), description: z.string().nullable(), createdAt: z.string().datetime(),
   user: z.object({ id: z.string(), name: z.string().nullable(), email: z.string().nullable(),
-    subscription: z.object({ plan: z.object({ id: z.string(), name: z.string() }) }).nullable() }),
+    subscription: z.object({ plan: z.object({ id: z.string(), name: z.string() }) }).nullable() }).nullable().optional(),
+  workspace: z.object({ id: z.string(), name: z.string(), type: z.string() }).nullable().optional(),
 });
 export const financeTransactionsSchema = z.object({
   data: z.array(financeTransactionSchema),

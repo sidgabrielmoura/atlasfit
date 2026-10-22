@@ -783,7 +783,7 @@ export default function WorkspacesManagementPage() {
                             <span className="text-sm font-bold">{ws._count?.members || 0}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4">
+                        <td className="px-6 py-4 truncate">
                           <div className={cn(
                             "inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[10px] font-bold uppercase tracking-wider",
                             ws.subscription?.plan?.name === "Enterprise" ? "bg-primary/10 border-primary/20 text-primary" : "bg-secondary/50 border-border/40 text-muted-foreground"

@@ -59,6 +59,11 @@ export default async function SelectWorkspacePage({ searchParams }: { searchPara
       let ownerIsBlocked = false;
       if (ws.type === "GYM") {
         planName = ws.subscription?.plan?.name || "Plano Academia";
+        const owner = await prisma.user.findUnique({
+          where: { id: ws.ownerId },
+          select: { isBlocked: true },
+        });
+        ownerIsBlocked = Boolean(owner?.isBlocked);
       } else {
         const owner = await prisma.user.findUnique({
           where: { id: ws.ownerId },
@@ -79,7 +84,7 @@ export default async function SelectWorkspacePage({ searchParams }: { searchPara
         .slice(0, 2)
         .toUpperCase();
 
-      const isSuspended = !ws.isActive || (ws.type === "PERSONAL" && ownerIsBlocked);
+      const isSuspended = !ws.isActive || ownerIsBlocked;
 
       return {
         id: ws.id,
@@ -98,10 +103,12 @@ export default async function SelectWorkspacePage({ searchParams }: { searchPara
     })
   );
 
-  const supportSetting = await prisma.systemSetting.findUnique({
-    where: { key: "support_email" },
-  });
+  const [supportSetting, whatsappSetting] = await Promise.all([
+    prisma.systemSetting.findUnique({ where: { key: "support_email" } }),
+    prisma.systemSetting.findUnique({ where: { key: "support_whatsapp" } }),
+  ]);
   const supportEmail = supportSetting?.value || "suporte@atlasfit.app";
+  const supportWhatsApp = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || process.env.SUPPORT_WHATSAPP || whatsappSetting?.value || "";
 
   return (
     <SelectWorkspaceClient
@@ -109,6 +116,7 @@ export default async function SelectWorkspacePage({ searchParams }: { searchPara
       user={session.user}
       userRole={role}
       supportEmail={supportEmail}
+      supportWhatsApp={supportWhatsApp}
       preferredWorkspaceId={(await searchParams).academy === "1" ? await getDefaultAffiliatedGymId(session.user.id) : null}
     />
   );

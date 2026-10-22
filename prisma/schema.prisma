@@ -255,6 +255,7 @@ model Workspace {
   importJobs                      ImportJob[]
   creditPurchases                 CreditPurchase[]
   legacyPaymentWebhookEvents      PaymentWebhookEvent[] @relation("GymLegacyPaymentWebhookEvents")
+  transactions                    Transaction[]
 }
 
 model WorkspaceMember {
@@ -360,6 +361,13 @@ model Subscription {
   importQuotaResetAt    DateTime?
   abacateSubscriptionId String?   @unique
   abacateCustomerId     String?
+  billingControlType    String    @default("AUTOMATIC")
+  nextDueDate           DateTime?
+  priceInCents          Int?
+  paymentMethod         String?
+  periodicity           String?   @default("MENSAL")
+  autoSuspendEnabled    Boolean   @default(true)
+  toleranceDays         Int       @default(5)
 }
 
 model FreeTrial {
@@ -374,15 +382,17 @@ model FreeTrial {
 }
 
 model Transaction {
-  id            String   @id @default(cuid())
+  id            String     @id @default(cuid())
   userId        String
+  workspaceId   String?
   amount        Float
   status        String // "APPROVED", "PENDING", "FAILED", "REFUNDED"
   paymentMethod String? // "CREDIT_CARD", "PIX", "BOLETO"
   description   String?
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  user          User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  workspace     Workspace? @relation(fields: [workspaceId], references: [id], onDelete: Cascade)
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
 
   commissions ReferralCommission[]
 }
@@ -2853,6 +2863,13 @@ model WorkspaceSubscription {
   storageLimitMb         Int                         @default(5120)
   externalSubscriptionId String?                     @unique
   externalCustomerId     String?
+  billingControlType    String                      @default("AUTOMATIC")
+  nextDueDate           DateTime?
+  priceInCents          Int?
+  paymentMethod         String?
+  periodicity           String?                     @default("MENSAL")
+  autoSuspendEnabled    Boolean                     @default(true)
+  toleranceDays         Int                         @default(5)
   createdAt              DateTime                    @default(now())
   updatedAt              DateTime                    @updatedAt
 

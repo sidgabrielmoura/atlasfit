@@ -18,6 +18,7 @@ import { headers } from "next/headers";
 import { requireGymWorkspaceAccess } from "@/modules/workspaces/application/guard";
 import { assertGymPersonalAffiliation, isPersonalSubscriptionActive } from "@/modules/workspaces/application/personal-affiliation";
 import { WorkspaceAccessError } from "@/modules/workspaces/domain/types";
+import { PlatformBillingTopBanner } from "@/components/application/platform-billing-top-banner";
 
 export default async function PersonalLayout({
   children,
@@ -76,6 +77,7 @@ export default async function PersonalLayout({
       <WorkspaceInitializer workspace={{ ...workspace, roles: context.roles, defaultRoute: context.defaultRoute, logo: workspace.name.slice(0, 2).toUpperCase(), plan: academy ? "Academia" : subscription?.plan.name || "Free Trial" }} />
       <PersonalSidebar academy={academy} />
       <SidebarInset>
+        <PlatformBillingTopBanner role="PERSONAL" />
         <header className="flex h-18 shrink-0 items-center justify-between border-b px-4 w-full">
           <div className="flex items-center gap-2 min-w-0">
             <SidebarTrigger className="px-4 mx-4 hidden md:inline-flex" />
@@ -95,23 +97,6 @@ export default async function PersonalLayout({
             <NotificationBell />
           </div>
         </header>
-
-        {showBillingWarning && (
-          <div className="bg-destructive/10 border-b border-destructive/20 px-6 py-3 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs font-semibold select-none animate-in fade-in duration-300">
-            <div className="flex items-center gap-2 text-destructive">
-              <span className="size-2 bg-destructive rounded-full shrink-0 animate-pulse" />
-              <span>
-                <strong>ASSINATURA EXPIRADA:</strong> O AbacatePay não conseguiu processar a renovação automática da sua mensalidade. Regularize seu pagamento para evitar a suspensão dos seus painéis.
-              </span>
-            </div>
-            <a
-              href="/personal/subscription"
-              className="px-3.5 py-1.5 rounded-lg bg-destructive hover:bg-destructive/90 text-white font-bold text-[10px] tracking-wide uppercase transition-colors shrink-0 text-center"
-            >
-              Regularizar Assinatura
-            </a>
-          </div>
-        )}
 
         <div className="flex-1 min-w-0 overflow-x-hidden max-sm:pb-20">
           {!academy && <TopBannerCarousel role="PERSONAL" />}

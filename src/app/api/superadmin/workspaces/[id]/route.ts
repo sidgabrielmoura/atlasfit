@@ -77,8 +77,50 @@ export const GET = withAuditedRequest(async function GET(
       const gymFinancialOverview = workspace.type === "GYM" && workspace.isActive && isGymLicenseCurrent(workspace.subscription) ? await GymAnalyticsService.getOverviewInTransaction(tx, { workspaceId: id, actorUserId: actorUserId }) : null;
       const registeredPlansCount = workspace.type === "GYM" ? await tx.gymPlan.count({ where: { workspaceId: id } }) : workspace.plans.length;
       const registeredWorkoutsCount = await tx.workout.count({ where: { workspaceId: id } });
-      return { ...workspace, owner: workspace.members.find(m => m.userId === workspace.ownerId)?.user || null,
-        studentsCount, staffCount, registeredPlansCount, registeredWorkoutsCount, gymFinancialOverview, mrr: gymFinancialOverview ? gymFinancialOverview.executive.mrrInCents / 100 : null };
+      let effectiveSubscription = workspace.subscription;
+      if (!effectiveSubscription && workspace.ownerId) {
+        const ownerSub = await tx.subscription.findUnique({
+          where: { userId: workspace.ownerId },
+          include: { plan: true },
+        });
+        if (ownerSub) {
+          effectiveSubscription = {
+            id: ownerSub.id,
+            workspaceId: workspace.id,
+            planId: ownerSub.planId,
+            status: (ownerSub.status ? ownerSub.status.toUpperCase() : "ACTIVE") as any,
+            startDate: ownerSub.startDate,
+            endDate: ownerSub.endDate,
+            trialEndsAt: null,
+            maxStudents: ownerSub.plan?.maxStudents ?? null,
+            maxStaff: 0,
+            maxUnits: ownerSub.plan?.maxWorkspaces ?? 1,
+            maxDevices: 0,
+            storageLimitMb: ownerSub.plan?.storageLimitMb ?? 1024,
+            billingControlType: ownerSub.billingControlType,
+            nextDueDate: ownerSub.nextDueDate,
+            priceInCents: ownerSub.priceInCents,
+            paymentMethod: ownerSub.paymentMethod,
+            periodicity: ownerSub.periodicity,
+            autoSuspendEnabled: ownerSub.autoSuspendEnabled,
+            toleranceDays: ownerSub.toleranceDays,
+            plan: ownerSub.plan,
+            isOwnerPersonalSubscription: true,
+          } as any;
+        }
+      }
+
+      return {
+        ...workspace,
+        subscription: effectiveSubscription,
+        owner: workspace.members.find(m => m.userId === workspace.ownerId)?.user || null,
+        studentsCount,
+        staffCount,
+        registeredPlansCount,
+        registeredWorkoutsCount,
+        gymFinancialOverview,
+        mrr: gymFinancialOverview ? gymFinancialOverview.executive.mrrInCents / 100 : null,
+      };
     });
     return NextResponse.json(serializeGymData(result));
   } catch (error) {

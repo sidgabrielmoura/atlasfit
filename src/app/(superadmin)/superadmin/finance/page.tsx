@@ -31,6 +31,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pagination, PaginationContent, PaginationEllipsis, PaginationItem, PaginationLink, PaginationNext, PaginationPrevious } from "@/components/ui/pagination";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Switch } from "@/components/ui/switch";
+import { Building2, Calendar, ShieldAlert, Sliders } from "lucide-react";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -85,6 +87,19 @@ export default function FinanceManagementPage() {
     expirationDate: ""
   });
 
+  // States for manual financial entry
+  const [isManualModalOpen, setIsManualModalOpen] = useState(false);
+  const [isSubmittingManual, setIsSubmittingManual] = useState(false);
+  const [manualForm, setManualForm] = useState({
+    targetType: "PERSONAL" as "PERSONAL" | "GYM",
+    userId: "",
+    workspaceId: "",
+    amount: "",
+    paymentMethod: "PIX",
+    description: "Mensalidade AtlasFit Pro - Manual",
+    paidAt: new Date().toISOString().split("T")[0],
+  });
+
   // States for transaction listing, filters and pagination
   const [activeTab, setActiveTab] = useState<"APPROVED" | "FAILED">("APPROVED");
   const [selectedDate, setSelectedDate] = useState("all");
@@ -101,6 +116,7 @@ export default function FinanceManagementPage() {
     superAdminActions.fetchCoupons();
     superAdminActions.fetchPlans();
     superAdminActions.fetchUsers();
+    superAdminActions.fetchWorkspaces();
   }, []);
 
   const formatRelativeTime = (dateStr: string) => {
@@ -197,6 +213,64 @@ export default function FinanceManagementPage() {
     }
   };
 
+  const handleCreateManualEntry = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (manualForm.targetType === "PERSONAL" && !manualForm.userId) {
+      toast.error("Selecione o Personal Trainer para o lançamento.");
+      return;
+    }
+    if (manualForm.targetType === "GYM" && !manualForm.workspaceId) {
+      toast.error("Selecione a Academia para o lançamento.");
+      return;
+    }
+    const cleanAmount = manualForm.amount.replace(",", ".");
+    const amountNum = parseFloat(cleanAmount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      toast.error("Informe um valor numérico válido maior que zero.");
+      return;
+    }
+    setIsSubmittingManual(true);
+    try {
+      const res = await fetch("/api/superadmin/finance/manual-entry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          targetType: manualForm.targetType,
+          userId: manualForm.targetType === "PERSONAL" ? manualForm.userId : undefined,
+          workspaceId: manualForm.targetType === "GYM" ? manualForm.workspaceId : undefined,
+          amount: amountNum,
+          paymentMethod: manualForm.paymentMethod,
+          description: manualForm.description,
+          paidAt: manualForm.paidAt ? new Date(manualForm.paidAt).toISOString() : undefined,
+          isRecurring: false,
+        }),
+      });
+
+      const json = await res.json();
+      if (!res.ok) {
+        throw new Error(json.error || "Erro ao registrar lançamento manual.");
+      }
+
+      toast.success("Lançamento financeiro manual registrado com sucesso!");
+      setIsManualModalOpen(false);
+      setManualForm({
+        targetType: "PERSONAL",
+        userId: "",
+        workspaceId: "",
+        amount: "",
+        paymentMethod: "PIX",
+        description: "Mensalidade AtlasFit Pro - Manual",
+        paidAt: new Date().toISOString().split("T")[0],
+      });
+      void superAdminActions.fetchFinance();
+      setTransactionAttempt((prev) => prev + 1);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao processar lançamento.");
+    } finally {
+      setIsSubmittingManual(false);
+    }
+  };
+
   const data = snap.financeData;
   const recentUpgradesList = data?.recentUpgrades || [];
 
@@ -212,9 +286,17 @@ export default function FinanceManagementPage() {
           <h1 className="text-2xl sm:text-3xl font-black tracking-tight">Financeiro Global</h1>
           <p className="text-muted-foreground text-xs sm:text-sm font-medium">Consolidado de receita, assinaturas e saúde econômica da plataforma.</p>
         </div>
-        <Button variant="outline" disabled={snap.financeLoading} onClick={() => void superAdminActions.fetchFinance()}>
-          {snap.financeLoading && <Loader2 className="size-4 animate-spin" />} Atualizar indicadores
-        </Button>
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Button
+            onClick={() => setIsManualModalOpen(true)}
+            className="rounded-xl h-10 px-4 font-bold text-xs gap-2 bg-primary hover:bg-primary/90 text-primary-foreground shadow-sm cursor-pointer transition-all"
+          >
+            <Plus className="size-4" /> Novo Lançamento Manual
+          </Button>
+          <Button variant="outline" disabled={snap.financeLoading} onClick={() => void superAdminActions.fetchFinance()} className="rounded-xl h-10 font-bold text-xs">
+            {snap.financeLoading && <Loader2 className="size-4 animate-spin" />} Atualizar indicadores
+          </Button>
+        </div>
       </div>
 
       {snap.financeError && <Alert variant="destructive"><AlertDescription>{snap.financeError}{data && " Os valores abaixo são da última consulta concluída."}</AlertDescription></Alert>}
@@ -381,8 +463,13 @@ export default function FinanceManagementPage() {
                           </td>
                         </tr>
                       ) : (
-                        transactionsData.data.map((tx, idx) => {
-                          const planName = tx.user.subscription?.plan.name || "Sem plano atual";
+                        transactionsData.data.map((tx: any, idx) => {
+                          const isGym = Boolean(tx.workspace);
+                          const accountName = isGym ? tx.workspace.name : (tx.user?.name || "Personal");
+                          const accountSubtitle = isGym ? "Academia AtlasFit" : (tx.user?.email || "Sem email");
+                          const planName = isGym
+                            ? "Licença Academia"
+                            : (tx.user?.subscription?.plan?.name || "Lançamento Manual");
                           const dateObj = new Date(tx.createdAt);
                           const formattedDate = new Intl.DateTimeFormat('pt-BR', {
                             day: '2-digit',
@@ -396,11 +483,11 @@ export default function FinanceManagementPage() {
                               <td className="px-6 py-4">
                                 <div className="flex items-center gap-3">
                                   <div className="size-8 rounded-lg bg-primary/10 text-primary flex items-center justify-center font-bold text-xs shrink-0 border border-primary/20">
-                                    {tx.user.name?.slice(0, 2).toUpperCase() || "CP"}
+                                    {isGym ? <Building2 className="size-4" /> : (accountName.slice(0, 2).toUpperCase() || "CP")}
                                   </div>
                                   <div className="flex flex-col min-w-0">
-                                    <span className="text-sm font-bold leading-none truncate">{tx.user?.name || "Personal"}</span>
-                                    <span className="text-[10px] text-muted-foreground mt-1 truncate font-semibold">{tx.user?.email || "Sem email"}</span>
+                                    <span className="text-sm font-bold leading-none truncate">{accountName}</span>
+                                    <span className="text-[10px] text-muted-foreground mt-1 truncate font-semibold">{accountSubtitle}</span>
                                   </div>
                                 </div>
                               </td>
@@ -567,7 +654,7 @@ export default function FinanceManagementPage() {
                       )}>
                         -{coupon.discountPercent}%
                       </span>
-                      
+
                       {!isExpired && (
                         <Button
                           variant="ghost"
@@ -697,6 +784,212 @@ export default function FinanceManagementPage() {
           </Card>
         </div>
       </div>
+
+      <Dialog open={isManualModalOpen} onOpenChange={setIsManualModalOpen}>
+        <DialogContent className="max-w-4xl! rounded-2xl! max-h-[90vh] overflow-y-auto! font-sans">
+          <DialogHeader>
+            <DialogTitle className="text-xl font-black tracking-tight flex items-center gap-2">
+              <DollarSign className="size-5 text-primary" />
+              Novo Lançamento Financeiro Manual
+            </DialogTitle>
+            <p className="text-xs text-muted-foreground font-medium">
+              Lance pagamentos manuais recebidos e configure regras de recorrência e suspensão automática.
+            </p>
+          </DialogHeader>
+
+          <form onSubmit={handleCreateManualEntry} className="space-y-5 py-2">
+            {/* Tipo de Conta e Destinatário */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="manualTargetType" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                  Tipo de Conta *
+                </Label>
+                <Select
+                  value={manualForm.targetType}
+                  onValueChange={(val) =>
+                    setManualForm((prev) => ({
+                      ...prev,
+                      targetType: val as "PERSONAL" | "GYM",
+                      userId: "",
+                      workspaceId: "",
+                      description:
+                        val === "PERSONAL"
+                          ? "Mensalidade AtlasFit Pro - Manual"
+                          : "Licença Academia AtlasFit - Manual",
+                    }))
+                  }
+                >
+                  <SelectTrigger id="manualTargetType" className="rounded-xl w-full h-11 border-border/40 focus:border-primary text-xs font-bold">
+                    <SelectValue placeholder="Selecione o tipo de conta..." />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="PERSONAL" className="text-xs font-medium">
+                      <div className="flex items-center gap-2">
+                        <Users className="size-3.5 text-primary" />
+                        <span>Personal Trainer</span>
+                      </div>
+                    </SelectItem>
+                    <SelectItem value="GYM" className="text-xs font-medium">
+                      <div className="flex items-center gap-2">
+                        <Building2 className="size-3.5 text-primary" />
+                        <span>Academia</span>
+                      </div>
+                    </SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {/* Seleção do Personal ou da Academia */}
+              {manualForm.targetType === "PERSONAL" ? (
+                <div className="space-y-2">
+                  <Label htmlFor="manualUser" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                    Personal Trainer *
+                  </Label>
+                  <Select
+                    value={manualForm.userId}
+                    onValueChange={(val) => setManualForm((prev) => ({ ...prev, userId: val }))}
+                  >
+                    <SelectTrigger id="manualUser" className="rounded-xl w-full h-11 border-border/40 focus:border-primary text-xs font-bold">
+                      <SelectValue placeholder="Selecione o Personal Trainer..." />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60 rounded-xl">
+                      {snap.users
+                        .filter((u: any) => u.role === "TRAINER")
+                        .map((trainer: any) => (
+                          <SelectItem key={trainer.id} value={trainer.id} className="text-xs font-medium">
+                            {trainer.name} ({trainer.email})
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Label htmlFor="manualGym" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                    Academia *
+                  </Label>
+                  <Select
+                    value={manualForm.workspaceId}
+                    onValueChange={(val) => setManualForm((prev) => ({ ...prev, workspaceId: val }))}
+                  >
+                    <SelectTrigger id="manualGym" className="rounded-xl w-full h-11 border-border/40 focus:border-primary text-xs font-bold">
+                      <SelectValue placeholder="Selecione a Academia..." />
+                    </SelectTrigger>
+                    <SelectContent className="max-h-60 rounded-xl">
+                      {snap.workspaces
+                        .filter((w: any) => w.type === "GYM")
+                        .map((gym: any) => (
+                          <SelectItem key={gym.id} value={gym.id} className="text-xs font-medium">
+                            {gym.name}
+                          </SelectItem>
+                        ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
+            </div>
+
+            {/* Valor e Forma de Pagamento */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="manualAmount" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                  Valor Pago (R$) *
+                </Label>
+                <Input
+                  id="manualAmount"
+                  type="number"
+                  step="0.01"
+                  required
+                  placeholder="Ex: 149.90"
+                  value={manualForm.amount}
+                  onChange={(e) => setManualForm((prev) => ({ ...prev, amount: e.target.value }))}
+                  className="rounded-xl h-11 border-border/40 focus:border-primary font-bold text-sm"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="manualMethod" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                  Forma de Pagamento *
+                </Label>
+                <Select
+                  value={manualForm.paymentMethod}
+                  onValueChange={(val) => setManualForm((prev) => ({ ...prev, paymentMethod: val }))}
+                >
+                  <SelectTrigger id="manualMethod" className="rounded-xl w-full h-11! border-border/40 focus:border-primary text-xs font-bold">
+                    <SelectValue placeholder="Selecione o método..." />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-xl">
+                    <SelectItem value="PIX">PIX</SelectItem>
+                    <SelectItem value="CREDIT_CARD">Cartão de Crédito</SelectItem>
+                    <SelectItem value="BOLETO">Boleto Bancário</SelectItem>
+                    <SelectItem value="CASH">Dinheiro / Espécie</SelectItem>
+                    <SelectItem value="TRANSFER">Transferência Bancária</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+
+            {/* Descrição e Data do Pagamento */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="manualDesc" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                  Descrição do Lançamento
+                </Label>
+                <Input
+                  id="manualDesc"
+                  required
+                  value={manualForm.description}
+                  onChange={(e) => setManualForm((prev) => ({ ...prev, description: e.target.value }))}
+                  className="rounded-xl h-11 border-border/40 focus:border-primary text-xs font-medium"
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="manualPaidAt" className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
+                  Data do Pagamento
+                </Label>
+                <Input
+                  id="manualPaidAt"
+                  type="date"
+                  value={manualForm.paidAt}
+                  onChange={(e) => setManualForm((prev) => ({ ...prev, paidAt: e.target.value }))}
+                  className="rounded-xl h-11 border-border/40 focus:border-primary text-xs font-bold"
+                />
+              </div>
+            </div>
+
+            {/* Informação sobre Recorrência e Suspensão */}
+            <div className="rounded-2xl border border-primary/20 bg-primary/5 p-4 flex items-start gap-3.5">
+              <Sliders className="size-4 text-primary shrink-0 mt-0.5" />
+              <div className="text-xs space-y-1">
+                <p className="font-bold text-foreground">Configuração de Recorrência e Suspensão Automática</p>
+                <p className="text-muted-foreground leading-relaxed">
+                  Para definir valores fixos de mensalidade, ciclo de cobrança recorrente, dias de tolerância e regras de suspensão automática por atraso, acesse a aba <strong className="text-foreground">&quot;Plano Personalizado&quot;</strong> dentro dos detalhes do Workspace.
+                </p>
+              </div>
+            </div>
+
+            <DialogFooter className="pt-2 gap-2">
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={() => setIsManualModalOpen(false)}
+                className="rounded-xl font-bold cursor-pointer"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={isSubmittingManual}
+                className="rounded-xl h-11 px-8 font-black uppercase tracking-widest gap-2 bg-primary cursor-pointer text-primary-foreground hover:bg-primary/90 shadow-lg shadow-primary/20"
+              >
+                {isSubmittingManual && <Loader2 className="size-4 animate-spin" />}
+                {isSubmittingManual ? "Gravando..." : "Confirmar Lançamento"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <AlertDialog open={!!couponToDelete} onOpenChange={(open) => !open && setCouponToDelete(null)}>
         <AlertDialogContent className="rounded-2xl max-w-md font-sans">
