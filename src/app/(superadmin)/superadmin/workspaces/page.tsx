@@ -241,7 +241,8 @@ export default function WorkspacesManagementPage() {
     });
   };
 
-  if ((snap.workspaces || []).length === 0 && snap.workspacesLoading) {
+  // Persisted browser data is only rendered after hydration matches the server.
+  if (!mounted || ((snap.workspaces || []).length === 0 && snap.workspacesLoading)) {
     return (
       <div className="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/60 pb-5">

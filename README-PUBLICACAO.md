@@ -43,6 +43,14 @@ O SQL gerado é uma prévia e requer revisão. Ele não substitui a conferência
 
 Depois de confirmar o schema do ambiente:
 
+Em bancos que já usam o histórico de `prisma/migrations`, confira as pendências com
+`npx prisma migrate status` e aplique as migrações revisadas com `npm run db:migrate`
+antes de iniciar a nova versão. `prisma generate` atualiza somente o cliente;
+não cria colunas no banco. Por exemplo, a migração
+`20261022120000_workspace_plan_scope` cria `Plan.customWorkspaceId` e
+`Plan.publishedGlobalPlanId`, necessários para carregar planos e workspaces.
+Para bancos legados ou com o histórico de baseline, siga a transição descrita acima.
+
 ```sh
 npm run build
 npm start
