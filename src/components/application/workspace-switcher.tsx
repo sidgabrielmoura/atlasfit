@@ -28,7 +28,14 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { getPersonalWorkspaces, getAvailablePlans, createWorkspace, getTrainerWorkspaceLimit } from "./actions";
+import {
+  getPersonalWorkspaces,
+  getAvailablePlans,
+  createWorkspace,
+  getTrainerWorkspaceLimit,
+  getGymBranchLimit,
+  createGymBranch,
+} from "./actions";
 import { useSnapshot } from "valtio";
 import { workspaceStore, workspaceActions } from "@/stores/workspace.store";
 import { selectActiveWorkspace } from "@/modules/workspaces/application/actions";
@@ -52,6 +59,9 @@ export function WorkspaceSwitcher() {
   const { isMobile } = useSidebar();
   const snap = useSnapshot(workspaceStore);
 
+  const isGym = snap.activeWorkspace?.type === "GYM";
+  const isOwner = snap.activeWorkspace?.roles?.includes("OWNER") ?? false;
+
   const [plansList, setPlansList] = React.useState<any[]>([]);
   const [limitData, setLimitData] = React.useState<{ current: number; limit: number; planName: string; primaryDomain?: string; isTestAccount?: boolean } | null>(null);
 
@@ -63,6 +73,7 @@ export function WorkspaceSwitcher() {
   const [isSlugManual, setIsSlugManual] = React.useState(false);
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const [switchingId, setSwitchingId] = React.useState<string | null>(null);
+
   const activateWorkspace = async (workspace: Workspace) => {
     if (switchingId) return;
     setSwitchingId(workspace.id);
@@ -85,7 +96,7 @@ export function WorkspaceSwitcher() {
       // send the user straight back to the gym instead of the upgrade flow.
       if (snap.activeWorkspace?.type !== "PERSONAL") {
         const workspaces = await getPersonalWorkspaces();
-        const personal = workspaces.find(workspace => workspace.type === "PERSONAL" && workspace.roles.includes("OWNER"));
+        const personal = workspaces.find(workspace => workspace.type === "PERSONAL" && workspace.roles?.includes("OWNER"));
         if (!personal) throw new Error("Nenhuma assessoria própria ativa está disponível para abrir a assinatura.");
         const result = await selectActiveWorkspace(personal.id);
         if (!result.success || !result.workspace) throw new Error(result.error || "Não foi possível selecionar a assessoria.");
@@ -99,13 +110,23 @@ export function WorkspaceSwitcher() {
     } finally { setSwitchingId(null); }
   };
 
+  const openUpgrade = async () => {
+    if (switchingId) return;
+    setIsUpgradeWarningOpen(false);
+    if (isGym) {
+      router.push("/gym/subscription");
+    } else {
+      await openPersonalUpgrade();
+    }
+  };
+
   React.useEffect(() => {
     async function loadData() {
       workspaceActions.setLoading(true);
       try {
         const [workspacesData, limitRes] = await Promise.all([
           getPersonalWorkspaces(),
-          getTrainerWorkspaceLimit(),
+          isGym ? getGymBranchLimit() : getTrainerWorkspaceLimit(),
         ]);
         workspaceActions.setWorkspaces(workspacesData);
         setLimitData(limitRes);
@@ -116,14 +137,14 @@ export function WorkspaceSwitcher() {
       }
     }
     loadData();
-  }, []);
+  }, [isGym, snap.activeWorkspace?.id]);
 
   React.useEffect(() => {
     if (!isUpgradeWarningOpen) return;
     let current = true;
-    void getAvailablePlans().then(plans => { if (current) setPlansList(plans); }).catch(() => toast.error("Não foi possível carregar os planos."));
+    void getAvailablePlans(isGym ? "GYM" : "PERSONAL").then(plans => { if (current) setPlansList(plans); }).catch(() => toast.error("Não foi possível carregar os planos."));
     return () => { current = false; };
-  }, [isUpgradeWarningOpen]);
+  }, [isUpgradeWarningOpen, isGym]);
 
   const handleNameChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -141,49 +162,88 @@ export function WorkspaceSwitcher() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) {
-      toast.error("Por favor, informe o nome do workspace.");
+      toast.error(isGym ? "Por favor, informe o nome da filial." : "Por favor, informe o nome do workspace.");
       return;
     }
 
     setIsSubmitting(true);
     try {
-      const res = await createWorkspace({
-        name,
-        slug: slug.trim() || undefined,
-      });
+      if (isGym) {
+        const res = await createGymBranch({
+          name,
+          slug: slug.trim() || undefined,
+        });
 
-      if (res.error) {
-        toast.error(res.error);
-        return;
+        if (res.error) {
+          toast.error(res.error);
+          return;
+        }
+
+        toast.success("Filial criada com sucesso! 🎉");
+
+        const [updated, limitRes] = await Promise.all([
+          getPersonalWorkspaces(),
+          getGymBranchLimit(),
+        ]);
+        workspaceActions.setWorkspaces(updated);
+        setLimitData(limitRes);
+
+        const newWs = updated.find((w: any) => w.id === res.workspace?.id) || res.workspace;
+        if (newWs) {
+          await activateWorkspace(newWs);
+        }
+      } else {
+        const res = await createWorkspace({
+          name,
+          slug: slug.trim() || undefined,
+        });
+
+        if (res.error) {
+          toast.error(res.error);
+          return;
+        }
+
+        toast.success("Workspace criado com sucesso! 🎉");
+
+        const [updated, limitRes] = await Promise.all([
+          getPersonalWorkspaces(),
+          getTrainerWorkspaceLimit(),
+        ]);
+        workspaceActions.setWorkspaces(updated);
+        setLimitData(limitRes);
+
+        const newWs = updated.find((w: any) => w.id === res.workspace?.id) || res.workspace;
+        if (newWs) {
+          await activateWorkspace(newWs);
+        }
       }
 
-      toast.success("Workspace criado com sucesso! 🎉");
-
-      // Reload workspaces list, limit details and select newly created workspace
-      const [updated, limitRes] = await Promise.all([
-        getPersonalWorkspaces(),
-        getTrainerWorkspaceLimit(),
-      ]);
-      workspaceActions.setWorkspaces(updated);
-      setLimitData(limitRes);
-
-      const newWs = updated.find((w: any) => w.id === res.workspace?.id) || res.workspace;
-      if (newWs) {
-        await activateWorkspace(newWs);
-      }
-
-      // Reset modal state
       setIsCreateOpen(false);
       setName("");
       setSlug("");
       setIsSlugManual(false);
     } catch (err) {
       console.error(err);
-      toast.error("Ocorreu um erro ao criar o workspace. Tente novamente.");
+      toast.error(isGym ? "Ocorreu um erro ao criar a filial. Tente novamente." : "Ocorreu um erro ao criar o workspace. Tente novamente.");
     } finally {
       setIsSubmitting(false);
     }
   };
+
+  // Enforce branch visibility rules:
+  // For GYM: only the owner can see the other filiais ("mas só o dono pode ver as demais filiais").
+  // Non-owners (instructors, receptionists, staff) see ONLY their active assigned branch.
+  const visibleWorkspaces = React.useMemo(() => {
+    if (isGym) {
+      if (isOwner) {
+        return snap.workspaces.filter(
+          (ws) => ws.type === "GYM" && (ws.roles?.includes("OWNER") || ws.ownerId === snap.activeWorkspace?.ownerId)
+        );
+      }
+      return snap.activeWorkspace ? [snap.activeWorkspace] : [];
+    }
+    return snap.workspaces.filter((ws) => ws.type !== "GYM");
+  }, [isGym, isOwner, snap.workspaces, snap.activeWorkspace]);
 
   if (snap.isLoading && snap.workspaces.length === 0) {
     return (
@@ -200,7 +260,6 @@ export function WorkspaceSwitcher() {
       </SidebarMenu>
     );
   }
-
 
   return (
     <>
@@ -243,7 +302,9 @@ export function WorkspaceSwitcher() {
                       <Plus className="size-4" />
                     </div>
                     <div className="grid flex-1 text-left text-sm leading-tight group-data-[collapsible=icon]:hidden min-w-0">
-                      <span className="truncate font-semibold text-muted-foreground">Adicionar Workspace</span>
+                      <span className="truncate font-semibold text-muted-foreground">
+                        {isGym ? "Adicionar Filial" : "Adicionar Workspace"}
+                      </span>
                     </div>
                   </>
                 )}
@@ -257,19 +318,21 @@ export function WorkspaceSwitcher() {
               sideOffset={4}
             >
               <DropdownMenuLabel className="text-xs text-muted-foreground flex items-center justify-between px-2.5 py-2">
-                <span className="font-semibold uppercase tracking-wider text-[10px]">Workspaces</span>
-                {limitData && !limitData.isTestAccount && limitData.limit > 1 && (
+                <span className="font-semibold uppercase tracking-wider text-[10px]">
+                  {isGym ? (isOwner ? "Filiais" : "Filial") : "Workspaces"}
+                </span>
+                {isOwner && limitData && !limitData.isTestAccount && limitData.limit > 1 && (
                   <span className="text-[10px] font-extrabold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                     {limitData.current} de {limitData.limit}
                   </span>
                 )}
-                {limitData && limitData.isTestAccount && (
+                {isOwner && limitData && limitData.isTestAccount && (
                   <span className="text-[10px] font-extrabold text-primary bg-primary/10 px-2 py-0.5 rounded-full">
                     Ilimitado (Teste)
                   </span>
                 )}
               </DropdownMenuLabel>
-              {snap.workspaces.map((workspace) => (
+              {visibleWorkspaces.map((workspace) => (
                 <DropdownMenuItem
                   key={workspace.id}
                   disabled={switchingId !== null}
@@ -296,47 +359,57 @@ export function WorkspaceSwitcher() {
                   )}
                 </DropdownMenuItem>
               ))}
-              <DropdownMenuSeparator />
-              <DropdownMenuItem
-                disabled={limitData === null || switchingId !== null}
-                onSelect={(e) => {
-                  e.preventDefault();
-                  if (limitData && !limitData.isTestAccount && limitData.current >= limitData.limit) {
-                    setIsUpgradeWarningOpen(true);
-                  } else {
-                    setIsCreateOpen(true);
-                  }
-                }}
-                className="gap-2 p-2 rounded-xl cursor-pointer"
-              >
-                <div className="flex size-6 items-center justify-center rounded-md border bg-background shrink-0">
-                  <Plus className="size-4" />
-                </div>
-                <div className="font-medium text-muted-foreground">Adicionar Workspace</div>
-              </DropdownMenuItem>
+
+              {/* Only gym owners or personal accounts can add new workspaces/branches */}
+              {(!isGym || isOwner) && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    disabled={limitData === null || switchingId !== null}
+                    onSelect={(e) => {
+                      e.preventDefault();
+                      if (limitData && !limitData.isTestAccount && limitData.current >= limitData.limit) {
+                        setIsUpgradeWarningOpen(true);
+                      } else {
+                        setIsCreateOpen(true);
+                      }
+                    }}
+                    className="gap-2 p-2 rounded-xl cursor-pointer"
+                  >
+                    <div className="flex size-6 items-center justify-center rounded-md border bg-background shrink-0">
+                      <Plus className="size-4" />
+                    </div>
+                    <div className="font-medium text-muted-foreground">
+                      {isGym ? "Adicionar Filial" : "Adicionar Workspace"}
+                    </div>
+                  </DropdownMenuItem>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </SidebarMenuItem>
       </SidebarMenu>
 
-      {/* Premium Create Workspace Dialog */}
+      {/* Premium Create Workspace / Branch Dialog */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
         <DialogContent className="sm:max-w-125 rounded-3xl! border-border/50 bg-background/95 backdrop-blur-xl shadow-2xl p-6 overflow-hidden">
           <DialogHeader className="space-y-2">
             <DialogTitle className="text-2xl font-black tracking-tight flex items-center gap-2">
-              Criar Novo Workspace
+              {isGym ? "Criar Nova Filial da Academia" : "Criar Novo Workspace"}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground text-sm leading-relaxed">
-              Crie uma nova marca de assessoria esportiva. Todos os seus alunos, treinos e finanças serão organizados de forma independente neste espaço.
+              {isGym
+                ? "Crie uma nova filial para sua rede de academias. Os alunos, colaboradores e finanças serão organizados de forma independente nesta filial."
+                : "Crie uma nova marca de assessoria esportiva. Todos os seus alunos, treinos e finanças serão organizados de forma independente neste espaço."}
             </DialogDescription>
           </DialogHeader>
 
           <form onSubmit={handleSubmit} className="space-y-6 mt-4">
             <div className="space-y-4">
-              {/* Workspace Name */}
+              {/* Workspace / Branch Name */}
               <div className="space-y-2">
                 <Label htmlFor="name" className="text-sm font-semibold">
-                  Nome da Marca / Assessoria
+                  {isGym ? "Nome da Filial / Academia" : "Nome da Marca / Assessoria"}
                 </Label>
                 <div className="relative">
                   <Building className="absolute left-3 top-3 size-4 text-muted-foreground" />
@@ -344,14 +417,14 @@ export function WorkspaceSwitcher() {
                     id="name"
                     value={name}
                     onChange={handleNameChange}
-                    placeholder="ex: Silva Assessoria Esportiva"
+                    placeholder={isGym ? "ex: Academia Atlas - Unidade Jardins" : "ex: Silva Assessoria Esportiva"}
                     className="pl-10 h-11 rounded-xl bg-secondary/30 border-border/50 focus:bg-secondary/50 transition-all font-medium"
                     required
                   />
                 </div>
               </div>
 
-              {/* Workspace Slug */}
+              {/* Workspace / Branch Slug */}
               <div className="space-y-2">
                 <Label htmlFor="slug" className="text-sm font-semibold">
                   Endereço Exclusivo (Slug)
@@ -362,14 +435,17 @@ export function WorkspaceSwitcher() {
                     id="slug"
                     value={slug}
                     onChange={handleSlugChange}
-                    placeholder="silva-assessoria"
+                    placeholder={isGym ? "atlas-jardins" : "silva-assessoria"}
                     className="pl-10 h-11 rounded-xl bg-secondary/30 border-border/50 focus:bg-secondary/50 transition-all font-mono text-sm"
                     required
                   />
                 </div>
                 {slug && (
                   <p className="text-[11px] text-muted-foreground px-1">
-                    Link do portal: <span className="text-primary font-semibold">{limitData?.primaryDomain || "atlasfit.app"}/t/{slug}</span>
+                    Link de acesso:{" "}
+                    <span className="text-primary font-semibold">
+                      {limitData?.primaryDomain || "atlasfit.app"}/{isGym ? "g" : "t"}/{slug}
+                    </span>
                   </p>
                 )}
               </div>
@@ -384,12 +460,10 @@ export function WorkspaceSwitcher() {
                 {isSubmitting ? (
                   <>
                     <Loader2 className="size-4 animate-spin" />
-                    Criando Workspace...
+                    {isGym ? "Criando Filial..." : "Criando Workspace..."}
                   </>
                 ) : (
-                  <>
-                    Confirmar e Criar Brand
-                  </>
+                  isGym ? "Confirmar e Criar Filial" : "Confirmar e Criar Brand"
                 )}
               </Button>
             </DialogFooter>
@@ -397,30 +471,40 @@ export function WorkspaceSwitcher() {
         </DialogContent>
       </Dialog>
 
+      {/* Upgrade Warning Dialog */}
       <Dialog open={isUpgradeWarningOpen} onOpenChange={setIsUpgradeWarningOpen}>
         <DialogContent className="sm:max-w-112.5 sm:max-h-[90dvh] sm:overflow-auto rounded-2xl! border-border/50 bg-background/95 backdrop-blur-xl shadow-2xl p-6">
           <DialogHeader className="space-y-2 text-center flex flex-col items-center">
             <DialogTitle className="text-2xl font-black tracking-tight">
-              Limite de Workspaces Atingido
+              {isGym ? "Limite de Filiais Atingido" : "Limite de Workspaces Atingido"}
             </DialogTitle>
             <DialogDescription className="text-muted-foreground text-sm leading-relaxed max-w-[350px]">
-              Seu plano atual (<strong className="text-foreground">{limitData?.planName}</strong>) permite no máximo <strong className="text-foreground">{limitData?.limit} workspace(s)</strong>.
+              Seu plano atual (<strong className="text-foreground">{limitData?.planName}</strong>) permite no máximo{" "}
+              <strong className="text-foreground">
+                {limitData?.limit} {isGym ? "filial(is)" : "workspace(s)"}
+              </strong>.
             </DialogDescription>
           </DialogHeader>
 
           <div className="my-6 p-4 rounded-2xl bg-secondary/30 border border-border/40 space-y-3">
-            <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest text-center">Planos Recomendados</div>
+            <div className="text-xs font-bold text-muted-foreground uppercase tracking-widest text-center">
+              Planos Recomendados
+            </div>
             {plansList
-              .filter((p) => p.maxWorkspaces > (limitData?.limit || 1))
+              .filter((p) => (p.maxWorkspaces || 1) > (limitData?.limit || 1))
               .map((plan) => (
                 <div key={plan.id} className="p-3.5 rounded-xl bg-background border border-border/30 flex items-center justify-between">
                   <div className="flex flex-col">
                     <span className="text-sm font-bold">{plan.name}</span>
-                    <span className="text-[10px] text-muted-foreground">Permite até {plan.maxWorkspaces} workspaces</span>
+                    <span className="text-[10px] text-muted-foreground">
+                      {isGym
+                        ? `Permite até ${plan.maxWorkspaces || 1} filiais e ${plan.maxStaff || 10} func./filial`
+                        : `Permite até ${plan.maxWorkspaces} workspaces`}
+                    </span>
                   </div>
                   <div className="text-right">
                     <div className="text-sm font-black text-primary">R$ {plan.price}</div>
-                    <div className="text-[9px] text-muted-foreground">/mês</div>
+                    <div className="text-[9px] text-muted-foreground">/{plan.interval === "year" ? "ano" : "mês"}</div>
                   </div>
                 </div>
               ))}
@@ -429,10 +513,10 @@ export function WorkspaceSwitcher() {
           <DialogFooter className="flex flex-col gap-2 sm:flex-col!">
             <Button
               disabled={switchingId !== null}
-              onClick={() => void openPersonalUpgrade()}
+              onClick={() => void openUpgrade()}
               className="w-full h-12 rounded-xl text-sm font-bold shadow-lg shadow-primary/15 gap-2 cursor-pointer bg-primary text-primary-foreground"
             >
-              Fazer Upgrade do Plano
+              {isGym ? "Fazer Upgrade da Franquia" : "Fazer Upgrade do Plano"}
             </Button>
             <Button
               variant="ghost"

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { legacyFixture } from "./legacy-fixture";
 import { afterAll, describe, expect, it } from "vitest";
 import prisma from "@/lib/prisma";
 import { calculateDocumentHash, LegalAcceptanceService } from "@/lib/privacy/legal-acceptance.service";
@@ -52,8 +53,10 @@ describe("Conformidade da conta do responsável", () => {
         for (const doc of docs) await LegalAcceptanceService.recordAcceptance({ userId: user.id, documentType: doc.type, documentVersion: doc.version, source: "STUDENT_ONBOARDING", workspaceId: workspace.id });
         expect((await LegalAcceptanceService.checkUserCompliance(user.id)).isCompliant).toBe(true);
       } finally {
-        await prisma.legalAcceptance.updateMany({ where: { userId: user.id, workspaceId: workspace.id }, data: { workspaceId: null } });
-        await prisma.workspace.delete({ where: { id: workspace.id } });
+        await expect(prisma.legalAcceptance.updateMany({ where: { userId: user.id, workspaceId: workspace.id }, data: { workspaceId: null } })).rejects.toBeDefined();
+        await legacyFixture(prisma, tx => tx.legalAcceptance.updateMany({ where: { userId: user.id, workspaceId: workspace.id }, data: { workspaceId: null } }));
+        await expect(prisma.workspace.delete({ where: { id: workspace.id } })).rejects.toBeDefined();
+        await legacyFixture(prisma, tx => tx.workspace.delete({ where: { id: workspace.id } }));
       }
       expect((await LegalAcceptanceService.checkUserCompliance(user.id)).isCompliant).toBe(true);
       const content = docs[0].content + " Revisão sintética com mesmo ID.";

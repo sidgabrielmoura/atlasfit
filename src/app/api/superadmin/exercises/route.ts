@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
 import { logSystemError } from "@/lib/logger";
+import { invalidatePublicExerciseCatalog } from "@/lib/cache/public-data";
 
 async function handleGET(req: Request) {
   const session = await auth();
@@ -151,6 +152,7 @@ export async function POST(req: Request) {
       }
     });
 
+    invalidatePublicExerciseCatalog();
     return NextResponse.json(exercise);
   } catch (error) {
     console.error("[EXERCISES_POST]", error);

@@ -12,7 +12,8 @@ import { serializableTransaction } from "@/modules/workspaces/application/transa
 const sandbox = vi.hoisted(() => ({ name: "atlasfit_purge_tests_"+globalThis.crypto.randomUUID().replaceAll("-",""), objects: new Set<string>(), deleted: [] as string[], failDelete: false, foreignKey: false, onDelete:null as null|(()=>Promise<void>) }));
 vi.mock("@/lib/prisma", async () => {
   const {PrismaClient}=await import("@prisma/client"),{PrismaPg}=await import("@prisma/adapter-pg");
-  return {default:new PrismaClient({adapter:new PrismaPg({connectionString:"postgresql://atlasfit_test@127.0.0.1:56432/"+sandbox.name})})};
+  const connection = new URL(process.env.DATABASE_URL!); connection.pathname = "/" + sandbox.name;
+  return {default:new PrismaClient({adapter:new PrismaPg({connectionString:connection.toString()})})};
 });
 vi.mock("@/lib/storage.service",()=>({StorageConfigurationError:class extends Error{},storageService:{
   async listWorkspaceObjects(workspaceId:string){if(sandbox.foreignKey)return {keys:["workspace/foreign/files/private.pdf"],hasMore:false};const keys=[...sandbox.objects].filter(key=>key.startsWith(`workspace/${workspaceId}/`));return {keys:keys.slice(0,100),hasMore:keys.length>100};},
@@ -20,9 +21,10 @@ vi.mock("@/lib/storage.service",()=>({StorageConfigurationError:class extends Er
 }}));
 const configured=new URL(process.env.DATABASE_URL!);
 if(configured.hostname!=="127.0.0.1"||configured.port!=="56432")throw Error("Disposable PostgreSQL required");
-const sql=new Client({connectionString:"postgresql://atlasfit_test@127.0.0.1:56432/"+sandbox.name});
+const testUrl=(name:string)=>{const url=new URL(process.env.DATABASE_URL!);url.pathname="/"+name;return url.toString()};
+const sql=new Client({connectionString:testUrl(sandbox.name)});
 beforeAll(async()=>{
- const admin=new Client({connectionString:"postgresql://atlasfit_test@127.0.0.1:56432/postgres"});await admin.connect();await admin.query(`CREATE DATABASE "${sandbox.name}"`);await admin.end();await sql.connect();
+ const admin=new Client({connectionString:testUrl("postgres")});await admin.connect();await admin.query(`CREATE DATABASE "${sandbox.name}"`);await admin.end();await sql.connect();
  for(const migration of readdirSync("prisma/baseline-migrations").filter(name=>name!=="migration_lock.toml").sort())await sql.query(readFileSync(`prisma/baseline-migrations/${migration}/migration.sql`,"utf8"));
 },120000);
 beforeEach(()=>{sandbox.objects.clear();sandbox.deleted=[];sandbox.failDelete=false;sandbox.foreignKey=false;sandbox.onDelete=null;});
@@ -96,7 +98,8 @@ it("falha parcial no R2 conserva registros e retoma sem declarar purga concluíd
  const f=await fixture();await queue(f);sandbox.failDelete=true;
  expect(await processGymPurge(f.workspace.id)).toMatchObject({status:"RETRY"});expect(await prisma.workspace.findUnique({where:{id:f.workspace.id}})).not.toBeNull();
  expect(await prisma.gymPurgeReceipt.findUnique({where:{requestKey:f.input.requestKey}})).toBeNull();sandbox.failDelete=false;
- expect(await processGymPurge(f.workspace.id,new Date(Date.now()+61000))).toMatchObject({status:"COMPLETED"});expect(sandbox.objects.size).toBe(0);
+ const retry = await prisma.gymPurgeJob.findUniqueOrThrow({where:{workspaceId:f.workspace.id}});
+ expect(await processGymPurge(f.workspace.id,new Date(retry.nextAttemptAt.getTime()+1))).toMatchObject({status:"COMPLETED"});expect(sandbox.objects.size).toBe(0);
 });
 it("concorrência usa uma claim; lease vencida é recuperada",async()=>{
  const f=await fixture();await queue(f);await prisma.gymPurgeJob.update({where:{workspaceId:f.workspace.id},data:{status:"PROCESSING",leaseToken:randomUUID(),leaseExpiresAt:new Date(0)}});
@@ -131,7 +134,8 @@ it("referência histórica de arquivo fora do prefixo impede falsa conclusão",a
  const f=await fixture();await sql.query("SELECT set_config('atlasfit.gym_purge_scope',$1,FALSE)",[f.workspace.id]);await sql.query('UPDATE "StudentFile" SET "objectKey"=$1 WHERE "workspaceId"=$2',["workspace/foreign/files/keep",f.workspace.id]);await sql.query("RESET atlasfit.gym_purge_scope");
  await queue(f);expect(await processGymPurge(f.workspace.id)).toMatchObject({status:"RETRY",code:"TENANT_MISMATCH"});expect(sandbox.deleted).toHaveLength(0);expect(await prisma.workspace.findUnique({where:{id:f.workspace.id}})).not.toBeNull();
  await sql.query("SELECT set_config('atlasfit.gym_purge_scope',$1,FALSE)",[f.workspace.id]);await sql.query('UPDATE "StudentFile" SET "objectKey"=NULL,url=$1 WHERE "workspaceId"=$2',["https://historical.example.invalid/unknown-file",f.workspace.id]);await sql.query("RESET atlasfit.gym_purge_scope");
- expect(await processGymPurge(f.workspace.id,new Date(Date.now()+61000))).toMatchObject({status:"RETRY",code:"STORAGE_RECONCILIATION_REQUIRED"});expect(sandbox.deleted).toHaveLength(0);
+ const retry = await prisma.gymPurgeJob.findUniqueOrThrow({where:{workspaceId:f.workspace.id}});
+ expect(await processGymPurge(f.workspace.id,new Date(retry.nextAttemptAt.getTime()+1))).toMatchObject({status:"RETRY",code:"STORAGE_RECONCILIATION_REQUIRED"});expect(sandbox.deleted).toHaveLength(0);
 });
 it("uploads autorizados ainda válidos adiam a purga até expirarem",async()=>{
  const f=await fixture();

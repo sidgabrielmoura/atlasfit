@@ -35,6 +35,7 @@ import {
    X,
    UploadCloud,
    ImageIcon,
+   Building,
 } from "lucide-react";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 import { cn } from "@/lib/utils";
@@ -54,7 +55,17 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 
-function PlanCarousel({ plans, isLoading, onEdit }: { plans: any[]; isLoading: boolean; onEdit: (plan: any) => void }) {
+function PlanCarousel({
+   plans,
+   isLoading,
+   onSelectPlan,
+   isGym = false,
+}: {
+   plans: any[];
+   isLoading: boolean;
+   onSelectPlan: (plan: any) => void;
+   isGym?: boolean;
+}) {
    const trackRef = useRef<HTMLDivElement>(null);
    const [activeIndex, setActiveIndex] = useState(0);
 
@@ -63,7 +74,7 @@ function PlanCarousel({ plans, isLoading, onEdit }: { plans: any[]; isLoading: b
       if (!track) return 0;
       const card = track.querySelector<HTMLElement>("[data-card]");
       if (!card) return 0;
-      const gap = 24;
+      const gap = 16;
       return card.offsetWidth + gap;
    }, []);
 
@@ -93,19 +104,18 @@ function PlanCarousel({ plans, isLoading, onEdit }: { plans: any[]; isLoading: b
 
    if (isLoading && plans.length === 0) {
       return (
-         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 py-6 w-full">
-            {Array.from({ length: 3 }).map((_, i) => (
-               <div key={i} className="p-6 border border-border/80 rounded-2xl bg-card space-y-4 shadow-xs">
+         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 py-4 w-full">
+            {Array.from({ length: 4 }).map((_, i) => (
+               <div key={i} className="p-4 border border-border/80 rounded-2xl bg-card space-y-3 shadow-xs">
                   <div className="flex justify-between items-center">
-                     <Skeleton className="h-6 w-32 rounded-md" />
-                     <Skeleton className="h-5 w-16 rounded-full" />
+                     <Skeleton className="h-5 w-24 rounded-md" />
+                     <Skeleton className="h-4 w-12 rounded-full" />
                   </div>
-                  <Skeleton className="h-9 w-28 rounded-md" />
-                  <Skeleton className="h-4 w-full rounded-md" />
-                  <div className="space-y-2 pt-4 border-t border-border/40">
-                     <Skeleton className="h-4 w-4/5 rounded-md" />
-                     <Skeleton className="h-4 w-3/4 rounded-md" />
-                     <Skeleton className="h-4 w-2/3 rounded-md" />
+                  <Skeleton className="h-7 w-20 rounded-md" />
+                  <Skeleton className="h-3 w-full rounded-md" />
+                  <div className="space-y-1.5 pt-2 border-t border-border/40">
+                     <Skeleton className="h-3 w-4/5 rounded-md" />
+                     <Skeleton className="h-3 w-3/4 rounded-md" />
                   </div>
                </div>
             ))}
@@ -113,121 +123,162 @@ function PlanCarousel({ plans, isLoading, onEdit }: { plans: any[]; isLoading: b
       );
    }
 
+   if (plans.length === 0) {
+      return (
+         <div className="p-8 border border-dashed border-border/60 rounded-2xl bg-secondary/10 text-center space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground">
+               Nenhum plano cadastrado nesta categoria.
+            </p>
+         </div>
+      );
+   }
+
    return (
-      <div className="space-y-4 lg:max-w-[calc(100vw-25rem)] flex-1 w-full mx-auto">
+      <div className="space-y-3 lg:max-w-[calc(100vw-25rem)] flex-1 w-full mx-auto">
          <div className="relative group/carousel">
             <button
                onClick={() => scrollToIndex(activeIndex - 1)}
                disabled={activeIndex === 0}
                aria-label="Anterior"
-               className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 size-9 rounded-full bg-background border border-border/60 shadow-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/40 transition-all disabled:opacity-0 disabled:pointer-events-none"
+               className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 size-8 rounded-full bg-background border border-border/60 shadow-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/40 transition-all disabled:opacity-0 disabled:pointer-events-none"
             >
                <ChevronLeft className="size-4" />
             </button>
 
             <div
                ref={trackRef}
-               className="flex gap-6 overflow-x-auto scroll-smooth snap-x snap-mandatory px-1 pb-1 no-scrollbar"
+               className="flex gap-4 overflow-x-auto scroll-smooth snap-x snap-mandatory px-1 pb-1 no-scrollbar"
                style={{ scrollbarWidth: "none" }}
             >
-               {plans.map((plan: any) => (
-                  <div
-                     key={plan.id}
-                     data-card
-                     className="snap-start shrink-0 w-[min(320px,80vw)] sm:w-72 lg:w-80"
-                  >
-                     <Card className="border-border/40 p-0 bg-card/50 overflow-hidden hover:border-primary/30 transition-all duration-300 group h-full flex flex-col">
-                        {plan.imageUrl && (
-                           <div className="relative h-28 w-full overflow-hidden border-b border-border/40 bg-secondary/30 shrink-0">
-                              <img src={plan.imageUrl} alt={plan.name} className="size-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                              <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent" />
-                           </div>
-                        )}
-                        <div className="p-6 space-y-4 flex-1 flex flex-col justify-between">
-                           <div className="flex items-center justify-between">
-                              <div className="p-2 rounded-lg bg-secondary border border-border/40 text-primary">
-                                 <ShieldCheck className="size-5" />
-                              </div>
-                              <Button
-                                 variant="ghost"
-                                 size="icon"
-                                 onClick={() => onEdit(plan)}
-                                 className="size-8 rounded-lg hover:bg-primary/10 hover:text-primary transition-colors"
-                              >
-                                 <Settings2 className="size-4 text-muted-foreground" />
-                              </Button>
-                           </div>
-                           <div>
-                              <h3 className="text-xl font-black tracking-tight">{plan.name}</h3>
-                              <p className="text-lg font-bold text-primary mt-1">
-                                 R$ {plan.price}/{plan.interval === "year" ? "ano" : "mês"}
-                              </p>
-                           </div>
-                           <div className="space-y-2 pt-2">
-                              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground">
-                                 <span>ATIVOS</span>
-                                 <span>{plan._count?.subscriptions || 0}</span>
-                              </div>
-                              <div className="w-full h-1 bg-secondary rounded-full overflow-hidden">
-                                 <div
-                                    className="bg-primary h-full rounded-full transition-all duration-700"
-                                    style={{
-                                       width: `${Math.min(
-                                          ((plan._count?.subscriptions || 0) / 100) * 100,
-                                          100
-                                       )}%`,
-                                    }}
+               {plans.map((plan: any) => {
+                  const subsCount = (plan._count?.subscriptions || 0) + (plan._count?.workspaceSubscriptions || 0);
+                  return (
+                     <div
+                        key={plan.id}
+                        data-card
+                        className="snap-start shrink-0 w-[230px] sm:w-[245px] lg:w-[260px]"
+                     >
+                        <Card
+                           onClick={() => onSelectPlan(plan)}
+                           className="border-border/50 p-0 bg-card/60 overflow-hidden hover:border-primary/50 hover:shadow-lg transition-all duration-300 group h-full flex flex-col cursor-pointer select-none"
+                        >
+                           {plan.imageUrl ? (
+                              <div className="relative h-20 w-full overflow-hidden border-b border-border/40 bg-secondary/30 shrink-0">
+                                 <img
+                                    src={plan.imageUrl}
+                                    alt={plan.name}
+                                    className="size-full object-cover group-hover:scale-105 transition-transform duration-500"
                                  />
+                                 <div className="absolute inset-0 bg-gradient-to-t from-card/80 to-transparent" />
                               </div>
-                              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground pt-1">
-                                 <span>Limite Alunos</span>
-                                 <span>{plan.maxStudents !== null && plan.maxStudents !== undefined ? `${plan.maxStudents}` : "Ilimitado"}</span>
-                              </div>
-                              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground pt-0.5">
-                                 <span>Importações</span>
-                                 <span>{plan.importQuota !== null && plan.importQuota !== undefined && plan.importQuota > 0 ? `${plan.importQuota}/mês` : "Ilimitadas"}</span>
-                              </div>
-                              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground pt-0.5">
-                                 <span>Armazenamento</span>
-                                 <span>{plan.storageLimitMb !== null && plan.storageLimitMb !== undefined && plan.storageLimitMb > 0 ? (plan.storageLimitMb >= 1024 ? `${(plan.storageLimitMb / 1024).toFixed(0)} GB` : `${plan.storageLimitMb} MB`) : "Ilimitado"}</span>
-                              </div>
-                              <div className="flex items-center justify-between text-[10px] font-bold uppercase tracking-widest text-muted-foreground pt-0.5">
-                                 <span>Pagamento</span>
-                                 <Badge variant="outline" className="text-[9px] font-extrabold uppercase px-1.5 py-0 border-primary/30 text-primary bg-primary/10">
+                           ) : (
+                              <div className="px-4 pt-3 flex items-center justify-between">
+                                 <div className="p-1.5 rounded-lg bg-secondary border border-border/40 text-primary">
+                                    {isGym ? <Building className="size-4" /> : <ShieldCheck className="size-4" />}
+                                 </div>
+                                 <Badge
+                                    variant="outline"
+                                    className="text-[9px] font-bold uppercase tracking-wider px-2 py-0 border-border bg-secondary/30"
+                                 >
                                     {plan.paymentMethods === "CARD" ? "Cartão" : plan.paymentMethods === "PIX,CARD" ? "Pix + Cartão" : "PIX"}
                                  </Badge>
                               </div>
+                           )}
+
+                           <div className="p-4 space-y-3 flex-1 flex flex-col justify-between">
+                              <div>
+                                 <div className="flex items-center justify-between gap-1">
+                                    <h3 className="text-sm font-bold tracking-tight truncate text-foreground group-hover:text-primary transition-colors">
+                                       {plan.name}
+                                    </h3>
+                                    <Badge
+                                       variant="secondary"
+                                       className="text-[9px] font-extrabold px-1.5 py-0 bg-primary/10 text-primary border-primary/20 shrink-0"
+                                    >
+                                       {subsCount} {subsCount === 1 ? "ativo" : "ativos"}
+                                    </Badge>
+                                 </div>
+                                 <p className="text-base font-extrabold text-primary mt-1">
+                                    R$ {plan.price}/{plan.interval === "year" ? "ano" : "mês"}
+                                 </p>
+                              </div>
+
+                              <div className="space-y-1.5 text-[10px] font-bold text-muted-foreground pt-1 border-t border-border/40">
+                                 {isGym ? (
+                                    <>
+                                       <div className="flex items-center justify-between">
+                                          <span>Filiais:</span>
+                                          <span className="text-foreground">{plan.maxWorkspaces || 1}</span>
+                                       </div>
+                                       <div className="flex items-center justify-between">
+                                          <span>Equipe/Filial:</span>
+                                          <span className="text-foreground">{plan.maxStaff || 10}</span>
+                                       </div>
+                                       <div className="flex items-center justify-between">
+                                          <span>Alunos/Filial:</span>
+                                          <span className="text-foreground">
+                                             {plan.maxStudents !== null && plan.maxStudents !== undefined
+                                                ? `${plan.maxStudents}`
+                                                : "Ilimitado"}
+                                          </span>
+                                       </div>
+                                    </>
+                                 ) : (
+                                    <>
+                                       <div className="flex items-center justify-between">
+                                          <span>Alunos:</span>
+                                          <span className="text-foreground">
+                                             {plan.maxStudents !== null && plan.maxStudents !== undefined
+                                                ? `${plan.maxStudents}`
+                                                : "Ilimitado"}
+                                          </span>
+                                       </div>
+                                       <div className="flex items-center justify-between">
+                                          <span>Importações:</span>
+                                          <span className="text-foreground">
+                                             {plan.importQuota !== null && plan.importQuota !== undefined && plan.importQuota > 0
+                                                ? `${plan.importQuota}/mês`
+                                                : "Ilimitadas"}
+                                          </span>
+                                       </div>
+                                       <div className="flex items-center justify-between">
+                                          <span>Armazenamento:</span>
+                                          <span className="text-foreground">
+                                             {plan.storageLimitMb >= 1024
+                                                ? `${(plan.storageLimitMb / 1024).toFixed(0)} GB`
+                                                : `${plan.storageLimitMb} MB`}
+                                          </span>
+                                       </div>
+                                    </>
+                                 )}
+                              </div>
+
+                              <Button
+                                 variant="ghost"
+                                 size="sm"
+                                 className="w-full h-7 text-[10px] font-black uppercase tracking-wider text-muted-foreground group-hover:text-primary group-hover:bg-primary/10 gap-1 rounded-lg transition-all"
+                              >
+                                 Ver Detalhes <ArrowRight className="size-3" />
+                              </Button>
                            </div>
-                           <p className="text-[10px] text-muted-foreground font-medium leading-relaxed italic">
-                              {plan.features || "Sem descrição"}
-                           </p>
-                        </div>
-                        <div className="bg-secondary/20 p-3 border-t border-border/40 flex items-center justify-center group-hover:bg-primary/5 transition-colors">
-                           <Button
-                              variant="ghost"
-                              onClick={() => onEdit(plan)}
-                              className="w-full h-8 text-[10px] font-black uppercase tracking-widest gap-2"
-                           >
-                              Editar Oferta <ArrowRight className="size-3" />
-                           </Button>
-                        </div>
-                     </Card>
-                  </div>
-               ))}
+                        </Card>
+                     </div>
+                  );
+               })}
             </div>
 
             <button
                onClick={() => scrollToIndex(activeIndex + 1)}
                disabled={activeIndex >= plans.length - 1}
                aria-label="Próximo"
-               className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 size-9 rounded-full bg-background border border-border/60 shadow-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/40 transition-all disabled:opacity-0 disabled:pointer-events-none"
+               className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 size-8 rounded-full bg-background border border-border/60 shadow-md flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-primary/40 transition-all disabled:opacity-0 disabled:pointer-events-none"
             >
                <ChevronRight className="size-4" />
             </button>
          </div>
 
          {plans.length > 1 && (
-            <div className="flex items-center justify-center gap-2 pt-1">
+            <div className="flex items-center justify-center gap-1.5 pt-1">
                {plans.map((_, i) => (
                   <button
                      key={i}
@@ -235,9 +286,7 @@ function PlanCarousel({ plans, isLoading, onEdit }: { plans: any[]; isLoading: b
                      aria-label={`Ir para plano ${i + 1}`}
                      className={cn(
                         "rounded-full transition-all duration-300",
-                        i === activeIndex
-                           ? "w-5 h-2 bg-primary"
-                           : "size-2 bg-border hover:bg-primary/40"
+                        i === activeIndex ? "w-4 h-1.5 bg-primary" : "size-1.5 bg-border hover:bg-primary/40"
                      )}
                   />
                ))}
@@ -265,6 +314,8 @@ export default function SubscriptionsManagementPage() {
    const snap = useSuperAdminSnapshot();
    const [isModalOpen, setIsModalOpen] = useState(false);
    const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+   const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+   const [selectedPlanForDetails, setSelectedPlanForDetails] = useState<any>(null);
    const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
    const [isWarningActiveTrainersOpen, setIsWarningActiveTrainersOpen] = useState(false);
    const [isSubmitting, setIsSubmitting] = useState(false);
@@ -277,7 +328,20 @@ export default function SubscriptionsManagementPage() {
    const defaultStorage = "1024";
    const defaultFeatures = buildAutoFeatures(defaultStudents, defaultQuota, defaultWs, defaultStorage).join(", ");
 
-   const [formData, setFormData] = useState({
+   const [formData, setFormData] = useState<{
+      name: string;
+      price: string;
+      interval: string;
+      features: string;
+      imageUrl: string;
+      maxWorkspaces: string;
+      maxStudents: string;
+      importQuota: string;
+      storageLimitMb: string;
+      paymentMethods: string;
+      type: "PERSONAL" | "GYM";
+      maxStaff: string;
+   }>({
       name: "",
       price: "",
       interval: "month",
@@ -287,9 +351,25 @@ export default function SubscriptionsManagementPage() {
       maxStudents: defaultStudents,
       importQuota: defaultQuota,
       storageLimitMb: defaultStorage,
-      paymentMethods: "PIX"
+      paymentMethods: "PIX",
+      type: "PERSONAL",
+      maxStaff: "10",
    });
-   const [editFormData, setEditFormData] = useState({
+
+   const [editFormData, setEditFormData] = useState<{
+      name: string;
+      price: string;
+      interval: string;
+      features: string;
+      imageUrl: string;
+      maxWorkspaces: string;
+      maxStudents: string;
+      importQuota: string;
+      storageLimitMb: string;
+      paymentMethods: string;
+      type: "PERSONAL" | "GYM";
+      maxStaff: string;
+   }>({
       name: "",
       price: "",
       interval: "month",
@@ -299,8 +379,11 @@ export default function SubscriptionsManagementPage() {
       maxStudents: "",
       importQuota: defaultQuota,
       storageLimitMb: defaultStorage,
-      paymentMethods: "PIX"
+      paymentMethods: "PIX",
+      type: "PERSONAL",
+      maxStaff: "10",
    });
+
    const [isUploadingImage, setIsUploadingImage] = useState(false);
    const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
    const [imagePreview, setImagePreview] = useState<string | null>(null);
@@ -340,6 +423,52 @@ export default function SubscriptionsManagementPage() {
       superAdminActions.fetchSubscriptions();
    }, []);
 
+   const openCreateModal = (type: "PERSONAL" | "GYM" = "PERSONAL") => {
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+      setPendingImageFile(null);
+      setImagePreview(null);
+      const isGym = type === "GYM";
+      const ws = isGym ? "3" : "1";
+      const students = isGym ? "500" : "50";
+      const quota = "25";
+      const storage = isGym ? "5120" : "1024";
+      const features = buildAutoFeatures(students, quota, ws, storage).join(", ");
+      setFormData({
+         name: "",
+         price: "",
+         interval: "month",
+         features,
+         imageUrl: "",
+         maxWorkspaces: ws,
+         maxStudents: students,
+         importQuota: quota,
+         storageLimitMb: storage,
+         paymentMethods: "PIX",
+         type,
+         maxStaff: isGym ? "15" : "10",
+      });
+      setIsModalOpen(true);
+   };
+
+   const openPlanDetails = (plan: any) => {
+      setSelectedPlanForDetails(plan);
+      setIsDetailsModalOpen(true);
+   };
+
+   const handleEditFromDetails = () => {
+      if (!selectedPlanForDetails) return;
+      const planToEdit = selectedPlanForDetails;
+      setIsDetailsModalOpen(false);
+      openEditModal(planToEdit);
+   };
+
+   const handleDeleteFromDetails = (e?: React.MouseEvent) => {
+      if (!selectedPlanForDetails) return;
+      setSelectedPlan(selectedPlanForDetails);
+      setIsDetailsModalOpen(false);
+      setIsConfirmDeleteOpen(true);
+   };
+
    const handleCreatePlan = async (e: React.FormEvent) => {
       e.preventDefault();
       setIsSubmitting(true);
@@ -365,24 +494,14 @@ export default function SubscriptionsManagementPage() {
             importQuota: formData.importQuota ? parseInt(formData.importQuota) : 25,
             storageLimitMb: formData.storageLimitMb ? parseInt(formData.storageLimitMb) : 1024,
             paymentMethods: formData.paymentMethods,
+            type: formData.type || "PERSONAL",
+            maxStaff: formData.type === "GYM" ? parseInt(formData.maxStaff) || 10 : null,
          });
          toast.success("Plano criado com sucesso!");
          if (imagePreview) URL.revokeObjectURL(imagePreview);
          setPendingImageFile(null);
          setImagePreview(null);
          setIsModalOpen(false);
-         setFormData({
-            name: "",
-            price: "",
-            interval: "month",
-            features: defaultFeatures,
-            imageUrl: "",
-            maxWorkspaces: defaultWs,
-            maxStudents: defaultStudents,
-            importQuota: defaultQuota,
-            storageLimitMb: defaultStorage,
-            paymentMethods: "PIX"
-         });
       } catch (error: any) {
          toast.error(error.message || "Erro ao criar plano.");
       } finally {
@@ -417,6 +536,8 @@ export default function SubscriptionsManagementPage() {
             importQuota: editFormData.importQuota ? parseInt(editFormData.importQuota) : 25,
             storageLimitMb: editFormData.storageLimitMb ? parseInt(editFormData.storageLimitMb) : 1024,
             paymentMethods: editFormData.paymentMethods,
+            type: editFormData.type || "PERSONAL",
+            maxStaff: editFormData.type === "GYM" ? parseInt(editFormData.maxStaff) || 10 : null,
          });
          toast.success("Plano atualizado com sucesso!");
          if (editImagePreview) URL.revokeObjectURL(editImagePreview);
@@ -439,12 +560,14 @@ export default function SubscriptionsManagementPage() {
          await superAdminActions.deletePlan(selectedPlan.id);
          toast.success("Plano excluído com sucesso!");
          setIsConfirmDeleteOpen(false);
+         setSelectedPlan(null);
       } catch (error: any) {
          setIsConfirmDeleteOpen(false);
          if (
             error.message &&
             (error.message.includes("active subscriptions") ||
                error.message.includes("trainers ativos") ||
+               error.message.includes("assinaturas") ||
                error.message.includes("400"))
          ) {
             setIsWarningActiveTrainersOpen(true);
@@ -474,6 +597,7 @@ export default function SubscriptionsManagementPage() {
       const initialStudents = plan.maxStudents !== null && plan.maxStudents !== undefined ? plan.maxStudents.toString() : "";
       const initialWs = (plan.maxWorkspaces ?? 1).toString();
       const initialStorage = plan.storageLimitMb !== null && plan.storageLimitMb !== undefined ? plan.storageLimitMb.toString() : "1024";
+      const initialStaff = (plan.maxStaff ?? 10).toString();
       const syncedFeatures = updateFeaturesWithFields(plan.features || "", initialStudents, initialQuota, initialWs, initialStorage);
 
       setEditFormData({
@@ -487,14 +611,24 @@ export default function SubscriptionsManagementPage() {
          importQuota: initialQuota,
          storageLimitMb: initialStorage,
          paymentMethods: plan.paymentMethods || "PIX",
+         type: (plan.type === "GYM" ? "GYM" : "PERSONAL") as "PERSONAL" | "GYM",
+         maxStaff: initialStaff,
       });
       setIsEditModalOpen(true);
    };
 
    const dynamicPlans = snap.plans || [];
+   const personalPlans = dynamicPlans.filter((p: any) => p.type !== "GYM");
+   const gymPlans = dynamicPlans.filter((p: any) => p.type === "GYM");
 
-   const activeSubsCount = dynamicPlans.reduce((acc: number, plan: any) => acc + (plan._count?.subscriptions || 0), 0);
-   const estimatedMrr = dynamicPlans.reduce((acc: number, plan: any) => acc + (plan.price * (plan._count?.subscriptions || 0)), 0);
+   const activeSubsCount = dynamicPlans.reduce(
+      (acc: number, plan: any) => acc + (plan._count?.subscriptions || 0) + (plan._count?.workspaceSubscriptions || 0),
+      0
+   );
+   const estimatedMrr = dynamicPlans.reduce(
+      (acc: number, plan: any) => acc + plan.price * ((plan._count?.subscriptions || 0) + (plan._count?.workspaceSubscriptions || 0)),
+      0
+   );
 
    const chartData = snap.subscriptionMetrics?.activeSubsHistory || [];
 
@@ -509,12 +643,21 @@ export default function SubscriptionsManagementPage() {
                <h1 className="text-2xl sm:text-3xl md:text-4xl font-black tracking-tight">Gestão de Assinaturas</h1>
                <p className="text-muted-foreground text-xs sm:text-sm font-medium">Configuração de planos, precificação e acompanhamento de receita recorrente em tempo real.</p>
             </div>
-            <Button
-               onClick={() => setIsModalOpen(true)}
-               className="w-full sm:w-auto h-11 rounded-xl gap-2 font-bold bg-primary text-primary-foreground shadow-lg shadow-primary/20 cursor-pointer hover:bg-primary/90 transition-all duration-200"
-            >
-               <Plus className="size-4" /> CRIAR NOVO PLANO
-            </Button>
+            <div className="flex flex-wrap items-center gap-2.5">
+               <Button
+                  onClick={() => openCreateModal("PERSONAL")}
+                  variant="outline"
+                  className="h-11 rounded-xl gap-2 font-bold cursor-pointer border-border/60 hover:bg-secondary transition-all duration-200 text-xs"
+               >
+                  <Plus className="size-4" /> Novo Plano Personal
+               </Button>
+               <Button
+                  onClick={() => openCreateModal("GYM")}
+                  className="h-11 rounded-xl gap-2 font-bold bg-primary text-primary-foreground shadow-lg shadow-primary/20 cursor-pointer hover:bg-primary/90 transition-all duration-200 text-xs"
+               >
+                  <Building className="size-4" /> Novo Plano Academia
+               </Button>
+            </div>
          </div>
 
          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-stretch">
@@ -526,7 +669,7 @@ export default function SubscriptionsManagementPage() {
                <CardContent className="pt-4 flex-1">
                   <div className="h-[250px] w-full min-w-0">
                      {mounted && (
-                        <ResponsiveContainer width="100%" height="100%">
+                        <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                            <AreaChart data={chartData} margin={{ top: 10, right: 5, left: -20, bottom: 0 }}>
                               <defs>
                                  <linearGradient id="fillGrowth" x1="0" y1="0" x2="0" y2="1">
@@ -632,15 +775,55 @@ export default function SubscriptionsManagementPage() {
             </div>
          </div>
 
-         {/* 3. Seção de Planos e Ofertas */}
+         {/* 3. Seções de Planos e Ofertas (Personal e Academias) */}
          <section className="space-y-6">
-            <SectionHeader title="Planos de Assinatura" icon={ShieldCheck} description="Ofertas ativas da plataforma para personal trainers" />
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+               <SectionHeader
+                  title="Planos para Personal Trainers"
+                  icon={ShieldCheck}
+                  description="Ofertas globais voltadas para consultorias e profissionais autônomos"
+               />
+               <Button
+                  onClick={() => openCreateModal("PERSONAL")}
+                  variant="outline"
+                  className="h-9 rounded-xl gap-2 font-bold cursor-pointer border-border/60 hover:bg-secondary transition-all text-xs"
+               >
+                  <Plus className="size-3.5" /> Novo Plano Personal
+               </Button>
+            </div>
             <div className="flex flex-col lg:flex-row gap-6 items-center">
                <div className="min-w-0 w-full flex-1 mx-auto">
                   <PlanCarousel
-                     plans={dynamicPlans as any[]}
+                     plans={personalPlans as any[]}
                      isLoading={snap.isLoading}
-                     onEdit={openEditModal}
+                     onSelectPlan={openPlanDetails}
+                     isGym={false}
+                  />
+               </div>
+            </div>
+         </section>
+
+         <section className="space-y-6 pt-4 border-t border-border/40">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+               <SectionHeader
+                  title="Planos para Academias & Franquias"
+                  icon={Building}
+                  description="Ofertas globais com múltiplas filiais e funcionários por unidade"
+               />
+               <Button
+                  onClick={() => openCreateModal("GYM")}
+                  className="h-9 rounded-xl gap-2 font-bold bg-primary text-primary-foreground shadow-sm cursor-pointer hover:bg-primary/90 transition-all text-xs"
+               >
+                  <Building className="size-3.5" /> Novo Plano Academia
+               </Button>
+            </div>
+            <div className="flex flex-col lg:flex-row gap-6 items-center">
+               <div className="min-w-0 w-full flex-1 mx-auto">
+                  <PlanCarousel
+                     plans={gymPlans as any[]}
+                     isLoading={snap.isLoading}
+                     onSelectPlan={openPlanDetails}
+                     isGym={true}
                   />
                </div>
             </div>
@@ -1048,6 +1231,161 @@ export default function SubscriptionsManagementPage() {
             </div>
          </section>
 
+         {/* Modal de Detalhes Completos do Plano */}
+         <Dialog open={isDetailsModalOpen} onOpenChange={setIsDetailsModalOpen}>
+            <DialogContent className="max-w-2xl rounded-2xl border-border/60 bg-card p-6 shadow-2xl overflow-hidden max-h-[90vh] flex flex-col">
+               <DialogHeader className="space-y-3 pb-4 border-b border-border/40">
+                  <div className="flex items-center justify-between gap-3">
+                     <Badge
+                        variant="outline"
+                        className={cn(
+                           "text-[10px] font-black uppercase px-2.5 py-1",
+                           selectedPlanForDetails?.type === "GYM"
+                              ? "border-amber-500/30 text-amber-500 bg-amber-500/10"
+                              : "border-primary/30 text-primary bg-primary/10"
+                        )}
+                     >
+                        {selectedPlanForDetails?.type === "GYM" ? "Academia & Franquia" : "Personal Trainer"}
+                     </Badge>
+                     <Badge variant="outline" className="text-[10px] font-extrabold uppercase px-2 py-0.5 border-border">
+                        {selectedPlanForDetails?.paymentMethods === "CARD"
+                           ? "Cartão"
+                           : selectedPlanForDetails?.paymentMethods === "PIX,CARD"
+                           ? "Pix + Cartão"
+                           : "PIX"}
+                     </Badge>
+                  </div>
+                  <div className="flex flex-col sm:flex-row sm:items-baseline justify-between gap-2">
+                     <DialogTitle className="text-2xl font-black tracking-tight">{selectedPlanForDetails?.name}</DialogTitle>
+                     <span className="text-2xl font-black text-primary">
+                        R$ {selectedPlanForDetails?.price?.toFixed(2)}
+                        <span className="text-xs font-semibold text-muted-foreground ml-1">
+                           /{selectedPlanForDetails?.interval === "year" ? "ano" : "mês"}
+                        </span>
+                     </span>
+                  </div>
+               </DialogHeader>
+
+               <div className="space-y-6 py-4 overflow-y-auto pr-1">
+                  {selectedPlanForDetails?.imageUrl && (
+                     <div className="relative h-44 w-full rounded-xl overflow-hidden border border-border/40 bg-secondary/30 shrink-0">
+                        <img
+                           src={selectedPlanForDetails.imageUrl}
+                           alt={selectedPlanForDetails.name}
+                           className="size-full object-cover"
+                        />
+                     </div>
+                  )}
+
+                  {/* Grid de Informações e Capacidade */}
+                  <div className="space-y-2">
+                     <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Capacidade e Recursos do Plano
+                     </h4>
+                     <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                        <div className="p-3 rounded-xl border border-border/50 bg-secondary/20 space-y-1">
+                           <span className="text-[10px] font-semibold text-muted-foreground uppercase">Assinantes Ativos</span>
+                           <p className="text-sm font-bold text-foreground">
+                              {(selectedPlanForDetails?._count?.subscriptions || 0) +
+                                 (selectedPlanForDetails?._count?.workspaceSubscriptions || 0)}{" "}
+                              contas
+                           </p>
+                        </div>
+                        <div className="p-3 rounded-xl border border-border/50 bg-secondary/20 space-y-1">
+                           <span className="text-[10px] font-semibold text-muted-foreground uppercase">Limite de Alunos</span>
+                           <p className="text-sm font-bold text-foreground">
+                              {selectedPlanForDetails?.maxStudents ? `${selectedPlanForDetails.maxStudents}` : "Ilimitado"}
+                           </p>
+                        </div>
+                        <div className="p-3 rounded-xl border border-border/50 bg-secondary/20 space-y-1">
+                           <span className="text-[10px] font-semibold text-muted-foreground uppercase">
+                              {selectedPlanForDetails?.type === "GYM" ? "Filiais Permitidas" : "Workspaces"}
+                           </span>
+                           <p className="text-sm font-bold text-foreground">
+                              {selectedPlanForDetails?.maxWorkspaces || 1}
+                           </p>
+                        </div>
+                        {selectedPlanForDetails?.type === "GYM" && (
+                           <div className="p-3 rounded-xl border border-border/50 bg-secondary/20 space-y-1">
+                              <span className="text-[10px] font-semibold text-muted-foreground uppercase">
+                                 Funcionários / Filial
+                              </span>
+                              <p className="text-sm font-bold text-foreground">
+                                 {selectedPlanForDetails?.maxStaff || 10} colaboradores
+                              </p>
+                           </div>
+                        )}
+                        <div className="p-3 rounded-xl border border-border/50 bg-secondary/20 space-y-1">
+                           <span className="text-[10px] font-semibold text-muted-foreground uppercase">
+                              Quota de Importações
+                           </span>
+                           <p className="text-sm font-bold text-foreground">
+                              {selectedPlanForDetails?.importQuota > 0
+                                 ? `${selectedPlanForDetails.importQuota}/mês`
+                                 : "Ilimitada"}
+                           </p>
+                        </div>
+                        <div className="p-3 rounded-xl border border-border/50 bg-secondary/20 space-y-1">
+                           <span className="text-[10px] font-semibold text-muted-foreground uppercase">Armazenamento</span>
+                           <p className="text-sm font-bold text-foreground">
+                              {selectedPlanForDetails?.storageLimitMb >= 1024
+                                 ? `${Math.round(selectedPlanForDetails.storageLimitMb / 1024)} GB`
+                                 : `${selectedPlanForDetails?.storageLimitMb || 1024} MB`}
+                           </p>
+                        </div>
+                     </div>
+                  </div>
+
+                  {/* Vantagens / Features list */}
+                  <div className="space-y-2">
+                     <h4 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                        Vantagens e Destaques
+                     </h4>
+                     <div className="p-4 rounded-xl border border-border/50 bg-secondary/10 space-y-2">
+                        {selectedPlanForDetails?.features ? (
+                           selectedPlanForDetails.features.split(",").map((feature: string, idx: number) => (
+                              <div key={idx} className="flex items-center gap-2 text-xs">
+                                 <CheckCircle2 className="size-4 text-primary shrink-0" />
+                                 <span className="font-medium text-foreground">{feature.trim()}</span>
+                              </div>
+                           ))
+                        ) : (
+                           <p className="text-xs text-muted-foreground italic">Nenhuma vantagem customizada cadastrada.</p>
+                        )}
+                     </div>
+                  </div>
+               </div>
+
+               <DialogFooter className="pt-4 border-t border-border/40 flex flex-col-reverse sm:flex-row justify-between gap-3">
+                  <Button
+                     variant="ghost"
+                     type="button"
+                     onClick={() => handleDeleteFromDetails()}
+                     disabled={isDeleting}
+                     className="rounded-xl hover:bg-rose-500/10 h-10 font-bold hover:text-rose-600 transition-all cursor-pointer text-xs"
+                  >
+                     <Trash2 className="size-4 mr-1 text-rose-500" /> Excluir Plano
+                  </Button>
+
+                  <div className="flex gap-2">
+                     <Button
+                        variant="outline"
+                        onClick={() => setIsDetailsModalOpen(false)}
+                        className="rounded-xl h-10 font-semibold text-xs"
+                     >
+                        Fechar
+                     </Button>
+                     <Button
+                        onClick={handleEditFromDetails}
+                        className="rounded-xl h-10 px-6 font-bold gap-2 text-xs bg-primary text-primary-foreground hover:bg-primary/90 cursor-pointer shadow-sm"
+                     >
+                        <Settings2 className="size-4" /> Editar Plano
+                     </Button>
+                  </div>
+               </DialogFooter>
+            </DialogContent>
+         </Dialog>
+
          <Dialog
             open={isModalOpen}
             onOpenChange={(open) => {
@@ -1061,7 +1399,9 @@ export default function SubscriptionsManagementPage() {
          >
             <DialogContent className="max-w-3xl overflow-auto! rounded-2xl!">
                <DialogHeader>
-                  <DialogTitle className="text-xl font-black tracking-tight">Novo Plano de Assinatura</DialogTitle>
+                  <DialogTitle className="text-xl font-black tracking-tight">
+                     {formData.type === "GYM" ? "Novo Plano para Academias & Franquias" : "Novo Plano para Personal Trainer"}
+                  </DialogTitle>
                </DialogHeader>
                <form onSubmit={handleCreatePlan} className="py-4">
                   <PlanFormFields idPrefix="plan" value={formData} onChange={(updates) => setFormData(prev => ({ ...prev, ...updates }))}>

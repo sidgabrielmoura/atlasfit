@@ -52,7 +52,7 @@ export default async function GymEnrollmentsPage() {
   ])
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6 w-full mx-auto">
       <GymEnrollmentsClient
         workspaceId={context.workspaceId}
         initialData={enrollmentsData}

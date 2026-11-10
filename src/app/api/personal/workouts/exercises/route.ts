@@ -5,6 +5,10 @@ import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
 import { NotificationService } from "@/lib/notifications/service";
 import { NotificationType, NotificationCategory, NotificationPriority } from "@/lib/notifications/types";
+import { publishedExerciseScope } from "@/lib/exercises/catalog-visibility";
+import { findPublicExerciseMatches } from "@/lib/migration/matching/exercise-catalog-matches";
+import { getPublicExerciseCatalog } from "@/lib/cache/public-data";
+import { z } from "zod";
 
 // GET /api/personal/workouts/exercises
 async function handleGET(req: Request) {
@@ -41,6 +45,7 @@ async function handleGET(req: Request) {
 
     const whereClause: any = {
       AND: [
+        publishedExerciseScope,
         {
           OR: [
             { isOfficial: true },
@@ -235,6 +240,11 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
+    if (Array.isArray(body.names)) {
+      const parsed = z.object({ names: z.array(z.string().trim().min(1).max(200)).max(100) }).strict().safeParse(body);
+      if (!parsed.success) return NextResponse.json({ error: { message: "Nomes de exercícios inválidos." } }, { status: 400 });
+      return NextResponse.json({ matches: await findPublicExerciseMatches(parsed.data.names, getPublicExerciseCatalog) }, { headers: { "Cache-Control": "no-store" } });
+    }
     const { name, muscleGroupId, videoUrl } = body;
 
     if (!name || !name.trim()) {

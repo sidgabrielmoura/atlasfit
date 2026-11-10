@@ -1,5 +1,5 @@
 import { timingSafeEqual } from "node:crypto";
-import { settleCreditPurchase } from "@/modules/payments/abacate-confirmation";
+import { assertCreditPaymentAmount, settleCreditPurchase } from "@/modules/payments/abacate-confirmation";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { headers } from "next/headers";
@@ -17,6 +17,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json();
+    if (body.devMode === true && process.env.NODE_ENV === "production") return new NextResponse("Test payment rejected", { status: 422 });
     const event = body?.event;
     const billing = body?.data || body;
 
@@ -43,6 +44,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ received: true });
     }
 
+    try { assertCreditPaymentAmount(purchase, billing.payment || billing); }
+    catch { return new NextResponse("Payment amount mismatch", { status: 409 }); }
     await settleCreditPurchase(purchase.id);
 
     return NextResponse.json({ received: true });

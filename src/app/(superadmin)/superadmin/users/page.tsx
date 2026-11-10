@@ -5,6 +5,7 @@ import { useSnapshot } from "valtio";
 import { useSearchParams } from "next/navigation";
 import { toast } from "sonner";
 import { superAdminStore, superAdminActions } from "@/stores/superadmin.store";
+import { matchesUserDirectoryCategory, matchesUserDirectorySearch, workspaceRoleLabels, type UserWorkspaceContext } from "@/lib/superadmin/user-directory";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -98,7 +99,7 @@ function UsersContent() {
   const initialSearch = searchParams.get("q") || "";
 
   const [searchTerm, setSearchTerm] = useState(initialSearch);
-  const [activeTab, setActiveTab] = useState("personal");
+  const [activeTab, setActiveTab] = useState("all");
   const [onboardingFilter, setOnboardingFilter] = useState("all");
   const [workspaceFilter, setWorkspaceFilter] = useState("all");
   const [dateFilter, setDateFilter] = useState("all");
@@ -223,22 +224,16 @@ function UsersContent() {
 
   const allUsers = snap.users || [];
 
-  const personalUsers = allUsers.filter((u: any) => u.role === "TRAINER");
-  const studentUsers = allUsers.filter((u: any) => u.role === "STUDENT" || u.role === "USER");
-  const superadminUsers = allUsers.filter((u: any) => u.role === "SUPERADMIN");
+  const personalUsers = allUsers.filter(user => matchesUserDirectoryCategory(user, "personal"));
+  const gymUsers = allUsers.filter(user => matchesUserDirectoryCategory(user, "gym"));
+  const studentUsers = allUsers.filter(user => matchesUserDirectoryCategory(user, "aluno"));
+  const superadminUsers = allUsers.filter(user => matchesUserDirectoryCategory(user, "superadmin"));
 
-  const activeTabUsers =
-    activeTab === "personal"
-      ? personalUsers
-      : activeTab === "aluno"
-        ? studentUsers
-        : superadminUsers;
+  const activeTabUsers = allUsers.filter(user => matchesUserDirectoryCategory(user, activeTab));
 
   const filteredUsers = activeTabUsers.filter((u: any) => {
     // 1. Search
-    const matchesSearch =
-      u.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.email?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesSearch = matchesUserDirectorySearch(u, searchTerm);
 
     // 2. Onboarding
     let matchesOnboarding = true;
@@ -251,9 +246,9 @@ function UsersContent() {
     // 3. Workspace
     let matchesWorkspace = true;
     if (workspaceFilter === "with") {
-      matchesWorkspace = u.workspaces && u.workspaces.length > 0;
+      matchesWorkspace = (u.workspaceContexts?.length || 0) > 0;
     } else if (workspaceFilter === "without") {
-      matchesWorkspace = !u.workspaces || u.workspaces.length === 0;
+      matchesWorkspace = !u.workspaceContexts?.length;
     }
 
     // 4. Date
@@ -452,7 +447,13 @@ function UsersContent() {
       </div>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full space-y-6">
-        <TabsList className="grid w-full sm:w-[450px] grid-cols-3 bg-secondary/20 p-1 rounded-xl">
+        <TabsList className="grid w-full grid-cols-2 sm:grid-cols-5 group-data-horizontal/tabs:h-auto bg-secondary/20 p-1 rounded-xl">
+          <TabsTrigger value="all" className="rounded-lg font-bold text-xs">
+            Todos <span className="ml-1.5 text-[9px]">{allUsers.length}</span>
+          </TabsTrigger>
+          <TabsTrigger value="gym" className="rounded-lg font-bold text-xs">
+            Equipe de academias <span className="ml-1.5 text-[9px]">{gymUsers.length}</span>
+          </TabsTrigger>
           <TabsTrigger value="personal" className="rounded-lg font-bold text-xs">
             Personais
             <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-secondary/40 text-[9px] font-black border border-border/20 text-foreground">
@@ -480,7 +481,7 @@ function UsersContent() {
                 <div className="relative w-full sm:col-span-2 lg:col-span-2">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
                   <Input
-                    placeholder="Buscar por nome ou email..."
+                    placeholder="Buscar nome, e-mail ou academia..."
                     className="pl-9 h-10 rounded-xl border-border/60 bg-background text-xs font-semibold w-full"
                     value={searchTerm}
                     onChange={(e) => setSearchTerm(e.target.value)}
@@ -532,7 +533,7 @@ function UsersContent() {
                     <tr className="bg-secondary/5 border-b border-border/40">
                       <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Usuário</th>
                       <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Global Role</th>
-                      <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Workspaces</th>
+                      <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground">Vínculos e funções</th>
                       <th className="px-6 py-4 text-[10px] font-bold uppercase tracking-widest text-muted-foreground text-right">Ações</th>
                     </tr>
                   </thead>
@@ -575,7 +576,12 @@ function UsersContent() {
                             </div>
                           </td>
                           <td className="px-6 py-4 text-xs font-bold text-muted-foreground">
-                            {user.workspaces?.length || 0} ativo(s)
+                            {user.workspaceContexts?.length ? <div className="flex flex-col gap-2">
+                              {user.workspaceContexts.map((context: UserWorkspaceContext) => <div key={context.id} className="flex flex-col gap-0.5">
+                                <Link href={`/superadmin/workspaces/${context.id}`} className="text-foreground hover:underline">{context.name}</Link>
+                                <span className="text-[10px] font-medium">{context.roles.map(role => workspaceRoleLabels[role] || role).join(", ") || "Sem papel ativo"}{!context.isActive || !context.membershipActive ? " · Inativo" : ""}</span>
+                              </div>)}
+                            </div> : "Sem vínculo"}
                           </td>
                           <td className="px-6 py-4 text-right">
                             <DropdownMenu>
@@ -659,7 +665,7 @@ function UsersContent() {
             <CardContent className="pt-4 flex-1 flex flex-col justify-between">
               <div className="h-[200px] w-full min-w-0">
                 {mounted && (
-                  <ResponsiveContainer width="100%" height="100%">
+                  <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                     <AreaChart data={userGrowthData} margin={{ top: 10, right: 5, left: -25, bottom: 0 }}>
                       <defs>
                         <linearGradient id="fillUsers" x1="0" y1="0" x2="0" y2="1">

@@ -9,12 +9,13 @@ import { WorkspaceAccessError, type WorkspaceContext } from "../domain/types";
 import { assertActorAuthority } from "./actor-authority";
 import { createGymIdentityLookup } from "./gym-identity-lookup";
 import type { ListGymStudentsOptions } from "./gym-student-service";
+import { readGymHealthProfile } from "./gym-health-profile";
 
 const studentSelect = {
   id: true, userId: true, workspaceId: true, unitId: true, assignedStaffId: true, plan: true, modality: true, isActive: true, isMinor: true, createdAt: true,
   streak: true, bestStreak: true, progress: true, lastActive: true, canDoAnyWorkoutDay: true,
   billingControlType: true, billingPrice: true, billingPeriodicity: true, billingDueDay: true, billingPaymentMethod: true, billingIsActive: true,
-  user: { select: { id: true, name: true, email: true, cpfCnpj: true, whatsapp: true, birthDate: true, gender: true, image: true, height: true, weight: true, objective: true } },
+  user: { select: { id: true, name: true, email: true, cpfCnpj: true, whatsapp: true, birthDate: true, gender: true, image: true } },
   unit: { select: { id: true, name: true, code: true } },
   assignedStaff: { select: { id: true, workspaceId: true, role: true, user: { select: { name: true } } } },
   studentProfile: { select: { id: true, registrationNumber: true, emergencyContactName: true, emergencyContactPhone: true, medicalClearance: true, medicalClearanceExpiresAt: true, notes: true, privacyRestrictedAt: true, enrolledAt: true, status: true } },
@@ -63,7 +64,6 @@ function dto(member: Student, health: boolean) {
   return {
     id: member.id, userId: member.userId, name: member.user.name || "Aluno", email: member.user.email, cpfCnpj: member.user.cpfCnpj,
     whatsapp: member.user.whatsapp, birthDate: member.user.birthDate, gender: member.user.gender, image: member.user.image,
-    height: member.user.height ?? null, weight: member.user.weight ?? null, objective: member.user.objective || null,
     plan: member.plan, modality: member.modality, isActive: member.isActive, isMinor: member.isMinor, unitId: member.unitId, unit: member.unit,
     streak: member.streak ?? 0, bestStreak: member.bestStreak ?? 0, progress: member.progress ?? 0, lastActive: member.lastActive,
     canDoAnyWorkoutDay: member.canDoAnyWorkoutDay ?? false,
@@ -105,8 +105,11 @@ export async function getGymStudent(workspaceId: string, memberId: string, conte
   if (!student) throw new WorkspaceAccessError(404, "STUDENT_NOT_FOUND", "Aluno indisponível nesta academia ou unidade.");
   const { streak: freshStreak, bestStreak: freshBestStreak } = await verifyAndDecayWorkspaceMemberStreak(student);
   const studentDto = dto(student, scope.canReadHealth(student));
+  const health = studentDto.canReadHealth ? await readGymHealthProfile(workspaceId, student.id, context.userId) : null;
+  const intake = health?.intake && typeof health.intake === "object" && !Array.isArray(health.intake) ? health.intake : {};
   return {
     ...studentDto,
+    ...(health ? { height: health.physicalData.height, weight: health.physicalData.weight, objective: "objective" in intake ? intake.objective : null } : {}),
     streak: freshStreak,
     bestStreak: freshBestStreak,
   };

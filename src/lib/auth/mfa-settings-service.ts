@@ -5,6 +5,7 @@ import { generateBackupCodes, verifyTOTP } from "./totp";
 import { consumeCredentialProof } from "./credential-proof";
 import { resolveAuthenticationPolicy } from "./mfa-service";
 import { mfaSettingsProofKey } from "./mfa-reauthentication";
+import { decryptMfaSecret, encryptMfaSecret, hashMfaBackupCode } from "./mfa-secrets";
 
 const inputSchema = z.discriminatedUnion("operation", [
   z.object({ operation: z.literal("PAIR"), secret: z.string().regex(/^[A-Z2-7]{32}$/), token: z.string().regex(/^\d{6}$/), deviceName: z.string().trim().min(1).max(100).optional() }).strict(),
@@ -35,16 +36,17 @@ export async function mutateMfaSettings(userId: string, sessionVersion: number, 
     let backupCodes: string[] | undefined;
     let remainingCount: number | undefined;
     if (values.operation === "PAIR") {
-      if (user.totpDevices.some(item => item.secret === values.secret)) throw new WorkspaceAccessError(409, "INVALID_REQUEST", "Este autenticador já está cadastrado.");
+      if (user.totpDevices.some(item => decryptMfaSecret(item.secret) === values.secret)) throw new WorkspaceAccessError(409, "INVALID_REQUEST", "Este autenticador já está cadastrado.");
       backupCodes = user.twoFactorBackupCodes.length ? undefined : generateBackupCodes(8);
-      device = await tx.userTotpDevice.create({ data: { userId, secret: values.secret, deviceName: values.deviceName ?? `Aparelho ${user.totpDevices.length + 1}` }, select: { id: true, deviceName: true, createdAt: true, lastUsedAt: true } });
-      await tx.user.update({ where: { id: userId }, data: { twoFactorSecret: values.secret, twoFactorType: "AUTHENTICATOR", twoFactorEnabled: true, threeFactorEnabled: true, ...(backupCodes ? { twoFactorBackupCodes: backupCodes } : {}), sessionVersion: { increment: 1 } } });
+      const encryptedSecret = encryptMfaSecret(values.secret);
+      device = await tx.userTotpDevice.create({ data: { userId, secret: encryptedSecret, deviceName: values.deviceName ?? `Aparelho ${user.totpDevices.length + 1}` }, select: { id: true, deviceName: true, createdAt: true, lastUsedAt: true } });
+      await tx.user.update({ where: { id: userId }, data: { twoFactorSecret: encryptedSecret, twoFactorType: "AUTHENTICATOR", twoFactorEnabled: true, threeFactorEnabled: true, ...(backupCodes ? { twoFactorBackupCodes: backupCodes.map(code => hashMfaBackupCode(userId, code)) } : {}), sessionVersion: { increment: 1 } } });
     } else if (values.operation === "REMOVE") {
       if (!user.totpDevices.some(item => item.id === values.deviceId)) throw new WorkspaceAccessError(404, "RESOURCE_NOT_FOUND", "Aparelho não encontrado nesta conta.");
       await tx.userTotpDevice.delete({ where: { id: values.deviceId } });
       const remaining = user.totpDevices.filter(item => item.id !== values.deviceId);
       remainingCount = remaining.length;
-      await tx.user.update({ where: { id: userId }, data: { twoFactorSecret: remaining[0]?.secret ?? null, ...(remaining.length ? {} : { threeFactorEnabled: false, twoFactorType: "EMAIL", twoFactorBackupCodes: [] }), sessionVersion: { increment: 1 } } });
+      await tx.user.update({ where: { id: userId }, data: { twoFactorSecret: remaining[0] ? encryptMfaSecret(remaining[0].secret) : null, ...(remaining.length ? {} : { threeFactorEnabled: false, twoFactorType: "EMAIL", twoFactorBackupCodes: [] }), sessionVersion: { increment: 1 } } });
     } else if (values.operation === "DISABLE") {
       await tx.userTotpDevice.deleteMany({ where: { userId } });
       await tx.user.update({ where: { id: userId }, data: { twoFactorSecret: null, twoFactorType: "EMAIL", twoFactorEnabled: false, threeFactorEnabled: false, twoFactorBackupCodes: [], sessionVersion: { increment: 1 } } });

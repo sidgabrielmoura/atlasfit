@@ -31,7 +31,7 @@ async function fixture() {
     return prisma.gymEnrollment.create({ data: {
       workspaceId: workspace.id, unitId: unit.id, studentMemberId: target.id, planVersionId: planVersion.id,
       startDate: options.start ?? date("2026-08-01T12:00:00Z"), endDate: options.end === undefined ? date("2027-08-01T12:00:00Z") : options.end,
-      status: options.status ?? "ACTIVE", priceInCents: options.price ?? BigInt(1000),
+      status: options.status ?? "ACTIVE", autoRenew: false, priceInCents: options.price ?? BigInt(1000),
       activatedAt: options.activation === undefined ? date("2026-08-01T12:00:00Z") : options.activation,
       cancelledAt: options.cancellation, supersedesEnrollmentId: options.previous, changeKind: options.kind,
       createdAt: options.created ?? date("2026-07-30T12:00:00Z"),

@@ -161,7 +161,7 @@ export function EditUserDialog({
 
   return (
     <Dialog open={open} onOpenChange={(v) => !isSubmitting && onOpenChange(v)}>
-      <DialogContent className="sm:max-w-[620px] max-h-[90vh] overflow-y-auto rounded-3xl! border-border/60 bg-background/95 backdrop-blur-xl shadow-2xl p-6">
+      <DialogContent className="sm:max-w-155 max-h-[90vh] overflow-y-auto! rounded-3xl! border-border/60 bg-background/95 backdrop-blur-xl shadow-2xl p-6">
         <DialogHeader className="space-y-1.5 border-b border-border/40 pb-4">
           <div className="flex items-center gap-2.5">
             <div className="p-2 rounded-xl bg-primary/10 text-primary border border-primary/20">

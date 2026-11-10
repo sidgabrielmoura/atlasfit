@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, use } from "react";
+import { useState, useEffect, useRef, use } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -93,11 +93,13 @@ export default function GymWorkoutDetailsPage({ params }: GymWorkoutDetailsPageP
   const [selectedStudentId, setSelectedStudentId] = useState("");
   const [selectedDayOfWeek, setSelectedDayOfWeek] = useState("FREE");
   const [submittingAssignment, setSubmittingAssignment] = useState(false);
+  const assignmentAttempt = useRef<{ payload: string; key: string } | null>(null);
 
   const fetchWorkoutDetails = async () => {
+    if (!activeWorkspaceId) return;
     try {
       setLoading(true);
-      const res = await fetch(`/api/gym/workouts/${id}`);
+      const res = await fetch(`/api/gym/workouts/${id}?workspaceId=${activeWorkspaceId}`);
       if (!res.ok) {
         throw new Error("Erro ao carregar detalhes do treino.");
       }
@@ -113,7 +115,7 @@ export default function GymWorkoutDetailsPage({ params }: GymWorkoutDetailsPageP
 
   useEffect(() => {
     fetchWorkoutDetails();
-  }, [id]);
+  }, [id, activeWorkspaceId]);
 
   const handleOpenAssignModal = async () => {
     setIsAssignModalOpen(true);
@@ -142,16 +144,13 @@ export default function GymWorkoutDetailsPage({ params }: GymWorkoutDetailsPageP
 
     try {
       setSubmittingAssignment(true);
+      const intent = { workspaceId: activeWorkspaceId, studentMemberId: selectedStudentId, templateWorkoutId: workout.id, dayOfWeek: selectedDayOfWeek !== "FREE" ? Number(selectedDayOfWeek) : null };
+      const payload = JSON.stringify(intent);
+      if (assignmentAttempt.current?.payload !== payload) assignmentAttempt.current = { payload, key: crypto.randomUUID() };
       const res = await fetch("/api/gym/workouts/assign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          workspaceId: activeWorkspaceId,
-          studentMemberId: selectedStudentId,
-          templateWorkoutId: workout.id,
-          idempotencyKey: crypto.randomUUID(),
-          dayOfWeek: selectedDayOfWeek !== "FREE" ? Number(selectedDayOfWeek) : null,
-        }),
+        body: JSON.stringify({ ...intent, idempotencyKey: assignmentAttempt.current.key }),
       });
 
       if (!res.ok) {
@@ -159,6 +158,7 @@ export default function GymWorkoutDetailsPage({ params }: GymWorkoutDetailsPageP
       }
 
       toast.success("Treino prescrito com sucesso para o aluno!");
+      assignmentAttempt.current = null;
       setIsAssignModalOpen(false);
       setSelectedStudentId("");
     } catch (err: any) {
@@ -192,7 +192,7 @@ export default function GymWorkoutDetailsPage({ params }: GymWorkoutDetailsPageP
   const handleConfirmDelete = async () => {
     try {
       setIsDeleting(true);
-      const res = await fetch(`/api/gym/workouts/${id}`, {
+      const res = await fetch(`/api/gym/workouts/${id}?workspaceId=${activeWorkspaceId}`, {
         method: "DELETE",
       });
       if (!res.ok) {

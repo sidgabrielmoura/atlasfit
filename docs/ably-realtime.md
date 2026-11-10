@@ -31,9 +31,9 @@ O **Ably** é a espinha dorsal de comunicação em tempo real da plataforma Atla
 - **Padrão de Confiabilidade (Transactional Outbox):**
   1. Quando uma notificação in-app é criada via `enqueueNotification`, ela é persistida na tabela `DeliveryOutbox` no PostgreSQL com `channel = "ABLY"` e payload cifrado.
   2. Logo após a confirmação (`commit`) da transação no banco, a função `triggerOutboxProcessing()` é executada em segundo plano.
-  3. No Next.js (App Router), utiliza a API `after()` de `next/server` para manter o ambiente serverless ativo até o envio da mensagem. Em testes ou fora do contexto de requisição, utiliza `setImmediate()`.
+  3. No Next.js (App Router), utiliza a API `after()` de `next/server`. Fora do contexto de requisição, utiliza `setImmediate()`. `OUTBOX_REACTIVE_PROCESSING=false` desativa somente o disparo reativo, permitindo testes controlados ou operação exclusivamente pelo cron.
   4. O trabalhador recupera a mensagem com `SELECT FOR UPDATE`, decodifica o payload, valida com schema Zod e publica no Ably via `ablyRest.channels.get(channelName).publish(...)`.
-  5. **Vantagem:** O usuário recebe o evento na tela em **menos de 100 milissegundos**, com total garantia ACID e sem precisar esperar nenhum cron job de polling.
+  5. O commit preserva a intenção de entrega de forma atômica; a publicação ocorre depois e pode falhar. O disparo reativo processa até dois lotes de 25, e o cron recupera backlog e retries. A latência até o consumidor precisa ser medida no ambiente publicado; não há garantia de 100 ms ou de exibição ao usuário.
 
 ---
 
@@ -56,6 +56,16 @@ O **Ably** é a espinha dorsal de comunicação em tempo real da plataforma Atla
 - Registra status `online` com `userId`, `userName` e papel do membro.
 - O componente de presença atualiza dinamicamente avatares e listas de usuários conectados.
 
+### 3.3. Importação assistida sem polling
+
+A etapa de **confirmação/criação dos alunos** usa o stream da própria requisição HTTP, sem eventos Ably. Veja [a arquitetura e os limites da confirmação](./assisted-import-commit.md). Os canais abaixo continuam restritos à extração, processamento das fontes e consumo de créditos.
+
+- O [hook compartilhado](../src/hooks/use-import-realtime.ts) inscreve dashboard, revisão e indicador de coins nos canais autorizados pelo token. [Dashboard](../src/components/migration/migration-dashboard-view.tsx) e [revisão](../src/components/migration/migration-review-view.tsx) aplicam `job_updated` ao estado React, preservando os cards e formulários abertos. Não há consultas periódicas nem `router.refresh()` para acompanhar processamento.
+- A API fornece o estado inicial. Ao conectar o canal pela primeira vez, ou receber `attached`/`update` com `resumed: false`, cada consumidor faz uma sincronização HTTP discreta para cobrir mensagens perdidas. Reconexões com continuidade são recuperadas pelo SDK. A tela conserva os dados existentes e informa quando o tempo real está indisponível; não reativa skeletons durante sincronizações.
+- O [controle de atualizações](../src/lib/migration/realtime.ts) preserva eventos recebidos enquanto uma consulta HTTP estava em andamento. Respostas de outro workspace, requisições substituídas e callbacks de assinaturas encerradas são descartados. A limpeza remove somente os próprios handlers, sem destacar canais compartilhados com alertas globais.
+- Após persistir cada débito e o consumo do job, o [serviço de extração](../src/lib/migration/extraction.service.ts) publica o saldo por meio de [credit-realtime.service.ts](../src/lib/migration/credit-realtime.service.ts). Dashboard e [badge de coins](../src/components/application/personal-coins-badge.tsx) aplicam os valores recebidos diretamente. Falhas de publicação não interrompem débitos já confirmados. O saldo da academia pertence ao workspace; o saldo do personal circula exclusivamente no canal privado do usuário que pagou.
+- O evento contém somente identificadores, saldo/franquia e dados operacionais de progresso. Os registros de alunos e treinos continuam sendo obtidos pela API autenticada. Ao chegar a revisão, pausa ou falha, os registros são buscados uma vez, sem desmontar a interface; eventos repetidos com os mesmos contadores não repetem essa busca.
+
 ---
 
 ## 4. Catálogo de Canais e Eventos
@@ -77,8 +87,9 @@ A tabela abaixo lista todos os canais e eventos utilizados no AtlasFit:
 | `workspace:<workspaceId>:chat` | `conversation:new` | `/api/chat/conversations` | Lista de Conversas | Insere nova conversa iniciada no topo da listagem. |
 | `workspace:<workspaceId>:chat` | `conversation:update` | `/api/chat/messages` | Lista de Conversas | Atualiza preview da última mensagem e contador de não lidas. |
 | `workspace:<workspaceId>:presence` | Presença (enter/leave) | [`src/providers/ably-provider.tsx`](file:///c:/Users/gabriel/development/atlasfit/src/providers/ably-provider.tsx) | Barra lateral e cabeçalhos | Indica membros e instrutores atualmente conectados no workspace. |
-| `migration:<workspaceId>` | `job_updated` | [`src/lib/migration/extraction.service.ts`](file:///c:/Users/gabriel/development/atlasfit/src/lib/migration/extraction.service.ts) | Tela de Migração de Dados | Atualiza barra de progresso e porcentagem de importação de planilhas. |
+| `migration:<workspaceId>` | `job_updated` | [`src/lib/migration/extraction.service.ts`](file:///c:/Users/gabriel/development/atlasfit/src/lib/migration/extraction.service.ts) | Dashboard e Revisão de Migração no Personal ([`src/app/(personal)/personal/clients/migrate/page.tsx`](file:///c:/Users/gabriel/development/atlasfit/src/app/(personal)/personal/clients/migrate/page.tsx), [`[id]/page.tsx`](file:///c:/Users/gabriel/development/atlasfit/src/app/(personal)/personal/clients/migrate/[id]/page.tsx)) e na Academia ([`src/app/(gym)/gym/import/page.tsx`](file:///c:/Users/gabriel/development/atlasfit/src/app/(gym)/gym/import/page.tsx), [`[id]/page.tsx`](file:///c:/Users/gabriel/development/atlasfit/src/app/(gym)/gym/import/[id]/page.tsx)) via componentes reutilizáveis ([`migration-dashboard-view.tsx`](file:///c:/Users/gabriel/development/atlasfit/src/components/migration/migration-dashboard-view.tsx), [`migration-review-view.tsx`](file:///c:/Users/gabriel/development/atlasfit/src/components/migration/migration-review-view.tsx)) | Notifica atualizações em tempo real do processamento de migração/importação: status (`UPLOADED`, `PROCESSING`, `REVIEW`, `PARTIAL`, `COMPLETED`, `FAILED`), porcentagem de progresso, créditos consumidos dinamicamente (`creditsConsumed`), motivo de pausa (`pauseReason`: `CREDITS_EXHAUSTED` ou `MANUAL_PAUSE`) e mensagem de progresso. |
 | `roadmap:features` | `feature-voted` | `/api/roadmap/features/[id]/vote` | Página Pública de Roadmap | Incrementa contagem de votos ao vivo. |
+| `migration:<workspaceId>` (academia) / `user:<userId>` (personal) | `import:credits_updated` | [credit-realtime.service.ts](../src/lib/migration/credit-realtime.service.ts), após débito na [extração](../src/lib/migration/extraction.service.ts) | [useImportCreditRealtime](../src/hooks/use-import-realtime.ts), dashboard e badge de coins | Entrega `{ workspaceId, quotaBalance }` com o saldo atual após consumo, incluindo franquia usada/total e créditos avulsos. Usa capabilities existentes, sem conceder publicação ao cliente. |
 | `roadmap:polls` | `poll-voted` | `/api/roadmap/polls/active` | Widget de Enquetes | Atualiza porcentagem de votos da enquete ao vivo. |
 | `adjustment-request-<requestId>` | `new_message` | `/api/personal/workouts/.../messages` | Modal de Ajuste de Treino | Troca de mensagens entre aluno e personal sobre ajustes em exercícios. |
 

@@ -17,7 +17,8 @@ import {
   ArrowRight,
   Sparkles,
   Info,
-  Loader2
+  Loader2,
+  SkipForward
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -299,6 +300,29 @@ export default function StudentHistoryPage() {
                                 {log.workout?.name || "Treino Realizado"}
                               </h3>
                               {getEffortBadge(log.effortScore)}
+                              {(() => {
+                                const skipped = (typeof log.skippedExercises === "string" ? JSON.parse(log.skippedExercises || "{}") : (log.skippedExercises || {})) as Record<string, any>;
+                                const skippedEntries = Object.entries(skipped);
+                                if (skippedEntries.length === 0) return null;
+                                const skippedCount = skippedEntries.filter(([_, v]) => v?.status === "SKIPPED" || (!v?.status && !v?.postponed)).length;
+                                const postponedCount = skippedEntries.filter(([_, v]) => v?.status === "POSTPONED" || Boolean(v?.postponed)).length;
+                                return (
+                                  <>
+                                    {skippedCount > 0 && (
+                                      <Badge variant="secondary" className="text-[10px] bg-secondary text-muted-foreground border border-border/40 gap-1 font-medium">
+                                        <SkipForward className="size-3" />
+                                        {skippedCount} {skippedCount === 1 ? "pulado" : "pulados"}
+                                      </Badge>
+                                    )}
+                                    {postponedCount > 0 && (
+                                      <Badge variant="secondary" className="text-[10px] bg-secondary text-foreground border border-border/40 gap-1 font-medium">
+                                        <Clock className="size-3" />
+                                        {postponedCount} {postponedCount === 1 ? "feito depois" : "feitos depois"}
+                                      </Badge>
+                                    )}
+                                  </>
+                                );
+                              })()}
                             </div>
                             <p className="text-xs text-neutral-400 font-semibold flex items-center gap-1.5 leading-none">
                               <Calendar className="size-3.5 text-primary" /> {formatDate(log.completedAt)}
@@ -401,6 +425,46 @@ export default function StudentHistoryPage() {
                   </div>
                 )}
 
+                {/* Skipped and Postponed Exercises Summary */}
+                {(() => {
+                  const skipped = (typeof selectedLog.skippedExercises === "string" ? JSON.parse(selectedLog.skippedExercises || "{}") : (selectedLog.skippedExercises || {})) as Record<string, any>;
+                  const skippedEntries = Object.entries(skipped);
+                  if (skippedEntries.length === 0) return null;
+                  const skippedCount = skippedEntries.filter(([_, v]) => v?.status === "SKIPPED" || (!v?.status && !v?.postponed)).length;
+                  const postponedCount = skippedEntries.filter(([_, v]) => v?.status === "POSTPONED" || Boolean(v?.postponed)).length;
+
+                  return (
+                    <div className="space-y-2">
+                      {skippedCount > 0 && (
+                        <div className="p-3 rounded-xl bg-secondary/30 border border-border/50 space-y-1 text-xs">
+                          <div className="flex items-center gap-1.5 text-muted-foreground font-medium">
+                            <SkipForward className="size-3.5 shrink-0 text-muted-foreground" />
+                            <h4 className="text-xs font-bold uppercase tracking-wide">
+                              {skippedCount} {skippedCount === 1 ? "exercício foi pulado" : "exercícios foram pulados"}
+                            </h4>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground leading-relaxed">
+                            Os exercícios pulados e suas justificativas ficam registrados no seu histórico e visíveis para o seu treinador.
+                          </p>
+                        </div>
+                      )}
+                      {postponedCount > 0 && (
+                        <div className="p-3 rounded-xl bg-secondary/30 border border-border/50 space-y-1 text-xs">
+                          <div className="flex items-center gap-1.5 text-foreground font-medium">
+                            <Clock className="size-3.5 shrink-0 text-muted-foreground" />
+                            <h4 className="text-xs font-bold uppercase tracking-wide">
+                              {postponedCount} {postponedCount === 1 ? "exercício feito fora da ordem" : "exercícios feitos fora da ordem"}
+                            </h4>
+                          </div>
+                          <p className="text-[11px] text-muted-foreground leading-relaxed">
+                            A ordem de execução e quantos exercícios você realizou antes de cada um ficam disponíveis para você e seu personal.
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 {/* Exercises logged list */}
                 <div className="space-y-4">
                   <h4 className="text-[10px] font-black uppercase tracking-wider text-neutral-400">
@@ -415,33 +479,91 @@ export default function StudentHistoryPage() {
                         const weLoads = loads?.[we.id] || [];
                         const weReps = reps?.[we.id] || [];
 
+                        const skipped = (typeof selectedLog.skippedExercises === "string" ? JSON.parse(selectedLog.skippedExercises || "{}") : (selectedLog.skippedExercises || {})) as Record<string, any>;
+                        const skipInfo = skipped?.[we.id];
+                        const isPostponed = skipInfo?.status === "POSTPONED" || Boolean(skipInfo?.postponed);
+                        const isSkipped = !!skipInfo && !isPostponed;
+
                         return (
                           <div key={we.id} className="p-4 rounded-xl border border-border dark:border-white/[0.04] bg-card dark:bg-neutral-950/60 space-y-2.5">
-                            <div className="flex justify-between items-start">
+                            <div className="flex justify-between items-start gap-2">
                               <span className="font-extrabold text-sm text-foreground flex items-center gap-2 min-w-0">
                                 <span className="size-5 rounded-md bg-secondary text-[11px] flex items-center justify-center font-black text-primary shrink-0">
                                   {idx + 1}
                                 </span>
                                 <span className="truncate">{we.exercise.name}</span>
                               </span>
-                              <span className="text-[10px] font-black uppercase text-muted-foreground dark:text-neutral-500 shrink-0">
-                                {we.sets} séries
-                              </span>
+                              <div className="flex items-center gap-1.5 shrink-0">
+                                {isSkipped ? (
+                                  <Badge variant="secondary" className="text-[10px] bg-secondary text-muted-foreground border border-border/40 gap-1 font-medium">
+                                    <SkipForward className="size-3" />
+                                    Pulado
+                                  </Badge>
+                                ) : isPostponed ? (
+                                  <Badge variant="secondary" className="text-[10px] bg-secondary text-foreground border border-border/40 gap-1 font-medium">
+                                    <Clock className="size-2.5" />
+                                    {skipInfo.completed ? `Feito depois (#${skipInfo.executedOrder || "?"})` : "Feito depois"}
+                                  </Badge>
+                                ) : null}
+                                <span className="text-[10px] font-black uppercase text-muted-foreground dark:text-neutral-500">
+                                  {we.sets} séries
+                                </span>
+                              </div>
                             </div>
 
-                            <div className="grid grid-cols-1 gap-1.5 pt-1.5 border-t border-border dark:border-white/[0.03]">
-                              {Array.from({ length: we.sets }).map((_, setIdx) => {
-                                const load = weLoads[setIdx] || "—";
-                                const rep = weReps[setIdx] || "—";
-                                return (
-                                  <div key={setIdx} className="flex justify-between items-center text-xs bg-muted dark:bg-neutral-900/40 p-2.5 rounded-lg border border-border dark:border-white/[0.03]">
-                                    <span className="font-bold text-muted-foreground dark:text-neutral-450">Série {setIdx + 1}</span>
-                                    <span className="font-extrabold text-foreground">{load} kg</span>
-                                    <span className="font-bold text-primary">{rep} reps</span>
-                                  </div>
-                                );
-                              })}
-                            </div>
+                            {isSkipped && (
+                              <div className="p-2.5 rounded-lg bg-secondary/30 border border-border/40 text-xs space-y-0.5">
+                                <p className="text-[11px] font-medium text-muted-foreground flex items-center gap-1.5">
+                                  <SkipForward className="size-3 shrink-0 text-muted-foreground" />
+                                  Justificativa informada:
+                                </p>
+                                <p className="text-xs text-muted-foreground italic pl-4">
+                                  "{skipInfo.reason || 'Sem justificativa informada'}"
+                                </p>
+                              </div>
+                            )}
+
+                            {isPostponed && (
+                              <div className="p-2.5 rounded-lg bg-secondary/30 border border-border/40 text-xs space-y-1">
+                                <div className="flex items-center justify-between text-[11px] text-muted-foreground flex-wrap gap-1">
+                                  <span>
+                                    Ordem planejada: <strong>#{skipInfo.originalOrder || idx + 1}</strong>
+                                    {skipInfo.executedOrder ? <> → Ordem executada: <strong>#{skipInfo.executedOrder}º</strong></> : null}
+                                  </span>
+                                  {skipInfo.exercisesDoneBeforeCount !== undefined && (
+                                    <span>
+                                      <strong>{skipInfo.exercisesDoneBeforeCount}</strong> {skipInfo.exercisesDoneBeforeCount === 1 ? "exercício feito antes" : "exercícios feitos antes"}
+                                    </span>
+                                  )}
+                                </div>
+                                {skipInfo.reason && (
+                                  <p className="text-xs text-muted-foreground italic">
+                                    Motivo: "{skipInfo.reason}"
+                                  </p>
+                                )}
+                                {skipInfo.exercisesDoneBeforeNames && skipInfo.exercisesDoneBeforeNames.length > 0 && (
+                                  <p className="text-[10px] text-muted-foreground">
+                                    Feitos antes: {skipInfo.exercisesDoneBeforeNames.join(", ")}
+                                  </p>
+                                )}
+                              </div>
+                            )}
+
+                            {!isSkipped && (
+                              <div className="grid grid-cols-1 gap-1.5 pt-1.5 border-t border-border dark:border-white/[0.03]">
+                                {Array.from({ length: we.sets }).map((_, setIdx) => {
+                                  const load = weLoads[setIdx] || "—";
+                                  const rep = weReps[setIdx] || "—";
+                                  return (
+                                    <div key={setIdx} className="flex justify-between items-center text-xs bg-muted dark:bg-neutral-900/40 p-2.5 rounded-lg border border-border dark:border-white/[0.03]">
+                                      <span className="font-bold text-muted-foreground dark:text-neutral-450">Série {setIdx + 1}</span>
+                                      <span className="font-extrabold text-foreground">{load} kg</span>
+                                      <span className="font-bold text-primary">{rep} reps</span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            )}
                           </div>
                         );
                       })}

@@ -27,7 +27,8 @@ describe("Realtime — contexto selecionado", () => {
     expect(gymCaps[`conversation:${second.id}`]).toEqual(["subscribe"]);
     expect(gymCaps[`conversation:${first.id}`]).toBeUndefined();
     expect(gymCaps[`workspace:${personal.id}`]).toBeUndefined();
-    expect(gymCaps[`migration:${gym.id}`]).toBeUndefined();
+    expect(gymCaps[`migration:${gym.id}`]).toEqual(["subscribe"]);
+    expect(gymCaps[`migration:${personal.id}`]).toBeUndefined();
     await prisma.workspaceMember.update({ where: { userId_workspaceId: { userId: user.id, workspaceId: personal.id } }, data: { isActive: false } });
     const revoked = await resolveRealtimeCapabilities(user.id, personal.id);
     expect(Object.keys(revoked).some(name => name.includes(personal.id) || name.includes(first.id))).toBe(false);

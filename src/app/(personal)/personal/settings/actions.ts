@@ -19,7 +19,6 @@ export async function updateProfile(data: {
   experience?: string;
   cref?: string;
 }) {
-  const restricted = await personalCommercialContextResponse(); if (restricted) throw new Error("Selecione sua assessoria própria para editar o perfil.");
   const session = await auth();
   if (!session || !session.user || !session.user.id) {
     throw new Error("Não autorizado");

@@ -1,5 +1,6 @@
 import crypto from "crypto";
 import QRCode from "qrcode";
+import { decryptMfaSecret } from "./mfa-secrets";
 
 // Base32 character set according to RFC 4648
 const BASE32_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
@@ -98,7 +99,7 @@ export function generateTOTPToken(
   timeStepOffset: number = 0,
   stepSeconds: number = 30
 ): string {
-  const key = base32Decode(secret);
+  const key = base32Decode(decryptMfaSecret(secret));
   const epochSeconds = Math.floor(Date.now() / 1000);
   const counter = Math.floor(epochSeconds / stepSeconds) + timeStepOffset;
 

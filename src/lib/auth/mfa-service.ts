@@ -4,6 +4,7 @@ import { resolveAccessRoles } from "@/modules/workspaces/domain/access-roles";
 import { serializableTransaction, type GymTransactionClient } from "@/modules/workspaces/application/transaction";
 import { generateTOTPToken } from "./totp";
 import { permitsOwnAccount } from "./account-eligibility";
+import { encryptMfaSecret, hashMfaBackupCode, mfaSecretFingerprint } from "./mfa-secrets";
 
 export async function resolveAuthenticationPolicy(userId: string, db: GymTransactionClient = prisma) {
   const user = await db.user.findUnique({ where: { id: userId }, select: { id: true, email: true, role: true, password: true, sessionVersion: true, twoFactorEnabled: true, twoFactorType: true, twoFactorSecret: true, threeFactorEnabled: true, totpDevices: { select: { id: true, secret: true } } } });
@@ -75,7 +76,7 @@ export async function consumeAuthenticatorFactor(userId: string, identifier: str
       for (const device of devices) {
         for (const offset of [-1, 0, 1]) {
           if (generateTOTPToken(device.secret, offset) !== clean) continue;
-          const usedIdentifier = `TOTP_USED:${userId}:${device.id}:${counter + offset}`;
+          const usedIdentifier = `TOTP_USED:${userId}:${mfaSecretFingerprint(device.secret)}:${counter + offset}`;
           if (await tx.verificationToken.findFirst({ where: { identifier: usedIdentifier } })) return false;
           await tx.verificationToken.create({ data: { identifier: usedIdentifier, token: digest(usedIdentifier, "used"), expires: new Date(Date.now() + 120000) } });
           if (device.id !== "LEGACY") await tx.userTotpDevice.update({ where: { id: device.id }, data: { lastUsedAt: new Date() } });
@@ -84,11 +85,16 @@ export async function consumeAuthenticatorFactor(userId: string, identifier: str
         }
         if (valid) break;
       }
-    } else if (user.twoFactorBackupCodes.includes(clean)) {
-      const updated = await tx.user.updateMany({ where: { id: userId, twoFactorBackupCodes: { has: clean } }, data: { twoFactorBackupCodes: user.twoFactorBackupCodes.filter(value => value !== clean) } });
+    } else if (user.twoFactorBackupCodes.some(value => value === clean || value === hashMfaBackupCode(userId, clean))) {
+      const stored = user.twoFactorBackupCodes.find(value => value === clean || value === hashMfaBackupCode(userId, clean))!;
+      const updated = await tx.user.updateMany({ where: { id: userId, twoFactorBackupCodes: { has: stored } }, data: { twoFactorBackupCodes: user.twoFactorBackupCodes.filter(value => value !== stored).map(value => value.startsWith("sha256:") ? value : hashMfaBackupCode(userId, value)) } });
       valid = updated.count === 1;
     }
     if (!valid) return false;
+    // A successful TOTP login also minimizes retained legacy recovery codes.
+    if (/^\d{6}$/.test(clean) && user.twoFactorBackupCodes.some(value => !value.startsWith("sha256:"))) await tx.user.update({ where: { id: userId }, data: { twoFactorBackupCodes: user.twoFactorBackupCodes.map(value => value.startsWith("sha256:") ? value : hashMfaBackupCode(userId, value)) } });
+    if (user.twoFactorSecret && !user.twoFactorSecret.startsWith("mfa:v1:")) await tx.user.update({ where: { id: userId }, data: { twoFactorSecret: encryptMfaSecret(user.twoFactorSecret) } });
+    for (const device of user.totpDevices) if (!device.secret.startsWith("mfa:v1:")) await tx.userTotpDevice.update({ where: { id: device.id }, data: { secret: encryptMfaSecret(device.secret) } });
     if (requireEmailProof && (await tx.verificationToken.deleteMany({ where: { identifier: next, expires: { gt: new Date() } } })).count !== 1) throw new Error("Prova de e-mail consumida simultaneamente.");
     return true;
   });

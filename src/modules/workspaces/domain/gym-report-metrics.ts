@@ -29,6 +29,7 @@ interface Transition {
   id: string;
 }
 export interface ReportContract {
+  autoRenew?: boolean;
   id: string;
   studentMemberId: string;
   status: GymEnrollmentStatus;
@@ -65,7 +66,7 @@ export function contractStateAt(contract: ReportContract, at: Date): GymEnrollme
     else if (["DRAFT", "PENDING_ACCEPTANCE", "PENDING_ACTIVATION"].includes(contract.status)) state = contract.status;
   }
   if ((state === "ACTIVE" || state === "PAUSED") && contract.cancellationEffectiveDate && contract.cancellationEffectiveDate <= at) return "CANCELLED";
-  if ((state === "ACTIVE" || state === "PAUSED") && contract.endDate && contract.endDate <= at) return "EXPIRED";
+  if ((state === "ACTIVE" || state === "PAUSED") && !contract.autoRenew && contract.endDate && contract.endDate <= at) return "EXPIRED";
   return state;
 }
 

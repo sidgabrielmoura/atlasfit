@@ -37,7 +37,7 @@ function parse<T>(schema: z.ZodType<T>, value: unknown): T {
 async function assertGymPlanAuthority(tx: GymTransactionClient, workspaceId: string, actorUserId: string) {
   const workspace = await tx.workspace.findUnique({ where: { id: workspaceId }, select: { type: true } });
   if (!workspace || workspace.type !== "GYM") throw new WorkspaceAccessError(404, "WORKSPACE_NOT_FOUND", "Academia não encontrada.");
-  await assertActorAuthority(tx, workspaceId, actorUserId, "enrollments.manage");
+  await assertActorAuthority(tx, workspaceId, actorUserId, "workspace.manage");
 }
 export class GymPlanService {
   static serializePlanVersion<T extends Pick<GymPlanVersion, "priceInCents" | "enrollmentFeeInCents"> & Partial<Pick<GymPlanVersion, "classCreditsPerCycle" | "allowedTimeStart" | "allowedTimeEnd" | "allowedDaysOfWeek" | "allowsAllUnits">>>(version: T) {
@@ -90,10 +90,10 @@ export class GymPlanService {
       await getGymUnitAccess(tx, workspaceId, actorUserId, "enrollments.read");
       const where = { workspaceId, ...(query.status === "INACTIVE" ? { isActive: false } : query.status === "ACTIVE" || !query.includeInactive ? { isActive: true } : {}), ...(query.search ? { OR: [{ name: { contains: query.search, mode: "insensitive" as const } }, { description: { contains: query.search, mode: "insensitive" as const } }] } : {}) };
       const total = await tx.gymPlan.count({ where });
-      const plans = await tx.gymPlan.findMany({ where, take: query.limit, skip: (query.page-1)*query.limit, orderBy: [{createdAt:"desc"},{id:"desc"}], include: { versions: { where: { isActive: true }, orderBy: { version:"desc" }, take:1, select: { id:true, planId:true, version:true, name:true, description:true, priceInCents:true, enrollmentFeeInCents:true, billingCycle:true, durationDays:true, termsText:true, termsVersion:true, isActive:true, createdAt:true } } } });
+      const plans = await tx.gymPlan.findMany({ where, take: query.limit, skip: (query.page-1)*query.limit, orderBy: [{createdAt:"desc"},{id:"desc"}], include: { versions: { where: { isActive: true }, orderBy: { version:"desc" }, take:1, select: { id:true, planId:true, version:true, name:true, description:true, priceInCents:true, enrollmentFeeInCents:true, billingCycle:true, durationDays:true, termsVersion:true, isActive:true, createdAt:true } } } });
       const counts = plans.length ? await tx.$queryRaw<Array<{ planId: string; count: bigint }>>(Prisma.sql`SELECT v."planId",count(*)::bigint AS count FROM "GymEnrollment" e JOIN "GymPlanVersion" v ON v.id=e."planVersionId" WHERE e."workspaceId"=${workspaceId} AND e.status='ACTIVE' AND v."planId" IN (${Prisma.join(plans.map(plan=>plan.id))}) GROUP BY v."planId"`) : [];
       return { plans: plans.map(plan => {
-        const versions = plan.versions.map(version=>GymPlanService.serializePlanVersion({...version, termsText: version.termsText || ""}));
+        const versions = plan.versions.map(version=>GymPlanService.serializePlanVersion({...version, termsText: ""}));
         return { ...plan, versions, activeVersion: plan.isActive ? versions[0] ?? null : null, totalActiveEnrollments: safeCentsNumber(counts.find(row=>row.planId===plan.id)?.count ?? BigInt(0)) };
       }), pagination: { page:query.page,limit:query.limit,total,totalPages:Math.ceil(total/query.limit) } };
     });

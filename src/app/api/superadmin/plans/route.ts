@@ -13,37 +13,18 @@ async function handleGET() {
   }
 
   try {
-    let plans: any[];
-    try {
-      plans = await prisma.plan.findMany({
-        where: { customWorkspaceId: null },
-        include: {
-          _count: {
-            select: { subscriptions: { where: { status: { in: ["active", "ACTIVE"] } } } }
-          }
-        }
-      });
-    } catch (err) {
-      plans = await prisma.plan.findMany({
-        where: { customWorkspaceId: null },
-        select: {
-          id: true,
-          name: true,
-          price: true,
-          interval: true,
-          features: true,
-          imageUrl: true,
-          maxWorkspaces: true,
-          maxStudents: true,
-          importQuota: true,
-          storageLimitMb: true,
-          paymentMethods: true,
-          _count: {
-            select: { subscriptions: { where: { status: { in: ["active", "ACTIVE"] } } } }
-          }
-        }
-      });
-    }
+    const plans = await prisma.plan.findMany({
+      where: { customWorkspaceId: null },
+      include: {
+        _count: {
+          select: {
+            subscriptions: { where: { status: { in: ["active", "ACTIVE"] } } },
+            workspaceSubscriptions: { where: { status: { in: ["ACTIVE", "TRIAL"] } } },
+          },
+        },
+      },
+      orderBy: { price: "asc" },
+    });
     return NextResponse.json(plans);
   } catch (error) {
     await logSystemError({ action: "GET_PLANS", error, entity: "PLAN" });
@@ -61,11 +42,13 @@ export async function POST(req: Request) {
 
   try {
     const body = await req.json();
-    const { name, price, interval, features, maxWorkspaces, maxStudents, importQuota, storageLimitMb, paymentMethods, imageUrl } = body;
+    const { name, price, interval, features, maxWorkspaces, maxStudents, maxStaff, importQuota, storageLimitMb, paymentMethods, imageUrl, type } = body;
 
     if (!name || price === undefined) {
       return new NextResponse("Missing required fields", { status: 400 });
     }
+
+    const planType = type === "GYM" ? "GYM" : "PERSONAL";
 
     const plan = await prisma.plan.create({
       data: {
@@ -73,8 +56,10 @@ export async function POST(req: Request) {
         price: parseFloat(price),
         interval: interval || "month",
         features,
+        type: planType,
         imageUrl: imageUrl ? imageUrl.trim() : null,
         maxWorkspaces: maxWorkspaces !== undefined ? parseInt(maxWorkspaces) : 1,
+        maxStaff: maxStaff !== undefined && maxStaff !== "" && maxStaff !== null ? parseInt(maxStaff) : (planType === "GYM" ? 10 : null),
         maxStudents: maxStudents !== undefined && maxStudents !== "" && maxStudents !== null ? parseInt(maxStudents) : null,
         importQuota: importQuota !== undefined && importQuota !== "" && importQuota !== null ? parseInt(importQuota) : 25,
         storageLimitMb: storageLimitMb !== undefined && storageLimitMb !== "" && storageLimitMb !== null ? parseInt(storageLimitMb) : 1024,

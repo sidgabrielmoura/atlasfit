@@ -43,8 +43,8 @@ export async function gymReportContractAggregates(tx: GymTransactionClient, inpu
     ), facts AS (
       SELECT c.*, h.*, past.state AS past_state, future.state AS future_state,
         COALESCE(h.cancel_date,c."cancellationEffectiveDate",c."cancelledAt") AS cancel_date_fact,
-        (c.status='ACTIVE' AND c."startDate"<=${now} AND (c."endDate" IS NULL OR c."endDate">${now}) AND (c."cancellationEffectiveDate" IS NULL OR c."cancellationEffectiveDate">${now})) AS active_now,
-        (c.status='PAUSED' AND c."startDate"<=${now} AND (c."endDate" IS NULL OR c."endDate">${now}) AND (c."cancellationEffectiveDate" IS NULL OR c."cancellationEffectiveDate">${now})) AS paused_now
+        (c.status='ACTIVE' AND c."startDate"<=${now} AND (c."autoRenew" OR c."endDate" IS NULL OR c."endDate">${now}) AND (c."cancellationEffectiveDate" IS NULL OR c."cancellationEffectiveDate">${now})) AS active_now,
+        (c.status='PAUSED' AND c."startDate"<=${now} AND (c."autoRenew" OR c."endDate" IS NULL OR c."endDate">${now}) AND (c."cancellationEffectiveDate" IS NULL OR c."cancellationEffectiveDate">${now})) AS paused_now
       FROM contracts c
       CROSS JOIN LATERAL (SELECT bool_or(ev."toStatus"='ACTIVE' OR ev."fromStatus"='ACTIVE') AS active_evidence,
         bool_or(ev."toStatus"='PAUSED') AS pause_evidence, bool_or(ev."toStatus"='CANCELLED') AS cancel_evidence,
@@ -62,7 +62,7 @@ export async function gymReportContractAggregates(tx: GymTransactionClient, inpu
       END AS initial_state FROM facts f
     ), states AS (
       SELECT b.*, CASE WHEN b.initial_state IN ('ACTIVE','PAUSED') AND b."cancellationEffectiveDate"<=${at} THEN 'CANCELLED'
-        WHEN b.initial_state IN ('ACTIVE','PAUSED') AND b."endDate"<=${at} THEN 'EXPIRED' ELSE b.initial_state END AS cohort_state,
+        WHEN b.initial_state IN ('ACTIVE','PAUSED') AND NOT b."autoRenew" AND b."endDate"<=${at} THEN 'EXPIRED' ELSE b.initial_state END AS cohort_state,
         NOT EXISTS(SELECT 1 FROM contracts s WHERE s."supersedesEnrollmentId"=b.id AND s."activatedAt"<=${end})
           AND b.cancel_date_fact BETWEEN ${start} AND ${end} AND (b."activatedAt" IS NOT NULL OR COALESCE(b.active_evidence,FALSE) OR EXISTS(SELECT 1 FROM "GymEnrollmentEvent" ev WHERE ev."enrollmentId"=b.id AND ev."workspaceId"=${workspaceId} AND ev."fromStatus" IS DISTINCT FROM ev."toStatus" AND ev."fromStatus"='PAUSED')) AS cancelled_period
       FROM base b

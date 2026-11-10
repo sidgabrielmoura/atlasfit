@@ -217,18 +217,8 @@ export function GymEnrollmentsClient({
   const [changePlanApproved, setChangePlanApproved] = useState(false)
   const commercialAttempt = useRef<{ payload: string; key: string } | null>(null)
   const commercialKey = (payload: string) => { if (commercialAttempt.current?.payload !== payload) commercialAttempt.current = { payload, key: crypto.randomUUID() }; return commercialAttempt.current.key; }
-
-  // GYM-042: Recorrência & Assinatura Externa
   const [enrollmentToSetupSubscription, setEnrollmentToSetupSubscription] = useState<any | null>(null)
-
-
   const [subFirstDueDate, setSubFirstDueDate] = useState("")
-
-
-
-
-
-
   const [enrollmentToGenerateCycle, setEnrollmentToGenerateCycle] = useState<any | null>(null)
   const [cycleCompetenceMonth, setCycleCompetenceMonth] = useState("")
   const [cycleDueDate, setCycleDueDate] = useState("")
@@ -297,6 +287,10 @@ export function GymEnrollmentsClient({
   };
 
   const openEditDialog = (enr: any) => {
+    if (enr.status !== "PENDING_ACCEPTANCE" || enr.acceptance) {
+      toast.error("Contrato já aceito: use a revisão contratual para alterar suas condições.");
+      return;
+    }
     setEnrollmentToEdit(enr);
     setEditPrice(enr.priceInCents !== undefined && enr.priceInCents !== null ? formatCurrencyDisplay(enr.priceInCents) : "");
     setEditAutoRenew(enr.autoRenew ?? true);
@@ -1560,9 +1554,8 @@ export function GymEnrollmentsClient({
                 </div>
               </div>
 
-              {/* Event Lifecycle Log */}
               {selectedEnrollmentDetails.events?.length > 0 && (
-                <div className="space-y-2 pt-2 border-t border-border/40">
+                <div className="space-y-2 pt-2 border-t border-border/40 max-w-160">
                   <span className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                     Histórico de Eventos
                   </span>

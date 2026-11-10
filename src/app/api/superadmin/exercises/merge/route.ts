@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { invalidatePublicExerciseCatalog } from "@/lib/cache/public-data";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
 import { logSystemError } from "@/lib/logger";
@@ -144,6 +145,7 @@ export async function POST(req: Request) {
       };
     });
 
+    invalidatePublicExerciseCatalog();
     return NextResponse.json({
       success: true,
       message: `Exercício "${result.sourceName}" foi mesclado com sucesso em "${result.targetName}". Foram transferidos ${result.transferredWorkouts} treinos.`,

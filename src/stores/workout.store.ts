@@ -1,5 +1,16 @@
 import { proxy, subscribe } from "valtio";
 
+export interface SkippedExerciseEntry {
+  reason: string;
+  status?: "SKIPPED" | "POSTPONED";
+  postponed?: boolean;
+  completed?: boolean;
+  originalOrder?: number;
+  executedOrder?: number;
+  exercisesDoneBeforeCount?: number;
+  exercisesDoneBeforeNames?: string[];
+}
+
 export interface WorkoutState {
   workspaceId: string | null;
   activeWorkout: any | null;
@@ -11,7 +22,8 @@ export interface WorkoutState {
   allWorkoutReps: Record<string, string[]>;
   allWorkoutRestTimes: Record<string, string[]>;
   allWorkoutSetsDone: Record<string, boolean[]>;
-  skippedExercises: Record<string, { reason: string }>;
+  skippedExercises: Record<string, SkippedExerciseEntry>;
+  completedExercisesOrder: string[];
   executionSteps: any[];
   
   // Rest Timer
@@ -36,6 +48,7 @@ const initialState: WorkoutState = {
   allWorkoutRestTimes: {},
   allWorkoutSetsDone: {},
   skippedExercises: {},
+  completedExercisesOrder: [],
   executionSteps: [],
   
   restTimer: 0,
@@ -88,6 +101,7 @@ export const workoutActions = {
     workoutStore.allWorkoutRestTimes = initialRestTimes;
     workoutStore.allWorkoutSetsDone = initialDone;
     workoutStore.skippedExercises = {};
+    workoutStore.completedExercisesOrder = [];
     
     // reset rest
     workoutStore.restTimer = 0;
@@ -117,6 +131,7 @@ export const workoutActions = {
     workoutStore.allWorkoutRestTimes = {};
     workoutStore.allWorkoutSetsDone = {};
     workoutStore.skippedExercises = {};
+    workoutStore.completedExercisesOrder = [];
     
     workoutStore.restTimer = 0;
     workoutStore.isRestTimerActive = false;
@@ -126,13 +141,89 @@ export const workoutActions = {
 
   skipExercise(exerciseId: string, reason: string, setsCount: number = 1) {
     const currentSkipped = JSON.parse(JSON.stringify(workoutStore.skippedExercises || {}));
-    currentSkipped[exerciseId] = { reason };
+    currentSkipped[exerciseId] = {
+      reason,
+      status: "SKIPPED",
+      postponed: false,
+      completed: false,
+    };
     workoutStore.skippedExercises = currentSkipped;
 
-    // Mark all sets of this exercise as done so it counts as completed/skipped
+    // Reset sets of this exercise to false so it does NOT appear as completed/done
     const nextDone = JSON.parse(JSON.stringify(workoutStore.allWorkoutSetsDone || {}));
-    nextDone[exerciseId] = new Array(setsCount).fill(true);
+    nextDone[exerciseId] = new Array(setsCount).fill(false);
     workoutStore.allWorkoutSetsDone = nextDone;
+
+    workoutStore.completedExercisesOrder = (workoutStore.completedExercisesOrder || []).filter(id => id !== exerciseId);
+  },
+
+  postponeExercise(exerciseId: string, reason: string, originalOrder: number = 1) {
+    const currentSkipped = JSON.parse(JSON.stringify(workoutStore.skippedExercises || {}));
+    currentSkipped[exerciseId] = {
+      reason,
+      status: "POSTPONED",
+      postponed: true,
+      completed: false,
+      originalOrder,
+      executedOrder: undefined,
+      exercisesDoneBeforeCount: 0,
+      exercisesDoneBeforeNames: [],
+    };
+    workoutStore.skippedExercises = currentSkipped;
+  },
+
+  unskipExercise(exerciseId: string, setsCount: number = 1) {
+    const currentSkipped = JSON.parse(JSON.stringify(workoutStore.skippedExercises || {}));
+    const wasPostponed = currentSkipped[exerciseId]?.status === "POSTPONED" || Boolean(currentSkipped[exerciseId]?.postponed);
+    delete currentSkipped[exerciseId];
+    workoutStore.skippedExercises = currentSkipped;
+
+    if (!wasPostponed) {
+      const nextDone = JSON.parse(JSON.stringify(workoutStore.allWorkoutSetsDone || {}));
+      nextDone[exerciseId] = new Array(setsCount).fill(false);
+      workoutStore.allWorkoutSetsDone = nextDone;
+    }
+
+    workoutStore.completedExercisesOrder = (workoutStore.completedExercisesOrder || []).filter(id => id !== exerciseId);
+  },
+
+  recordExerciseCompletion(exerciseId: string, allExercisesList: any[] = []) {
+    const order = [...(workoutStore.completedExercisesOrder || [])];
+    if (!order.includes(exerciseId)) {
+      order.push(exerciseId);
+      workoutStore.completedExercisesOrder = order;
+    }
+
+    const currentSkipped = JSON.parse(JSON.stringify(workoutStore.skippedExercises || {}));
+    const entry = currentSkipped[exerciseId];
+    if (entry && (entry.status === "POSTPONED" || entry.postponed)) {
+      const executedOrder = order.indexOf(exerciseId) + 1;
+      const priorIds = order.slice(0, order.indexOf(exerciseId));
+      const exercisesDoneBeforeNames = priorIds
+        .map(id => {
+          const found = allExercisesList.find((e: any) => e.id === id || e.exerciseId === id || e.exercise?.id === id);
+          return found?.exercise?.name || found?.name || "Exercício";
+        })
+        .filter(Boolean);
+
+      currentSkipped[exerciseId] = {
+        ...entry,
+        completed: true,
+        executedOrder,
+        exercisesDoneBeforeCount: exercisesDoneBeforeNames.length,
+        exercisesDoneBeforeNames,
+      };
+      workoutStore.skippedExercises = currentSkipped;
+    }
+  },
+
+  unmarkExerciseCompletion(exerciseId: string) {
+    workoutStore.completedExercisesOrder = (workoutStore.completedExercisesOrder || []).filter(id => id !== exerciseId);
+    const currentSkipped = JSON.parse(JSON.stringify(workoutStore.skippedExercises || {}));
+    if (currentSkipped[exerciseId] && (currentSkipped[exerciseId].status === "POSTPONED" || currentSkipped[exerciseId].postponed)) {
+      currentSkipped[exerciseId].completed = false;
+      workoutStore.skippedExercises = currentSkipped;
+    }
   },
 
   updateStepIdx(idx: number) {

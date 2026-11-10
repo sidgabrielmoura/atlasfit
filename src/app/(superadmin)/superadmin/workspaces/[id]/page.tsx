@@ -100,6 +100,8 @@ import {
   FileText,
   Clock,
   Sparkles,
+  Coins,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { WorkspacePlanActions } from "@/components/application/workspace-plan-actions";
@@ -246,6 +248,11 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
     address: "",
   });
 
+  // States para Ajuste de Coins / Saldo de Importação
+  const [isEditCreditsOpen, setIsEditCreditsOpen] = useState(false);
+  const [isUpdatingCredits, setIsUpdatingCredits] = useState(false);
+  const [newCreditsAmount, setNewCreditsAmount] = useState<string>("0");
+
   // State para aba ativa
   const [activeTab, setActiveTab] = useState<string>("geral");
 
@@ -381,6 +388,36 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
       toast.error(error instanceof Error ? error.message : "Erro ao alterar o status do workspace.");
     } finally {
       setIsSuspending(false);
+    }
+  };
+
+  // Ajustar Saldo de Coins
+  const handleUpdateCredits = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isUpdatingCredits) return;
+    const parsed = parseInt(newCreditsAmount, 10);
+    if (isNaN(parsed) || parsed < 0) {
+      toast.error("Informe uma quantidade válida de créditos (maior ou igual a 0).");
+      return;
+    }
+    setIsUpdatingCredits(true);
+    try {
+      const res = await fetch(`/api/superadmin/workspaces/${workspace.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ importCredits: parsed }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error?.message || err.error || "Erro ao atualizar saldo de créditos.");
+      }
+      setWorkspace({ ...workspace, importCredits: parsed });
+      setIsEditCreditsOpen(false);
+      toast.success(`Saldo atualizado para ${parsed} créditos com sucesso!`);
+    } catch (err: any) {
+      toast.error(err.message || "Erro ao atualizar saldo.");
+    } finally {
+      setIsUpdatingCredits(false);
     }
   };
 
@@ -656,6 +693,21 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
                   {copiedId ? <Check className="size-3.5 text-emerald-500" /> : <Copy className="size-3.5" />}
                 </button>
               </span>
+
+              <span className="text-border/60">•</span>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setNewCreditsAmount(String(workspace.importCredits ?? 0));
+                  setIsEditCreditsOpen(true);
+                }}
+                className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/20 text-amber-600 dark:text-amber-400 text-[11px] font-bold hover:bg-amber-500/20 transition-colors cursor-pointer"
+                title="Clique para ajustar o saldo de créditos deste workspace"
+              >
+                <Coins className="size-3 text-amber-500" />
+                <span className="tabular-nums">{workspace.importCredits ?? 0} créditos</span>
+              </button>
             </div>
           </div>
         </div>
@@ -1346,6 +1398,53 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
                         Créditos para importação automatizada de treinos via IA/PDF.
                       </p>
                     </div>
+
+                    {/* Saldo de Coins da Academia */}
+                    <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-bold flex items-center gap-1.5 text-amber-500">
+                          <Coins className="size-3.5" /> Saldo de créditos
+                        </span>
+                        <span className="font-black text-foreground tabular-nums">
+                          {workspace.importCredits ?? 0} créditos
+                        </span>
+                      </div>
+                      <p className="text-[10px] text-muted-foreground">
+                        Créditos adicionais para importação de alunos e treinos via IA.
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Resumo Consolidado de Créditos de IA */}
+                  <div className="mt-4 p-4 rounded-xl border border-primary/20 bg-primary/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div className="space-y-1">
+                      <span className="text-[10px] font-black uppercase tracking-wider text-primary flex items-center gap-1.5">
+                        <Zap className="size-3" /> Balanço Total de Importação por IA
+                      </span>
+                      <p className="text-xs text-muted-foreground font-medium">
+                        Soma da quota mensal do plano ({workspace.subscription?.plan?.importQuota ?? 25}) com os créditos avulsos ({workspace.importCredits ?? 0}).
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="text-right">
+                        <span className="text-2xl font-black text-foreground tabular-nums">
+                          {(workspace.subscription?.plan?.importQuota ?? 25) + (workspace.importCredits ?? 0)}
+                        </span>
+                        <span className="text-xs text-muted-foreground font-bold ml-1">créditos</span>
+                      </div>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        type="button"
+                        onClick={() => {
+                          setNewCreditsAmount(String(workspace.importCredits ?? 0));
+                          setIsEditCreditsOpen(true);
+                        }}
+                        className="h-8 text-xs font-bold gap-1.5 border-primary/30 text-primary hover:bg-primary/10 cursor-pointer"
+                      >
+                        <Coins className="size-3.5" /> Ajustar créditos
+                      </Button>
+                    </div>
                   </div>
                 </div>
               </CardContent>
@@ -1371,6 +1470,12 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
                     <span className="text-muted-foreground">Status da Assinatura</span>
                     <Badge variant="outline" className="font-bold text-[10px] text-primary border-primary/20">
                       {workspace.subscription?.status || "INACTIVE"}
+                    </Badge>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span className="text-muted-foreground">Saldo de créditos</span>
+                    <Badge variant="secondary" className="font-bold text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">
+                      <Coins className="size-3 mr-1" /> {workspace.importCredits ?? 0} créditos
                     </Badge>
                   </div>
                   <div className="flex items-center justify-between">
@@ -2303,6 +2408,118 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Modal de Ajuste de Coins / Saldo de Importação */}
+      <Dialog open={isEditCreditsOpen} onOpenChange={setIsEditCreditsOpen}>
+        <DialogContent className="rounded-2xl! border-border/50 max-w-md">
+          <form onSubmit={handleUpdateCredits}>
+            <DialogHeader className="space-y-2">
+              <div className="size-10 rounded-xl bg-amber-500/10 text-amber-500 flex items-center justify-center border border-amber-500/20">
+                <Coins className="size-5" />
+              </div>
+              <DialogTitle className="text-xl font-black tracking-tight">
+                Ajustar saldo de créditos
+              </DialogTitle>
+              <DialogDescription className="text-xs text-muted-foreground">
+                Defina a quantidade de créditos avulsos disponíveis para o workspace <strong className="text-foreground">{workspace?.name}</strong>.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="py-4 space-y-4">
+              <div className="p-3.5 rounded-xl bg-secondary/30 border border-border/40 text-xs space-y-1.5">
+                <div className="flex justify-between items-center text-muted-foreground">
+                  <span>Saldo Atual:</span>
+                  <span className="font-bold text-foreground tabular-nums">{workspace?.importCredits ?? 0} créditos</span>
+                </div>
+                <div className="flex justify-between items-center text-muted-foreground">
+                  <span>Franquia Mensal do Plano:</span>
+                  <span className="font-bold text-foreground tabular-nums">{workspace?.subscription?.plan?.importQuota ?? 25} créditos</span>
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="superadmin-credits-input" className="text-xs font-bold">
+                  Novo Saldo de créditos
+                </Label>
+                <Input
+                  id="superadmin-credits-input"
+                  type="number"
+                  min="0"
+                  step="1"
+                  required
+                  value={newCreditsAmount}
+                  onChange={(e) => setNewCreditsAmount(e.target.value)}
+                  disabled={isUpdatingCredits}
+                  className="h-10 rounded-xl font-mono text-sm"
+                  placeholder="Ex: 50"
+                />
+                <p className="text-[11px] text-muted-foreground">
+                  Este valor será gravado diretamente no registro do workspace e poderá ser consumido em importações assistidas.
+                </p>
+              </div>
+
+              {/* Botões de atalho rápido */}
+              <div className="flex flex-wrap gap-2 pt-1">
+                {[10, 25, 50, 100, 250].map((bonus) => (
+                  <Button
+                    key={bonus}
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={isUpdatingCredits}
+                    onClick={() => {
+                      const cur = parseInt(newCreditsAmount, 10) || (workspace?.importCredits ?? 0);
+                      setNewCreditsAmount(String(cur + bonus));
+                    }}
+                    className="h-7 text-[10px] font-bold rounded-lg border-border/50 text-muted-foreground hover:text-foreground cursor-pointer"
+                  >
+                    +{bonus}
+                  </Button>
+                ))}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={isUpdatingCredits}
+                  onClick={() => setNewCreditsAmount("0")}
+                  className="h-7 text-[10px] font-bold rounded-lg border-border/50 text-muted-foreground hover:text-foreground cursor-pointer"
+                >
+                  Zerar
+                </Button>
+              </div>
+            </div>
+
+            <DialogFooter className="gap-2 sm:justify-end pt-2">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={isUpdatingCredits}
+                onClick={() => setIsEditCreditsOpen(false)}
+                className="h-10 rounded-xl font-bold text-xs"
+              >
+                Cancelar
+              </Button>
+              <Button
+                type="submit"
+                disabled={isUpdatingCredits}
+                className="h-10 rounded-xl font-bold text-xs bg-amber-500 hover:bg-amber-600 text-white gap-1.5 cursor-pointer"
+              >
+                {isUpdatingCredits ? (
+                  <>
+                    <Loader2 className="size-3.5 animate-spin" />
+                    <span>Salvando...</span>
+                  </>
+                ) : (
+                  <>
+                    <Save className="size-3.5" />
+                    <span>Salvar Saldo</span>
+                  </>
+                )}
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       {/* 5. Overlay de Transição de Conta (Impersonate) */}
       {isImpersonating && (

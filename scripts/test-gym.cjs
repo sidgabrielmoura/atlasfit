@@ -1,0 +1,10 @@
+const { spawnSync } = require('node:child_process');
+require('node:fs').mkdirSync('.tmp', { recursive: true });
+const database = process.env.GYM_TEST_DATABASE_URL || 'postgresql://atlasfit_test@127.0.0.1:56432/atlasfit_gym_stabilization_20261001';
+const target = new URL(database);
+if (target.hostname !== '127.0.0.1' || target.port !== '56432' || target.pathname !== '/atlasfit_gym_stabilization_20261001') throw new Error('Os testes aceitam somente o PostgreSQL descartável documentado.');
+const allowed = ['PATH','Path','SystemRoot','WINDIR','TEMP','TMP','COMSPEC','PATHEXT','USERPROFILE','APPDATA','LOCALAPPDATA'];
+const env = Object.fromEntries(allowed.filter(key => process.env[key] !== undefined).map(key => [key, process.env[key]]));
+Object.assign(env, { DATABASE_URL: database, DIRECT_URL: database, AUTH_SECRET: 'isolated-gym-test-secret-not-for-production', ABACATEPAY_WEBHOOK_SECRET: 'synthetic-webhook-test-secret', OUTBOX_REACTIVE_PROCESSING: 'false', ABLY_API_KEY: '', RESEND_API_KEY: '', ABACATEPAY_API_KEY: '', ASAAS_API_KEY: '', NEXT_TELEMETRY_DISABLED: '1' });
+const result = spawnSync(process.execPath, ['node_modules/vitest/vitest.mjs','run','--config','vitest.gym.config.ts',...process.argv.slice(2)], { env, stdio: 'inherit' });
+process.exitCode = result.status ?? 1;

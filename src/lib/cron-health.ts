@@ -1,7 +1,8 @@
 import prisma from "@/lib/prisma";
 import type { GymTransactionClient } from "@/modules/workspaces/application/transaction";
 
-export const scheduledJobs = { "gym-recurrence": 30, "process-recurrence": 120, deliveries: 10, "engage-push": 30, "gym-purge": 15 } as const;
+// Maximum observed age in minutes, aligned with docs/cron-jobs.md.
+export const scheduledJobs = { "gym-recurrence": 15, "process-recurrence": 120, deliveries: 10, "engage-push": 16 * 60, "gym-purge": 26 * 60 } as const;
 export async function recordCronResult(job: keyof typeof scheduledJobs, success: boolean, durationMs: number) {
   const now = new Date();
   await prisma.scheduledJobState.upsert({ where: { id: job }, create: { id: job, success, durationMs, lastRunAt: now, lastSuccessAt: success ? now : null, consecutiveFailures: success ? 0 : 1 }, update: { success, durationMs, lastRunAt: now, ...(success ? { lastSuccessAt: now, consecutiveFailures: 0 } : { consecutiveFailures: { increment: 1 } }) } });

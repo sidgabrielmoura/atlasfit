@@ -50,6 +50,7 @@ export async function updateGymEnrollment(input: UpdateEnrollmentInput) {
     const enrollment = await tx.gymEnrollment.findFirst({
       where: { id: data.enrollmentId, workspaceId: data.workspaceId },
       include: {
+        acceptance: true,
         planVersion: { include: { plan: true } },
         studentMember: { include: { user: { select: gymPublicUserSelect } } },
       },
@@ -61,6 +62,12 @@ export async function updateGymEnrollment(input: UpdateEnrollmentInput) {
 
     await assertActorAuthority(tx, data.workspaceId, actorUserId, "enrollments.manage", enrollment.unitId);
 
+    // Accepted terms are immutable through this administrative endpoint.
+    // Commercial changes must use the revision/acceptance commands.
+    if (enrollment.status !== "PENDING_ACCEPTANCE" || enrollment.acceptance) {
+      throw new WorkspaceAccessError(409, "ENROLLMENT_REVISION_REQUIRED", "Esta matrícula já saiu da proposta. Utilize a revisão contratual para alterar suas condições.");
+    }
+
     const updateData: Prisma.GymEnrollmentUpdateInput = {};
 
     if (data.customPriceInCents !== undefined) {
@@ -68,6 +75,9 @@ export async function updateGymEnrollment(input: UpdateEnrollmentInput) {
       safeCentsNumber(price);
       if (price < BigInt(0)) {
         throw new WorkspaceAccessError(400, "INVALID_AMOUNT", "Preço não pode ser negativo.");
+      }
+      if (price !== enrollment.planVersion.priceInCents) {
+        await assertActorAuthority(tx, data.workspaceId, actorUserId, "workspace.manage", enrollment.unitId);
       }
       updateData.priceInCents = price;
     }

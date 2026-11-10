@@ -9,7 +9,7 @@ export const adminUserSelect = {
   id: true, name: true, email: true, image: true, role: true, onboarded: true,
   createdAt: true, updatedAt: true, whatsapp: true, cpfCnpj: true, birthDate: true,
   gender: true, twoFactorEnabled: true, threeFactorEnabled: true, twoFactorType: true,
-  isTestAccount: true, isBlocked: true,
+  isTestAccount: true, isBlocked: true, importCredits: true,
 } satisfies Prisma.UserSelect;
 
 const nullableText = (length: number) => z.string().trim().max(length).nullable();

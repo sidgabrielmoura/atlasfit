@@ -243,7 +243,7 @@ export function ReceptionClient({
 
       if (!matchesSearch) return false;
 
-      const isAllowed = s.status === "ACTIVE" && s.financialStatus !== "OVERDUE";
+      const isAllowed = s.status === "ACTIVE" && ["SETTLED", "OPEN"].includes(s.financialStatus || "");
       const isOverdue = s.financialStatus === "OVERDUE";
       const isNotEnrolled = s.status === "NOT_ENROLLED";
       const isInactive = s.status === "INACTIVE" || s.status === "PAUSED" || s.status === "CANCELLED";
@@ -490,7 +490,7 @@ export function ReceptionClient({
               )}
             >
               <CheckCircle2 className="size-3 mr-1" />
-              Acesso Liberado
+              Situação regular
             </Button>
 
             <Button
@@ -593,20 +593,19 @@ export function ReceptionClient({
           className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4"
         >
           {filteredStudents.map((student) => {
-            const isAllowed = student.status === "ACTIVE" && student.financialStatus !== "OVERDUE";
+            const isAllowed = student.status === "ACTIVE" && ["SETTLED", "OPEN"].includes(student.financialStatus || "");
             const isOverdue = student.financialStatus === "OVERDUE";
 
             return (
               <motion.div key={student.id} variants={item}>
                 <Card
                   className={cn(
-                    "relative overflow-hidden border border-border/50 bg-background/50 backdrop-blur-xs hover:border-border/80 transition-all duration-200 h-full flex flex-col justify-between",
+                    "relative overflow-hidden p-0 border border-border/50 bg-background/50 backdrop-blur-xs hover:border-border/80 transition-all duration-200 h-full flex flex-col justify-between",
                     isOverdue && "border-red-400/40 bg-red-400/5",
                     isAllowed && "hover:border-emerald-500/40"
                   )}
                 >
                   <CardContent className="p-4 space-y-3.5 flex-1 flex flex-col justify-between">
-                    {/* Linha Superior: Status de Entrada & Ações Rápidas */}
                     <div className="flex items-center justify-between gap-2">
                       {isAllowed ? (
                         <Badge
@@ -614,7 +613,7 @@ export function ReceptionClient({
                           className="text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border-emerald-500/20 gap-1 rounded-full px-2.5 py-0.5"
                         >
                           <CheckCircle2 className="size-3" />
-                          Acesso Liberado
+                          Situação regular
                         </Badge>
                       ) : isOverdue ? (
                         <Badge
@@ -622,7 +621,7 @@ export function ReceptionClient({
                           className="text-[10px] font-bold bg-red-400/10 text-red-400 border-red-400/30 gap-1 rounded-full px-2.5 py-0.5"
                         >
                           <AlertTriangle className="size-3" />
-                          Bloqueado · Pendência
+                          Pendência financeira
                         </Badge>
                       ) : (
                         <Badge
@@ -630,7 +629,7 @@ export function ReceptionClient({
                           className="text-[10px] font-bold bg-amber-400/10 text-amber-400 border-amber-400/30 gap-1 rounded-full px-2.5 py-0.5"
                         >
                           <AlertCircle className="size-3" />
-                          Acesso Bloqueado
+                          Conferir situação
                         </Badge>
                       )}
 
@@ -666,7 +665,6 @@ export function ReceptionClient({
                       </div>
                     </div>
 
-                    {/* Perfil do Aluno */}
                     <div className="flex items-start gap-3">
                       <Avatar className="size-11 border border-border/40 shrink-0">
                         {student.photoUrl && <AvatarImage src={student.photoUrl} alt={student.name} />}
@@ -729,7 +727,6 @@ export function ReceptionClient({
                       </div>
                     </div>
 
-                    {/* Botão de Balcão Rápido */}
                     <div className="pt-1">
                       <Button
                         asChild
@@ -767,7 +764,7 @@ export function ReceptionClient({
               </TableHeader>
               <TableBody>
                 {filteredStudents.map((student) => {
-                  const isAllowed = student.status === "ACTIVE" && student.financialStatus !== "OVERDUE";
+                  const isAllowed = student.status === "ACTIVE" && ["SETTLED", "OPEN"].includes(student.financialStatus || "");
                   const isOverdue = student.financialStatus === "OVERDUE";
 
                   return (
@@ -826,7 +823,7 @@ export function ReceptionClient({
                       <TableCell className="py-2.5">
                         {isAllowed ? (
                           <span className="text-xs font-bold text-emerald-500 flex items-center gap-1">
-                            <CheckCircle2 className="size-3.5" /> Liberado
+                            <CheckCircle2 className="size-3.5" /> Regular
                           </span>
                         ) : isOverdue ? (
                           <span className="text-xs font-bold text-red-400 flex items-center gap-1">
@@ -834,7 +831,7 @@ export function ReceptionClient({
                           </span>
                         ) : (
                           <span className="text-xs font-bold text-amber-400 flex items-center gap-1">
-                            <AlertCircle className="size-3.5" /> Bloqueado
+                            <AlertCircle className="size-3.5" /> Conferir
                           </span>
                         )}
                       </TableCell>

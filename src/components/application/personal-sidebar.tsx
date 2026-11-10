@@ -167,7 +167,7 @@ export function PersonalSidebar({ academy = false }: { academy?: boolean }) {
     setMounted(true);
     if (academy) { setSubInfo(null); return; }
     const controller = new AbortController();
-    fetch("/api/personal/subscription", { signal: controller.signal })
+    fetch("/api/personal/subscription", { signal: controller.signal, cache: "no-store" })
       .then((res) => {
         if (res.ok) return res.json();
         throw new Error();

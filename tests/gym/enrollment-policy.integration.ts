@@ -43,15 +43,12 @@ describe("Políticas aprovadas de matrícula e pausa", () => {
     expect(await prisma.gymEnrollment.findUnique({ where: { id: active.id } })).toMatchObject({ status: "CANCELLED" });
     expect(await prisma.gymContractAcceptance.count({ where: { enrollmentId: active.id } })).toBe(1);
   });
-  it("pausa conserva a matrícula vigente e bloqueia outra ativação; duplicidade legada bloqueia retomada", async () => {
+  it("pausa conserva a matrícula vigente e o banco também bloqueia outra ativação direta", async () => {
     const f = await fixture(), original = await f.enrollment(), pending = await f.enrollment(); await f.activate(original.id);
     const command = { workspaceId: f.gym.id, enrollmentId: original.id, actorUserId: f.owner.id };
     await pauseGymEnrollment({ ...command, startDate: f.now, endDate: new Date(f.now.getTime() + 3600000), reason: "Pausa sintética" }, f.now);
     await expect(f.activate(pending.id)).rejects.toMatchObject({ code: "ACTIVE_ENROLLMENT_EXISTS" });
-    // Deliberately simulate a historical writer; no automatic cancellation is allowed.
-    await prisma.gymEnrollment.update({ where: { id: pending.id }, data: { status: "ACTIVE", activatedAt: f.now, accessGranted: true } });
-    await expect(resumeGymEnrollment(command, new Date(f.now.getTime() + 60000))).rejects.toMatchObject({ code: "ACTIVE_ENROLLMENT_EXISTS" });
-    await expect(manualSubscriptionService.cycle({ workspaceId: f.gym.id, enrollmentId: pending.id, actorUserId: f.owner.id })).rejects.toMatchObject({ code: "ACTIVE_ENROLLMENT_EXISTS" });
+    await expect(prisma.gymEnrollment.update({ where: { id: pending.id }, data: { status: "ACTIVE", activatedAt: f.now, accessGranted: true } })).rejects.toMatchObject({ code: "P2002" });
     expect(await prisma.gymEnrollment.findUnique({ where: { id: original.id } })).toMatchObject({ status: "PAUSED", accessGranted: false });
     expect(await prisma.gymEnrollmentPause.findFirst({ where: { enrollmentId: original.id } })).toMatchObject({ resumedAt: null });
   });

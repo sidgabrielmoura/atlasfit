@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { getPublicPlatformSettings } from "@/lib/cache/public-data";
 import { WorkspaceContextService } from "@/modules/workspaces/application/context-service";
 import { isPersonalTrialActive } from "@/modules/workspaces/domain/personal-trial";
-
-export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
@@ -40,14 +39,12 @@ export async function GET() {
     }
 
     // Fetch support whatsapp
-    const [whatsappSetting] = await Promise.all([
-      prisma.systemSetting.findUnique({ where: { key: "support_whatsapp" } }),
-    ]);
+    const publicSettings = await getPublicPlatformSettings();
 
     const rawPhone =
       process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP ||
       process.env.SUPPORT_WHATSAPP ||
-      whatsappSetting?.value ||
+      publicSettings.support_whatsapp ||
       "";
     const cleanPhone = rawPhone.replace(/\D/g, "");
     const formattedPhone = cleanPhone

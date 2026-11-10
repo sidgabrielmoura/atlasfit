@@ -105,8 +105,6 @@ export async function POST(req: Request) {
 
     for (let index = 0; index < files.length; index++) await uploadImportSource(files[index], job.id, workspaceId, index);
 
-    await consumeImportQuota(workspaceId, session.user.id, quota.source);
-
     return NextResponse.json({ ...job, jobId: job.id, quota }, { status: 201 });
   } catch (error) {
     const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;

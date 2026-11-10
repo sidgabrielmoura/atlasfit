@@ -3,6 +3,8 @@ import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { WorkspaceAccessError } from "../domain/types";
 import { getGymUnitAccess } from "./gym-unit-access";
+import { reportCalendarRange } from "../domain/gym-report-calendar";
+import { reportDateBoundary } from "../domain/gym-report-metrics";
 
 const receptionQuery = z.object({
   workspaceId: z.string().min(1),
@@ -65,6 +67,13 @@ export async function getGymReceptionSnapshot(raw: unknown) {
     }
 
     const canReadFinance = unit ? unit.canReadFinance : scope.includeUnassigned;
+    const timezone = (await tx.gymSettings.findUnique({ where: { workspaceId: input.workspaceId }, select: { timezone: true } }))?.timezone || "America/Sao_Paulo";
+    const now = new Date();
+    const today = reportDateBoundary(reportCalendarRange(now, timezone, "7d").endDate, timezone, false);
+    const currentContract: Prisma.GymEnrollmentWhereInput = {
+      workspaceId: input.workspaceId, status: { in: ["ACTIVE", "PAUSED"] }, startDate: { lte: now }, activatedAt: { not: null },
+      AND: [{ OR: [{ autoRenew: true }, { endDate: null }, { endDate: { gt: now } }] }, { OR: [{ cancellationEffectiveDate: null }, { cancellationEffectiveDate: { gt: now } }] }],
+    };
 
     const where: Prisma.WorkspaceMemberWhereInput = {
       workspaceId: input.workspaceId,
@@ -98,12 +107,14 @@ export async function getGymReceptionSnapshot(raw: unknown) {
         user: { select: { name: true, email: true, image: true, whatsapp: true } },
         studentProfile: { select: { registrationNumber: true, status: true } },
         accessLogs: {
-          orderBy: { createdAt: "desc" },
+          where: { workspaceId: input.workspaceId, granted: true, direction: "ENTRY" },
+          orderBy: { accessedAt: "desc" },
           take: 1,
-          select: { createdAt: true },
+          select: { accessedAt: true },
         },
         gymEnrollments: {
           where: {
+            ...currentContract,
             workspaceId: input.workspaceId,
             ...(unit ? { OR: [{ unitId: unit.id }, { unitId: null }] } : {}),
           },
@@ -121,7 +132,7 @@ export async function getGymReceptionSnapshot(raw: unknown) {
     const invoiceScope: Prisma.GymInvoiceWhereInput = {
       workspaceId: input.workspaceId,
       studentMemberId: { in: ids },
-      status: { not: "CANCELLED" },
+      status: { in: ["OPEN", "PARTIALLY_PAID", "PAID"] },
       ...(unit
         ? {
             OR: [
@@ -134,11 +145,13 @@ export async function getGymReceptionSnapshot(raw: unknown) {
     };
 
     // Aggregate indicators in the database instead of loading every historical invoice
-    const [overdue, open, invoiced, totalActiveEnrollments, totalOverdueInvoices] = await Promise.all([
+    const overdueCondition: Prisma.GymInvoiceWhereInput = { workspaceId: input.workspaceId, status: { in: ["OPEN", "PARTIALLY_PAID"] }, balanceRemainingInCents: { gt: BigInt(0) }, dueDate: { lt: today } };
+    const activePeople: Prisma.WorkspaceMemberWhereInput = { ...where, gymEnrollments: { some: { ...currentContract, status: "ACTIVE" } } };
+    const [overdue, open, invoiced, totalActiveEnrollments, totalOverdueInvoices, settledPeople] = await Promise.all([
       canReadFinance
         ? tx.gymInvoice.groupBy({
             by: ["studentMemberId"],
-            where: { ...invoiceScope, balanceRemainingInCents: { gt: BigInt(0) }, dueDate: { lt: new Date() } },
+            where: { ...invoiceScope, ...overdueCondition, studentMemberId: { in: ids } },
           })
         : [],
       canReadFinance
@@ -148,32 +161,11 @@ export async function getGymReceptionSnapshot(raw: unknown) {
           })
         : [],
       canReadFinance ? tx.gymInvoice.groupBy({ by: ["studentMemberId"], where: invoiceScope }) : [],
-      tx.gymEnrollment.count({
-        where: {
-          workspaceId: input.workspaceId,
-          status: "ACTIVE",
-          ...(unit ? { OR: [{ unitId: unit.id }, { unitId: null }] } : {}),
-        },
-      }),
+      tx.workspaceMember.count({ where: activePeople }),
       canReadFinance
-        ? tx.gymInvoice.count({
-            where: {
-              workspaceId: input.workspaceId,
-              status: { in: ["OPEN", "PARTIALLY_PAID"] },
-              dueDate: { lt: new Date() },
-              balanceRemainingInCents: { gt: BigInt(0) },
-              ...(unit
-                ? {
-                    OR: [
-                      { enrollment: { unitId: unit.id, workspaceId: input.workspaceId } },
-                      { enrollmentId: null },
-                      { enrollment: { unitId: null, workspaceId: input.workspaceId } },
-                    ],
-                  }
-                : {}),
-            },
-          })
+        ? tx.workspaceMember.count({ where: { ...where, invoices: { some: overdueCondition } } })
         : 0,
+      canReadFinance ? tx.workspaceMember.count({ where: { ...activePeople, invoices: { some: { workspaceId: input.workspaceId, status: { in: ["OPEN", "PARTIALLY_PAID", "PAID"] } }, none: overdueCondition } } }) : 0,
     ]);
 
     const overdueIds = new Set(overdue.map((item) => item.studentMemberId));
@@ -185,7 +177,7 @@ export async function getGymReceptionSnapshot(raw: unknown) {
       const validContract =
         contract?.planVersion?.plan?.workspaceId === input.workspaceId ? contract : undefined;
 
-      const lastAccess = item.accessLogs[0]?.createdAt;
+      const lastAccess = item.accessLogs[0]?.accessedAt;
       const lastCheckIn = lastAccess ? lastAccess.toISOString() : null;
 
       return {
@@ -225,7 +217,7 @@ export async function getGymReceptionSnapshot(raw: unknown) {
         total,
         activeCount: totalActiveEnrollments,
         overdueCount: totalOverdueInvoices,
-        settledCount: Math.max(0, totalActiveEnrollments - totalOverdueInvoices),
+        settledCount: settledPeople,
       },
     };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead });

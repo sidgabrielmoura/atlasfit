@@ -43,6 +43,131 @@ async function handleGET(req: Request) {
     const alerts = await prisma.workspacePayment.findMany({ where: { workspaceId, status: { in: ["pendente", "atrasado"] } }, take: 5, orderBy: [{ status: "asc" }, { createdAt: "asc" }, { id: "asc" }], select: { id: true, studentName: true, planName: true, amount: true, status: true, method: true, createdAt: true, billingOrigin: true, billingMode: true, isAutomaticBilled: true } });
     const chartData = months.slice(1).map(month => ({ name: monthNames[month.start.getMonth()], revenue: month.revenue }));
 
+    // Fetch unlinked digital billings for this workspace / personal trainer
+    const ws = await prisma.workspace.findUnique({
+      where: { id: workspaceId },
+      select: { ownerId: true },
+    });
+    const ownerId = ws?.ownerId;
+
+    const digitalBillings = await prisma.studentBilling.findMany({
+      where: {
+        OR: [
+          { workspaceId, workspace: { type: "PERSONAL" } },
+          ...(ownerId ? [{ workspaceId: null, account: { personalUserId: ownerId, workspaceId: null } }] : []),
+        ],
+        workspacePaymentId: null,
+      },
+      take: 50,
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        title: true,
+        grossAmountInCents: true,
+        status: true,
+        paymentMethod: true,
+        dueDate: true,
+        createdAt: true,
+        hostedInvoiceUrl: true,
+        studentUserId: true,
+      },
+    });
+
+    const studentUserIds = [...new Set(digitalBillings.map(b => b.studentUserId))];
+    const studentUsers = studentUserIds.length > 0 ? await prisma.user.findMany({
+      where: { id: { in: studentUserIds } },
+      select: { id: true, name: true },
+    }) : [];
+    const studentNameMap = new Map<string, string>();
+    for (const u of studentUsers) {
+      studentNameMap.set(u.id, u.name || "Aluno");
+    }
+
+    const mapDigitalStatus = (st: string, dueDate: Date): "pago" | "pendente" | "atrasado" => {
+      if (st === "SETTLED" || st === "AVAILABLE" || st === "CONFIRMED") return "pago";
+      if (st === "OVERDUE") return "atrasado";
+      if (st === "PENDING") {
+        return now > dueDate ? "atrasado" : "pendente";
+      }
+      return "pendente";
+    };
+
+    const mappedDigital = digitalBillings
+      .filter(b => b.status !== "CANCELLED" && b.status !== "FAILED")
+      .map(b => ({
+        id: b.id,
+        student: studentNameMap.get(b.studentUserId) || "Aluno",
+        plan: b.title,
+        amount: Number(b.grossAmountInCents) / 100,
+        status: mapDigitalStatus(b.status, b.dueDate),
+        method: b.paymentMethod || "PIX",
+        date: b.createdAt.toISOString(),
+        billingOrigin: "GATEWAY",
+        billingMode: "AUTOMATIC",
+        isAutomaticBilled: true,
+        isGateway: true,
+        hostedInvoiceUrl: b.hostedInvoiceUrl || undefined,
+        dueDate: b.dueDate.toISOString(),
+      }));
+
+    // Update status counts to include unlinked digital billings
+    for (const d of mappedDigital) {
+      if (statusCounts[d.status] !== undefined) {
+        statusCounts[d.status] += 1;
+      }
+    }
+
+    let filteredDigital = mappedDigital;
+    if (status && ["pago", "pendente", "atrasado"].includes(status)) {
+      filteredDigital = filteredDigital.filter(b => b.status === status);
+    }
+    if (search) {
+      const s = search.toLowerCase();
+      filteredDigital = filteredDigital.filter(b => b.student.toLowerCase().includes(s) || b.plan.toLowerCase().includes(s));
+    }
+
+    const allPaymentsList = [
+      ...payments.map((p) => ({
+        id: p.id,
+        student: p.studentName,
+        plan: p.planName,
+        amount: p.amount,
+        status: p.status,
+        method: p.method,
+        date: p.createdAt.toISOString(),
+        billingOrigin: p.billingOrigin,
+        billingMode: p.billingMode,
+        isAutomaticBilled: p.isAutomaticBilled,
+        isGateway: false,
+      })),
+      ...filteredDigital,
+    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+    const combinedAlerts = [
+      ...alerts.map(p => ({
+        id: p.id,
+        student: p.studentName,
+        plan: p.planName,
+        amount: p.amount,
+        status: p.status,
+        method: p.method,
+        date: p.createdAt.toISOString(),
+        isGateway: false,
+      })),
+      ...mappedDigital
+        .filter(b => b.status === "pendente" || b.status === "atrasado")
+        .map(b => ({
+          id: b.id,
+          student: b.student,
+          plan: b.plan,
+          amount: b.amount,
+          status: b.status,
+          method: b.method,
+          date: b.date,
+          isGateway: true,
+        })),
+    ].slice(0, 5);
+
     // 6.5. Fetch all students to return their recurrence configs
     const rawRecurrencePage = searchParams.get("recurrencesPage") || "1";
     if (!/^[1-9]\d{0,3}$/.test(rawRecurrencePage) || Number(rawRecurrencePage) > 1000) return new NextResponse("Página inválida.", { status: 400 });
@@ -84,7 +209,7 @@ async function handleGET(req: Request) {
     // 7. Build the response payload
     const payload = {
       statusCounts,
-      billingAlerts: alerts.map(p => ({ id: p.id, student: p.studentName, plan: p.planName, amount: p.amount, status: p.status, method: p.method, date: p.createdAt.toISOString() })),
+      billingAlerts: combinedAlerts,
       metrics: {
         mrr,
         mrrChange: 0.0,
@@ -96,18 +221,7 @@ async function handleGET(req: Request) {
         churnChange: 0.0,
       },
       chartData,
-      recentPayments: payments.map((p) => ({
-        id: p.id,
-        student: p.studentName,
-        plan: p.planName,
-        amount: p.amount,
-        status: p.status,
-        method: p.method,
-        date: p.createdAt.toISOString(),
-        billingOrigin: p.billingOrigin,
-        billingMode: p.billingMode,
-        isAutomaticBilled: p.isAutomaticBilled,
-      })),
+      recentPayments: allPaymentsList.slice(0, 50),
       recurrences,
       recurrencesPagination: { page: recurrencePage, pageSize: 50, hasMore: recurrencesHasMore },
       paymentsPagination: { page, pageSize: 50, hasMore: paymentsHasMore },

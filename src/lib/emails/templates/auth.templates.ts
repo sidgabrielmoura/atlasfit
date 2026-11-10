@@ -99,3 +99,43 @@ export function getSecurityLoginAlertEmailTemplate(params: {
 
   return { html, text, subject: "Alerta de Segurança: Novo acesso à sua conta AtlasFit" };
 }
+
+export function getCreditGrantVerificationEmailTemplate(params: {
+  code: string;
+  amount: number;
+  targetUserName: string;
+  recipientEmail?: string;
+}) {
+  const { code, amount, targetUserName, recipientEmail } = params;
+  const html = renderBaseEmailLayout({
+    title: "Autorização de Créditos",
+    badgeText: "Superadmin",
+    badgeColor: "#3b82f6",
+    previewText: `Código de verificação: ${code}`,
+    recipientEmail,
+    contentHtml: `
+      <p style="margin: 0 0 16px 0; color: #d4d4d8;">
+        Uma solicitação administrativa foi iniciada para adicionar <strong>${amount.toLocaleString("pt-BR")} créditos de importação</strong> para o usuário <strong>${targetUserName}</strong>.
+      </p>
+      <p style="margin: 0 0 16px 0; color: #a1a1aa;">
+        Digite o código de segurança abaixo no painel SuperAdmin para autorizar a concessão:
+      </p>
+      <div style="text-align: center; margin: 24px 0;">
+        <div style="background-color: #09090b; border: 1px solid #27272a; border-radius: 16px; padding: 18px 24px; display: inline-block;">
+          <span style="font-size: 34px; font-weight: 900; letter-spacing: 0.35em; color: #ffffff; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; padding-left: 0.35em;">
+            ${code}
+          </span>
+        </div>
+      </div>
+      <p style="margin: 0; font-size: 13px; color: #71717a; text-align: center;">
+        Este código é válido por <strong>5 minutos</strong> e possui limite de 3 tentativas. Se você não realizou esta solicitação, desconsidere este e-mail.
+      </p>
+    `,
+    secondaryInfoHtml: "Ação protegida e auditada conforme as diretrizes de segurança da plataforma AtlasFit.",
+  });
+
+  const text = `AtlasFit | Autorização de Concessão de Créditos\n\nAdição solicitada: ${amount.toLocaleString("pt-BR")} créditos para ${targetUserName}.\nCódigo de segurança: ${code}\nVálido por 5 minutos.\n\nSe você não solicitou, ignore esta mensagem.`;
+
+  return { html, text, subject: `${code} é seu código para adicionar créditos - AtlasFit` };
+}
+

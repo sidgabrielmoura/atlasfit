@@ -2,6 +2,7 @@ import { personalCommercialContextResponse } from "@/lib/personal-commercial-con
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { invalidatePublicExerciseCatalog } from "@/lib/cache/public-data";
 
 // POST /api/personal/workouts/exercises/requested/clear
 // Clears/Deletes requested exercises created by the current trainer (or resolved/rejected ones)
@@ -23,6 +24,7 @@ export async function POST(req: Request) {
           status: { in: ["APPROVED", "REJECTED"] },
         },
       });
+      invalidatePublicExerciseCatalog();
     } else {
       // Personal clears their own requested exercises that are APPROVED or REJECTED
       // (or disassociates them from creator view)

@@ -1,4 +1,5 @@
 import { randomUUID } from "node:crypto";
+import { legacyFixture } from "./legacy-fixture";
 import { afterAll, describe, expect, it } from "vitest";
 import prisma from "@/lib/prisma";
 import { getGuardianFinance, listGuardianDependents } from "@/modules/workspaces/application/guardian-portal";
@@ -69,8 +70,10 @@ describe("GYM PostgreSQL — portal do responsável", () => {
     const version = await prisma.gymPlanVersion.create({ data: { planId: alienPlan.id, name: alienPlan.name, priceInCents: BigInt(990000), termsText: "Outro" } });
     const alienEnrollment = await prisma.gymEnrollment.create({ data: { workspaceId: other.id, studentMemberId: alienMember.id, planVersionId: version.id, priceInCents: version.priceInCents } });
     const invalid = await invoice(midnight, BigInt(990000), BigInt(990000));
-    await prisma.gymInvoice.update({ where: { id: invalid.id }, data: { enrollmentId: alienEnrollment.id } });
-    await prisma.gymPayment.create({ data: { workspaceId: other.id, paymentNumber: randomUUID(), receiptNumber: `Recibo-estrangeiro-nao-exportar-${randomUUID()}`, idempotencyKey: randomUUID(), amountInCents: BigInt(9999), paymentMethod: "BANK_TRANSFER_MANUAL", payerName: "Outro", receivedByUserId: f.owner.id, allocations: { create: { invoiceId: partial.id, allocatedAmountInCents: BigInt(9999) } } } });
+    await legacyFixture(prisma, async tx => {
+      await tx.gymInvoice.update({ where: { id: invalid.id }, data: { enrollmentId: alienEnrollment.id } });
+      await tx.gymPayment.create({ data: { workspaceId: other.id, paymentNumber: randomUUID(), receiptNumber: `Recibo-estrangeiro-nao-exportar-${randomUUID()}`, idempotencyKey: randomUUID(), amountInCents: BigInt(9999), paymentMethod: "BANK_TRANSFER_MANUAL", payerName: "Outro", receivedByUserId: f.owner.id, allocations: { create: { invoiceId: partial.id, allocatedAmountInCents: BigInt(9999) } } } });
+    });
     const statement = gymStatementSchema.parse(await getGuardianFinance(f.guardian.id, f.parent.id, { workspaceId: f.workspace.id }));
     expect(statement.totals).toEqual({ outstandingInCents: "9007199254741593", overdueInCents: "600", receivedInCents: "400" });
     expect(statement.invoices.find(row => row.id === current.id)?.overdue).toBe(false);

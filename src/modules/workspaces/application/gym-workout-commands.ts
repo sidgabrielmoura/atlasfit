@@ -1,5 +1,6 @@
 import { createHash } from "node:crypto";
 import { Prisma } from "@prisma/client";
+import { publicExerciseCatalog } from "@/lib/exercises/catalog-visibility";
 import { z } from "zod";
 import prisma from "@/lib/prisma";
 import { WorkspaceAccessError } from "../domain/types";
@@ -18,14 +19,14 @@ export const gymWorkoutSelect = {
   exercises: { orderBy: [{ order: "asc" }, { id: "asc" }], select: {
     id: true, exerciseId: true, sets: true, reps: true, rest: true, load: true, description: true, order: true,
     methodType: true, methodConfig: true, groupId: true, allowRepsModification: true,
-    exercise: { select: { id: true, name: true, videoUrl: true, muscleGroup: { select: { name: true } } } },
+    exercise: { select: { id: true, name: true, videoUrl: true, isOfficial: true, isWorkoutSpecific: true, status: true, muscleGroup: { select: { name: true } } } },
   } },
   _count: { select: { exercises: true } },
 } satisfies Prisma.WorkoutSelect;
 export type GymWorkoutRow = Prisma.WorkoutGetPayload<{ select: typeof gymWorkoutSelect }>;
 type Fields = z.infer<typeof gymWorkoutFieldsSchema>;
 // The catalogue is global in the existing model. Unapproved personal requests are not gym assets.
-export const gymExerciseVisibility: Prisma.ExerciseWhereInput = { status: { not: "REJECTED" }, OR: [{ isOfficial: true }, { status: { in: ["READY", "APPROVED"] } }] };
+export const gymExerciseVisibility: Prisma.ExerciseWhereInput = publicExerciseCatalog;
 async function assertGym(tx: GymTransactionClient, workspaceId: string) {
   if (!await tx.workspace.findFirst({ where: { id: workspaceId, type: "GYM" }, select: { id: true } })) throw new WorkspaceAccessError(404, "WORKSPACE_NOT_FOUND", "Academia não encontrada.");
 }

@@ -2,21 +2,7 @@ import { withRequestMemo } from "@/lib/request-memo";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
-
-const DEFAULT_MUSCLE_GROUPS = [
-  "Trapézio",
-  "Ombro",
-  "Costas",
-  "Peito",
-  "Tríceps",
-  "Bíceps",
-  "Abdomen",
-  "Antebraço",
-  "Glúteo",
-  "Posterior de perna",
-  "Quadríceps",
-  "Panturrilha"
-];
+import { getMuscleGroups, invalidateMuscleGroups } from "@/lib/cache/public-data";
 
 async function handleGET() {
   const session = await auth();
@@ -26,19 +12,7 @@ async function handleGET() {
   }
 
   try {
-    // Garante que os grupos musculares solicitados existam no banco
-    for (const name of DEFAULT_MUSCLE_GROUPS) {
-      await prisma.muscleGroup.upsert({
-        where: { name },
-        update: {},
-        create: { name }
-      });
-    }
-
-    const muscleGroups = await prisma.muscleGroup.findMany({
-      orderBy: { name: "asc" }
-    });
-    return NextResponse.json(muscleGroups);
+    return NextResponse.json(await getMuscleGroups());
   } catch (error) {
     console.error("[MUSCLE_GROUPS_GET]", error);
     return new NextResponse("Internal Error", { status: 500 });
@@ -61,6 +35,7 @@ export async function POST(req: Request) {
       data: { name }
     });
 
+    invalidateMuscleGroups();
     return NextResponse.json(muscleGroup);
   } catch (error) {
     return new NextResponse("Internal Error", { status: 500 });

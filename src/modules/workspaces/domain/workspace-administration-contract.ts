@@ -1,6 +1,6 @@
 import { z } from "zod";
 
-export const workspaceAdministrationResultSchema = z.object({ id: z.string(), name: z.string(), slug: z.string(), ownerId: z.string(), type: z.enum(["PERSONAL", "GYM"]), isActive: z.boolean() });
+export const workspaceAdministrationResultSchema = z.object({ id: z.string(), name: z.string(), slug: z.string(), ownerId: z.string(), type: z.enum(["PERSONAL", "GYM"]), isActive: z.boolean(), importCredits: z.number().optional() });
 
 export function workspaceAdministrationErrorMessage(body: unknown, fallback: string): string {
   if (typeof body === "string" && body.trim() && body.length <= 300) return body;

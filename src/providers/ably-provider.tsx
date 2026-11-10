@@ -14,6 +14,8 @@ import { toast } from "sonner";
 import { clearActiveWorkspace } from "@/modules/workspaces/application/actions";
 
 const AblyContext = createContext<Ably.Realtime | null>(null);
+const AblyCapabilityContext = createContext<string | undefined>(undefined);
+export const useAblyCapability = () => useContext(AblyCapabilityContext);
 
 function canSubscribe(capability: string | undefined, channelName: string) {
   try {
@@ -356,7 +358,8 @@ export function AblyProvider({ children }: AblyProviderProps) {
     return () => {
       disposed = true;
       migrationChannel.unsubscribe("job_updated", handleMigrationUpdate);
-      void runRealtimeOperation(() => migrationChannel.detach());
+      // Dashboard, review and credit badges share this channel. The provider
+      // closes the connection when the workspace scope changes.
     };
   }, [ablyClient, capability, activeWorkspaceId]);
 
@@ -416,7 +419,7 @@ export function AblyProvider({ children }: AblyProviderProps) {
 
   return (
     <AblyContext.Provider value={ablyClient}>
-      {children}
+      <AblyCapabilityContext.Provider value={capability}>{children}</AblyCapabilityContext.Provider>
     </AblyContext.Provider>
   );
 }

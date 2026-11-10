@@ -7,6 +7,7 @@ import { logSystemError } from "@/lib/logger";
 import { NotificationService } from "@/lib/notifications/service";
 import { NotificationType, NotificationCategory, NotificationPriority } from "@/lib/notifications/types";
 import { adminUserSelect, createAdminUserSchema } from "@/lib/auth/admin-user-service";
+import { userWorkspaceContexts, type DirectoryWorkspace } from "@/lib/superadmin/user-directory";
 
 async function handleGET() {
   const session = await auth();
@@ -20,13 +21,26 @@ async function handleGET() {
       select: {
         ...adminUserSelect,
         workspaces: {
-          select: { id: true, role: true, isActive: true, workspace: { select: { id: true, name: true, slug: true, type: true, isActive: true } } }
+          select: {
+            id: true, role: true, isActive: true,
+            roleGrants: { select: { role: true, revokedAt: true, unit: { select: { isActive: true } } } },
+            studentProfile: { select: { id: true } }, staffProfile: { select: { id: true } },
+            workspace: { select: { id: true, name: true, slug: true, type: true, isActive: true, ownerId: true } },
+          }
         }
       },
       orderBy: { createdAt: "desc" }
     });
 
-    return NextResponse.json(users);
+    // ownerId is scalar in the schema; ownership can exist without a member row.
+    const workspaces = await prisma.workspace.findMany({ select: { id: true, name: true, type: true, isActive: true, ownerId: true } });
+    const owned = new Map<string, DirectoryWorkspace[]>();
+    for (const workspace of workspaces) owned.set(workspace.ownerId, [...(owned.get(workspace.ownerId) || []), workspace]);
+    return NextResponse.json(users.map(user => ({
+      ...user,
+      workspaces: user.workspaces.map(({ roleGrants, studentProfile, staffProfile, ...member }) => member),
+      workspaceContexts: userWorkspaceContexts(user.id, user.workspaces, owned.get(user.id)),
+    })), { headers: { "Cache-Control": "private, no-store" } });
   } catch (error) {
     await logSystemError({ action: "GET_USERS", error, entity: "USER" });
     return new NextResponse("Internal Error", { status: 500 });

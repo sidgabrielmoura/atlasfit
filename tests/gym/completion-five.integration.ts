@@ -109,7 +109,7 @@ it("1200 contracts aggregate into one accurate row and closure retains all facts
  expect(await prisma.gymEnrollmentEvent.count({where:{workspaceId:f.workspace.id,toStatus:"CANCELLED"}})).toBe(1200);
  expect(await prisma.user.count({where:{id:{in:ids.map(row=>row.user)}}})).toBe(1200);
  const ordered=[...samples].sort((a,b)=>a-b);
- writeFileSync("docs/audits/academias/estabilizacao/verificacoes-cinco-volume.json",JSON.stringify({recordedAt:new Date().toISOString(),synthetic:true,disposableDatabase:url.pathname.slice(1),contracts:1200,cataloguePageLimit:20,historyPageLimit:20,overviewBytes:Buffer.byteLength(JSON.stringify(result)),durationsMs:samples,p95Ms:ordered[Math.ceil(ordered.length*.95)-1],closureMs,explain:plan,scope:"local synthetic data; no production SLO or operational homologation claimed"},null,2));
+ writeFileSync(".tmp/verificacoes-cinco-volume.json",JSON.stringify({recordedAt:new Date().toISOString(),synthetic:true,disposableDatabase:url.pathname.slice(1),contracts:1200,cataloguePageLimit:20,historyPageLimit:20,overviewBytes:Buffer.byteLength(JSON.stringify(result)),durationsMs:samples,p95Ms:ordered[Math.ceil(ordered.length*.95)-1],closureMs,explain:plan,scope:"local synthetic data; no production SLO or operational homologation claimed"},null,2));
 },120000);
 it("payload retention preserves event receipts, retries, review and deliveries still in flight",async()=>{
  const now=new Date(),old=new Date(now.getTime()-100*86400000);

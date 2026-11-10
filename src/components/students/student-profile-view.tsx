@@ -51,6 +51,8 @@ import {
   Settings,
   Lock,
   Unlock,
+  ExternalLink,
+  SkipForward,
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
@@ -60,6 +62,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { GymStudentFinance } from "@/components/application/gym-student-finance";
 import {
   Accordion,
   AccordionContent,
@@ -184,6 +187,20 @@ const formatLastActive = (dateVal?: string | Date | null) => {
   return `${dateStr} às ${timeStr}`;
 };
 
+const parseJsonField = (val: any): Record<string, any> => {
+  if (!val) return {};
+  if (typeof val === "object" && val !== null) return val;
+  if (typeof val === "string") {
+    try {
+      const p = JSON.parse(val);
+      return typeof p === "object" && p !== null ? p : {};
+    } catch {
+      return {};
+    }
+  }
+  return {};
+};
+
 export interface StudentProfileViewProps {
   studentId: string;
   variant?: "personal" | "gym";
@@ -199,8 +216,8 @@ export function StudentProfileView({
   variant = "personal",
   basePath = "/personal/clients",
   apiBase = "/api/personal/clients",
-  workoutsApiBase = "${workoutsApiBase}",
-  paymentsApiBase = "${paymentsApiBase}",
+  workoutsApiBase = "/api/personal/workouts",
+  paymentsApiBase = "/api/personal/finance/payments",
   chatBasePath = "/personal/chat",
 }: StudentProfileViewProps) {
   const router = useRouter();
@@ -502,6 +519,7 @@ export function StudentProfileView({
   const [submittingRecurrence, setSubmittingRecurrence] = useState(false);
   const [isReopenPaymentAlertOpen, setIsReopenPaymentAlertOpen] = useState(false);
   const [paymentToReopen, setPaymentToReopen] = useState<any>(null);
+  const [markingAsPaidId, setMarkingAsPaidId] = useState<string | null>(null);
 
   // Recurrence form fields
   const [recControlType, setRecControlType] = useState("MANUAL"); // MANUAL, CONFIRMATION, AUTOMATIC
@@ -561,7 +579,7 @@ export function StudentProfileView({
       const res = await fetch(`${apiBase}/${studentId}?workspaceId=${activeWorkspaceId}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ canDoAnyWorkoutDay: checked }),
+        body: JSON.stringify({ canDoAnyWorkoutDay: checked, ...(variant === "gym" ? { workspaceId: activeWorkspaceId } : {}) }),
       });
 
       if (!res.ok) {
@@ -645,9 +663,10 @@ export function StudentProfileView({
       const res = await fetch(`${workoutsApiBase}?workspaceId=${activeWorkspaceId}`);
       if (res.ok) {
         const data = await res.json();
-        setTemplates(Array.isArray(data) ? data : (data.data || data.workouts || []));
-        if (data.length > 0) {
-          setSelectedTemplateId(data[0].id);
+        const rows = Array.isArray(data) ? data : (data.data || data.workouts || []);
+        setTemplates(rows);
+        if (rows.length > 0) {
+          setSelectedTemplateId(rows[0].id);
         }
       }
     } catch (error) {
@@ -668,7 +687,7 @@ export function StudentProfileView({
   const loadMuscleGroups = async () => {
     if (muscleGroups.length > 0) return;
     try {
-      const res = await fetch("${workoutsApiBase}/muscle-groups");
+      const res = await fetch(`${workoutsApiBase}/muscle-groups?workspaceId=${activeWorkspaceId}`);
       if (res.ok) {
         const data = await res.json();
         setMuscleGroups(data);
@@ -689,7 +708,7 @@ export function StudentProfileView({
       try {
         setLoadingExercises(true);
         setSearchQuery("");
-        const res = await fetch(`${workoutsApiBase}/exercises?muscleGroupId=${selectedMuscleGroupId}`);
+        const res = await fetch(`${workoutsApiBase}/exercises?muscleGroupId=${selectedMuscleGroupId}&workspaceId=${activeWorkspaceId}`);
         if (res.ok) {
           const data = await res.json();
           setDbExercises(Array.isArray(data) ? data : (data.data || []));
@@ -787,6 +806,9 @@ export function StudentProfileView({
 
       if (assignType === "library") {
         payload.cloneFromWorkoutId = selectedTemplateId;
+        payload.allowRepsModification = customAllowRepsModification;
+        payload.allowCompleteView = customAllowCompleteView;
+        payload.allowSkipExercises = customAllowSkipExercises;
       } else {
         payload.name = customName;
         payload.goal = customGoal;
@@ -1315,6 +1337,7 @@ export function StudentProfileView({
   };
 
   const fetchStudentPayments = async () => {
+    if (variant === "gym") return;
     if (!activeWorkspaceId) return;
     try {
       setLoadingPayments(true);
@@ -1988,6 +2011,32 @@ export function StudentProfileView({
     }
   };
 
+  const handleMarkPaymentAsPaid = async (payment: any) => {
+    if (!payment?.id) return;
+    try {
+      setMarkingAsPaidId(payment.id);
+      const res = await fetch(`${paymentsApiBase}/${payment.id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "pago",
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(await res.text() || "Erro ao confirmar pagamento.");
+      }
+
+      toast.success("Pagamento confirmado com sucesso! 🎉");
+      fetchStudentPayments();
+    } catch (error: any) {
+      console.error(error);
+      toast.error(error.message || "Falha ao confirmar pagamento.");
+    } finally {
+      setMarkingAsPaidId(null);
+    }
+  };
+
   const CIRCUMFERENCES = [
     { key: "chest", label: "Peitoral" },
     { key: "waist", label: "Cintura" },
@@ -2111,14 +2160,14 @@ export function StudentProfileView({
             </div>
 
             <div className="w-full md:w-auto shrink-0 flex flex-col sm:flex-row gap-2.5 mt-2 md:mt-0 items-center justify-center">
-              <Button
+              {variant !== "gym" && <Button
                 variant="outline"
                 className="group gap-2 w-full sm:w-auto bg-primary/5 hover:bg-primary/10 text-primary border border-primary/20 hover:border-primary/40 transition-all duration-300 font-bold rounded-xl px-5 h-10 text-xs tracking-wider uppercase hover:scale-[1.02] active:scale-[0.98]"
                 onClick={() => router.push(`${chatBasePath}?studentId=${student?.id}`)}
               >
                 <MessageSquare className="size-4 text-primary group-hover:scale-110 transition-transform shrink-0" />
                 <span>Chat Interno</span>
-              </Button>
+              </Button>}
 
               <Button
                 variant="outline"
@@ -3837,6 +3886,10 @@ export function StudentProfileView({
 
         {/* ==================== TAB 4: FINANCES ==================== */}
         <TabsContent value="financeiro" className="space-y-6 outline-none focus-visible:ring-0">
+          {variant === "gym" && activeWorkspaceId ? <>
+            <Button asChild variant="outline"><Link href="/gym/finance">Gerenciar faturas, recebimentos e reversões</Link></Button>
+            <GymStudentFinance key={`${activeWorkspaceId}:${studentId}`} workspaceId={activeWorkspaceId} statementUrl={`${apiBase}/${studentId}/finance?workspaceId=${activeWorkspaceId}`} showContractsLink={false} />
+          </> : <>
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-border/50 dark:border-white/[0.06] pb-4">
             <div>
               <h2 className="text-xl font-bold tracking-tight  flex items-center gap-2">
@@ -4239,9 +4292,16 @@ export function StudentProfileView({
                                 {payment.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                               </td>
                               <td className="py-4 px-6">
-                                <Badge className="bg-white/[0.04] text-muted-foreground border border-border/50 dark:border-white/[0.06] rounded-md font-bold px-2 py-0.5 text-xs">
-                                  {payment.method}
-                                </Badge>
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <Badge className="bg-white/[0.04] text-muted-foreground border border-border/50 dark:border-white/[0.06] rounded-md font-bold px-2 py-0.5 text-xs">
+                                    {payment.method}
+                                  </Badge>
+                                  {payment.isGateway && (
+                                    <Badge className="bg-primary/10 text-primary border-primary/20 rounded-md font-bold px-2 py-0.5 text-xs">
+                                      Digital
+                                    </Badge>
+                                  )}
+                                </div>
                               </td>
                               <td className="py-4 px-6">
                                 <Badge
@@ -4260,12 +4320,25 @@ export function StudentProfileView({
                               <td className="py-4 px-6 text-right">
                                 <DropdownMenu>
                                   <DropdownMenuTrigger asChild>
-                                    <Button variant="ghost" className="size-8 p-0 rounded-lg hover:bg-muted dark:hover:bg-white/5 text-muted-foreground hover: transition-colors">
-                                      <MoreVertical className="size-4" />
+                                    <Button variant="ghost" disabled={markingAsPaidId === payment.id} className="size-8 p-0 rounded-lg hover:bg-muted dark:hover:bg-white/5 text-muted-foreground hover: transition-colors">
+                                      {markingAsPaidId === payment.id ? (
+                                        <Loader2 className="size-4 animate-spin" />
+                                      ) : (
+                                        <MoreVertical className="size-4" />
+                                      )}
                                     </Button>
                                   </DropdownMenuTrigger>
                                   <DropdownMenuContent align="end" className="bg-popover border border-border text-foreground rounded-xl">
-                                    {payment.status === "pago" && payment.billingOrigin === "RECURRENCE" && (
+                                    {payment.status !== "pago" && (
+                                      <>
+                                        <DropdownMenuItem onClick={() => handleMarkPaymentAsPaid(payment)} className="gap-2 cursor-pointer text-emerald-600 dark:text-emerald-400 focus:bg-emerald-500/10 focus:text-emerald-600 dark:focus:text-emerald-400 rounded-lg py-2">
+                                          <CheckCircle2 className="size-3.5" />
+                                          Marcar como Pago
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator className="bg-white/[0.06]" />
+                                      </>
+                                    )}
+                                    {payment.status === "pago" && (payment.billingOrigin === "RECURRENCE" || payment.isGateway) && (
                                       <>
                                         <DropdownMenuItem onClick={() => {
                                           setPaymentToReopen(payment);
@@ -4277,14 +4350,29 @@ export function StudentProfileView({
                                         <DropdownMenuSeparator className="bg-white/[0.06]" />
                                       </>
                                     )}
-                                    <DropdownMenuItem onClick={() => handleTriggerEditPayment(payment)} className="gap-2 cursor-pointer focus:bg-muted dark:focus:bg-white/5 focus: rounded-lg py-2">
-                                      <Edit2 className="size-3.5 text-blue-400" />
-                                      Editar Lançamento
-                                    </DropdownMenuItem>
-                                    <DropdownMenuSeparator className="bg-white/[0.06]" />
+                                    {payment.hostedInvoiceUrl && (
+                                      <>
+                                        <DropdownMenuItem asChild className="gap-2 cursor-pointer focus:bg-muted dark:focus:bg-white/5 rounded-lg py-2">
+                                          <a href={payment.hostedInvoiceUrl} target="_blank" rel="noopener noreferrer">
+                                            <ExternalLink className="size-3.5 text-blue-400" />
+                                            Ver Fatura / Pix
+                                          </a>
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator className="bg-white/[0.06]" />
+                                      </>
+                                    )}
+                                    {!payment.isGateway && (
+                                      <>
+                                        <DropdownMenuItem onClick={() => handleTriggerEditPayment(payment)} className="gap-2 cursor-pointer focus:bg-muted dark:focus:bg-white/5 focus: rounded-lg py-2">
+                                          <Edit2 className="size-3.5 text-blue-400" />
+                                          Editar Lançamento
+                                        </DropdownMenuItem>
+                                        <DropdownMenuSeparator className="bg-white/[0.06]" />
+                                      </>
+                                    )}
                                     <DropdownMenuItem onClick={() => handleTriggerDeletePayment(payment)} className="gap-2 cursor-pointer text-rose-600 dark:text-rose-400 focus:bg-rose-500/10 focus:text-rose-600 dark:text-rose-400 rounded-lg py-2">
                                       <Trash2 className="size-3.5" />
-                                      Excluir Lançamento
+                                      {payment.isGateway ? "Cancelar Cobrança" : "Excluir Lançamento"}
                                     </DropdownMenuItem>
                                   </DropdownMenuContent>
                                 </DropdownMenu>
@@ -4309,12 +4397,25 @@ export function StudentProfileView({
                           {/* Compact Action Menu */}
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" className="size-8 p-0 rounded-lg hover:bg-muted dark:hover:bg-white/5 text-muted-foreground hover: transition-colors shrink-0">
-                                <MoreVertical className="size-4" />
+                              <Button variant="ghost" disabled={markingAsPaidId === payment.id} className="size-8 p-0 rounded-lg hover:bg-muted dark:hover:bg-white/5 text-muted-foreground hover: transition-colors shrink-0">
+                                {markingAsPaidId === payment.id ? (
+                                  <Loader2 className="size-4 animate-spin" />
+                                ) : (
+                                  <MoreVertical className="size-4" />
+                                )}
                               </Button>
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end" className="bg-popover border border-border text-foreground rounded-xl">
-                              {payment.status === "pago" && payment.billingOrigin === "RECURRENCE" && (
+                              {payment.status !== "pago" && (
+                                <>
+                                  <DropdownMenuItem onClick={() => handleMarkPaymentAsPaid(payment)} className="gap-2 cursor-pointer text-emerald-600 dark:text-emerald-400 focus:bg-emerald-500/10 focus:text-emerald-600 dark:focus:text-emerald-400 rounded-lg py-2 text-xs">
+                                    <CheckCircle2 className="size-3.5" />
+                                    Marcar como Pago
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator className="bg-white/[0.06]" />
+                                </>
+                              )}
+                              {payment.status === "pago" && (payment.billingOrigin === "RECURRENCE" || payment.isGateway) && (
                                 <>
                                   <DropdownMenuItem onClick={() => {
                                     setPaymentToReopen(payment);
@@ -4326,24 +4427,44 @@ export function StudentProfileView({
                                   <DropdownMenuSeparator className="bg-white/[0.06]" />
                                 </>
                               )}
-                              <DropdownMenuItem onClick={() => handleTriggerEditPayment(payment)} className="gap-2 cursor-pointer focus:bg-muted dark:focus:bg-white/5 focus: rounded-lg py-2 text-xs">
-                                <Edit2 className="size-3.5 text-blue-400" />
-                                Editar Lançamento
-                              </DropdownMenuItem>
-                              <DropdownMenuSeparator className="bg-white/[0.06]" />
+                              {payment.hostedInvoiceUrl && (
+                                <>
+                                  <DropdownMenuItem asChild className="gap-2 cursor-pointer focus:bg-muted dark:focus:bg-white/5 rounded-lg py-2 text-xs">
+                                    <a href={payment.hostedInvoiceUrl} target="_blank" rel="noopener noreferrer">
+                                      <ExternalLink className="size-3.5 text-blue-400" />
+                                      Ver Fatura / Pix
+                                    </a>
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator className="bg-white/[0.06]" />
+                                </>
+                              )}
+                              {!payment.isGateway && (
+                                <>
+                                  <DropdownMenuItem onClick={() => handleTriggerEditPayment(payment)} className="gap-2 cursor-pointer focus:bg-muted dark:focus:bg-white/5 focus: rounded-lg py-2 text-xs">
+                                    <Edit2 className="size-3.5 text-blue-400" />
+                                    Editar Lançamento
+                                  </DropdownMenuItem>
+                                  <DropdownMenuSeparator className="bg-white/[0.06]" />
+                                </>
+                              )}
                               <DropdownMenuItem onClick={() => handleTriggerDeletePayment(payment)} className="gap-2 cursor-pointer text-rose-600 dark:text-rose-400 focus:bg-rose-500/10 focus:text-rose-600 dark:text-rose-400 rounded-lg py-2 text-xs">
                                 <Trash2 className="size-3.5" />
-                                Excluir Lançamento
+                                {payment.isGateway ? "Cancelar Cobrança" : "Excluir Lançamento"}
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
 
                         <div className="flex items-center justify-between border-t border-border/50 dark:border-white/[0.04] pt-2 mt-1">
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 flex-wrap">
                             <Badge className="bg-white/[0.04] text-muted-foreground border border-border/50 dark:border-white/[0.06] rounded-md font-bold px-2 py-0.5 text-[10px]">
                               {payment.method}
                             </Badge>
+                            {payment.isGateway && (
+                              <Badge className="bg-primary/10 text-primary border-primary/20 rounded-md font-bold px-2 py-0.5 text-[10px]">
+                                Digital
+                              </Badge>
+                            )}
                             <Badge
                               className={cn(
                                 "font-bold rounded-full border px-2 py-0.5 text-[10px]",
@@ -4369,6 +4490,7 @@ export function StudentProfileView({
               )}
             </div>
           )}
+          </>}
         </TabsContent>
 
         {/* ==================== TAB 5: FILES PLACEHOLDER ==================== */}
@@ -5063,6 +5185,29 @@ export function StudentProfileView({
                                               </span>
                                             </div>
                                           )}
+                                          {(() => {
+                                            const skipped = parseJsonField(log.skippedExercises);
+                                            const skippedEntries = Object.entries(skipped);
+                                            if (skippedEntries.length === 0) return null;
+                                            const skippedCount = skippedEntries.filter(([_, v]: any) => v?.status === "SKIPPED" || (!v?.status && !v?.postponed)).length;
+                                            const postponedCount = skippedEntries.filter(([_, v]: any) => v?.status === "POSTPONED" || Boolean(v?.postponed)).length;
+                                            return (
+                                              <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                                                {skippedCount > 0 && (
+                                                  <Badge variant="secondary" className="bg-secondary text-muted-foreground border border-border/40 text-[10px] font-medium gap-1 py-0.5 px-2">
+                                                    <SkipForward className="size-3 shrink-0" />
+                                                    {skippedCount} {skippedCount === 1 ? "exercício pulado" : "exercícios pulados"}
+                                                  </Badge>
+                                                )}
+                                                {postponedCount > 0 && (
+                                                  <Badge variant="secondary" className="bg-secondary text-foreground border border-border/40 text-[10px] font-medium gap-1 py-0.5 px-2">
+                                                    <Clock className="size-3 shrink-0" />
+                                                    {postponedCount} {postponedCount === 1 ? "feito depois" : "feitos depois"}
+                                                  </Badge>
+                                                )}
+                                              </div>
+                                            );
+                                          })()}
                                         </div>
                                       </TableCell>
                                       <TableCell className="text-xs font-semibold text-muted-foreground">
@@ -5153,6 +5298,29 @@ export function StudentProfileView({
                                           </Badge>
                                         </div>
                                       )}
+                                      {(() => {
+                                        const skipped = parseJsonField(log.skippedExercises);
+                                        const skippedEntries = Object.entries(skipped);
+                                        if (skippedEntries.length === 0) return null;
+                                        const skippedCount = skippedEntries.filter(([_, v]: any) => v?.status === "SKIPPED" || (!v?.status && !v?.postponed)).length;
+                                        const postponedCount = skippedEntries.filter(([_, v]: any) => v?.status === "POSTPONED" || Boolean(v?.postponed)).length;
+                                        return (
+                                          <div className="flex items-center gap-1.5 flex-wrap pt-0.5">
+                                            {skippedCount > 0 && (
+                                              <Badge variant="secondary" className="bg-secondary text-muted-foreground border border-border/40 text-[10px] font-medium gap-1 py-0.5 px-2">
+                                                <SkipForward className="size-3 shrink-0" />
+                                                {skippedCount} {skippedCount === 1 ? "exercício pulado" : "exercícios pulados"}
+                                              </Badge>
+                                            )}
+                                            {postponedCount > 0 && (
+                                              <Badge variant="secondary" className="bg-secondary text-foreground border border-border/40 text-[10px] font-medium gap-1 py-0.5 px-2">
+                                                <Clock className="size-3 shrink-0" />
+                                                {postponedCount} {postponedCount === 1 ? "feito depois" : "feitos depois"}
+                                              </Badge>
+                                            )}
+                                          </div>
+                                        );
+                                      })()}
                                     </div>
                                     <span className="text-[10px] text-muted-foreground font-medium">
                                       {formatLogDate(log.completedAt)}
@@ -5303,7 +5471,18 @@ export function StudentProfileView({
                       Nenhum modelo de treino cadastrado na biblioteca. Crie um na aba principal de treinos.
                     </div>
                   ) : (
-                    <Select value={selectedTemplateId} onValueChange={setSelectedTemplateId}>
+                    <Select
+                      value={selectedTemplateId}
+                      onValueChange={(val) => {
+                        setSelectedTemplateId(val);
+                        const t = templates.find((item: any) => item.id === val);
+                        if (t) {
+                          if (t.allowRepsModification !== undefined) setCustomAllowRepsModification(t.allowRepsModification);
+                          if (t.allowCompleteView !== undefined) setCustomAllowCompleteView(t.allowCompleteView);
+                          if (t.allowSkipExercises !== undefined) setCustomAllowSkipExercises(t.allowSkipExercises);
+                        }
+                      }}
+                    >
                       <SelectTrigger id="templateSelect" className="bg-background border-border h-10 w-full min-w-0 max-w-full *:data-[slot=select-value]:block *:data-[slot=select-value]:truncate *:data-[slot=select-value]:text-xs">
                         <SelectValue placeholder="Escolha um treino..." />
                       </SelectTrigger>
@@ -5317,6 +5496,52 @@ export function StudentProfileView({
                     </Select>
                   )}
                 </div>
+
+                {selectedTemplateId && (
+                  <div className="border-t border-border/40 pt-3 space-y-3">
+                    <h4 className="text-xs font-extrabold uppercase text-muted-foreground tracking-wider">Regras de Execução para o Aluno</h4>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                      <div className="flex items-center justify-between p-3 border border-border rounded-xl bg-background/40">
+                        <div className="space-y-0.5 max-w-[80%]">
+                          <Label className="text-xs font-bold text-neutral-300 cursor-pointer" htmlFor="libraryAllowRepsModification">Modificar Repetições</Label>
+                          <p className="text-[10px] text-muted-foreground leading-normal">Permitir que o aluno altere o número de repetições.</p>
+                        </div>
+                        <Checkbox
+                          id="libraryAllowRepsModification"
+                          checked={customAllowRepsModification}
+                          onCheckedChange={(checked) => setCustomAllowRepsModification(!!checked)}
+                          className="size-5 rounded-md border-neutral-700"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 border border-border rounded-xl bg-background/40">
+                        <div className="space-y-0.5 max-w-[80%]">
+                          <Label className="text-xs font-bold text-neutral-300 cursor-pointer" htmlFor="libraryAllowCompleteView">Visão Completa do Treino</Label>
+                          <p className="text-[10px] text-muted-foreground leading-normal">Exibir lista completa de exercícios.</p>
+                        </div>
+                        <Checkbox
+                          id="libraryAllowCompleteView"
+                          checked={customAllowCompleteView}
+                          onCheckedChange={(checked) => setCustomAllowCompleteView(!!checked)}
+                          className="size-5 rounded-md border-neutral-700"
+                        />
+                      </div>
+
+                      <div className="flex items-center justify-between p-3 border border-border rounded-xl bg-background/40">
+                        <div className="space-y-0.5 max-w-[80%]">
+                          <Label className="text-xs font-bold text-neutral-300 cursor-pointer" htmlFor="libraryAllowSkipExercises">Pular Exercícios</Label>
+                          <p className="text-[10px] text-muted-foreground leading-normal">Permitir que o aluno pule exercícios com justificativa.</p>
+                        </div>
+                        <Checkbox
+                          id="libraryAllowSkipExercises"
+                          checked={customAllowSkipExercises}
+                          onCheckedChange={(checked) => setCustomAllowSkipExercises(!!checked)}
+                          className="size-5 rounded-md border-neutral-700"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
@@ -7832,11 +8057,20 @@ export function StudentProfileView({
           <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-red-500/20 to-transparent" />
           <AlertDialogHeader>
             <AlertDialogTitle className="text-lg font-bold text-foreground flex items-center gap-2">
-              <AlertTriangle className="size-5 text-rose-500 shrink-0 animate-bounce" /> Excluir Lançamento Financeiro?
+              <AlertTriangle className="size-5 text-rose-500 shrink-0 animate-bounce" /> {paymentToDelete?.isGateway ? "Cancelar Cobrança Digital?" : "Excluir Lançamento Financeiro?"}
             </AlertDialogTitle>
             <AlertDialogDescription className="text-muted-foreground text-xs leading-relaxed">
-              Você tem certeza que deseja remover o lançamento <strong className="text-foreground font-semibold">{paymentToDelete?.planName}</strong> no valor de <strong className="text-foreground font-semibold">{(paymentToDelete?.amount || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>?
-              Esta ação é <span className="text-rose-600 dark:text-rose-455 font-semibold underline">totalmente irreversível</span> e removerá permanentemente o lançamento da ficha financeira e do histórico do aluno.
+              {paymentToDelete?.isGateway ? (
+                <>
+                  Você tem certeza que deseja cancelar a cobrança <strong className="text-foreground font-semibold">{paymentToDelete?.planName}</strong> no valor de <strong className="text-foreground font-semibold">{(paymentToDelete?.amount || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>?
+                  Esta ação <span className="text-rose-600 dark:text-rose-400 font-semibold underline">cancelará a cobrança digital</span> e liberará imediatamente os treinos do aluno caso esteja com bloqueio por atraso.
+                </>
+              ) : (
+                <>
+                  Você tem certeza que deseja remover o lançamento <strong className="text-foreground font-semibold">{paymentToDelete?.planName}</strong> no valor de <strong className="text-foreground font-semibold">{(paymentToDelete?.amount || 0).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</strong>?
+                  Esta ação é <span className="text-rose-600 dark:text-rose-455 font-semibold underline">totalmente irreversível</span> e removerá permanentemente o lançamento da ficha financeira e do histórico do aluno.
+                </>
+              )}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="gap-2 mt-2">
@@ -7861,10 +8095,10 @@ export function StudentProfileView({
               {submittingDeletePayment ? (
                 <>
                   <Loader2 className="animate-spin size-4 mr-2" />
-                  Removendo...
+                  {paymentToDelete?.isGateway ? "Cancelando..." : "Removendo..."}
                 </>
               ) : (
-                "Sim, Excluir Lançamento"
+                paymentToDelete?.isGateway ? "Sim, Cancelar Cobrança" : "Sim, Excluir Lançamento"
               )}
             </AlertDialogAction>
           </AlertDialogFooter>
@@ -8392,6 +8626,135 @@ export function StudentProfileView({
                   </div>
                 )}
 
+                {/* Highlighted Skipped and Postponed Exercises section for Personal Trainer */}
+                {(() => {
+                  const allKeys = Object.keys(skippedObj);
+                  if (allKeys.length === 0) return null;
+
+                  const getExerciseNameByKey = (key: string) => {
+                    const match = exercisesList.find((ex: any) => ex.id === key || ex.exerciseId === key || ex.exercise?.id === key);
+                    return match?.exercise?.name || match?.name || `Exercício (${key})`;
+                  };
+
+                  const skippedKeys = allKeys.filter((key) => {
+                    const entry = skippedObj[key];
+                    return entry?.status === "SKIPPED" || (!entry?.status && !entry?.postponed);
+                  });
+
+                  const postponedKeys = allKeys.filter((key) => {
+                    const entry = skippedObj[key];
+                    return entry?.status === "POSTPONED" || Boolean(entry?.postponed);
+                  });
+
+                  return (
+                    <div className="space-y-3">
+                      {skippedKeys.length > 0 && (
+                        <div className="p-3.5 rounded-xl bg-secondary/30 border border-border/50 space-y-2.5">
+                          <div className="flex items-center gap-2.5">
+                            <div className="size-7 rounded-lg bg-secondary text-muted-foreground flex items-center justify-center shrink-0">
+                              <SkipForward className="size-4" />
+                            </div>
+                            <div>
+                              <h5 className="font-semibold text-xs text-foreground">
+                                Exercícios Pulados pelo Aluno ({skippedKeys.length})
+                              </h5>
+                              <p className="text-[11px] text-muted-foreground">
+                                O aluno informou as seguintes justificativas durante a execução deste treino:
+                              </p>
+                            </div>
+                          </div>
+                          <div className="space-y-2 pt-1">
+                            {skippedKeys.map((key) => {
+                              const entry = skippedObj[key];
+                              const reason = typeof entry === "object" && entry?.reason ? entry.reason : String(entry || "");
+                              const exName = getExerciseNameByKey(key);
+                              return (
+                                <div key={key} className="p-2.5 rounded-lg bg-background/80 border border-border/40 text-xs space-y-1">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <span className="font-bold text-foreground flex items-center gap-1.5">
+                                      <span className="size-1.5 rounded-full bg-muted-foreground shrink-0" />
+                                      {exName}
+                                    </span>
+                                    <Badge variant="secondary" className="text-[9px] bg-secondary text-muted-foreground border border-border/40 font-medium gap-1">
+                                      <SkipForward className="size-2.5" /> Pulado
+                                    </Badge>
+                                  </div>
+                                  <p className="text-muted-foreground italic text-xs pl-2.5 border-l-2 border-border">
+                                    "{reason}"
+                                  </p>
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+
+                      {postponedKeys.length > 0 && (
+                        <div className="p-3.5 rounded-xl bg-secondary/30 border border-border/50 space-y-2.5">
+                          <div className="flex items-center gap-2.5">
+                            <div className="size-7 rounded-lg bg-secondary text-foreground flex items-center justify-center shrink-0">
+                              <Clock className="size-4 text-muted-foreground" />
+                            </div>
+                            <div>
+                              <h5 className="font-semibold text-xs text-foreground">
+                                Exercícios Deixados Para Depois / Ordem Alterada ({postponedKeys.length})
+                              </h5>
+                              <p className="text-[11px] text-muted-foreground">
+                                O aluno alterou a ordem destes exercícios durante o treino (ex: aparelho ocupado):
+                              </p>
+                            </div>
+                          </div>
+                          <div className="space-y-2 pt-1">
+                            {postponedKeys.map((key) => {
+                              const entry = skippedObj[key];
+                              const reason = typeof entry === "object" && entry?.reason ? entry.reason : String(entry || "");
+                              const exName = getExerciseNameByKey(key);
+                              const originalOrder = entry?.originalOrder;
+                              const executedOrder = entry?.executedOrder;
+                              const doneBeforeCount = entry?.exercisesDoneBeforeCount ?? (entry?.exercisesDoneBeforeNames?.length || 0);
+                              const doneBeforeNames: string[] = entry?.exercisesDoneBeforeNames || [];
+
+                              return (
+                                <div key={key} className="p-2.5 rounded-lg bg-background/80 border border-border/40 text-xs space-y-1.5">
+                                  <div className="flex items-center justify-between gap-2 flex-wrap">
+                                    <span className="font-bold text-foreground flex items-center gap-1.5">
+                                      <span className="size-1.5 rounded-full bg-foreground shrink-0" />
+                                      {exName}
+                                    </span>
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      {originalOrder && executedOrder ? (
+                                        <Badge variant="outline" className="text-[10px] bg-secondary/40 text-foreground border-border/60 font-medium">
+                                          #{originalOrder} planejado → #{executedOrder}º executado
+                                        </Badge>
+                                      ) : null}
+                                      <Badge variant="secondary" className="text-[9px] bg-secondary text-foreground border border-border/40 font-medium gap-1">
+                                        <Clock className="size-2.5" />
+                                        {doneBeforeCount} {doneBeforeCount === 1 ? "exercício antes" : "exercícios antes"}
+                                      </Badge>
+                                    </div>
+                                  </div>
+
+                                  {reason && (
+                                    <p className="text-muted-foreground italic text-xs pl-2.5 border-l-2 border-border">
+                                      Motivo: "{reason}"
+                                    </p>
+                                  )}
+
+                                  {doneBeforeNames.length > 0 && (
+                                    <p className="text-[11px] text-muted-foreground pl-2.5">
+                                      <span className="font-medium text-foreground">Exercícios feitos antes:</span> {doneBeforeNames.join(", ")}
+                                    </p>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
+
                 <div className="space-y-3">
                   <h4 className="text-xs font-extrabold uppercase text-muted-foreground tracking-wider">Exercícios Executados</h4>
                   <div className="border border-border/60 rounded-xl overflow-hidden divide-y divide-border/60">
@@ -8401,18 +8764,17 @@ export function StudentProfileView({
                         const repParts = getExecutionList(repsObj, ex, idx);
                         const restParts = getExecutionList(restsObj, ex, idx);
 
-                        const isSkipped = !!(
+                        const entry = (
                           skippedObj[ex.id] ||
                           skippedObj[ex.exerciseId] ||
                           skippedObj[ex.exercise?.id] ||
                           skippedObj[ex.exercise?.name]
                         );
+                        const isPostponed = entry?.status === "POSTPONED" || Boolean(entry?.postponed);
+                        const isSkipped = !!entry && !isPostponed;
                         const skipReason = (
-                          skippedObj[ex.id]?.reason ||
-                          skippedObj[ex.exerciseId]?.reason ||
-                          skippedObj[ex.exercise?.id]?.reason ||
-                          skippedObj[ex.exercise?.name]?.reason ||
-                          ""
+                          entry?.reason ||
+                          (typeof entry === "string" ? entry : "")
                         );
 
                         const actualLoadsCount = loadParts.filter((x) => x !== "" && x !== "—").length;
@@ -8429,8 +8791,13 @@ export function StudentProfileView({
                               </span>
                               <div className="flex items-center gap-1.5">
                                 {isSkipped ? (
-                                  <Badge variant="outline" className="text-[10px] bg-rose-500/10 text-rose-500 border-rose-500/20 py-0 px-2 font-bold">
-                                    Pulado {skipReason ? `• ${skipReason}` : ""}
+                                  <Badge variant="secondary" className="text-[10px] bg-secondary text-muted-foreground border border-border/40 py-0.5 px-2 font-medium gap-1">
+                                    <SkipForward className="size-2.5" /> Pulado
+                                  </Badge>
+                                ) : isPostponed ? (
+                                  <Badge variant="secondary" className="text-[10px] bg-secondary text-foreground border border-border/40 py-0.5 px-2 font-medium gap-1">
+                                    <Clock className="size-2.5" />
+                                    {entry.completed ? `Feito depois (#${entry.executedOrder || "?"})` : "Marcado para depois"}
                                   </Badge>
                                 ) : (
                                   <Badge variant="outline" className="text-[10px] bg-secondary/35 text-muted-foreground border-border py-0 px-2 font-semibold">
@@ -8439,6 +8806,41 @@ export function StudentProfileView({
                                 )}
                               </div>
                             </div>
+
+                            {isSkipped && skipReason && (
+                              <div className="p-2.5 rounded-lg bg-secondary/20 border border-border/30 text-xs mt-1">
+                                <span className="font-medium text-muted-foreground text-[11px] block mb-0.5">
+                                  Justificativa do aluno:
+                                </span>
+                                <p className="text-muted-foreground italic text-xs">"{skipReason}"</p>
+                              </div>
+                            )}
+
+                            {isPostponed && (
+                              <div className="p-2.5 rounded-lg bg-secondary/20 border border-border/30 text-xs mt-1 space-y-1">
+                                <div className="flex items-center justify-between text-[11px] text-muted-foreground flex-wrap gap-1">
+                                  <span>
+                                    Ordem planejada: <strong>#{entry.originalOrder || idx + 1}</strong>
+                                    {entry.executedOrder ? <> → Ordem executada: <strong>#{entry.executedOrder}º</strong></> : null}
+                                  </span>
+                                  {entry.exercisesDoneBeforeCount !== undefined && (
+                                    <span>
+                                      <strong>{entry.exercisesDoneBeforeCount}</strong> {entry.exercisesDoneBeforeCount === 1 ? "exercício feito antes" : "exercícios feitos antes"}
+                                    </span>
+                                  )}
+                                </div>
+                                {skipReason && (
+                                  <p className="text-muted-foreground italic text-xs">
+                                    Motivo: "{skipReason}"
+                                  </p>
+                                )}
+                                {entry.exercisesDoneBeforeNames && entry.exercisesDoneBeforeNames.length > 0 && (
+                                  <p className="text-[10px] text-muted-foreground">
+                                    Feitos antes: {entry.exercisesDoneBeforeNames.join(", ")}
+                                  </p>
+                                )}
+                              </div>
+                            )}
 
                             <div className="grid grid-cols-[50px_1fr_1fr_1fr] gap-2 text-[9px] uppercase font-bold text-muted-foreground/80 pl-2">
                               <div>Série</div>

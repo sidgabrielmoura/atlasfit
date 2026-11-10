@@ -4,6 +4,7 @@ import { WorkspaceCapability, WorkspaceRole } from "./roles";
 export type { WorkspaceCapability, WorkspaceRole };
 
 export type WorkspaceAccessErrorCode =
+  | "ENROLLMENT_REVISION_REQUIRED"
   | "WORKSPACE_MISMATCH"
   | "WORKOUT_EDIT_CONFLICT"
   | "WORKOUT_ROWS_CHANGED"
@@ -19,6 +20,7 @@ export type WorkspaceAccessErrorCode =
   | "CONFIGURATION_CONFLICT"
   | "IDEMPOTENCY_CONFLICT"
   | "INVALID_IMPORT"
+  | "IMPORT_CLAIM_LOST"
   | "EXPORT_LIMIT_EXCEEDED"
   | "UNIT_REQUIRED"
   | "LEGACY_IMPORT_REVIEW_REQUIRED"
@@ -252,6 +254,8 @@ export interface WorkspaceContext {
 }
 
 export interface RequireWorkspaceAccessOptions {
+  /** Billing recovery only: an expired license still requires live workspace management. */
+  allowExpiredGymLicense?: boolean;
   expectedType?: "PERSONAL" | "GYM";
   requireActiveContext?: boolean;
   /** The workspace ID to verify access for. */
@@ -285,6 +289,7 @@ export class WorkspaceAccessError extends Error {
   ) {
     super(message);
     this.name = "WorkspaceAccessError";
+    Object.setPrototypeOf(this, WorkspaceAccessError.prototype);
   }
 
   toResponse(): NextResponse {

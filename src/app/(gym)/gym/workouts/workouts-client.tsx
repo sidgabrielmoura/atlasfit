@@ -1,8 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { motion } from "framer-motion";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Search,
   Plus,
@@ -126,6 +127,8 @@ export function GymWorkoutsClient({
   actorUserId,
   canEditOthers,
 }: GymWorkoutsClientProps) {
+  const router = useRouter();
+  const assignmentAttempt = useRef<{ payload: string; key: string } | null>(null);
   const workspaceSnap = useSnapshot(workspaceStore);
   const activeWorkspace = workspaceSnap.activeWorkspace;
   const activeWorkspaceId = workspaceSnap.activeWorkspaceId || workspaceId;
@@ -162,12 +165,13 @@ export function GymWorkoutsClient({
     if (!activeWorkspaceId) return;
     try {
       setLoadingWorkouts(true);
-      const res = await fetch(`/api/gym/workouts?workspaceId=${activeWorkspaceId}`);
+      const params = new URLSearchParams({ workspaceId: activeWorkspaceId, page: String(meta.page), limit: String(meta.limit), search: workoutSearch, goal: workoutFilter === "all" ? "ALL" : workoutFilter, difficulty: initialDifficulty });
+      const res = await fetch(`/api/gym/workouts?${params}`);
       if (!res.ok) {
         throw new Error("Erro ao carregar treinos da academia.");
       }
       const data = await res.json();
-      setWorkouts(data);
+      setWorkouts(data.data);
     } catch (error) {
       console.error(error);
       toast.error("Falha ao carregar modelos de treinos.");
@@ -176,9 +180,7 @@ export function GymWorkoutsClient({
     }
   };
 
-  useEffect(() => {
-    fetchWorkouts();
-  }, [activeWorkspaceId]);
+  useEffect(() => { setWorkouts(initialTemplates); }, [initialTemplates]);
 
   // Load exercises for library tab
   useEffect(() => {
@@ -224,7 +226,7 @@ export function GymWorkoutsClient({
     if (!workoutToDelete) return;
     try {
       setIsDeleting(true);
-      const res = await fetch(`/api/gym/workouts/${workoutToDelete}`, {
+      const res = await fetch(`/api/gym/workouts/${workoutToDelete}?workspaceId=${activeWorkspaceId}`, {
         method: "DELETE",
       });
       if (!res.ok) {
@@ -272,16 +274,13 @@ export function GymWorkoutsClient({
 
     try {
       setSubmittingAssignment(true);
+      const intent = { workspaceId: activeWorkspaceId, studentMemberId: selectedStudentMemberId, templateWorkoutId: assigningWorkout.id, dayOfWeek: selectedDayOfWeek !== "FREE" ? Number(selectedDayOfWeek) : null };
+      const payload = JSON.stringify(intent);
+      if (assignmentAttempt.current?.payload !== payload) assignmentAttempt.current = { payload, key: crypto.randomUUID() };
       const res = await fetch("/api/gym/workouts/assign", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          workspaceId: activeWorkspaceId,
-          studentMemberId: selectedStudentMemberId,
-          templateWorkoutId: assigningWorkout.id,
-          idempotencyKey: crypto.randomUUID(),
-          dayOfWeek: selectedDayOfWeek !== "FREE" ? Number(selectedDayOfWeek) : null,
-        }),
+        body: JSON.stringify({ ...intent, idempotencyKey: assignmentAttempt.current.key }),
       });
 
       if (!res.ok) {
@@ -289,6 +288,7 @@ export function GymWorkoutsClient({
       }
 
       toast.success("Ficha prescrita com sucesso para o aluno!");
+      assignmentAttempt.current = null;
       setAssigningWorkout(null);
     } catch (err: any) {
       toast.error(err.message || "Erro ao prescrever treino.");
@@ -297,11 +297,11 @@ export function GymWorkoutsClient({
     }
   };
 
-  const filteredWorkouts = workouts.filter((workout) => {
-    const matchesSearch = workout.name.toLowerCase().includes(workoutSearch.toLowerCase());
-    const matchesFilter = workoutFilter === "all" ? true : workout.goal === workoutFilter;
-    return matchesSearch && matchesFilter;
-  });
+  const filteredWorkouts = workouts;
+  const navigateTemplates = (page: number) => {
+    const params = new URLSearchParams({ page: String(page), search: workoutSearch, goal: workoutFilter === "all" ? "ALL" : workoutFilter, difficulty: initialDifficulty });
+    router.push(`/gym/workouts?${params}`);
+  };
 
   const filteredExercises = dbExercises.filter((exercise) => {
     if (exerciseFilter === "all") return true;
@@ -352,6 +352,7 @@ export function GymWorkoutsClient({
                   onChange={(e) => setWorkoutSearch(e.target.value)}
                 />
               </div>
+              <Button variant="outline" onClick={() => navigateTemplates(1)}>Filtrar</Button>
               {canManageWorkouts && (
                 <Button className="shrink-0 gap-2 h-10 w-full sm:w-auto" asChild>
                   <Link href="/gym/workouts/new">
@@ -515,6 +516,13 @@ export function GymWorkoutsClient({
               )}
             </motion.div>
           )}
+          <div className="flex items-center justify-between gap-3 text-sm">
+            <span>{meta.total} modelo(s) · Página {meta.page} de {Math.max(1, meta.totalPages)}</span>
+            <div className="flex gap-2">
+              <Button variant="outline" disabled={meta.page <= 1} onClick={() => navigateTemplates(meta.page - 1)}>Anterior</Button>
+              <Button variant="outline" disabled={meta.page >= meta.totalPages} onClick={() => navigateTemplates(meta.page + 1)}>Próxima</Button>
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="exercises" className="space-y-6">

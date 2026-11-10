@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { randomUUID, createHash } from "node:crypto";
+import { decryptMfaSecret } from "@/lib/auth/mfa-secrets";
 import prisma from "@/lib/prisma";
 import { resolveAuthenticationPolicy, prepareEmailFactor, consumeEmailFactor, consumeAuthenticatorFactor, authenticationPolicyKey } from "@/lib/auth/mfa-service";
 import { issueCredentialProof, consumeCredentialProof } from "@/lib/auth/credential-proof";
@@ -71,7 +72,7 @@ describe("Autenticação PostgreSQL — fatores e provas", () => {
     expect(await prisma.userTotpDevice.count({ where: { userId: user.id } })).toBe(1);
     expect(await prisma.auditLog.count({ where: { userId: user.id, action: "MFA_PAIR_REVOKE_SESSIONS" } })).toBe(1);
     const accountState = await prisma.user.findUniqueOrThrow({ where: { id: user.id } });
-    expect(accountState.sessionVersion).toBe(1); expect(accountState.twoFactorSecret).toBe(secret);
+    expect(accountState.sessionVersion).toBe(1); expect(accountState.twoFactorSecret).not.toBe(secret); expect(decryptMfaSecret(accountState.twoFactorSecret!)).toBe(secret);
   });
   it("reset concorrente troca senha uma vez, revoga sessões e invalida provas anteriores", async () => {
     const user = await account();

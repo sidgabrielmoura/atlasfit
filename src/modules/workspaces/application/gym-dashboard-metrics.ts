@@ -4,6 +4,8 @@ import { gymReportAuthority } from "./gym-report-authority";
 import { reportReadTransaction } from "./transaction";
 import { GymAnalyticsService, type GymAnalyticsOverview } from "./gym-analytics-service";
 import { safeCentsNumber } from "../domain/money";
+import { civilDayNumber } from "../domain/gym-report-calendar";
+import { gymCalendarInstant } from "../domain/gym-calendar-date";
 
 export interface GymDashboardData {
   overview: GymAnalyticsOverview;
@@ -105,13 +107,16 @@ export async function getGymDashboardMetrics(input: {
   const scope = await gymReportAuthority(tx, workspaceId, actorUserId);
   const settings = await tx.gymSettings.findUnique({ where: { workspaceId }, select: { timezone: true } });
   const timezone = settings?.timezone || "America/Sao_Paulo";
-  const accessWhere: Prisma.GymAccessLogWhereInput = { workspaceId, unitId: { in: scope.units.map(unit => unit.id) }, OR: [{ studentMember: scope.portfolio }, { studentMemberId: null, unitId: { in: scope.units.filter(unit => unit.canManageStudents).map(unit => unit.id) } }] };
   const now = new Date();
+  const accessWhere: Prisma.GymAccessLogWhereInput = { workspaceId, granted: true, direction: "ENTRY", accessedAt: { lte: now }, unitId: { in: scope.units.map(unit => unit.id) }, OR: [{ studentMember: scope.portfolio }, { studentMemberId: null, unitId: { in: scope.units.filter(unit => unit.canManageStudents).map(unit => unit.id) } }] };
+  const civil = new Date(civilDayNumber(now, timezone) * 86400000);
+  const monthStart = (offset: number) => gymCalendarInstant(new Date(Date.UTC(civil.getUTCFullYear(), civil.getUTCMonth() + offset, 1)).toISOString().slice(0, 10), timezone);
+  const tenDaysAgo = new Date(now.getTime() - 10 * 86400000);
 
   // 1. Períodos e Overview Auditados Reais
-  const startOfCurrentMonth = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0);
-  const startOfPrevMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1, 0, 0, 0);
-  const endOfPrevMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999);
+  const startOfCurrentMonth = monthStart(0);
+  const startOfPrevMonth = monthStart(-1);
+  const endOfPrevMonth = new Date(startOfCurrentMonth.getTime() - 1);
 
   const overview = await GymAnalyticsService.getOverviewInTransaction(tx, { workspaceId, actorUserId, startDate: startOfCurrentMonth, endDate: now }, scope, timezone);
   const prevMonthOverview = await GymAnalyticsService.getOverviewInTransaction(tx, { workspaceId, actorUserId, startDate: startOfPrevMonth, endDate: endOfPrevMonth, includeFinancial: false }, scope, timezone);
@@ -169,59 +174,54 @@ export async function getGymDashboardMetrics(input: {
   }
 
   // 3. Faturamento Mensal Real (Últimos 6 meses)
-  const sixMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 5, 1, 0, 0, 0);
   // Seven aggregate rows include the previous bucket of the first displayed month.
   // Attribute split receipts by allocation to authorized invoices, never by payment total.
   const confirmedPayments: Array<{ amountInCents: bigint; paidAt: Date }> = [];
   if (scope.financial) for (let i = 6; i >= 0; i--) {
-    const start = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const end = new Date(now.getFullYear(), now.getMonth() - i + 1, 1);
+    const start = monthStart(-i);
+    const end = monthStart(1 - i);
     const total = await tx.gymPaymentAllocation.aggregate({ where: { invoice: scope.invoiceWhere, payment: { workspaceId, status: "CONFIRMED", paidAt: { gte: start, lt: end } } }, _sum: { allocatedAmountInCents: true } });
     confirmedPayments.push({ paidAt: start, amountInCents: total._sum.allocatedAmountInCents ?? BigInt(0) });
   }
 
   const revenueHistory: Array<{ month: string; current: number; previous: number }> = [];
   for (let i = 5; i >= 0; i--) {
-    const targetDate = new Date(now.getFullYear(), now.getMonth() - i, 1);
-    const startOfMonth = new Date(targetDate.getFullYear(), targetDate.getMonth(), 1, 0, 0, 0);
-    const endOfMonth = new Date(targetDate.getFullYear(), targetDate.getMonth() + 1, 0, 23, 59, 59, 999);
-
-    const startOfPrevMonthBucket = new Date(targetDate.getFullYear(), targetDate.getMonth() - 1, 1, 0, 0, 0);
-    const endOfPrevMonthBucket = new Date(targetDate.getFullYear(), targetDate.getMonth(), 0, 23, 59, 59, 999);
+    const startOfMonth = monthStart(-i), endOfMonth = monthStart(1 - i);
+    const startOfPrevMonthBucket = monthStart(-i - 1), endOfPrevMonthBucket = startOfMonth;
 
     const currentCents = confirmedPayments
-      .filter((p) => p.paidAt && p.paidAt >= startOfMonth && p.paidAt <= endOfMonth)
+      .filter((p) => p.paidAt && p.paidAt >= startOfMonth && p.paidAt < endOfMonth)
       .reduce((sum, p) => sum + safeCentsNumber(p.amountInCents), 0);
 
     const prevCents = confirmedPayments
-      .filter((p) => p.paidAt && p.paidAt >= startOfPrevMonthBucket && p.paidAt <= endOfPrevMonthBucket)
+      .filter((p) => p.paidAt && p.paidAt >= startOfPrevMonthBucket && p.paidAt < endOfPrevMonthBucket)
       .reduce((sum, p) => sum + safeCentsNumber(p.amountInCents), 0);
 
     revenueHistory.push({
-      month: MONTH_NAMES[targetDate.getMonth()],
+      month: MONTH_NAMES[((civil.getUTCMonth() - i) % 12 + 12) % 12],
       current: Math.round(currentCents / 100),
       previous: Math.round(prevCents / 100),
     });
   }
 
   // 4. Frequência Semanal e Check-ins Hoje
-  const sevenDaysAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-  sevenDaysAgo.setHours(0, 0, 0, 0);
-
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0);
-  const endOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+  const sevenDaysAgo = gymCalendarInstant(new Date(civil.getTime() - 6 * 86400000).toISOString().slice(0, 10), timezone);
+  const todayKey = civil.toISOString().slice(0, 10);
 
   const unitIds = scope.units.map(unit => unit.id);
   const managedUnitIds = scope.units.filter(unit => unit.canManageStudents).map(unit => unit.id);
-  const accessLogs = await tx.$queryRaw<Array<{ createdAt: Date; count: number }>>(Prisma.sql`
-    SELECT date_trunc('hour',l."createdAt") AS "createdAt",count(*)::int AS count FROM "GymAccessLog" l
-    WHERE l."workspaceId"=${workspaceId} AND l."createdAt">=${sevenDaysAgo}
+  const accessLogs = await tx.$queryRaw<Array<{ day: string; hour: number; weekday: number; count: number }>>(Prisma.sql`
+    SELECT to_char(l."accessedAt" AT TIME ZONE 'UTC' AT TIME ZONE ${timezone},'YYYY-MM-DD') AS day,
+      extract(hour FROM l."accessedAt" AT TIME ZONE 'UTC' AT TIME ZONE ${timezone})::int AS hour,
+      extract(dow FROM l."accessedAt" AT TIME ZONE 'UTC' AT TIME ZONE ${timezone})::int AS weekday,
+      count(*)::int AS count FROM "GymAccessLog" l
+    WHERE l."workspaceId"=${workspaceId} AND l.granted AND l.direction='ENTRY' AND l."accessedAt">=${sevenDaysAgo} AND l."accessedAt"<=${now}
       AND ${unitIds.length ? Prisma.sql`l."unitId" IN (${Prisma.join(unitIds)})` : Prisma.sql`FALSE`}
       AND (EXISTS (SELECT 1 FROM "WorkspaceMember" m WHERE m.id=l."studentMemberId" AND m."workspaceId"=${workspaceId} AND ${gymReportMemberSql(scope)})
         OR (l."studentMemberId" IS NULL AND ${managedUnitIds.length ? Prisma.sql`l."unitId" IN (${Prisma.join(managedUnitIds)})` : Prisma.sql`FALSE`}))
-    GROUP BY 1
+    GROUP BY 1,2,3
   `);
-  const checkinsTodayCount = accessLogs.filter(log => log.createdAt >= startOfToday && log.createdAt <= endOfToday).reduce((sum, log) => sum + log.count, 0);
+  const checkinsTodayCount = accessLogs.filter(log => log.day === todayKey).reduce((sum, log) => sum + log.count, 0);
 
   const dayCounts: Record<string, number> = {
     Seg: 0,
@@ -244,7 +244,7 @@ export async function getGymDashboardMetrics(input: {
   };
 
   accessLogs.forEach((log) => {
-    const dayKey = dayMap[log.createdAt.getDay()];
+    const dayKey = dayMap[log.weekday];
     if (dayKey) {
       dayCounts[dayKey] = (dayCounts[dayKey] || 0) + log.count;
     }
@@ -267,7 +267,7 @@ export async function getGymDashboardMetrics(input: {
   }
 
   accessLogs.forEach((log) => {
-    const h = log.createdAt.getHours();
+    const h = log.hour;
     if (h >= 6 && h <= 22) {
       hourCounts[h] = (hourCounts[h] || 0) + log.count;
     }
@@ -319,12 +319,29 @@ export async function getGymDashboardMetrics(input: {
   }));
 
   // 8. Alunos Inativos / Risco de Evasão (> 10 dias sem acesso)
+  const authorizedUnits = scope.units.map(unit => unit.id);
+  const inactiveIds = authorizedUnits.length ? await tx.$queryRaw<Array<{ id: string }>>(Prisma.sql`
+    SELECT m.id FROM "WorkspaceMember" m
+    JOIN LATERAL (SELECT MAX(l."accessedAt") AS last_entry FROM "GymAccessLog" l
+      WHERE l."workspaceId"=${workspaceId} AND l."studentMemberId"=m.id AND l.granted=TRUE AND l.direction='ENTRY'
+        AND l."unitId" IN (${Prisma.join(authorizedUnits)}) AND l."accessedAt"<=${now}) entry ON TRUE
+    WHERE m."workspaceId"=${workspaceId} AND m."isActive"=TRUE AND m.role='STUDENT' AND ${gymReportMemberSql(scope)}
+      AND entry.last_entry<${tenDaysAgo} AND EXISTS (SELECT 1 FROM "GymEnrollment" e
+        WHERE e."workspaceId"=${workspaceId} AND e."studentMemberId"=m.id AND e.status='ACTIVE'
+          AND e."activatedAt" IS NOT NULL AND e."startDate"<=${now}
+          AND (e."autoRenew" OR e."endDate" IS NULL OR e."endDate">${now})
+          AND (e."cancellationEffectiveDate" IS NULL OR e."cancellationEffectiveDate">${now})
+          AND (e."unitId" IN (${Prisma.join(authorizedUnits)}) ${scope.includeUnassigned ? Prisma.sql`OR e."unitId" IS NULL` : Prisma.empty}))
+    ORDER BY entry.last_entry ASC,m.id ASC LIMIT 5`) : [];
   const studentMembers = await tx.workspaceMember.findMany({
     where: {
+      id: { in: inactiveIds.map(row => row.id) },
       AND: [scope.portfolio],
       workspaceId,
       role: "STUDENT",
       isActive: true,
+      gymEnrollments: { some: { AND: [scope.enrollmentWhere], status: "ACTIVE" } },
+      accessLogs: { some: accessWhere, none: { ...accessWhere, accessedAt: { gte: tenDaysAgo, lte: now } } },
     },
     select: {
       id: true,
@@ -356,32 +373,24 @@ export async function getGymDashboardMetrics(input: {
       },
       accessLogs: {
         where: accessWhere,
-        orderBy: { createdAt: "desc" },
+        orderBy: { accessedAt: "desc" },
         take: 1,
-        select: { createdAt: true },
+        select: { accessedAt: true },
       },
     },
-    take: 120,
   });
 
-  const tenDaysAgo = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000);
 
-  const inactiveList = studentMembers.filter((m) => {
-    const lastSessionDate = m.accessLogs[0]?.createdAt || m.lastActive;
-    if (!lastSessionDate) {
-      return m.gymEnrollments.length > 0 && m.createdAt < tenDaysAgo;
-    }
-    return lastSessionDate < tenDaysAgo;
-  });
+  const inactiveList = inactiveIds.map(row => studentMembers.find(member => member.id === row.id)).filter((member): member is NonNullable<typeof member> => Boolean(member));
 
   const inactiveStudents = inactiveList.slice(0, 5).map((m) => {
-    const lastDate = m.accessLogs[0]?.createdAt || m.lastActive;
+    const lastDate = m.accessLogs[0]?.accessedAt;
     const days = lastDate
       ? Math.floor((now.getTime() - lastDate.getTime()) / (1000 * 60 * 60 * 24))
       : Math.floor((now.getTime() - m.createdAt.getTime()) / (1000 * 60 * 60 * 24));
 
     const lastSessionStr = lastDate
-      ? `${lastDate.getDate().toString().padStart(2, "0")}/${(lastDate.getMonth() + 1).toString().padStart(2, "0")}`
+      ? lastDate.toLocaleDateString("pt-BR", { timeZone: timezone, day: "2-digit", month: "2-digit" })
       : "Nunca acessou";
 
     const planName =
@@ -413,7 +422,7 @@ export async function getGymDashboardMetrics(input: {
   const [recentLogs, recentEnrollments, recentPayments] = await Promise.all([
     tx.gymAccessLog.findMany({
       where: accessWhere,
-      orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+      orderBy: [{ accessedAt: "desc" }, { id: "desc" }],
       take: 4,
       include: {
         studentMember: {
@@ -476,10 +485,10 @@ export async function getGymDashboardMetrics(input: {
       id: `access-${l.id}`,
       title: studentName,
       subtitle: `Check-in realizado (${l.device?.name || "Portaria Principal"})`,
-      time: formatTimeAgo(l.createdAt, now),
+      time: formatTimeAgo(l.accessedAt, now),
       type: "access",
       avatarFallback: studentName.slice(0, 2).toUpperCase(),
-      rawDate: l.createdAt,
+      rawDate: l.accessedAt,
     });
   });
 
@@ -527,7 +536,7 @@ export async function getGymDashboardMetrics(input: {
     by: ["studentMemberId"],
     where: {
       ...accessWhere,
-      createdAt: { gte: thirtyDaysAgo },
+      accessedAt: { gte: sevenDaysAgo, lte: now },
       studentMemberId: { not: null },
     },
     _count: { id: true },
@@ -573,25 +582,6 @@ export async function getGymDashboardMetrics(input: {
         };
       })
       .filter((s): s is NonNullable<typeof s> => s !== null);
-  } else {
-    // Se não há check-ins no período, exibir apenas alunos com streak real registrada
-    const activeWithStreak = studentMembers.filter((m) => m.streak > 0).slice(0, 5);
-    topStudentsWeek = activeWithStreak.map((m) => {
-      const name = m.user.name || m.user.email?.split("@")[0] || "Aluno";
-      return {
-        id: m.id,
-        name,
-        sessions: 0,
-        streak: m.streak,
-        progress: m.progress || 0,
-        avatarFallback: name
-          .split(" ")
-          .map((n) => n[0])
-          .join("")
-          .toUpperCase()
-          .slice(0, 2),
-      };
-    });
   }
 
   // 11. Próximos Vencimentos de Contrato Reais (Próximos 15 dias)
@@ -600,6 +590,7 @@ export async function getGymDashboardMetrics(input: {
     where: {
       AND: [scope.enrollmentWhere],
       status: "ACTIVE",
+      autoRenew: false,
       endDate: {
         gte: now,
         lte: fifteenDaysAhead,
@@ -623,7 +614,7 @@ export async function getGymDashboardMetrics(input: {
       : 0;
 
     const endDateStr = e.endDate
-      ? `${e.endDate.getDate().toString().padStart(2, "0")}/${(e.endDate.getMonth() + 1).toString().padStart(2, "0")}`
+      ? e.endDate.toLocaleDateString("pt-BR", { timeZone: timezone, day: "2-digit", month: "2-digit" })
       : "A vencer";
 
     return {

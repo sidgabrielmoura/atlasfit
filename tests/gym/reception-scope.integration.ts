@@ -61,7 +61,7 @@ describe("Recepção — escopo de unidade e fatos apresentados", () => {
     const f = await fixture();
     const plan = await prisma.gymPlan.create({ data: { workspaceId: f.workspace.id, name: "Plano real" } });
     const version = await prisma.gymPlanVersion.create({ data: { planId: plan.id, name: "Condições contratadas", priceInCents: BigInt(10000), durationDays: 90, termsText: "Condições sintéticas" } });
-    const enrollment = await prisma.gymEnrollment.create({ data: { workspaceId: f.workspace.id, studentMemberId: f.local.student.id, planVersionId: version.id, unitId: f.a.id, priceInCents: version.priceInCents, status: "PAUSED" } });
+    const enrollment = await prisma.gymEnrollment.create({ data: { workspaceId: f.workspace.id, studentMemberId: f.local.student.id, planVersionId: version.id, unitId: f.a.id, priceInCents: version.priceInCents, status: "PAUSED", activatedAt: new Date(Date.now() - 86400000) } });
     const invoice = await prisma.gymInvoice.create({ data: { workspaceId: f.workspace.id, studentMemberId: f.local.student.id, studentUserId: f.local.user.id, enrollmentId: enrollment.id, invoiceNumber: randomUUID(), title: "Mensalidade", dueDate: new Date(Date.now() - 86400000), subtotalInCents: BigInt(10000), totalInCents: BigInt(10000), paidAmountInCents: BigInt(5000), balanceRemainingInCents: BigInt(5000), payerName: "Aluno local", createdByUserId: f.owner.id } });
     const read = () => getGymReceptionSnapshot({ workspaceId: f.workspace.id, actorUserId: f.operator.id });
     expect((await read()).students[0]).toMatchObject({ status: "PAUSED", planName: version.name, financialStatus: "OVERDUE" });

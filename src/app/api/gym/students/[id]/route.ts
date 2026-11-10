@@ -1,6 +1,6 @@
 import { withAuditedRequest } from "@/lib/audited-request";
 import { NextResponse } from "next/server";
-import prisma from "@/lib/prisma";
+import { purgeStudentFromWorkspace } from "@/modules/workspaces/application/student-permanent-erasure";
 import { gymStudentUpdateSchema } from "@/modules/workspaces/application/gym-student-commands";
 import {
   requireGymWorkspaceAccess as requireWorkspaceAccess,
@@ -93,7 +93,7 @@ export const PATCH = withAuditedRequest(async function PATCH(
   }
 });
 
-// DELETE: Delete student from gym workspace
+// Permanent deletion: student, workouts, evaluations, R2 files, and student-exclusive records
 export const DELETE = withAuditedRequest(async function DELETE(
   req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -115,60 +115,19 @@ export const DELETE = withAuditedRequest(async function DELETE(
       capability: "students.manage",
     });
 
-    const targetMember = await prisma.workspaceMember.findFirst({
-      where: {
-        id: memberId,
-        workspaceId: context.workspaceId,
-      },
-      include: {
-        user: true,
-      },
+    const result = await purgeStudentFromWorkspace({
+      workspaceId: context.workspaceId,
+      studentIdentifier: memberId,
+      actorUserId: context.userId,
     });
-
-    if (!targetMember) {
-      return NextResponse.json(
-        { error: { code: "STUDENT_NOT_FOUND", message: "Aluno não encontrado ou não pode ser excluído." } },
-        { status: 404 }
-      );
-    }
-
-    const userId = targetMember.userId;
-
-    await prisma.$transaction(async (tx) => {
-      // 1. Delete workspace member (cascades to studentProfile, enrollments, etc.)
-      await tx.workspaceMember.delete({
-        where: { id: memberId },
-      });
-
-      // 2. Check if user belongs to any other workspace
-      const otherMemberships = await tx.workspaceMember.count({
-        where: { userId },
-      });
-
-      if (otherMemberships === 0) {
-        await tx.user.delete({
-          where: { id: userId },
-        });
-      }
-
-      await tx.auditLog.create({
-        data: {
-          userId: context.userId,
-          action: `GYM_STUDENT_DELETED:${memberId}`,
-          entity: "WORKSPACE",
-          entityId: context.workspaceId,
-        },
-      });
-    });
-
-    return NextResponse.json({ success: true, message: "Aluno excluído com sucesso." });
+    return NextResponse.json({ ...result, message: "Aluno excluído permanentemente, treinos e arquivos expurgados." });
   } catch (error) {
     const accessError = handleWorkspaceAccessError(error);
     if (accessError) return accessError;
 
     console.error("DELETE /api/gym/students/[id] error:", error);
     return NextResponse.json(
-      { error: { code: "INTERNAL_ERROR", message: "Erro ao excluir aluno." } },
+      { error: { code: "INTERNAL_ERROR", message: "Erro ao excluir aluno permanentemente." } },
       { status: 500 }
     );
   }

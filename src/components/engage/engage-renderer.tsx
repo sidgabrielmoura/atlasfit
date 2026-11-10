@@ -2,6 +2,8 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useSession } from "next-auth/react";
+import { sharedJsonRequest } from "@/lib/http/shared-json-request";
 import { motion, AnimatePresence } from "framer-motion";
 import { 
   X, 
@@ -67,6 +69,7 @@ interface EngageExperience {
 
 export function EngageRenderer() {
   const router = useRouter();
+  const { data: session } = useSession();
   const workspaceSnap = useSnapshot(workspaceStore);
   const activeWorkspaceId = workspaceSnap.activeWorkspaceId;
 
@@ -74,12 +77,13 @@ export function EngageRenderer() {
   const [currentExp, setCurrentExp] = useState<EngageExperience | null>(null);
   const [isOpen, setIsOpen] = useState(false);
 
-  const fetchActiveExperiences = useCallback(async () => {
+  const sessionScope = JSON.stringify([session?.user?.id, session?.user?.sessionVersion, session?.user?.role]);
+  const fetchActiveExperiences = useCallback(async (isCurrent: () => boolean) => {
+    if (!session?.user?.id) return;
     try {
       const url = `/api/engage/active${activeWorkspaceId ? `?workspaceId=${activeWorkspaceId}` : ""}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error();
-      const data: EngageExperience[] = await res.json();
+      const data = await sharedJsonRequest<EngageExperience[]>(url, sessionScope);
+      if (!isCurrent()) return;
       
       // Filter for pop-up formats
       const popups = data.filter(e => 
@@ -102,12 +106,15 @@ export function EngageRenderer() {
     } catch (error) {
       console.error("Failed to load active experiences", error);
     }
-  }, [activeWorkspaceId]);
+  }, [activeWorkspaceId, session?.user?.id, sessionScope]);
 
   useEffect(() => {
     // Small delay to allow the dashboard to render first
-    const timer = setTimeout(fetchActiveExperiences, 1800);
-    return () => clearTimeout(timer);
+    let current = true;
+    setIsOpen(false);
+    setModalExperiences([]);
+    const timer = setTimeout(() => void fetchActiveExperiences(() => current), 1800);
+    return () => { current = false; clearTimeout(timer); };
   }, [fetchActiveExperiences, activeWorkspaceId]);
 
   const handleClose = async (isDismissed = true) => {
@@ -276,15 +283,19 @@ interface EngageInlineProps {
 
 export function EngageInline({ format, workspaceId }: EngageInlineProps) {
   const router = useRouter();
+  const { data: session } = useSession();
   const [experiences, setExperiences] = useState<EngageExperience[]>([]);
   const [loading, setLoading] = useState(true);
 
-  const fetchInlineExperiences = useCallback(async () => {
+  const sessionScope = JSON.stringify([session?.user?.id, session?.user?.sessionVersion, session?.user?.role]);
+  const fetchInlineExperiences = useCallback(async (isCurrent: () => boolean) => {
+    if (!session?.user?.id) { setExperiences([]); setLoading(false); return; }
+    setLoading(true);
+    setExperiences([]);
     try {
       const url = `/api/engage/active${workspaceId ? `?workspaceId=${workspaceId}` : ""}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error();
-      const data: EngageExperience[] = await res.json();
+      const data = await sharedJsonRequest<EngageExperience[]>(url, sessionScope);
+      if (!isCurrent()) return;
       
       // Filter for matching format
       const matched = data.filter(e => e.format === format);
@@ -301,12 +312,14 @@ export function EngageInline({ format, workspaceId }: EngageInlineProps) {
     } catch (err) {
       console.error(err);
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
-  }, [format, workspaceId]);
+  }, [format, workspaceId, session?.user?.id, sessionScope]);
 
   useEffect(() => {
-    fetchInlineExperiences();
+    let current = true;
+    void fetchInlineExperiences(() => current);
+    return () => { current = false; };
   }, [fetchInlineExperiences, workspaceId]);
 
   const handleAction = async (expId: string, block: EngageBlock) => {

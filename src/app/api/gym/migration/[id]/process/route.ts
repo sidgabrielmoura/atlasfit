@@ -1,0 +1,64 @@
+import { assertImportJobAccess } from "@/lib/migration/access";
+import { handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
+import { NextResponse } from "next/server";
+import { auth } from "@/auth";
+import prisma from "@/lib/prisma";
+import { processImportJob } from "@/lib/migration/extraction.service";
+
+export async function POST(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> }
+) {
+  const session = await auth();
+  if (!session?.user) {
+    return new NextResponse("Não autorizado.", { status: 401 });
+  }
+
+  const { id: jobId } = await params;
+
+  try {
+    await assertImportJobAccess(jobId);
+
+    const job = await prisma.importJob.findUnique({
+      where: { id: jobId },
+    });
+
+    if (!job) {
+      return new NextResponse("Job de migração não encontrado.", { status: 404 });
+    }
+
+    const updatedJob = await processImportJob(jobId, job.workspaceId);
+    return NextResponse.json({ success: true, jobId, status: updatedJob?.status || "REVIEW" });
+  } catch (error: any) {
+    const accessError = handleWorkspaceAccessError(error);
+    if (accessError) return accessError;
+
+    console.error("[POST process gym] Erro:", error);
+    const errStr = String(error?.message || "") + " " + JSON.stringify(error || {});
+    const isRateLimit =
+      error?.status === 429 ||
+      error?.code === 429 ||
+      errStr.includes("429") ||
+      errStr.includes("RESOURCE_EXHAUSTED") ||
+      errStr.includes("prepayment credits");
+
+    const safeMessage = isRateLimit
+      ? "Os créditos ou a cota da sua API do Gemini no Google AI Studio estão esgotados (Erro 429). Para processar PDFs ou Fotos por IA, verifique as configurações no Google AI Studio. Dica: Planilhas em CSV ou XLSX funcionam 100% localmente sem consumir créditos!"
+      : error.message || "Erro ao processar extração do job de migração.";
+
+    await prisma.importJob.update({
+      where: { id: jobId },
+      data: {
+        status: "FAILED",
+        processingStep: "IDLE",
+        errorCode: isRateLimit ? "GEMINI_RATE_LIMIT" : "EXTRACTION_FAILED",
+        safeErrorMessage: safeMessage,
+      },
+    }).catch(() => {});
+
+    return NextResponse.json(
+      { error: safeMessage, errorCode: isRateLimit ? "GEMINI_RATE_LIMIT" : "EXTRACTION_FAILED" },
+      { status: isRateLimit ? 429 : 400 }
+    );
+  }
+}

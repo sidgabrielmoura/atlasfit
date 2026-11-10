@@ -4,8 +4,6 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { ShieldCheck, UserCheck, Download, Trash2, Mail, Lock, ArrowLeft, ExternalLink, HelpCircle } from "lucide-react";
 
-export const dynamic = "force-dynamic";
-
 export default function PrivacyCenterPage() {
   const dpoEmail = "hello@atlasfit.site";
 

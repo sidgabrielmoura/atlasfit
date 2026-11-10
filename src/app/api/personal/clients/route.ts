@@ -10,6 +10,7 @@ import { batchVerifyAndDecayStreaks } from "@/lib/streak-helper";
 import { EmailService } from "@/lib/emails/service";
 import { validateAgeEligibility } from "@/lib/privacy/age-validator";
 import { ErasureService } from "@/lib/privacy/erasure.service";
+import { purgeStudentFromWorkspace } from "@/modules/workspaces/application/student-permanent-erasure";
 import {
   requirePersonalWorkspaceAccess as requireWorkspaceAccess,
   handleWorkspaceAccessError,
@@ -313,7 +314,7 @@ export async function PUT(req: Request) {
   }
 }
 
-// DELETE: Delete student from workspace
+// DELETE: Delete student from workspace permanently, purging files and workouts
 export async function DELETE(req: Request) {
   const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
   const { searchParams } = new URL(req.url);
@@ -326,65 +327,26 @@ export async function DELETE(req: Request) {
 
   try {
     // Verify workspace access and management capability
-    await requireWorkspaceAccess({
+    const context = await requireWorkspaceAccess({
       workspaceId,
       capability: "students.manage",
     });
 
-    // Check if member is associated as STUDENT
-    const targetMember = await prisma.workspaceMember.findUnique({
-      where: {
-        userId_workspaceId: {
-          userId,
-          workspaceId,
-        },
-      },
+    const result = await purgeStudentFromWorkspace({
+      workspaceId,
+      studentIdentifier: userId,
+      actorUserId: context.userId,
     });
 
-    if (!targetMember || targetMember.role !== "STUDENT") {
-      return new NextResponse("Aluno não encontrado ou não pode ser excluído.", { status: 404 });
-    }
-
-    // Perform transaction
-    await prisma.$transaction(async (tx) => {
-      // 1. Delete WorkspaceMember connection
-      await tx.workspaceMember.delete({
-        where: {
-          userId_workspaceId: {
-            userId,
-            workspaceId,
-          },
-        },
-      });
-
-      // 2. Check if student is part of any other workspaces
-      const otherMemberships = await tx.workspaceMember.count({
-        where: { userId },
-      });
-
-      // 3. If they belong to no other workspace, purge their User record and R2 files
-      if (otherMemberships === 0) {
-        await tx.user.delete({
-          where: { id: userId },
-        });
-      }
+    return NextResponse.json({
+      message: "Aluno excluído permanentemente, treinos e arquivos expurgados.",
+      ...result,
     });
-
-    // Cleanup physical R2 files asynchronously outside transaction
-    const remainingMemberships = await prisma.workspaceMember.count({ where: { userId } });
-    if (remainingMemberships === 0) {
-      const session = await auth();
-      await ErasureService.executeCompleteErasure(userId, session?.user?.id || "system").catch((e) => {
-        console.warn("[StudentDelete] ErasureService cleanup handled:", e.message);
-      });
-    }
-
-    return NextResponse.json({ success: true, message: "Aluno excluído com sucesso." });
   } catch (error) {
     const accessError = handleWorkspaceAccessError(error);
     if (accessError) return accessError;
 
     console.error("DELETE student error:", error);
-    return NextResponse.json({ error: "Erro interno do servidor." }, { status: 500 });
+    return NextResponse.json({ error: "Erro interno do servidor ao excluir aluno." }, { status: 500 });
   }
 }

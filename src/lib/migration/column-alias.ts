@@ -1,4 +1,5 @@
 export const COLUMN_ALIASES: Record<string, string[]> = {
+  cpfCnpj: ["cpf", "cnpj", "cpf/cnpj", "cpf_cnpj", "documento"],
   name: [
     "nome",
     "aluno",
@@ -74,10 +75,33 @@ export const COLUMN_ALIASES: Record<string, string[]> = {
     "series",
     "sets",
   ],
+  externalId: [
+    "id",
+    "id_aluno",
+    "id aluno",
+    "código",
+    "codigo",
+    "matrícula",
+    "matricula",
+    "identificador",
+  ],
+  dayOfWeek: [
+    "dia",
+    "dia da semana",
+    "dia_da_semana",
+    "dia de execução",
+    "dia de execucao",
+    "dia_execucao",
+    "dia de treino",
+  ],
   reps: [
     "repetições",
     "repeticoes",
     "reps",
+    "repetições / série",
+    "repeticoes / serie",
+    "repetições/série",
+    "repeticoes/serie",
   ],
   load: [
     "carga",
@@ -90,6 +114,19 @@ export const COLUMN_ALIASES: Record<string, string[]> = {
     "pausa",
     "intervalo",
     "rest",
+  ],
+  notes: [
+    "referência da carga",
+    "referencia da carga",
+    "referência",
+    "referencia",
+    "observação",
+    "observações",
+    "observacao",
+    "observacoes",
+    "obs",
+    "nota",
+    "notas",
   ],
 };
 

@@ -36,32 +36,32 @@ describe("isCronAuthorized", () => {
     expect(isCronAuthorized(req)).toBe(true);
   });
 
-  it("authorizes when secret is provided in query param ?secret=", () => {
+  it("rejects a secret in query param ?secret=", () => {
     const req = new Request(`http://localhost/api/cron/gym-recurrence?secret=${TEST_SECRET}`);
-    expect(isCronAuthorized(req)).toBe(true);
+    expect(isCronAuthorized(req)).toBe(false);
   });
 
-  it("authorizes when secret is provided in query param ?key=", () => {
+  it("rejects a secret in query param ?key=", () => {
     const req = new Request(`http://localhost/api/cron/process-recurrence?key=${TEST_SECRET}`);
-    expect(isCronAuthorized(req)).toBe(true);
+    expect(isCronAuthorized(req)).toBe(false);
   });
 
-  it("authorizes when secret is provided in query param ?cron_secret=", () => {
+  it("rejects a secret in query param ?cron_secret=", () => {
     const req = new Request(`http://localhost/api/cron/engage-push?cron_secret=${TEST_SECRET}`);
-    expect(isCronAuthorized(req)).toBe(true);
+    expect(isCronAuthorized(req)).toBe(false);
   });
 
-  it("authorizes when request.url has a relative URL or full URL", () => {
+  it("does not authorize from a relative or absolute URL alone", () => {
     // Standard Request in Node requires absolute URL
     const req = new Request(`https://app.atlasfit.site/api/cron/gym-purge?secret=${TEST_SECRET}`);
-    expect(isCronAuthorized(req)).toBe(true);
+    expect(isCronAuthorized(req)).toBe(false);
 
     // Mock request object with relative url property
     const mockReq = {
       url: `/api/cron/gym-purge?secret=${TEST_SECRET}`,
       headers: new Headers()
     } as unknown as Request;
-    expect(isCronAuthorized(mockReq)).toBe(true);
+    expect(isCronAuthorized(mockReq)).toBe(false);
   });
 
   it("rejects invalid secret in Authorization header", () => {

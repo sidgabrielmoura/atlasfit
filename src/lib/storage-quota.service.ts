@@ -55,6 +55,12 @@ export async function getPersonalTrainerStorageMetrics(userId: string): Promise<
     select: { name: true, email: true, isTestAccount: true, freeTrial: { select: { isActive: true } } },
   });
 
+  // The upload quota measures stored media. Estimated SQL row footprints remain
+  // available in the comprehensive diagnostics, outside the billed upload quota.
+  const totalUsedBytes = metric.breakdown.cloud.totalBytes;
+  const totalUsedMb = Number((totalUsedBytes / (1024 * 1024)).toFixed(2));
+  const percentageUsed = metric.isUnlimited || metric.storageLimitMb <= 0 ? 0 : Number((totalUsedMb / metric.storageLimitMb * 100).toFixed(1));
+
   return {
     userId: metric.userId,
     name: user?.name || "Personal Trainer",
@@ -62,13 +68,13 @@ export async function getPersonalTrainerStorageMetrics(userId: string): Promise<
     planName: metric.planName,
     storageLimitMb: metric.storageLimitMb,
     isUnlimited: metric.isUnlimited,
-    totalUsedBytes: metric.totalUsedBytes,
-    totalUsedMb: metric.totalUsedMb,
-    totalUsedGb: metric.totalUsedGb,
-    percentageUsed: metric.percentageUsed,
+    totalUsedBytes,
+    totalUsedMb,
+    totalUsedGb: Number((totalUsedBytes / (1024 * 1024 * 1024)).toFixed(3)),
+    percentageUsed,
     totalFiles: metric.breakdown.cloud.totalFilesCount,
     workspacesCount: metric.workspacesCount,
-    status: metric.status,
+    status: percentageUsed >= 100 ? "EXCEEDED" : percentageUsed >= 80 ? "WARNING" : "NORMAL",
     isTestAccount: !!user?.isTestAccount,
     isFreeTrial: !!user?.freeTrial?.isActive,
   };

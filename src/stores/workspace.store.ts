@@ -6,7 +6,7 @@ export interface Workspace {
   id: string; name: string; slug: string; type?: "PERSONAL" | "GYM"; logo: string;
   logoUrl?: string | null; primaryColor: string; plan: string; slogan?: string | null;
   watermarkUrl?: string | null; workoutCoverUrl?: string | null; roles?: readonly string[];
-  defaultRoute?: string; unitsCount?: number;
+  defaultRoute?: string; unitsCount?: number; ownerId?: string;
 }
 interface WorkspaceState { activeWorkspaceId: string | null; activeWorkspace: Workspace | null; workspaces: Workspace[]; isLoading: boolean; }
 

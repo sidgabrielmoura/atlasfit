@@ -1,0 +1,1137 @@
+"use client";
+
+import { PersonalSubscriptionCheckout } from "@/components/application/personal-subscription-checkout";
+import { motion } from "framer-motion";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription, CardFooter } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
+import {
+  CheckCircle2,
+  Zap,
+  CreditCard,
+  AlertCircle,
+  Loader2,
+  Calendar,
+  Clock,
+  Infinity as InfinityIcon,
+  ChevronDown,
+  ChevronUp,
+  Building,
+  Users,
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { useState, useEffect, useCallback } from "react";
+import { toast } from "sonner";
+import { useSnapshot } from "valtio";
+import { workspaceStore } from "@/stores/workspace.store";
+
+interface Invoice {
+  id: string;
+  date: string;
+  amount: number;
+  status: string;
+  paymentMethod: string;
+  description: string;
+}
+
+interface SubscriptionDetails {
+  id: string;
+  planName: string;
+  planPrice: number;
+  status: string;
+  nextBillingDate: string | null;
+  daysRemaining: number;
+  paymentMethod: string;
+  billingCycle: string;
+  invoices: Invoice[];
+  isPreSubscription: boolean;
+  isTestAccount?: boolean;
+  freeTrial?: {
+    startDate: string;
+    endDate: string;
+    isActive: boolean;
+    daysRemaining: number;
+  } | null;
+  usage: {
+    students: {
+      current: number;
+      limit: number;
+    };
+    storage: {
+      current: number;
+      limit: number;
+      unit: string;
+      percentage?: number;
+      currentMb?: number;
+      currentGb?: number;
+      totalUsedBytes?: number;
+      workspacesCount?: number;
+      breakdown?: {
+        cloud: {
+          totalBytes: number;
+          totalMb: number;
+          totalGb: number;
+          filesBytes: number;
+          photosBytes: number;
+          videosBytes: number;
+          importsBytes: number;
+          gymObjectsBytes: number;
+          brandAssetsBytes: number;
+          chatAttachmentsBytes: number;
+          totalFilesCount: number;
+        };
+        database: {
+          totalBytes: number;
+          totalMb: number;
+          totalGb: number;
+          studentsBytes: number;
+          studentsCount: number;
+          workoutsBytes: number;
+          workoutsCount: number;
+          exercisesBytes: number;
+          exercisesCount: number;
+          workoutLogsBytes: number;
+          workoutLogsCount: number;
+          evaluationsBytes: number;
+          evaluationsCount: number;
+          progressBytes: number;
+          progressCount: number;
+          messagesBytes: number;
+          messagesCount: number;
+          feedbacksBytes: number;
+          feedbacksCount: number;
+          totalRecordsCount: number;
+        };
+      };
+    };
+    units?: {
+      current: number;
+      limit: number;
+    };
+    staff?: {
+      current: number;
+      limit: number;
+    };
+    coins?: number;
+  };
+}
+
+interface PlatformPlan {
+  id: string;
+  name: string;
+  price: string;
+  interval: string;
+  description: string;
+  features: string[];
+  highlight: boolean;
+  buttonText: string;
+  disabled: boolean;
+  isCurrent: boolean;
+  rawInterval?: string;
+  maxWorkspaces?: number;
+  maxStaff?: number | null;
+  type?: "PERSONAL" | "GYM";
+}
+
+interface ApiResponse {
+  currentSubscription: SubscriptionDetails | null;
+  platformPlans: PlatformPlan[];
+}
+
+export interface SubscriptionViewProps {
+  role?: "personal" | "gym";
+}
+
+export function SubscriptionView({ role = "personal" }: SubscriptionViewProps) {
+  const workspaceSnap = useSnapshot(workspaceStore);
+  const activeWorkspaceId = workspaceSnap.activeWorkspaceId;
+
+  const [data, setData] = useState<ApiResponse | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [error, setError] = useState<string | null>(null);
+  const [checkoutPlan, setCheckoutPlan] = useState<{ id: string; name: string } | null>(null);
+  const isProcessing = checkoutPlan?.id ?? null;
+  const [billingCycle, setBillingCycle] = useState<"mensal" | "anual">("mensal");
+  const [expandedPlans, setExpandedPlans] = useState<Record<string, boolean>>({});
+
+  const toggleExpandPlan = (planId: string) => {
+    setExpandedPlans((prev) => ({ ...prev, [planId]: !prev[planId] }));
+  };
+
+  const loadSubscriptionData = useCallback(async () => {
+    if (role === "gym" && !activeWorkspaceId) {
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      const url =
+        role === "gym"
+          ? `/api/gym/subscription?workspaceId=${activeWorkspaceId}`
+          : "/api/personal/subscription";
+
+      const response = await fetch(url, {
+        cache: "no-store",
+        headers: {
+          "Cache-Control": "no-cache",
+        },
+      });
+      if (!response.ok) {
+        let msg = "Não foi possível carregar os dados de assinatura.";
+        try {
+          const body = await response.json();
+          if (body?.error?.message) msg = body.error.message;
+        } catch {
+          try {
+            const txt = await response.text();
+            if (txt && txt.length < 200) msg = txt;
+          } catch { }
+        }
+        throw new Error(msg);
+      }
+      const result = await response.json();
+      setData(result);
+    } catch (err: any) {
+      console.error("Error loading subscriptions:", err);
+      setError(err.message || "Erro desconhecido ao carregar assinatura.");
+      toast.error("Erro ao carregar dados de cobrança.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, [role, activeWorkspaceId]);
+
+  useEffect(() => {
+    loadSubscriptionData();
+  }, [loadSubscriptionData]);
+
+  const handlePlanAction = (planId: string, planName: string, isCurrent: boolean) => {
+    if (isCurrent) return;
+    setCheckoutPlan({ id: planId, name: planName });
+  };
+
+  const checkoutEndpoint =
+    role === "gym"
+      ? `/api/gym/subscription?workspaceId=${activeWorkspaceId}`
+      : "/api/personal/subscription";
+
+  if (!isLoading && !data && error) {
+    return (
+      <div className="space-y-4 p-6">
+        <p role="alert" className="text-destructive font-medium">
+          {error}
+        </p>
+        <Button onClick={() => void loadSubscriptionData()}>Tentar novamente</Button>
+      </div>
+    );
+  }
+
+  if (isLoading || !data) {
+    return (
+      <div className="flex-1 space-y-8 p-4 md:p-8 pt-6 w-full max-w-400 mx-auto">
+        <div className="flex items-center justify-between">
+          <div className="space-y-2">
+            <Skeleton className="h-9 w-48 bg-muted/60" />
+            <Skeleton className="h-5 w-80 bg-muted/60" />
+          </div>
+        </div>
+
+        <div className="flex flex-col space-y-10 animate-pulse">
+          <div>
+            <Card className="border-border/50 bg-card overflow-hidden">
+              <CardHeader className="pb-4">
+                <div className="flex items-center justify-between">
+                  <div className="space-y-3">
+                    <Skeleton className="h-7 w-64 max-w-full bg-muted/60" />
+                    <Skeleton className="h-5 w-full max-w-md bg-muted/60" />
+                  </div>
+                  <Skeleton className="hidden md:block h-12 w-12 rounded-full bg-muted/60" />
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid md:grid-cols-2 gap-8 p-6 bg-secondary/20 rounded-xl border border-border/50">
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Skeleton className="h-4 w-24 bg-muted/60" />
+                      <Skeleton className="h-4 w-12 bg-muted/60" />
+                    </div>
+                    <Skeleton className="h-3 w-full rounded-full bg-muted/60" />
+                  </div>
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between">
+                      <Skeleton className="h-4 w-36 bg-muted/60" />
+                      <Skeleton className="h-4 w-12 bg-muted/60" />
+                    </div>
+                    <Skeleton className="h-3 w-full rounded-full bg-muted/60" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          <div className="space-y-6">
+            <div className="text-center space-y-2 pt-8 flex flex-col items-center">
+              <Skeleton className="h-8 w-64 max-w-full bg-muted/60" />
+              <Skeleton className="h-5 w-full max-w-md bg-muted/60" />
+            </div>
+
+            <div className="grid md:grid-cols-3 gap-8 items-start pt-8 pb-12">
+              {[1, 2, 3].map((i) => (
+                <Card key={i} className="border-border/50 bg-card/50 flex flex-col h-[400px]">
+                  <CardHeader className="text-center pb-8 pt-8 space-y-3">
+                    <Skeleton className="h-6 w-24 mx-auto bg-muted/60" />
+                    <Skeleton className="h-10 w-32 mx-auto bg-muted/60" />
+                    <Skeleton className="h-4 w-48 mx-auto bg-muted/60" />
+                  </CardHeader>
+                  <CardContent className="flex-1 space-y-4">
+                    {[1, 2, 3, 4].map((j) => (
+                      <div key={j} className="flex items-center gap-3">
+                        <Skeleton className="h-5 w-5 rounded-full bg-muted/60" />
+                        <Skeleton className="h-4 w-full bg-muted/60" />
+                      </div>
+                    ))}
+                  </CardContent>
+                  <CardFooter className="pt-6">
+                    <Skeleton className="h-10 w-full bg-muted/60" />
+                  </CardFooter>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const { currentSubscription: subscription, platformPlans } = data;
+
+  const pageTitle = "Assinatura"
+  const pageSubtitle =
+    role === "gym"
+      ? "Gerencie o plano da sua rede, quantidade de filiais, equipe e limites operacionais."
+      : "Gerencie seu plano, limites de uso e cobranças.";
+  const catalogTitle = role === "gym" ? "Planos para Academias & Franquias" : "Cresça a sua Consultoria";
+  const catalogSubtitle =
+    role === "gym"
+      ? "Escolha o plano ideal para gerenciar suas unidades, alunos e colaboradores com o AtlasFit."
+      : "Escolha o plano ideal para escalar seu negócio com o AtlasFit.";
+
+  // If there's no subscription, show only catalog
+  if (!subscription) {
+    return (
+      <div className="flex-1 space-y-8 w-full animate-in fade-in duration-300 mx-auto">
+        <PersonalSubscriptionCheckout plan={checkoutPlan} onClose={() => setCheckoutPlan(null)} endpoint={checkoutEndpoint} />
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">{pageTitle}</h2>
+          <p className="text-muted-foreground mt-1">{pageSubtitle}</p>
+        </div>
+
+        <section className="space-y-6">
+          <div className="text-center space-y-2 pt-4">
+            <h3 className="text-2xl font-bold tracking-tight">Escolha o seu Plano</h3>
+            <p className="text-muted-foreground">{catalogSubtitle}</p>
+
+            {/* Switch de Cobrança Mensal / Anual */}
+            <div className="flex items-center justify-center gap-3 pt-4">
+              <span
+                onClick={() => setBillingCycle("mensal")}
+                className={cn(
+                  "text-xs font-semibold cursor-pointer select-none transition-colors",
+                  billingCycle === "mensal" ? "text-foreground font-bold" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Cobrança Mensal
+              </span>
+
+              <Switch
+                checked={billingCycle === "anual"}
+                onCheckedChange={(checked) => setBillingCycle(checked ? "anual" : "mensal")}
+              />
+
+              <div
+                onClick={() => setBillingCycle("anual")}
+                className="flex items-center gap-2 cursor-pointer select-none"
+              >
+                <span
+                  className={cn(
+                    "text-xs font-semibold transition-colors",
+                    billingCycle === "anual" ? "text-foreground font-bold" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Cobrança Anual
+                </span>
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-0.5"
+                >
+                  Economize 20%
+                </Badge>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 items-start pt-6 pb-12">
+            {(() => {
+              const rolePlans = (platformPlans || []).filter((plan) => {
+                if (plan.type) {
+                  return role === "gym" ? plan.type === "GYM" : plan.type === "PERSONAL";
+                }
+                const lower = plan.name.toLowerCase();
+                if (role === "personal") {
+                  if (lower.includes("academia") || lower.includes("franquia") || lower.includes("estúdio") || lower.includes("estudio") || lower.includes("box")) {
+                    return false;
+                  }
+                  return true;
+                }
+                if (role === "gym") {
+                  if ((lower.includes("iniciante") || lower.includes("profissional")) && !lower.includes("box") && !lower.includes("academia") && !lower.includes("franquia")) {
+                    return false;
+                  }
+                  return true;
+                }
+                return true;
+              });
+
+              const filtered = rolePlans.filter((plan) => {
+                const raw = (plan.rawInterval || plan.interval || "").toLowerCase();
+                const isAnnual = raw.includes("year") || raw.includes("ano") || raw.includes("anual");
+                return billingCycle === "anual" ? isAnnual : !isAnnual;
+              });
+              const displayPlans = filtered.length > 0 ? filtered : rolePlans;
+
+              return displayPlans.map((plan) => {
+                const isPlanProcessing = isProcessing === plan.id;
+                const isAnyProcessing = isProcessing !== null;
+
+                const isExpanded = !!expandedPlans[plan.id];
+                const visibleFeatures = isExpanded ? plan.features : plan.features.slice(0, 4);
+                const hasMoreFeatures = plan.features.length > 4;
+
+                return (
+                  <Card
+                    key={plan.id}
+                    className={cn(
+                      "relative flex flex-col h-full transition-all duration-300 overflow-visible",
+                      plan.highlight
+                        ? "border-primary shadow-lg shadow-primary/10 scale-100 md:scale-105 z-10"
+                        : "border-border/50 bg-card/50 hover:bg-card"
+                    )}
+                  >
+                    {plan.highlight && (
+                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-20">
+                        <Badge className="bg-primary text-primary-foreground font-bold px-4 py-1.5 shadow-md">
+                          Recomendado
+                        </Badge>
+                      </div>
+                    )}
+
+                    <CardHeader className="text-center pb-6 pt-8">
+                      <CardTitle className="text-xl mb-2">{plan.name}</CardTitle>
+                      <div className="flex items-center justify-center gap-1">
+                        <span className="text-3xl sm:text-4xl font-extrabold tracking-tight">{plan.price}</span>
+                        <span className="text-muted-foreground font-medium text-xs">{plan.interval}</span>
+                      </div>
+                      <CardDescription className="mt-3 text-xs sm:text-sm min-h-[2.5rem] flex items-center justify-center">
+                        {plan.description}
+                      </CardDescription>
+
+                      {role === "gym" && (
+                        <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                          <Badge variant="outline" className="text-[10px] font-semibold bg-primary/5 text-primary border-primary/20">
+                            <Building className="size-3 mr-1" />
+                            {plan.maxWorkspaces || 1} {(plan.maxWorkspaces || 1) === 1 ? "Filial" : "Filiais"}
+                          </Badge>
+                          <Badge variant="outline" className="text-[10px] font-semibold bg-secondary/80 text-foreground border-border/60">
+                            <Users className="size-3 mr-1" />
+                            Até {plan.maxStaff || 10} Equipe/filial
+                          </Badge>
+                        </div>
+                      )}
+                    </CardHeader>
+
+                    <CardContent className="flex-1">
+                      <ul className="space-y-3">
+                        {visibleFeatures.map((feature, idx) => (
+                          <li key={idx} className="flex items-start gap-2.5">
+                            <CheckCircle2 className="size-4 text-primary shrink-0 mt-0.5" />
+                            <span className="text-xs font-medium text-foreground/80">{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      {hasMoreFeatures && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleExpandPlan(plan.id)}
+                          className="mt-3 w-full h-8 text-xs font-semibold text-primary hover:text-primary/90 hover:bg-primary/5 flex items-center justify-center gap-1 rounded-xl transition-colors"
+                        >
+                          {isExpanded ? (
+                            <>
+                              <span>Recolher vantagens</span>
+                              <ChevronUp className="size-3.5" />
+                            </>
+                          ) : (
+                            <>
+                              <span>Exibir mais (+{plan.features.length - 4} vantagens)</span>
+                              <ChevronDown className="size-3.5" />
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </CardContent>
+
+                    <CardFooter className="pt-6">
+                      <Button
+                        onClick={() => handlePlanAction(plan.id, plan.name, plan.isCurrent)}
+                        className={cn(
+                          "w-full cursor-pointer transition-all duration-200",
+                          plan.highlight
+                            ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                            : "hover:bg-accent hover:text-accent-foreground"
+                        )}
+                        variant={plan.highlight ? "default" : "outline"}
+                        disabled={plan.isCurrent || isAnyProcessing}
+                      >
+                        {isPlanProcessing ? (
+                          <>
+                            <Loader2 className="mr-2 size-4 animate-spin" />
+                            Processando...
+                          </>
+                        ) : (
+                          <>
+                            {plan.highlight && <Zap className="mr-2 size-4" />}
+                            Assinar
+                          </>
+                        )}
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                );
+              });
+            })()}
+          </div>
+        </section>
+      </div>
+    );
+  }
+
+  const usagePercentage = Math.round((subscription.usage.students.current / (subscription.usage.students.limit || 1)) * 100);
+  const isNearLimit = usagePercentage >= 80;
+
+  const formattedDate = subscription.isTestAccount
+    ? "Não vence"
+    : subscription.nextBillingDate
+      ? subscription.nextBillingDate.includes("-")
+        ? subscription.nextBillingDate.split("-").reverse().join("/")
+        : subscription.nextBillingDate
+      : "";
+
+  return (
+    <div className="flex-1 space-y-8 w-full animate-in fade-in duration-300 mx-auto">
+      <PersonalSubscriptionCheckout plan={checkoutPlan} onClose={() => setCheckoutPlan(null)} endpoint={checkoutEndpoint} />
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold tracking-tight">{pageTitle}</h2>
+          <p className="text-muted-foreground mt-1">{pageSubtitle}</p>
+        </div>
+      </div>
+
+      {error && (
+        <div className="bg-red-500/10 border border-red-500/20 text-red-500 p-4 rounded-xl flex items-center gap-2">
+          <AlertCircle className="size-5 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="flex flex-col space-y-10"
+      >
+        {/* Active Subscription Details */}
+        <section className="space-y-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            {/* Box 1: Left - Subscription Information Control Panel */}
+            <Card className="lg:col-span-7 border-border bg-card overflow-hidden shadow-none rounded-2xl relative">
+              <div className="absolute top-0 left-0 w-1.5 h-full bg-primary" />
+              <CardHeader className="pb-4 border-b border-border/50">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="space-y-1">
+                    <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground">Plano Contratado</span>
+                    <CardTitle className="text-2xl font-bold flex items-center gap-2">
+                      {subscription.status === "trial" ? "Período de Teste" : subscription.planName}
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          "ml-2 text-[10px] font-bold px-2 py-0.5 uppercase tracking-wide",
+                          subscription.status === "active"
+                            ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                            : subscription.status === "trial"
+                              ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                              : "bg-red-500/10 text-red-500 border-red-500/20 animate-pulse"
+                        )}
+                      >
+                        {subscription.status === "active" ? "Ativo" : subscription.status === "trial" ? "Free Trial" : "Atrasado / Vencido"}
+                      </Badge>
+                    </CardTitle>
+                  </div>
+                  {subscription.status !== "trial" && (
+                    <div className="flex items-center gap-1.5 px-3 py-2 bg-secondary/50 rounded-xl border border-border/50 shrink-0">
+                      <span className="text-xl font-extrabold tracking-tight">R$ {subscription.planPrice.toFixed(2)}</span>
+                      <span className="text-[10px] text-muted-foreground uppercase font-bold">
+                        {subscription.billingCycle === "Mensal" ? "/ mês" : "/ ano"}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </CardHeader>
+
+              <CardContent className="pt-6 space-y-6">
+                {/* Meta details list */}
+                <div className="grid grid-cols-2 gap-4">
+                  {subscription.status === "trial" ? (
+                    <>
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Início do Teste</span>
+                        <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                          <Calendar className="size-3.5 text-amber-500" />
+                          {subscription.freeTrial?.startDate.split("-").reverse().join("/") || ""}
+                        </p>
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Fim do Teste</span>
+                        <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                          <Calendar className="size-3.5 text-amber-500" />
+                          {subscription.freeTrial?.endDate.split("-").reverse().join("/") || ""}
+                        </p>
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Workspace Limite</span>
+                        <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                          <Clock className="size-3.5 text-amber-500" />
+                          Máx 1 Workspace
+                        </p>
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Tipo de Conta</span>
+                        <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                          <Zap className="size-3.5 text-amber-500" />
+                          Demonstração Gratuita
+                        </p>
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Método de Cobrança</span>
+                        <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                          <CreditCard className="size-3.5 text-primary" />
+                          {subscription.paymentMethod || "Pix Automático"}
+                        </p>
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Ciclo de Faturamento</span>
+                        <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                          <Clock className="size-3.5 text-primary" />
+                          {subscription.billingCycle || "Mensal"}
+                        </p>
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Próximo Vencimento</span>
+                        <p className="text-xs font-semibold text-foreground flex items-center gap-1.5">
+                          <Calendar className="size-3.5 text-primary" />
+                          {formattedDate || "Automático"}
+                        </p>
+                      </div>
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Identificação da Assinatura</span>
+                        <p className="text-xs font-semibold text-foreground font-mono truncate">
+                          {subscription.id?.substring(0, 16)}...
+                        </p>
+                      </div>
+                    </>
+                  )}
+                </div>
+
+                {subscription.isPreSubscription && (
+                  <div className="p-4 rounded-xl bg-emerald-500/5 border border-emerald-500/20 space-y-3">
+                    <div className="flex gap-2">
+                      <Zap className="size-4 text-emerald-500 shrink-0 mt-0.5" />
+                      <p className="text-xs text-emerald-600 leading-relaxed font-medium">
+                        <strong>Pré-Assinatura Ativa:</strong> Você já garantiu seu acesso premium! O pagamento foi compensado, mas os dias de faturamento só começarão a ser cobrados após o término do seu período de free trial.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Critical error banner if payment failed */}
+                {(subscription.status === "past_due" || subscription.status === "unpaid") && (
+                  <div className="p-4 rounded-xl bg-destructive/5 border border-destructive/20 space-y-3">
+                    <div className="flex gap-2">
+                      <AlertCircle className="size-4 text-destructive shrink-0 mt-0.5" />
+                      <p className="text-xs text-destructive leading-relaxed font-medium">
+                        <strong>Erro na renovação automática:</strong> O gateway não conseguiu efetuar a cobrança da mensalidade deste mês. Por favor, regularize o pagamento efetuando uma nova assinatura para reativar as permissões de acesso ao sistema.
+                      </p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Usage limits inside details */}
+                <div className="space-y-4 pt-4 border-t border-border/50">
+                  <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">Estatísticas de Consumo</span>
+                  <div className={cn("grid gap-6", role === "gym" ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1 sm:grid-cols-2")}>
+                    {/* Active Students Limit Progress bar */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-semibold text-muted-foreground">Alunos Cadastrados</span>
+                        <span className="font-bold">
+                          {subscription.usage.students.current}{" "}
+                          <span className="text-muted-foreground font-normal">
+                            / {subscription.usage.students.limit >= 999999 ? "Ilimitado" : subscription.usage.students.limit}
+                          </span>
+                        </span>
+                      </div>
+                      <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                        <div
+                          className={cn(
+                            "h-full rounded-full transition-all duration-500",
+                            isNearLimit ? "bg-red-500" : "bg-primary"
+                          )}
+                          style={{
+                            width: `${Math.min(
+                              subscription.usage.students.limit >= 999999 ? 5 : usagePercentage,
+                              100
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Gym Specific: Units / Filiais */}
+                    {role === "gym" && subscription.usage.units && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-muted-foreground">Filiais / Unidades</span>
+                          <span className="font-bold">
+                            {subscription.usage.units.current}{" "}
+                            <span className="text-muted-foreground font-normal">
+                              / {subscription.usage.units.limit}
+                            </span>
+                          </span>
+                        </div>
+                        <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-primary rounded-full transition-all duration-500"
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                Math.round((subscription.usage.units.current / (subscription.usage.units.limit || 1)) * 100)
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Gym Specific: Staff */}
+                    {role === "gym" && subscription.usage.staff && (
+                      <div className="space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-semibold text-muted-foreground">Colaboradores</span>
+                          <span className="font-bold">
+                            {subscription.usage.staff.current}{" "}
+                            <span className="text-muted-foreground font-normal">
+                              / {subscription.usage.staff.limit}
+                            </span>
+                          </span>
+                        </div>
+                        <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                          <div
+                            className="h-full bg-primary rounded-full transition-all duration-500"
+                            style={{
+                              width: `${Math.min(
+                                100,
+                                Math.round((subscription.usage.staff.current / (subscription.usage.staff.limit || 1)) * 100)
+                              )}%`,
+                            }}
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Storage usage Progress bar */}
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-semibold text-muted-foreground">Armazenamento</span>
+                        <span className="font-bold">
+                          {(() => {
+                            const st = subscription.usage.storage;
+                            if (st.unit === "GB" && (st.currentGb ?? st.current) < 0.1 && (st.currentMb ?? 0) > 0) {
+                              return `${st.currentMb} MB / ${st.limit} GB`;
+                            }
+                            return `${st.current} ${st.unit} / ${st.limit} ${st.unit}`;
+                          })()}
+                        </span>
+                      </div>
+                      <div className="h-2 w-full bg-secondary rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary rounded-full transition-all duration-500"
+                          style={{
+                            width: `${Math.min(
+                              100,
+                              Math.max(
+                                subscription.usage.storage.percentage ??
+                                (subscription.usage.storage.current / (subscription.usage.storage.limit || 1)) * 100,
+                                (subscription.usage.storage.currentMb ?? 0) > 0 ? 1 : 0
+                              )
+                            )}%`,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Box 2: Right - Premium Days Remaining Status Card */}
+            <Card className="lg:col-span-5 border-border bg-card overflow-hidden shadow-none rounded-2xl min-h-[340px] flex flex-col justify-between p-6">
+              <div className="space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-widest text-muted-foreground">
+                  {subscription.status === "trial" ? "Teste Gratuito Restante" : "Tempo Restante de Acesso"}
+                </span>
+                <h3 className="text-lg font-bold">Resumo da Adimplência</h3>
+              </div>
+
+              {/* Central Days Display */}
+              <div className="py-6 flex flex-col items-center justify-center text-center space-y-2">
+                {subscription.isTestAccount ? (
+                  <>
+                    <div className="flex items-center justify-center p-4 rounded-2xl bg-primary/10 border border-primary/20 text-primary animate-in fade-in zoom-in duration-300">
+                      <InfinityIcon className="size-16 stroke-[1.5]" />
+                    </div>
+                    <p className="text-xs text-muted-foreground max-w-[200px] font-medium leading-normal pt-2">
+                      Acesso ilimitado e vitalício autorizado para esta conta de teste.
+                    </p>
+                  </>
+                ) : subscription.daysRemaining > 0 && (subscription.status === "active" || subscription.status === "trial") ? (
+                  <>
+                    <div className="inline-flex items-baseline justify-center">
+                      <span
+                        className={cn(
+                          "text-6xl font-black tracking-tighter",
+                          subscription.status === "trial" ? "text-amber-500" : "text-primary"
+                        )}
+                      >
+                        {subscription.daysRemaining}
+                      </span>
+                      <span className="text-sm font-bold text-muted-foreground ml-1">dias</span>
+                    </div>
+                    <p className="text-xs text-muted-foreground max-w-[200px] font-medium leading-normal">
+                      {subscription.status === "trial"
+                        ? "restantes do período de teste gratuito do seu painel."
+                        : role === "gym"
+                          ? "restantes de uso total autorizado do portal da academia e filiais."
+                          : "restantes de uso total autorizado do portal de personal trainer."}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="size-16 rounded-full bg-destructive/10 border border-destructive/20 flex items-center justify-center text-destructive mb-2">
+                      <AlertCircle className="size-8 animate-pulse" />
+                    </div>
+                    <span className="text-2xl font-black text-destructive tracking-tight">Acesso Expirado</span>
+                    <p className="text-xs text-muted-foreground max-w-[240px] font-medium leading-normal">
+                      A mensalidade ou período de testes está vencido. Regularize agora para reativar as permissões de acesso ao sistema.
+                    </p>
+                  </>
+                )}
+              </div>
+
+              {/* Status footer inside days block */}
+              <div className="border-t border-border/50 pt-4 flex items-center justify-between text-xs font-semibold">
+                <span className="text-muted-foreground">Status do Serviço:</span>
+                <span
+                  className={cn(
+                    "flex items-center gap-1.5",
+                    subscription.status === "active" || subscription.status === "trial"
+                      ? "text-emerald-500"
+                      : "text-destructive"
+                  )}
+                >
+                  <span
+                    className={cn(
+                      "size-2 rounded-full",
+                      subscription.status === "active" || subscription.status === "trial"
+                        ? "bg-emerald-500"
+                        : "bg-destructive animate-pulse"
+                    )}
+                  />
+                  {subscription.status === "active" || subscription.status === "trial"
+                    ? "Operando Normalmente"
+                    : "Painéis Bloqueados"}
+                </span>
+              </div>
+            </Card>
+          </div>
+        </section>
+
+        {/* Pricing Catalog */}
+        <section className="space-y-6">
+          <div className="text-center space-y-2 pt-8">
+            <h3 className="text-2xl font-bold tracking-tight">{catalogTitle}</h3>
+            <p className="text-muted-foreground">{catalogSubtitle}</p>
+
+            {/* Switch de Cobrança Mensal / Anual */}
+            <div className="flex items-center justify-center gap-3 pt-4">
+              <span
+                onClick={() => setBillingCycle("mensal")}
+                className={cn(
+                  "text-xs font-semibold cursor-pointer select-none transition-colors",
+                  billingCycle === "mensal" ? "text-foreground font-bold" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Cobrança Mensal
+              </span>
+
+              <Switch
+                checked={billingCycle === "anual"}
+                onCheckedChange={(checked) => setBillingCycle(checked ? "anual" : "mensal")}
+              />
+
+              <div
+                onClick={() => setBillingCycle("anual")}
+                className="flex items-center gap-2 cursor-pointer select-none"
+              >
+                <span
+                  className={cn(
+                    "text-xs font-semibold transition-colors",
+                    billingCycle === "anual" ? "text-foreground font-bold" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Cobrança Anual
+                </span>
+                <Badge
+                  variant="secondary"
+                  className="text-[10px] font-bold bg-emerald-500/10 text-emerald-500 border border-emerald-500/20 px-2 py-0.5"
+                >
+                  Economize 20%
+                </Badge>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 items-start pt-6 pb-12">
+            {(() => {
+              const rolePlans = (platformPlans || []).filter((plan) => {
+                if (plan.type) {
+                  return role === "gym" ? plan.type === "GYM" : plan.type === "PERSONAL";
+                }
+                const lower = plan.name.toLowerCase();
+                if (role === "personal") {
+                  if (lower.includes("academia") || lower.includes("franquia") || lower.includes("estúdio") || lower.includes("estudio") || lower.includes("box")) {
+                    return false;
+                  }
+                  return true;
+                }
+                if (role === "gym") {
+                  if ((lower.includes("iniciante") || lower.includes("profissional")) && !lower.includes("box") && !lower.includes("academia") && !lower.includes("franquia")) {
+                    return false;
+                  }
+                  return true;
+                }
+                return true;
+              });
+
+              const filtered = rolePlans.filter((plan) => {
+                const raw = (plan.rawInterval || plan.interval || "").toLowerCase();
+                const isAnnual = raw.includes("year") || raw.includes("ano") || raw.includes("anual");
+                return billingCycle === "anual" ? isAnnual : !isAnnual;
+              });
+              const displayPlans = filtered.length > 0 ? filtered : rolePlans;
+
+              return displayPlans.map((plan) => {
+                const isPlanProcessing = isProcessing === plan.id;
+                const isAnyProcessing = isProcessing !== null;
+
+                const isExpanded = !!expandedPlans[plan.id];
+                const visibleFeatures = isExpanded ? plan.features : plan.features.slice(0, 4);
+                const hasMoreFeatures = plan.features.length > 4;
+
+                return (
+                  <Card
+                    key={plan.id}
+                    className={cn(
+                      "relative flex flex-col h-full transition-all duration-300 overflow-visible",
+                      plan.highlight
+                        ? "border-primary shadow-lg shadow-primary/10 scale-100 md:scale-105 z-10"
+                        : "border-border/50 bg-card/50 hover:bg-card"
+                    )}
+                  >
+                    {plan.highlight && (
+                      <div className="absolute -top-4 left-1/2 -translate-x-1/2 z-20">
+                        <Badge className="bg-primary text-primary-foreground font-bold px-4 py-1.5 shadow-md">
+                          Recomendado
+                        </Badge>
+                      </div>
+                    )}
+
+                    <CardHeader className="text-center pb-6 pt-8">
+                      <CardTitle className="text-xl mb-2">{plan.name}</CardTitle>
+                      <div className="flex items-center justify-center gap-1">
+                        <span className="text-3xl sm:text-4xl font-extrabold tracking-tight">{plan.price}</span>
+                        <span className="text-muted-foreground font-medium text-xs">{plan.interval}</span>
+                      </div>
+                      <CardDescription className="mt-3 text-xs sm:text-sm min-h-[2.5rem] flex items-center justify-center">
+                        {plan.description}
+                      </CardDescription>
+
+                      {role === "gym" && (
+                        <div className="flex flex-wrap items-center justify-center gap-2 pt-2">
+                          <Badge variant="outline" className="text-[10px] font-semibold bg-primary/5 text-primary border-primary/20">
+                            <Building className="size-3 mr-1" />
+                            {plan.maxWorkspaces || 1} {(plan.maxWorkspaces || 1) === 1 ? "Filial" : "Filiais"}
+                          </Badge>
+                          <Badge variant="outline" className="text-[10px] font-semibold bg-secondary/80 text-foreground border-border/60">
+                            <Users className="size-3 mr-1" />
+                            Até {plan.maxStaff || 10} Equipe/filial
+                          </Badge>
+                        </div>
+                      )}
+                    </CardHeader>
+
+                    <CardContent className="flex-1">
+                      <ul className="space-y-3">
+                        {visibleFeatures.map((feature, idx) => (
+                          <li key={idx} className="flex items-start gap-2.5">
+                            <CheckCircle2 className="size-4 text-primary shrink-0 mt-0.5" />
+                            <span className="text-xs font-medium text-foreground/80">{feature}</span>
+                          </li>
+                        ))}
+                      </ul>
+
+                      {hasMoreFeatures && (
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => toggleExpandPlan(plan.id)}
+                          className="mt-3 w-full h-8 text-xs font-semibold text-primary hover:text-primary/90 hover:bg-primary/5 flex items-center justify-center gap-1 rounded-xl transition-colors"
+                        >
+                          {isExpanded ? (
+                            <>
+                              <span>Recolher vantagens</span>
+                              <ChevronUp className="size-3.5" />
+                            </>
+                          ) : (
+                            <>
+                              <span>Exibir mais (+{plan.features.length - 4} vantagens)</span>
+                              <ChevronDown className="size-3.5" />
+                            </>
+                          )}
+                        </Button>
+                      )}
+                    </CardContent>
+
+                    <CardFooter className="pt-6">
+                      <Button
+                        onClick={() => handlePlanAction(plan.id, plan.name, plan.isCurrent)}
+                        className={cn(
+                          "w-full cursor-pointer transition-all duration-200",
+                          plan.highlight
+                            ? "bg-primary text-primary-foreground hover:bg-primary/90"
+                            : "hover:bg-accent hover:text-accent-foreground"
+                        )}
+                        variant={plan.highlight ? "default" : "outline"}
+                        disabled={plan.isCurrent || isAnyProcessing}
+                      >
+                        {isPlanProcessing ? (
+                          <>
+                            <Loader2 className="mr-2 size-4 animate-spin" />
+                            Processando...
+                          </>
+                        ) : (
+                          <>
+                            {plan.highlight && !plan.isCurrent && <Zap className="mr-2 size-4" />}
+                            {plan.isCurrent
+                              ? "Seu Plano Atual"
+                              : subscription.status === "trial"
+                                ? "Garantir Pré-Assinatura"
+                                : plan.buttonText}
+                          </>
+                        )}
+                      </Button>
+                    </CardFooter>
+                  </Card>
+                );
+              });
+            })()}
+          </div>
+        </section>
+
+        {/* Dynamic Billing Invoices History */}
+        {subscription.invoices && subscription.invoices.length > 0 && (
+          <section className="space-y-4 pt-6">
+            <div className="space-y-1">
+              <h3 className="text-xl font-bold tracking-tight">Histórico de Cobranças</h3>
+              <p className="text-muted-foreground text-xs">Acesse e audite seus faturamentos e comprovantes recentes.</p>
+            </div>
+            <Card className="border-border/50 p-0 bg-card overflow-hidden shadow-none rounded-2xl">
+              <div className="overflow-x-auto w-full">
+                <table className="w-full text-left border-collapse text-xs">
+                  <thead>
+                    <tr className="border-b border-border/60 bg-muted/20 text-muted-foreground font-bold uppercase tracking-wider select-none">
+                      <th className="p-4 font-semibold">Data da Fatura</th>
+                      <th className="p-4 font-semibold">Descrição</th>
+                      <th className="p-4 font-semibold">Método</th>
+                      <th className="p-4 font-semibold">Valor</th>
+                      <th className="p-4 font-semibold text-right">Status</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {subscription.invoices.map((invoice: any) => (
+                      <tr key={invoice.id} className="border-b border-border/40 hover:bg-muted/5 transition-colors font-medium">
+                        <td className="p-4 whitespace-nowrap text-neutral-400">
+                          {invoice.date.split("-").reverse().join("/")}
+                        </td>
+                        <td className="p-4 text-foreground font-bold">
+                          {invoice.description}
+                        </td>
+                        <td className="p-4 whitespace-nowrap text-neutral-400">
+                          {invoice.paymentMethod || "PIX"}
+                        </td>
+                        <td className="p-4 whitespace-nowrap text-foreground font-bold">
+                          R$ {invoice.amount.toFixed(2)}
+                        </td>
+                        <td className="p-4 whitespace-nowrap text-right">
+                          <Badge
+                            variant="outline"
+                            className={cn(
+                              "text-[9px] font-bold px-2 py-0.5 uppercase tracking-wide shrink-0",
+                              invoice.status === "APPROVED"
+                                ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20"
+                                : invoice.status === "PENDING"
+                                  ? "bg-amber-500/10 text-amber-500 border-amber-500/20"
+                                  : "bg-red-500/10 text-red-500 border-red-500/20"
+                            )}
+                          >
+                            {invoice.status === "APPROVED" ? "Pago" : invoice.status === "PENDING" ? "Pendente" : "Falhou"}
+                          </Badge>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </Card>
+          </section>
+        )}
+      </motion.div>
+    </div>
+  );
+}

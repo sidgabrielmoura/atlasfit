@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
 import { logSystemError } from "@/lib/logger";
+import { invalidatePublicExerciseCatalog } from "@/lib/cache/public-data";
 
 export async function PATCH(
   req: Request,
@@ -21,7 +22,7 @@ export async function PATCH(
     const ids = Array.isArray(muscleGroupIds) ? muscleGroupIds : (muscleGroupId ? [muscleGroupId] : []);
 
     const updateData: any = {
-      status,
+      status: status ?? (isOfficial === true ? "APPROVED" : undefined),
       name,
       videoUrl,
       isOfficial
@@ -39,6 +40,7 @@ export async function PATCH(
       data: updateData
     });
 
+    invalidatePublicExerciseCatalog();
     return NextResponse.json(exercise);
   } catch (error) {
     console.error("[EXERCISE_PATCH]", error);
@@ -73,6 +75,7 @@ export async function DELETE(
       where: { id }
     });
 
+    invalidatePublicExerciseCatalog();
     return NextResponse.json(exercise);
   } catch (error) {
     console.error("[EXERCISE_DELETE]", error);

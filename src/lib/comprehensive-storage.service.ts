@@ -101,6 +101,7 @@ export interface ComprehensiveStorageMetric {
 export async function getOwnedWorkspaceIds(userId: string): Promise<string[]> {
   const workspaces = await prisma.workspace.findMany({
     where: {
+      type: "PERSONAL",
       OR: [
         { ownerId: userId },
         { members: { some: { userId, role: "OWNER", isActive: true } } },
@@ -471,14 +472,11 @@ export async function calculateSingleWorkspaceStorageUsage(workspaceId: string) 
 
 /**
  * Normaliza o limite de armazenamento em MB.
- * Valores <= 50 informados pelo usuário são convertidos automaticamente para GB em MB (ex: 3 -> 3072 MB).
+ * O campo persistido storageLimitMb já está em MB; zero significa ilimitado.
  */
 export function normalizeStorageLimitMb(rawLimit: number | null | undefined): number {
-  if (typeof rawLimit !== "number" || isNaN(rawLimit) || rawLimit <= 0) {
+  if (typeof rawLimit !== "number" || !Number.isFinite(rawLimit) || rawLimit < 0) {
     return 1024; // Default 1 GB
-  }
-  if (rawLimit <= 50) {
-    return rawLimit * 1024;
   }
   return rawLimit;
 }

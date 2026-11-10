@@ -1,4 +1,4 @@
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { randomUUID } from "node:crypto";
 import { Client } from "pg";
 import { afterAll, beforeAll, expect, it } from "vitest";
@@ -8,8 +8,9 @@ import { PrismaPg } from "@prisma/adapter-pg";
 const url = new URL(process.env.DATABASE_URL || "http://invalid");
 if (url.hostname !== "127.0.0.1" || url.port !== "56432" || url.pathname !== "/atlasfit_gym_stabilization_20261001") throw new Error("Requires the disposable test server.");
 const database = `atlasfit_tenant_constraints_${randomUUID().replaceAll("-", "")}`;
-const administration = new Client({ connectionString: "postgresql://atlasfit_test@127.0.0.1:56432/postgres" });
-const connectionString = `postgresql://atlasfit_test@127.0.0.1:56432/${database}`;
+const databaseUrl = (name: string) => { const copy = new URL(url); copy.pathname = `/${name}`; return copy.toString(); };
+const administration = new Client({ connectionString: databaseUrl("postgres") });
+const connectionString = databaseUrl(database);
 const sql = new Client({ connectionString });
 const db = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 const migration = readFileSync("prisma/baseline-migrations/20261009000000_gym_tenant_relations/migration.sql", "utf8");
@@ -17,11 +18,9 @@ beforeAll(async () => {
  expect(readFileSync("prisma/migrations/20261009000000_gym_tenant_relations/migration.sql", "utf8")).toBe(migration);
  await administration.connect(); await administration.query(`CREATE DATABASE "${database}"`);
  await sql.connect();
- await sql.query(readFileSync("prisma/baseline-migrations/0_atlasfit_20261007/migration.sql", "utf8"));
- await sql.query(migration);
- await sql.query(readFileSync("prisma/baseline-migrations/20261009200000_gym_reference_identity/migration.sql", "utf8"));
- await sql.query(readFileSync("prisma/baseline-migrations/20261009220000_gym_retention_hold/migration.sql", "utf8"));
- await sql.query(readFileSync("prisma/baseline-migrations/20261009230000_gym_scheduled_purge/migration.sql", "utf8"));
+ for (const entry of readdirSync("prisma/baseline-migrations", { withFileTypes: true }).filter(entry => entry.isDirectory()).sort((a, b) => a.name.localeCompare(b.name))) {
+   await sql.query(readFileSync(`prisma/baseline-migrations/${entry.name}/migration.sql`, "utf8"));
+ }
 }, 120000);
 afterAll(async () => { await db.$disconnect(); await sql.end(); await administration.end(); });
 async function fixture() {

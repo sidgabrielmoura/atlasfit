@@ -3,13 +3,9 @@ import { PrismaAdapter } from "@auth/prisma-adapter";
 import prisma from "@/lib/prisma";
 import { authConfig } from "./auth.config";
 import Credentials from "next-auth/providers/credentials";
-import bcrypt from "bcryptjs";
-import { consumeCredentialProof } from "@/lib/auth/credential-proof";
-import { rateLimit } from "@/lib/rate-limit";
-import { resolveAuthenticationPolicy, authenticationPolicyKey } from "@/lib/auth/mfa-service";
+import { authorizeCredentials } from "@/lib/auth/credential-authorization";
 import { permitsOwnAccount } from "@/lib/auth/account-eligibility";
 import { withAuditIdentity } from "@/lib/audit-context";
-import { consumeImpersonationGrant } from "@/lib/auth/impersonation-service";
 import { cache } from "react";
 import { requestMemo } from "@/lib/request-memo";
 
@@ -17,29 +13,7 @@ export const { handlers: { GET, POST }, auth: uncachedAuth, signIn, signOut } = 
   adapter: PrismaAdapter(prisma),
   session: { strategy: "jwt" },
   ...authConfig,
-  providers: [Credentials({
-    async authorize(credentials, request) {
-      const ip = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-      const email = typeof credentials.email === "string" ? credentials.email.trim().toLowerCase() : "";
-      if (!(await rateLimit(`credentials:${ip}:${email}`, 10, 60_000)).success) return null;
-      if (typeof credentials.impersonateToken === "string") {
-        return consumeImpersonationGrant(credentials.impersonateToken);
-      }
-      if (!email || typeof credentials.password !== "string") return null;
-      const user = await prisma.user.findUnique({ where: { email }, include: { _count: { select: { totpDevices: true } } } });
-      if (!user?.password || !await bcrypt.compare(credentials.password, user.password)) return null;
-      if (user.isBlocked) return null;
-      if (!await permitsOwnAccount(user.id)) return null;
-      const maintenance = await prisma.systemSetting.findUnique({ where: { key: "maintenance_mode" } });
-      if (maintenance?.value === "true" && user.role !== "SUPERADMIN") return null;
-      const policy = await resolveAuthenticationPolicy(user.id);
-      if (!policy) return null;
-      if (policy.requiresMfa || credentials.authenticationProof !== undefined) {
-        if (!await consumeCredentialProof(user.id, user.password, credentials.authenticationProof, authenticationPolicyKey(policy))) return null;
-      }
-      return { id: user.id, name: user.name, email: user.email, role: user.role, sessionVersion: user.sessionVersion };
-    },
-  })],
+  providers: [Credentials({ authorize: authorizeCredentials })],
   events: {
     async signIn({ user }) {
       if (user.id) await withAuditIdentity({ actorUserId: user.originalAdminUserId || user.id, effectiveUserId: user.id, impersonated: Boolean(user.isImpersonated) }, () => prisma.auditLog.create({ data: { userId: user.originalAdminUserId || user.id, action: user.isImpersonated ? "IMPERSONATED_LOGIN" : "LOGIN", entity: "USER", entityId: user.id, severity: "success" } }));

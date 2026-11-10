@@ -164,13 +164,11 @@ describe("Passo 3 — contratos, encerramento e reconciliação manual", () => {
     await serializableTransaction(tx => generateLocalCycleInvoice(tx, f.command, true, now));
     expect(await prisma.gymInvoice.count({ where: { enrollmentId: f.enrollment.id } })).toBe(2);
   });
-  it("fila identifica duplicidades sem escolher contrato e só desaparece após encerramento explícito", async () => {
+  it("banco impede nova duplicidade e conserva o contrato original sem reconciliação arbitrária", async () => {
     const f = await fixture();
-    const duplicate = await prisma.gymEnrollment.create({ data: { workspaceId: f.workspace.id, unitId: f.unit.id, studentMemberId: f.member.id, planVersionId: f.plan.versions[0].id, status: "PAUSED", priceInCents: BigInt(10000), accessGranted: false, startDate: f.enrollment.startDate } });
+    await expect(prisma.gymEnrollment.create({ data: { workspaceId: f.workspace.id, unitId: f.unit.id, studentMemberId: f.member.id, planVersionId: f.plan.versions[0].id, status: "PAUSED", priceInCents: BigInt(10000), accessGranted: false, startDate: f.enrollment.startDate } })).rejects.toMatchObject({ code: "P2002" });
     const shown = await listGymAdministrativeReviewResources(f.workspace.id, f.owner.id, "CONTRACT");
-    expect(shown.rows.map(r => r.id).sort()).toEqual([duplicate.id, f.enrollment.id].sort());
-    expect((await previewGymAdministrativeReview(f.workspace.id, f.owner.id, "CONTRACT", f.enrollment.id)).snapshot).toMatchObject({ liveContractsCount: 2 });
-    await cancelGymEnrollment({ ...f.command, enrollmentId: duplicate.id, immediate: true, reason: "Revisão documental da duplicidade" });
+    expect(shown.rows).toEqual([]);
     expect((await listGymAdministrativeReviewResources(f.workspace.id, f.owner.id, "CONTRACT")).rows).toEqual([]);
     expect((await prisma.gymEnrollment.findUniqueOrThrow({ where: { id: f.enrollment.id } })).status).toBe("ACTIVE");
   });

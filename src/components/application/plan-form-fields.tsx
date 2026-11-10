@@ -18,6 +18,8 @@ export interface PlanFormValue {
   importQuota: string;
   storageLimitMb: string;
   paymentMethods: string;
+  type?: "PERSONAL" | "GYM";
+  maxStaff?: string;
 }
 
 export function PlanFormFields({ value, onChange, idPrefix, children, billingFields }: {
@@ -31,13 +33,30 @@ export function PlanFormFields({ value, onChange, idPrefix, children, billingFie
     const next = { ...value, ...updates };
     onChange({ ...updates, features: updateFeaturesWithFields(next.features, next.maxStudents, next.importQuota, next.maxWorkspaces, next.storageLimitMb) });
   }
+  const isGym = value.type === "GYM";
   return (
     <FieldGroup className="gap-6">
       <FieldSet className="gap-4">
-        <Field>
-          <FieldLabel htmlFor={`${idPrefix}-name`}>Nome do Plano</FieldLabel>
-          <Input id={`${idPrefix}-name`} required minLength={2} maxLength={100} value={value.name} onChange={e => onChange({ name: e.target.value })} placeholder="Ex: Pro Unlimited" />
-        </Field>
+        <FieldGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <Field>
+            <FieldLabel htmlFor={`${idPrefix}-name`}>Nome do Plano</FieldLabel>
+            <Input id={`${idPrefix}-name`} required minLength={2} maxLength={100} value={value.name} onChange={e => onChange({ name: e.target.value })} placeholder={isGym ? "Ex: Rede Pro Franquias" : "Ex: Pro Unlimited"} />
+          </Field>
+          <Field>
+            <FieldLabel>Categoria do Plano</FieldLabel>
+            <ToggleGroup
+              type="single"
+              variant="outline"
+              className="grid w-full grid-cols-2"
+              value={value.type || "PERSONAL"}
+              onValueChange={val => (val === "PERSONAL" || val === "GYM") && onChange({ type: val })}
+              aria-label="Categoria do Plano"
+            >
+              <ToggleGroupItem value="PERSONAL">Personal Trainer</ToggleGroupItem>
+              <ToggleGroupItem value="GYM">Academia & Franquia</ToggleGroupItem>
+            </ToggleGroup>
+          </Field>
+        </FieldGroup>
       </FieldSet>
 
       <Separator />
@@ -72,14 +91,33 @@ export function PlanFormFields({ value, onChange, idPrefix, children, billingFie
       <Separator />
 
       <FieldSet className="gap-4">
-        <FieldLegend variant="label">Limites e capacidade</FieldLegend>
+        <FieldLegend variant="label">{isGym ? "Limites e Capacidade da Rede" : "Limites e capacidade"}</FieldLegend>
         <FieldGroup className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Field>
-            <FieldLabel htmlFor={`${idPrefix}-workspaces`}>Limite de Workspaces</FieldLabel>
+            <FieldLabel htmlFor={`${idPrefix}-workspaces`}>
+              {isGym ? "Quantidade de Filiais (Workspaces)" : "Limite de Workspaces"}
+            </FieldLabel>
             <Input id={`${idPrefix}-workspaces`} type="number" min="1" required value={value.maxWorkspaces} onChange={e => quantities({ maxWorkspaces: e.target.value })} />
+            <FieldDescription>
+              {isGym ? "Número máximo de filiais que o dono pode cadastrar." : "Número de workspaces autorizados."}
+            </FieldDescription>
           </Field>
+          {isGym && (
+            <Field>
+              <FieldLabel htmlFor={`${idPrefix}-maxStaff`}>Funcionários por Filial</FieldLabel>
+              <Input
+                id={`${idPrefix}-maxStaff`}
+                type="number"
+                min="1"
+                required
+                value={value.maxStaff ?? "10"}
+                onChange={e => onChange({ maxStaff: e.target.value })}
+              />
+              <FieldDescription>Capacidade máxima de equipe/professores em cada filial.</FieldDescription>
+            </Field>
+          )}
           <Field>
-            <FieldLabel htmlFor={`${idPrefix}-students`}>Limite de Alunos</FieldLabel>
+            <FieldLabel htmlFor={`${idPrefix}-students`}>Limite de Alunos {isGym ? "por Filial" : ""}</FieldLabel>
             <Input id={`${idPrefix}-students`} type="number" min="1" value={value.maxStudents} onChange={e => quantities({ maxStudents: e.target.value })} placeholder="Ilimitado" />
             <FieldDescription>Deixe em branco para alunos ilimitados.</FieldDescription>
           </Field>

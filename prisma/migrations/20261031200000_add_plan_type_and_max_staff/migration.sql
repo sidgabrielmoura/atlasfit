@@ -1,0 +1,3 @@
+-- AlterTable
+ALTER TABLE "Plan" ADD COLUMN "type" "WorkspaceType" NOT NULL DEFAULT 'PERSONAL';
+ALTER TABLE "Plan" ADD COLUMN "maxStaff" INTEGER DEFAULT 10;

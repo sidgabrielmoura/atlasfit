@@ -2,6 +2,8 @@
 
 Este documento estabelece os procedimentos operacionais padrão (SOPs) e runbooks de recuperação rápida para a operação do módulo de academias no AtlasFit.
 
+**Estado em 04/11/2026:** os exemplos de hardware abaixo descrevem contratos de integração do backend. Não comprovam agente instalado, modelo de catraca homologado, regras de contingência aprovadas ou serviço Windows disponível neste repositório. Não executar os comandos de instalação do agente como se fossem um pacote entregue. A saída física e a operação de emergência precisam ser definidas e ensaiadas com o fornecedor e a academia. Consulte [as correções e os limites da validação](../audits/academias-2026-11-01/correcoes.md).
+
 Em estrita conformidade com as [Regras Globais de Segurança e Escalabilidade (RULE[user_global])](file:///c:/Users/gabriel/development/atlasfit/.agents/rules).
 
 ---
@@ -135,9 +137,9 @@ Necessidade de desativar recursos novos ou voltar ao modo de contingência em ca
 
 ## 6. Runbook 5: Backup e Restauração em Desastre (PostgreSQL)
 
-### Política de Cópias de Segurança
-- **Snapshots Contínuos (PITR):** Point-in-time recovery habilitado no PostgreSQL com retenção de 30 dias.
-- **Backups Diários Criptografados:** Dump lógico com gzip e upload para bucket seguro com KMS.
+### Política a configurar e comprovar no ambiente publicado
+- Definir e verificar PITR, retenção, criptografia e responsáveis no provedor PostgreSQL. A revisão do código não confirmou nenhuma dessas configurações em produção.
+- Definir backups de objetos, segredos de criptografia e recuperação de banco em conjunto. Um dump PostgreSQL não recupera objetos do armazenamento nem chaves perdidas.
 
 ### Procedimento de Restauração em Ambiente de Homologação (Staging)
 1. Provisione uma base de dados descartável.
@@ -147,9 +149,10 @@ Necessidade de desativar recursos novos ou voltar ao modo de contingência em ca
    ```
 3. Execute a suíte de testes de integridade:
    ```bash
-   npx vitest run src/modules/workspaces/__tests__/gym-080.test.ts
+   npm run test:gym
    ```
-4. Verifique a regra fundamental: `SUM(debits) == SUM(credits)` e confira a integridade das faturas locais vs subcontas.
+4. Execute a suíte somente no PostgreSQL descartável aceito pelo runner. Em uma restauração separada, compare contagens, centavos de faturas, pagamentos/alocações e constraints/triggers com o snapshot de origem. Não execute testes de escrita em staging compartilhado ou em produção.
+5. O ensaio local de 04/11/2026 restaurou um dump sintético e conservou esses fatos. Isso não comprova RTO/RPO, PITR ou backup do ambiente publicado; agendar um ensaio desse ambiente antes do piloto.
 
 ---
 

@@ -1,4 +1,6 @@
-// In-memory Rate Limiter for Next.js endpoints
+import { createHash } from "node:crypto";
+import prisma from "@/lib/prisma";
+// Development/test fallback only. Production counters are shared across instances.
 interface RateLimitRecord {
   count: number;
   resetTime: number;
@@ -6,8 +8,12 @@ interface RateLimitRecord {
 
 const cache = new Map<string, RateLimitRecord>();
 
+export async function pruneRateLimitBuckets(now = new Date()) {
+  return prisma.$executeRaw`DELETE FROM "RateLimitBucket" WHERE key IN (SELECT key FROM "RateLimitBucket" WHERE "resetAt" < ${now} ORDER BY "resetAt" LIMIT 10000)`;
+}
+
 // Periodically clean up expired entries from the cache to prevent memory leaks
-if (typeof global !== "undefined") {
+if (typeof global !== "undefined" && process.env.NODE_ENV !== "production" && process.env.RATE_LIMIT_STORE !== "postgres") {
   const intervalId = setInterval(() => {
     const now = Date.now();
     for (const [key, value] of cache.entries()) {
@@ -40,7 +46,18 @@ export async function rateLimit(
   limit: number,
   windowMs: number
 ): Promise<RateLimitResponse> {
+  if (!Number.isSafeInteger(limit) || limit < 1 || !Number.isSafeInteger(windowMs) || windowMs < 1) throw new Error("INVALID_RATE_LIMIT_POLICY");
   const now = Date.now();
+  if (process.env.NODE_ENV === "production" || process.env.RATE_LIMIT_STORE === "postgres") {
+    const reset = Math.floor(now / windowMs) * windowMs + windowMs;
+    const key = createHash("sha256").update(`${identifier}:${limit}:${windowMs}:${reset}`).digest("hex");
+    const rows = await prisma.$queryRaw<Array<{ count: number }>>`
+      INSERT INTO "RateLimitBucket" (key,count,"resetAt") VALUES (${key},1,${new Date(reset)})
+      ON CONFLICT (key) DO UPDATE SET count=LEAST("RateLimitBucket".count+1,${limit + 1})
+      RETURNING count`;
+    const count = rows[0].count;
+    return { success: count <= limit, limit, remaining: Math.max(0, limit - count), reset };
+  }
   const record = cache.get(identifier);
 
   if (!record || now > record.resetTime) {

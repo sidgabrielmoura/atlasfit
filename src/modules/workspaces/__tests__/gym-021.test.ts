@@ -38,6 +38,7 @@ const { mockPrisma } = vi.hoisted(() => {
       findFirst: vi.fn(),
     },
     workspaceMember: {
+      count: vi.fn(),
       findUnique: vi.fn(),
       findFirst: vi.fn(),
       findMany: vi.fn(),
@@ -47,6 +48,7 @@ const { mockPrisma } = vi.hoisted(() => {
       create: vi.fn(),
     },
     workspaceInvitation: { count: vi.fn() },
+    gymUnit: { count: vi.fn() },
     user: {
       findUnique: vi.fn(),
     },
@@ -73,6 +75,8 @@ describe("GYM-021: Contexto, login e entitlements", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mockPrisma.workspaceInvitation.count.mockResolvedValue(0);
+    mockPrisma.workspaceMember.count.mockReset().mockResolvedValueOnce(2).mockResolvedValueOnce(1);
+    mockPrisma.gymUnit.count.mockResolvedValue(1);
     Object.keys(mockCookieStore).forEach((key) => delete mockCookieStore[key]);
   });
 

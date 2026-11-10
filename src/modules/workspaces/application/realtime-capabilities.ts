@@ -37,6 +37,7 @@ export async function resolveRealtimeCapabilities(userId: string, selectedWorksp
     if (membership.workspace.type === "PERSONAL") {
       if (owner || roles.includes("TRAINER")) capability[`migration:${membership.workspaceId}`] = ["subscribe"];
     } else {
+      if (owner || capabilities.has("students.manage")) capability[`migration:${membership.workspaceId}`] = ["subscribe"];
       if (owner || capabilities.has("reports.finance")) capability[`workspace:${membership.workspaceId}:finance`] = ["subscribe"];
     }
   }

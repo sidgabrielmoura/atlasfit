@@ -1,13 +1,13 @@
 import { LegalAcceptanceService } from "@/lib/privacy/legal-acceptance.service";
+import { connection } from "next/server";
 import { LegalDocumentType } from "@prisma/client";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { ShieldCheck, Lock, Calendar, Hash, ArrowLeft } from "lucide-react";
 
-export const dynamic = "force-dynamic";
-
 export default async function PrivacyPolicyPage() {
+  await connection();
   const doc = await LegalAcceptanceService.getActiveDocument(LegalDocumentType.PRIVACY);
 
   return (

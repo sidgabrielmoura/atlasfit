@@ -70,7 +70,10 @@ export default function SubscriptionExpiredPage() {
     setIsLoading(true);
     setLoadError(null);
     try {
-      const res = await fetch("/api/personal/subscription");
+      const res = await fetch("/api/personal/subscription", {
+        cache: "no-store",
+        headers: { "Cache-Control": "no-cache" },
+      });
       if (!res.ok) {
         throw new Error("Não foi possível carregar os dados de assinatura.");
       }
@@ -254,7 +257,12 @@ export default function SubscriptionExpiredPage() {
 
           {/* Right Column: Plans list (7 cols) */}
           <div className="lg:col-span-7 flex flex-col gap-6">
-            {data?.platformPlans.map((plan) => {
+            {(data?.platformPlans || [])
+              .filter((plan) => {
+                const lower = plan.name.toLowerCase();
+                return !lower.includes("academia") && !lower.includes("franquia") && !lower.includes("estúdio") && !lower.includes("estudio") && !lower.includes("box");
+              })
+              .map((plan) => {
               const isPlanLoading = isProcessing === plan.id;
               const anyPlanLoading = isProcessing !== null;
 

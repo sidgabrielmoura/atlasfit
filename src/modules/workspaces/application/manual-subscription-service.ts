@@ -1,6 +1,7 @@
 import { jobRetryAt } from "@/lib/job-retry";
 import { assertGymOperationalWorkspace, gymOperationalWorkspaceWhere } from "./gym-license";
 import prisma from "@/lib/prisma";
+import type { Prisma } from "@prisma/client";
 import { randomBytes } from "node:crypto";
 import type { SetupEnrollmentSubscriptionInput, GenerateCycleInvoiceInput, CancelSubscriptionInput } from "./subscription-service";
 import { serializableTransaction, type GymTransactionClient } from "./transaction";
@@ -106,7 +107,8 @@ export class ManualSubscriptionService {
     return { status: "CANCELLED", enrollmentId: input.enrollmentId, cancelledAt: new Date().toISOString() };
   }
   async processDue(now = new Date(), workspaceId?: string) {
-    const candidates = await prisma.gymEnrollment.findMany({ where: { ...(workspaceId ? { workspaceId } : {}), workspace: gymOperationalWorkspaceWhere(now), recurrenceMode: "LOCAL", providerSubscriptionId: null, subscriptionStatus: "ACTIVE", status: { in: ["ACTIVE", "PENDING_ACTIVATION"] }, nextDueDate: { lte: now }, OR: [{ billingRetryAt: null }, { billingRetryAt: { lte: now } }], studentMember: { isActive: true }, pauses: { none: { resumedAt: null, startDate: { lte: now }, endDate: { gt: now } } } }, select: { id: true, workspaceId: true, nextDueDate: true, billingFailureCount: true }, take: 500, orderBy: { nextDueDate: "asc" } });
+    const dueWhere: Prisma.GymEnrollmentWhereInput = { ...(workspaceId ? { workspaceId } : {}), workspace: gymOperationalWorkspaceWhere(now), recurrenceMode: "LOCAL", providerSubscriptionId: null, subscriptionStatus: "ACTIVE", status: { in: ["ACTIVE", "PENDING_ACTIVATION"] }, nextDueDate: { lte: now }, OR: [{ billingRetryAt: null }, { billingRetryAt: { lte: now } }], studentMember: { isActive: true }, pauses: { none: { resumedAt: null, startDate: { lte: now }, endDate: { gt: now } } } };
+    const candidates = await prisma.gymEnrollment.findMany({ where: dueWhere, select: { id: true, workspaceId: true, nextDueDate: true, billingFailureCount: true }, take: 500, orderBy: [{ nextDueDate: "asc" }, { id: "asc" }] });
     let processed = 0, skippedPaused = 0, deferredAfterPause = 0;
     const failures: string[] = [];
     for (const candidate of candidates) {
@@ -141,7 +143,9 @@ export class ManualSubscriptionService {
         console.error("[GYM_RECURRENCE_FAILED]", { workspaceId: candidate.workspaceId, enrollmentId: candidate.id, errorCode: error instanceof WorkspaceAccessError ? error.code : error instanceof Error ? error.name : "UNKNOWN" });
       }
     }
-    return { processed, skippedPaused, deferredAfterPause, failures, hasMore: candidates.length === 500 };
+    // A small batch can still leave several overdue cycles for the same member.
+    const remaining = await prisma.gymEnrollment.findFirst({ where: dueWhere, select: { id: true } });
+    return { processed, skippedPaused, deferredAfterPause, failures, hasMore: Boolean(remaining) };
   }
 }
 export const manualSubscriptionService = new ManualSubscriptionService();

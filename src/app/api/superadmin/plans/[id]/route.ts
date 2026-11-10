@@ -18,7 +18,7 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    const { name, price, interval, features, maxWorkspaces, maxStudents, importQuota, storageLimitMb, paymentMethods, imageUrl } = body;
+    const { name, price, interval, features, maxWorkspaces, maxStudents, maxStaff, importQuota, storageLimitMb, paymentMethods, imageUrl, type } = body;
 
     const plan = await prisma.plan.update({
       where: { id },
@@ -27,8 +27,10 @@ export async function PATCH(
         price: price ? parseFloat(price) : undefined,
         interval,
         features,
+        type: type === "GYM" ? "GYM" : (type === "PERSONAL" ? "PERSONAL" : undefined),
         imageUrl: imageUrl !== undefined ? (imageUrl ? imageUrl.trim() : null) : undefined,
         maxWorkspaces: maxWorkspaces !== undefined ? parseInt(maxWorkspaces) : undefined,
+        maxStaff: maxStaff !== undefined ? (maxStaff === "" || maxStaff === null ? null : parseInt(maxStaff)) : undefined,
         maxStudents: maxStudents !== undefined ? (maxStudents === "" || maxStudents === null ? null : parseInt(maxStudents)) : undefined,
         importQuota: importQuota !== undefined ? (importQuota === "" || importQuota === null ? 0 : parseInt(importQuota)) : undefined,
         storageLimitMb: storageLimitMb !== undefined ? (storageLimitMb === "" || storageLimitMb === null ? 1024 : parseInt(storageLimitMb)) : undefined,
@@ -98,17 +100,25 @@ export async function DELETE(
 
   try {
     // Check if there are active subscriptions before deleting
-    const subscriptionsCount = await prisma.subscription.count({
-      where: {
-        planId: id,
-        OR: [
-          { status: "active" },
-          { status: "ACTIVE" }
-        ]
-      }
-    });
+    const [personalSubscriptionsCount, gymSubscriptionsCount] = await Promise.all([
+      prisma.subscription.count({
+        where: {
+          planId: id,
+          OR: [
+            { status: "active" },
+            { status: "ACTIVE" }
+          ]
+        }
+      }),
+      prisma.workspaceSubscription.count({
+        where: {
+          planId: id,
+          status: { in: ["ACTIVE", "TRIAL"] }
+        }
+      })
+    ]);
 
-    if (subscriptionsCount > 0) {
+    if (personalSubscriptionsCount > 0 || gymSubscriptionsCount > 0) {
       return new NextResponse("Cannot delete plan with active subscriptions", { status: 400 });
     }
 

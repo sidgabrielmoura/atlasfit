@@ -85,12 +85,12 @@ describe("Comprehensive Storage Calculation Service", () => {
   });
 
   describe("normalizeStorageLimitMb", () => {
-    it("should treat <= 50 as Gigabytes and convert to Megabytes", () => {
-      expect(normalizeStorageLimitMb(1)).toBe(1024);
-      expect(normalizeStorageLimitMb(3)).toBe(3072);
-      expect(normalizeStorageLimitMb(8)).toBe(8192);
-      expect(normalizeStorageLimitMb(20)).toBe(20480);
-      expect(normalizeStorageLimitMb(50)).toBe(51200);
+    it("preserves small limits in the schema's megabyte unit", () => {
+      expect(normalizeStorageLimitMb(1)).toBe(1);
+      expect(normalizeStorageLimitMb(3)).toBe(3);
+      expect(normalizeStorageLimitMb(8)).toBe(8);
+      expect(normalizeStorageLimitMb(20)).toBe(20);
+      expect(normalizeStorageLimitMb(50)).toBe(50);
     });
 
     it("should keep values > 50 directly in Megabytes", () => {
@@ -104,7 +104,7 @@ describe("Comprehensive Storage Calculation Service", () => {
       expect(normalizeStorageLimitMb(null)).toBe(1024);
       expect(normalizeStorageLimitMb(undefined)).toBe(1024);
       expect(normalizeStorageLimitMb(-10)).toBe(1024);
-      expect(normalizeStorageLimitMb(0)).toBe(1024);
+      expect(normalizeStorageLimitMb(0)).toBe(0);
       expect(normalizeStorageLimitMb(NaN)).toBe(1024);
     });
   });
@@ -121,6 +121,7 @@ describe("Comprehensive Storage Calculation Service", () => {
       expect(result).toEqual(["ws-1", "ws-2"]);
       expect(mockPrisma.workspace.findMany).toHaveBeenCalledWith({
         where: {
+          type: "PERSONAL",
           OR: [
             { ownerId: "user-1" },
             { members: { some: { userId: "user-1", role: "OWNER", isActive: true } } },

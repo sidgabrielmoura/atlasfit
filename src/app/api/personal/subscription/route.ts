@@ -1,3 +1,5 @@
+export const dynamic = "force-dynamic";
+
 import { withRequestMemo } from "@/lib/request-memo";
 import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
 import { NextResponse } from "next/server";
@@ -32,11 +34,19 @@ async function handleGET(req: Request) {
       include: { plan: true },
     });
 
+    if (subscription?.plan && subscription.plan.type === "GYM") {
+      subscription = null;
+    }
+
     if (!subscription) {
       const ownedWsSub = await prisma.workspaceSubscription.findFirst({
         where: {
           workspace: {
             ownerId: session.user.id,
+            type: "PERSONAL",
+          },
+          plan: {
+            type: "PERSONAL",
           },
         },
         include: { plan: true },
@@ -121,7 +131,7 @@ async function handleGET(req: Request) {
       // Do NOT auto-create a Starter subscription — just return available plans
       // so the trainer can choose or be redirected to the subscription-expired page.
       const plansInDb = await prisma.plan.findMany({
-        where: { customWorkspaceId: null },
+        where: { customWorkspaceId: null, type: "PERSONAL" },
         orderBy: { price: "asc" }
       });
 
@@ -136,10 +146,12 @@ async function handleGET(req: Request) {
         features: p.features
           ? p.features.split(",").map(f => f.trim())
           : ["Funcionalidades incluídas"],
-        highlight: p.name.toLowerCase().includes("pro") || p.name.toLowerCase().includes("professional"),
+        highlight: p.name.toLowerCase().includes("pro") || p.name.toLowerCase().includes("professional") || p.name.toLowerCase().includes("profissional"),
         buttonText: "Assinar",
         disabled: false,
         isCurrent: false,
+        rawInterval: p.interval,
+        type: p.type,
       }));
 
       return NextResponse.json({
@@ -205,7 +217,7 @@ async function handleGET(req: Request) {
     const storageMetrics = await getAccountStorageQuotaMetrics(session.user.id);
 
     const plansInDb = await prisma.plan.findMany({
-      where: { customWorkspaceId: null },
+      where: { customWorkspaceId: null, type: "PERSONAL" },
       orderBy: { price: "asc" }
     });
 
@@ -239,6 +251,7 @@ async function handleGET(req: Request) {
         disabled: isCurrent,
         isCurrent,
         rawInterval: p.interval,
+        type: p.type,
       };
     });
 
@@ -355,7 +368,7 @@ export async function POST(req: Request) {
       where: { id: planId }
     });
 
-    if (!plan || plan.customWorkspaceId) {
+    if (!plan || plan.customWorkspaceId || plan.type !== "PERSONAL") {
       return new NextResponse("Plano não encontrado.", { status: 404 });
     }
 

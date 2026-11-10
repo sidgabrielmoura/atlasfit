@@ -3,6 +3,8 @@ import { recordCronResult, recordCronFailure } from "@/lib/cron-health";
 import { NextResponse } from "next/server";
 import { processRecurringPayments, processPlatformManualSuspensions } from "@/lib/recurrence";
 import { isCronAuthorized } from "@/lib/cron-authorization";
+import { pruneRateLimitBuckets } from "@/lib/rate-limit";
+import { retainWebhookReceipts } from "@/modules/payments/webhooks/webhook-retention";
 
 export async function GET(req: Request) {
   if (!isCronAuthorized(req)) {
@@ -15,6 +17,8 @@ export async function GET(req: Request) {
     const personal = await processRecurringPayments();
     const manualSuspensions = await processPlatformManualSuspensions();
     const sourceRetention = await retainImportSourcePayloads();
+    const expiredRateLimits = await pruneRateLimitBuckets();
+    const webhookRetention = await retainWebhookReceipts();
     // GYM lifecycle and recurrence are exclusively handled by gym-recurrence.
     const failed = personal.failed > 0 || (sourceRetention.enabled && (sourceRetention.failures ?? 0) > 0);
     console.log("[Cron] Processamento de recorrências e suspensões concluído.", { personalProcessed: personal.processed, manualSuspensions });
@@ -25,6 +29,8 @@ export async function GET(req: Request) {
       personal,
       manualSuspensions,
       sourceRetention,
+      expiredRateLimits,
+      webhookRetention,
       message: failed ? "Há etapas pendentes de recuperação." : "Processamento de recorrências concluído."
     }, { status: failed ? 503 : 200 });
   } catch (error) {

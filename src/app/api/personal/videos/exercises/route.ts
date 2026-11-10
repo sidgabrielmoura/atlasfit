@@ -3,6 +3,7 @@ import { personalCommercialContextResponse } from "@/lib/personal-commercial-con
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import prisma from "@/lib/prisma";
+import { publishedExerciseScope } from "@/lib/exercises/catalog-visibility";
 
 async function handleGET(req: Request) {
   const restricted = await personalCommercialContextResponse(); if (restricted) return restricted;
@@ -18,6 +19,7 @@ async function handleGET(req: Request) {
 
     const whereClause: any = {
       AND: [
+        publishedExerciseScope,
         {
           OR: [
             { isOfficial: true },

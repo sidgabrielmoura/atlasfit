@@ -71,7 +71,7 @@ describe("Contrato GYM — condições exibidas, signatário e atomicidade", () 
     await prisma.workspace.update({ where: { id: f.workspace.id }, data: { isActive: true } });
     await prisma.workspaceSubscription.update({ where: { workspaceId: f.workspace.id }, data: { endDate: new Date(Date.now() - 1000) } }); await expect(getGymContractForSigner(f.workspace.id, f.enrollment.id, f.student.id)).rejects.toMatchObject({ statusCode: 403 });
     await prisma.workspaceSubscription.update({ where: { workspaceId: f.workspace.id }, data: { endDate: null } });
-    await prisma.gymEnrollment.update({ where: { id: f.enrollment.id }, data: { unitId: other.unit.id } }); await expect(getGymContractForSigner(f.workspace.id, f.enrollment.id, f.student.id)).rejects.toMatchObject({ statusCode: 403 });
-    await prisma.gymEnrollment.update({ where: { id: f.enrollment.id }, data: { unitId: f.unit.id, planVersionId: other.version.id } }); await expect(getGymContractForSigner(f.workspace.id, f.enrollment.id, f.student.id)).rejects.toMatchObject({ statusCode: 404 });
+    await expect(prisma.gymEnrollment.update({ where: { id: f.enrollment.id }, data: { unitId: other.unit.id } })).rejects.toBeDefined();
+    await expect(prisma.gymEnrollment.update({ where: { id: f.enrollment.id }, data: { unitId: f.unit.id, planVersionId: other.version.id } })).rejects.toBeDefined();
   });
 });

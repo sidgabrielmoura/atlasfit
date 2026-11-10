@@ -850,7 +850,7 @@ export default function WorkspacesManagementPage() {
           <CardContent className="pt-4 flex-1 flex flex-col justify-between">
             <div className="h-[200px] w-full min-w-0 flex items-center justify-center">
               {mounted && (
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={0}>
                   <PieChart>
                     <Tooltip contentStyle={{ background: "rgba(9, 9, 11, 0.95)", border: "1px solid rgba(255, 255, 255, 0.1)", borderRadius: "12px", fontSize: "11px" }} />
                     <Pie

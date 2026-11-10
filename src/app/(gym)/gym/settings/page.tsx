@@ -48,6 +48,7 @@ export default async function GymSettingsPage() {
       watermarkKey: true,
       workoutCoverUrl: true,
       workoutCoverKey: true,
+      importCredits: true,
     },
   });
 

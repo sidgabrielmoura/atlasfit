@@ -64,7 +64,14 @@ export async function requireWorkspaceAccess(
   if (options.expectedType && workspace.type !== options.expectedType) throw new WorkspaceAccessError(403, "FORBIDDEN_RESOURCE", "Workspace incompatível com esta operação.");
 
   const isSuperAdmin = session.user.role === "SUPERADMIN";
-  if (workspace.type === "GYM") await assertGymOperationalWorkspace(sanitizedWorkspaceId);
+  let recoveringExpiredLicense = false;
+  if (workspace.type === "GYM" && !isSuperAdmin) {
+    try { await assertGymOperationalWorkspace(sanitizedWorkspaceId); }
+    catch (error) {
+      if (!options.allowExpiredGymLicense || !(error instanceof WorkspaceAccessError) || error.code !== "INVALID_STATUS") throw error;
+      recoveringExpiredLicense = true;
+    }
+  }
   if (!workspace.isActive && !isSuperAdmin) {
     throw new WorkspaceAccessError(403, "WORKSPACE_SUSPENDED", "Academia suspensa. Procure o administrador para regularizar o acesso.");
   }
@@ -132,6 +139,7 @@ export async function requireWorkspaceAccess(
   };
 
   // 6. Capability verification
+  if (recoveringExpiredLicense && !context.capabilities.has("workspace.manage")) throw new WorkspaceAccessError(403, "INSUFFICIENT_PERMISSIONS", "A regularização da licença exige a gestão da academia.");
   if (options.capability && !context.capabilities.has(options.capability)) {
     throw new WorkspaceAccessError(
       403,
@@ -249,6 +257,26 @@ export function hasWorkspaceCapability(
 export function handleWorkspaceAccessError(error: unknown): NextResponse | null {
   if (error instanceof WorkspaceAccessError) {
     return error.toResponse();
+  }
+  if (
+    error &&
+    typeof error === "object" &&
+    ((error as any).name === "WorkspaceAccessError" ||
+      (typeof (error as any).statusCode === "number" && typeof (error as any).code === "string"))
+  ) {
+    if (typeof (error as any).toResponse === "function") {
+      return (error as any).toResponse();
+    }
+    return NextResponse.json(
+      {
+        error: {
+          code: (error as any).code,
+          message: (error as any).message,
+          ...((error as any).details ? { details: (error as any).details } : {}),
+        },
+      },
+      { status: (error as any).statusCode || 403 }
+    );
   }
   return null;
 }

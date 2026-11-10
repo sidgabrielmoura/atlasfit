@@ -1,4 +1,5 @@
 import { auth } from "@/auth";
+import { getPublicPlatformSettings } from "@/lib/cache/public-data";
 import { redirect } from "next/navigation";
 import prisma from "@/lib/prisma";
 import SelectWorkspaceClient from "./select-workspace-client";
@@ -103,12 +104,9 @@ export default async function SelectWorkspacePage({ searchParams }: { searchPara
     })
   );
 
-  const [supportSetting, whatsappSetting] = await Promise.all([
-    prisma.systemSetting.findUnique({ where: { key: "support_email" } }),
-    prisma.systemSetting.findUnique({ where: { key: "support_whatsapp" } }),
-  ]);
-  const supportEmail = supportSetting?.value || "suporte@atlasfit.app";
-  const supportWhatsApp = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || process.env.SUPPORT_WHATSAPP || whatsappSetting?.value || "";
+  const publicSettings = await getPublicPlatformSettings();
+  const supportEmail = publicSettings.support_email || "suporte@atlasfit.app";
+  const supportWhatsApp = process.env.NEXT_PUBLIC_SUPPORT_WHATSAPP || process.env.SUPPORT_WHATSAPP || publicSettings.support_whatsapp || "";
 
   return (
     <SelectWorkspaceClient

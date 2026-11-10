@@ -2,6 +2,7 @@ import { withRequestMemo } from "@/lib/request-memo";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { auth } from "@/auth";
+import { invalidatePublicPlatformSettings } from "@/lib/cache/public-data";
 
 async function handleGET() {
   const session = await auth();
@@ -45,6 +46,7 @@ export async function PATCH(req: Request) {
       )
     );
 
+    invalidatePublicPlatformSettings();
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[SETTINGS_PATCH]", error);

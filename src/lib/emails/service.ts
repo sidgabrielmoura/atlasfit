@@ -3,6 +3,7 @@ import {
   getTwoFactorEmailTemplate,
   getResetPasswordEmailTemplate,
   getSecurityLoginAlertEmailTemplate,
+  getCreditGrantVerificationEmailTemplate,
 } from "./templates/auth.templates";
 import {
   getStudentInvitationEmailTemplate,
@@ -134,6 +135,21 @@ export class EmailService {
       browser: params.browser,
       location: params.location,
       timestamp: params.timestamp || new Date(),
+      recipientEmail: params.to,
+    });
+    return this.send({ to: params.to, subject: tpl.subject, html: tpl.html, text: tpl.text });
+  }
+
+  static async sendCreditGrantVerificationCode(params: {
+    to: string;
+    code: string;
+    amount: number;
+    targetUserName: string;
+  }): Promise<SendEmailResult> {
+    const tpl = getCreditGrantVerificationEmailTemplate({
+      code: params.code,
+      amount: params.amount,
+      targetUserName: params.targetUserName,
       recipientEmail: params.to,
     });
     return this.send({ to: params.to, subject: tpl.subject, html: tpl.html, text: tpl.text });

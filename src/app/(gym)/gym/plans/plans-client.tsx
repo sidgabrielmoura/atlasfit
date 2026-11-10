@@ -424,7 +424,6 @@ export function GymPlansClient({
         }
       }
 
-      // 2. Publish new version with commercial conditions
       const res = await fetch(`/api/gym/plans/${selectedPlanForVersion.id}/versions`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -454,7 +453,6 @@ export function GymPlansClient({
     }
   }
 
-  // Toggle Plan Status (Active/Inactive)
   const handleToggleStatus = async () => {
     if (!planToToggleStatus) return
 
@@ -493,7 +491,6 @@ export function GymPlansClient({
 
   return (
     <div className="flex min-w-0 flex-col gap-6">
-      {/* Page Header */}
       <GymPageHeader
         title="Planos & Catálogo"
         description="Organize os planos de treino, valores, ciclos de cobrança e condições de matrícula."
@@ -510,7 +507,6 @@ export function GymPlansClient({
         }
       />
 
-      {/* KPI Cards Row */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <PlanKPICard
           title="Total Planos"
@@ -889,7 +885,7 @@ export function GymPlansClient({
 
       {/* CREATE PLAN MODAL */}
       <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
-        <DialogContent className="max-w-xl sm:max-h-[calc(100dvh-3rem)] overflow-y-auto">
+        <DialogContent className="max-w-xl sm:max-h-[calc(100dvh-3rem)] overflow-y-auto!">
           <form onSubmit={handleCreatePlan}>
             <DialogHeader>
               <DialogTitle className="flex items-center gap-2">

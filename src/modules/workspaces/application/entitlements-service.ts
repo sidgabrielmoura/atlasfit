@@ -48,14 +48,6 @@ export class EntitlementsService {
             plan: true,
           },
         },
-        units: {
-          where: { isActive: true },
-          select: { id: true },
-        },
-        members: {
-          where: { isActive: true },
-          select: { id: true, userId: true, role: true, studentProfile: { select: { id: true } }, staffProfile: { select: { id: true } }, roleGrants: { select: { role: true, revokedAt: true } } },
-        },
       },
     });
 
@@ -63,11 +55,21 @@ export class EntitlementsService {
       throw new Error(`WORKSPACE_NOT_FOUND: Workspace ${workspaceId} not found.`);
     }
 
-    const studentsCount = workspace.members.filter(m => m.studentProfile || m.roleGrants.some(g => g.role === "STUDENT" && !g.revokedAt) || (m.roleGrants.length === 0 && m.role === "STUDENT")).length;
-    // A retained employment profile is history, not an active staff entitlement.
-    const pendingStaff = workspace.type === "GYM" ? await prisma.workspaceInvitation.count({ where: { workspaceId, status: "PENDING", expiresAt: { gt: new Date() } } }) : 0;
-    const staffCount = workspace.members.filter(m => (workspace.type === "GYM" ? m.userId === workspace.ownerId : Boolean(m.staffProfile)) || m.roleGrants.some(g => g.role !== "STUDENT" && !g.revokedAt) || (m.roleGrants.length === 0 && m.role !== "STUDENT")).length + pendingStaff;
-    const unitsCount = workspace.units.length;
+    // Aggregate usage without loading every member and historical grant.
+    const [studentsCount, activeStaff, pendingStaff, unitsCount] = await Promise.all([
+      prisma.workspaceMember.count({ where: { workspaceId, isActive: true, OR: [
+        { studentProfile: { isNot: null } }, { roleGrants: { some: { role: "STUDENT", revokedAt: null } } },
+        { role: "STUDENT", roleGrants: { none: {} } },
+      ] } }),
+      prisma.workspaceMember.count({ where: { workspaceId, isActive: true, OR: [
+        ...(workspace.type === "GYM" ? [{ userId: workspace.ownerId }] : [{ staffProfile: { isNot: null } }]),
+        { roleGrants: { some: { role: { not: "STUDENT" }, revokedAt: null } } },
+        { role: { not: "STUDENT" }, roleGrants: { none: {} } },
+      ] } }),
+      workspace.type === "GYM" ? prisma.workspaceInvitation.count({ where: { workspaceId, status: "PENDING", expiresAt: { gt: new Date() } } }) : 0,
+      prisma.gymUnit.count({ where: { workspaceId, isActive: true } }),
+    ]);
+    const staffCount = activeStaff + pendingStaff;
 
     // --- GYM WORKSPACE ENTITLEMENTS ---
     if (workspace.type === "GYM") {

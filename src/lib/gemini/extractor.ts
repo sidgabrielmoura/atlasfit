@@ -7,7 +7,7 @@ import {
   MigrationExtractionResponse,
 } from "./schemas/migration-schema";
 import { trackGeminiUsage } from "./usage";
-import { sanitizeTextForGemini } from "@/lib/privacy/gemini-sanitizer";
+import { prepareMigrationText, restoreMigrationIdentifiers } from "./migration-identifiers";
 
 import prisma from "@/lib/prisma";
 
@@ -82,10 +82,10 @@ export class GeminiMigrationExtractor implements MigrationExtractor {
     const client = getGeminiClient();
 
     const userParts: any[] = [];
+    const preparedText = prepareMigrationText(input.textContent || "");
 
     if (input.textContent && input.textContent.trim()) {
-      const sanitizedText = sanitizeTextForGemini(input.textContent);
-      userParts.push({ text: `DOCUMENTO TEXTUAL:\n${sanitizedText}` });
+      userParts.push({ text: `DOCUMENTO TEXTUAL:\n${preparedText.text}` });
     }
 
     if (input.inlineFiles && input.inlineFiles.length > 0) {
@@ -131,18 +131,23 @@ export class GeminiMigrationExtractor implements MigrationExtractor {
         },
       });
 
+      let timeout: ReturnType<typeof setTimeout> | undefined;
       const timeoutPromise = new Promise((_, reject) => {
-        setTimeout(() => {
+        timeout = setTimeout(() => {
           reject(new Error("Tempo limite de extração por IA excedido (45 segundos). Tente novamente."));
         }, timeoutMs);
       });
 
-      const response: any = await Promise.race([generatePromise, timeoutPromise]);
+      let response: any;
+      try { response = await Promise.race([generatePromise, timeoutPromise]); }
+      finally { clearTimeout(timeout); }
 
       const durationMs = Date.now() - startTime;
 
       // Extract usage metadata if available
       const usage = (response as any).usageMetadata || {};
+      const responseText = response.text || "{}";
+      const validated = restoreMigrationIdentifiers(ZMigrationExtractionResponse.parse(JSON.parse(responseText)), preparedText.values);
       await trackGeminiUsage({
         importJobId: input.importJobId,
         userId: input.userId,
@@ -156,12 +161,14 @@ export class GeminiMigrationExtractor implements MigrationExtractor {
         success: true,
       });
 
-      const responseText = response.text || "{}";
-      const parsedJson = JSON.parse(responseText);
-
-      // Validate structured output with Zod
-      const validated = ZMigrationExtractionResponse.parse(parsedJson);
-      return validated;
+      return {
+        ...validated,
+        _usage: {
+          inputTokens: usage.promptTokenCount ?? 0,
+          outputTokens: usage.candidatesTokenCount ?? 0,
+          totalTokens: (usage.promptTokenCount ?? 0) + (usage.candidatesTokenCount ?? 0),
+        },
+      } as any;
     } catch (error: any) {
       const durationMs = Date.now() - startTime;
       await trackGeminiUsage({

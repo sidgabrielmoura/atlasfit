@@ -1,6 +1,6 @@
 import { requirePersonalWorkspaceAccess, handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
 import { withRequestMemo } from "@/lib/request-memo";
-import { settleCreditPurchase } from "@/modules/payments/abacate-confirmation";
+import { assertCreditPaymentAmount, settleCreditPurchase } from "@/modules/payments/abacate-confirmation";
 import { personalCommercialContextResponse } from "@/lib/personal-commercial-context";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
@@ -11,7 +11,7 @@ import { AbacatePay } from "@/lib/abacatepay";
 async function reconcilePendingPurchases(userId: string) {
   try {
     const pendingPurchases = await prisma.creditPurchase.findMany({
-      where: { userId, status: "PENDING" },
+      where: { userId, workspace: { type: "PERSONAL" }, status: "PENDING" },
       orderBy: { createdAt: "desc" },
       take: 5,
     });
@@ -30,6 +30,7 @@ async function reconcilePendingPurchases(userId: string) {
         const isPaid = checkout && ((checkout as any).status === "PAID" || (checkout as any).status === "paid");
 
         if (isPaid) {
+          assertCreditPaymentAmount(purchase, checkout as any);
           await settleCreditPurchase(purchase.id);
         }
       } catch {}

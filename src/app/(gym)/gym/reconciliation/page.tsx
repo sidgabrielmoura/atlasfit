@@ -3,12 +3,28 @@ import { auth } from "@/auth";
 import { WorkspaceContextService, requireGymWorkspaceAccess } from "@/modules/workspaces";
 import { listGymAdministrativeReviewResources } from "@/modules/workspaces/application/gym-administrative-review";
 import { GymReconciliationClient } from "./reconciliation-client";
-export const metadata = { title: "Revisão de contratos e saldos | AtlasFit Gym" };
-export default async function Page() {
-  const session = await auth(); if (!session?.user?.id) redirect("/auth/gym");
+
+export const metadata = {
+  title: "Revisão e Conciliação Administrativa | AtlasFit Gym",
+  description: "Auditoria contábil, conformidade documental e conciliação de contratos legados, faturas, caixas e contas internas",
+};
+
+export default async function GymReconciliationPage() {
+  const session = await auth();
+  if (!session?.user?.id) redirect("/auth/gym");
+
   const resolved = await WorkspaceContextService.resolveUserWorkspaceContext(session.user.id);
   if (resolved.status !== "RESOLVED" || !resolved.workspaceId) redirect("/select-workspace");
+
   const context = await requireGymWorkspaceAccess({ workspaceId: resolved.workspaceId });
   const initial = await listGymAdministrativeReviewResources(context.workspaceId, context.userId, "CONTRACT");
-  return <GymReconciliationClient workspaceId={context.workspaceId} initial={initial} />;
+
+  return (
+    <GymReconciliationClient
+      workspaceId={context.workspaceId}
+      workspaceName={context.workspaceName}
+      initial={initial}
+    />
+  );
 }
+

@@ -3,8 +3,7 @@ import { assertPersonalImportJobAccess } from "@/lib/migration/access";
 import { requirePersonalWorkspaceAccess, handleWorkspaceAccessError } from "@/modules/workspaces/application/guard";
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
-import prisma from "@/lib/prisma";
-import { saveUserRecordEdit } from "@/lib/migration/review.service";
+import { saveUserRecordEdit, deleteImportRecord } from "@/lib/migration/review.service";
 
 export async function PATCH(
   req: Request,
@@ -52,9 +51,7 @@ export async function DELETE(
   try {
     await assertPersonalImportJobAccess(jobId, recordId);
 
-    await prisma.importRecord.delete({
-      where: { id: recordId },
-    });
+    await deleteImportRecord(recordId);
     return NextResponse.json({ success: true });
   } catch (error: any) {
     const accessError = handleWorkspaceAccessError(error); if (accessError) return accessError;

@@ -122,6 +122,7 @@ let isDraining = false;
  * de polling de alta frequência via cron.
  */
 export function triggerOutboxProcessing() {
+  if (process.env.OUTBOX_REACTIVE_PROCESSING === "false") return;
   const drain = async () => {
     if (isDraining) return;
     isDraining = true;

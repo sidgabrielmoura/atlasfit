@@ -117,9 +117,10 @@ export default function GymEditWorkoutPage({ params }: GymEditWorkoutPageProps) 
 
   useEffect(() => {
     const fetchWorkout = async () => {
+      if (!activeWorkspaceId) return;
       try {
         setLoading(true);
-        const res = await fetch(`/api/gym/workouts/${id}`);
+        const res = await fetch(`/api/gym/workouts/${id}?workspaceId=${activeWorkspaceId}`);
         if (!res.ok) {
           throw new Error("Erro ao carregar treino.");
         }
@@ -188,7 +189,7 @@ export default function GymEditWorkoutPage({ params }: GymEditWorkoutPageProps) 
     };
 
     fetchWorkout();
-  }, [id]);
+  }, [id, activeWorkspaceId]);
 
   const getGroupLabel = (groupId: string) => {
     const group = workoutGroups.find((g) => g.id === groupId);

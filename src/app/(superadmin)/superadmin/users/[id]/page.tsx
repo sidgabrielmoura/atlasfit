@@ -28,6 +28,7 @@ import {
   CheckCircle2
 } from "lucide-react";
 import { EditUserDialog } from "@/components/superadmin/edit-user-dialog";
+import { CreditGrantSection } from "@/components/superadmin/credit-grant-section";
 import {
   Select,
   SelectContent,
@@ -602,6 +603,14 @@ export default function UserDeepViewPage({ params }: { params: Promise<{ id: str
             )}
           </CardContent>
         </Card>
+
+        {/* Créditos de Importação (IA) */}
+        <CreditGrantSection
+          user={user}
+          onCreditsUpdated={(newCredits) => {
+            setUser((prev: any) => ({ ...prev, importCredits: newCredits }));
+          }}
+        />
 
         {/* Security Settings Card */}
         <Card className="border-border/40 shadow-sm bg-card/50 lg:col-span-2">

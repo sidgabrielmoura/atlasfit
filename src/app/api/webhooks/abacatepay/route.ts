@@ -1,4 +1,5 @@
-import { claimAbacateEvent, settleCreditPurchase } from "@/modules/payments/abacate-confirmation";
+import { assertCreditPaymentAmount, claimAbacateEvent, settleCreditPurchase } from "@/modules/payments/abacate-confirmation";
+import { processGymPlatformWebhook } from "@/modules/payments/gym-platform-webhook";
 import { NextResponse } from "next/server";
 import prisma from "@/lib/prisma";
 import { AbacatePay } from "@/lib/abacatepay";
@@ -54,6 +55,7 @@ export async function POST(req: Request) {
   }
 
   const { event: eventType, data } = eventPayload;
+  if (eventPayload.devMode === true && process.env.NODE_ENV === "production") return new NextResponse("Pagamento de teste não aceito em produção.", { status: 422 });
   if (typeof eventType !== "string") return new NextResponse("Evento inválido.", { status: 400 });
   const isCheckoutEvent = eventType && eventType.startsWith("checkout");
   const isSubscriptionEvent = eventType && eventType.startsWith("subscription");
@@ -72,6 +74,13 @@ export async function POST(req: Request) {
     ? targetData.id
     : data?.subscription?.id || undefined;
   const customerId = targetData.customerId || data?.subscription?.customerId || undefined;
+  try {
+    const gymResult = await processGymPlatformWebhook(eventPayload, targetData, subscriptionId, customerId);
+    if (gymResult) return NextResponse.json(gymResult);
+  } catch (error) {
+    await logSystemError({ action: "GYM_PLATFORM_WEBHOOK", error, entity: "WEBHOOK" });
+    return new NextResponse("Confirmação organizacional pendente de conferência.", { status: 503 });
+  }
 
   // =========================================================================
   // 1. EVENTO: RENOVAÇÃO AUTOMÁTICA DA ASSINATURA (subscription.renewed)
@@ -252,9 +261,11 @@ export async function POST(req: Request) {
           return NextResponse.json({ success: true, message: "Já processado." });
         }
 
+        try { assertCreditPaymentAmount(purchase, data?.payment || data?.billing || targetData); }
+        catch { return new NextResponse("Valor da compra divergente.", { status: 409 }); }
         await settleCreditPurchase(purchase.id);
 
-        console.log(`Créditos do Personal ${purchase.userId} atualizados (+${purchase.credits} coins) via Webhook Principal.`);
+        console.log(`Créditos do Personal ${purchase.userId} atualizados (+${purchase.credits}) via Webhook Principal.`);
         return NextResponse.json({ success: true, processed: "credit_purchase" });
       }
       // The local order is the authority for credits and amount; never mint from metadata.
@@ -365,6 +376,33 @@ export async function POST(req: Request) {
             abacateCustomerId: customerId || undefined,
           }
         });
+
+        if (plan?.type === "GYM" && transaction.workspaceId) {
+          await tx.workspaceSubscription.upsert({
+            where: { workspaceId: transaction.workspaceId },
+            update: {
+              planId,
+              status: "ACTIVE",
+              startDate,
+              endDate,
+              maxStudents: plan.maxStudents ?? 500,
+              maxStaff: plan.maxStaff ?? 30,
+              maxUnits: plan.maxWorkspaces ?? 1,
+              storageLimitMb: plan.storageLimitMb ?? 5120,
+            },
+            create: {
+              workspaceId: transaction.workspaceId,
+              planId,
+              status: "ACTIVE",
+              startDate,
+              endDate,
+              maxStudents: plan.maxStudents ?? 500,
+              maxStaff: plan.maxStaff ?? 30,
+              maxUnits: plan.maxWorkspaces ?? 1,
+              storageLimitMb: plan.storageLimitMb ?? 5120,
+            },
+          });
+        }
 
         await tx.subscriptionActivity.create({
           data: {

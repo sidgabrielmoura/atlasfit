@@ -9,6 +9,7 @@ import { GymMobileNavbar } from "@/components/application/gym-mobile-navbar";
 import { PersonalHeaderWorkspace as WorkspaceHeader } from "@/components/application/personal-header-workspace";
 import { Separator } from "@/components/ui/separator";
 import { NotificationBell } from "@/components/application/notification-bell";
+import { PersonalCoinsBadge } from "@/components/application/personal-coins-badge";
 import { TopBannerCarousel } from "@/components/application/top-banner-carousel";
 import { PlatformBillingTopBanner } from "@/components/application/platform-billing-top-banner";
 
@@ -47,7 +48,7 @@ export default async function GymLayout({
     redirect("/personal/dashboard");
   }
   if (!context.workspaceId) redirect("/select-workspace");
-  await requireWorkspaceAccess({ workspaceId: context.workspaceId });
+  await requireWorkspaceAccess({ workspaceId: context.workspaceId, allowExpiredGymLicense: true });
   const workspace = await prisma.workspace.findUnique({ where: { id: context.workspaceId }, select: { id: true, name: true, slug: true, type: true, logoUrl: true, primaryColor: true, slogan: true, watermarkUrl: true, workoutCoverUrl: true } });
   if (!workspace) redirect("/select-workspace");
 
@@ -72,6 +73,7 @@ export default async function GymLayout({
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            <PersonalCoinsBadge role="gym" workspaceId={context.workspaceId} />
             <NotificationBell />
           </div>
         </header>

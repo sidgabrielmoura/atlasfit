@@ -1,5 +1,6 @@
 import { afterAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
+import { legacyFixture } from "./legacy-fixture";
 import prisma from "@/lib/prisma";
 import { manualFinanceService } from "@/modules/workspaces/application/manual-finance-service";
 import { issueManualInvoice } from "@/modules/workspaces/application/manual-invoice-service";
@@ -64,7 +65,7 @@ describe("Financeiro GYM — avulsas e retries sob a unidade real", () => {
   });
   it("fatura com FK estrangeiro, grant estudantil revogado e dinheiro impreciso não contornam os comandos", async () => {
     const f = await fixture(), other = await fixture();
-    const corrupted = await prisma.gymInvoice.create({ data: { workspaceId: f.workspace.id, studentMemberId: other.students[0].id, studentUserId: other.students[0].userId, invoiceNumber: `CORRUPT-${randomUUID()}`, title: "FK sintético incompatível", dueDate: new Date(), subtotalInCents: BigInt(1000), totalInCents: BigInt(1000), balanceRemainingInCents: BigInt(1000), payerName: "Legado", createdByUserId: f.owner.id } });
+    const corrupted = await legacyFixture(prisma, tx => tx.gymInvoice.create({ data: { workspaceId: f.workspace.id, studentMemberId: other.students[0].id, studentUserId: other.students[0].userId, invoiceNumber: `CORRUPT-${randomUUID()}`, title: "FK sintético incompatível", dueDate: new Date(), subtotalInCents: BigInt(1000), totalInCents: BigInt(1000), balanceRemainingInCents: BigInt(1000), payerName: "Legado", createdByUserId: f.owner.id } }));
     await expect(manualFinanceService.recordPayment({ workspaceId: f.workspace.id, actorUserId: f.owner.id, paymentMethod: "BANK_TRANSFER_MANUAL", financialAccountId: f.accounts[0].id, amountInCents: 1000, allocations: [{ invoiceId: corrupted.id, amountInCents: 1000 }], idempotencyKey: randomUUID() })).rejects.toMatchObject({ code: "TENANT_MISMATCH" });
     expect((await gymInvoiceService.listInvoices(f.workspace.id, {}, f.owner.id)).invoices.map(invoice => invoice.id)).not.toContain(corrupted.id);
     await prisma.workspaceRoleGrant.create({ data: { memberId: f.students[0].id, role: "STUDENT", unitId: f.units[0].id, revokedAt: new Date() } });

@@ -3,7 +3,7 @@ import { consumeGymIdentityLink } from "./gym-identity-link";
 import { applyGymMajorityTransition } from "./gym-majority-transition";
 import { Prisma } from "@prisma/client";
 import { z } from "zod";
-import { isValidCPF } from "@/lib/cpf-validator";
+import { isValidCPF, isValidCpfCnpj } from "@/lib/cpf-validator";
 import { parseBirthDate } from "@/lib/privacy/civil-age";
 import { validateGymMinorEligibility } from "@/lib/privacy/age-validator";
 import { newSetupTokenExpiry } from "@/lib/auth/setup-token-policy";
@@ -20,7 +20,7 @@ const optionalText = (max: number) => z.string().trim().max(max).nullable().opti
 const phone = z.string().trim().max(30).transform(value => value.replace(/\D/g, "")).refine(value => /^\d{10,13}$/.test(value), "Telefone inválido.");
 const optionalPhone = z.union([phone, z.literal(""), z.null()]).optional().transform(value => value === undefined ? undefined : value || null);
 const email = z.union([z.string().trim().email().max(254), z.literal(""), z.null()]).optional().transform(value => value === undefined ? undefined : value?.toLowerCase() || null);
-const cpf = z.union([z.string().max(18).transform(value => value.replace(/\D/g, "")).refine(isValidCPF), z.literal(""), z.null()]).optional().transform(value => value === undefined ? undefined : value || null);
+const cpf = z.union([z.string().max(18).transform(value => value.replace(/\D/g, "")).refine(isValidCpfCnpj, "CPF ou CNPJ inválido."), z.literal(""), z.null()]).optional().transform(value => value === undefined ? undefined : value || null);
 const date = z.union([z.string(), z.date()]).refine(value => parseBirthDate(value) !== null, "Data inválida.").transform(value => parseBirthDate(value));
 const nullableDate = z.union([date, z.null(), z.literal("")]).optional().transform(value => value === undefined ? undefined : value || null);
 export const gymRegistrationGuardianSchema = z.object({
@@ -164,22 +164,8 @@ export async function updateGymStudent(input: UpdateGymStudentInput) {
     await assertActorAuthority(tx, data.workspaceId, actorContext.userId, "students.manage", unitId);
     if (request.birthDate !== undefined && data.birthDate?.getTime() !== parseBirthDate(member.user.birthDate)?.getTime()) invalid("Nascimento pertence à conta global. Edite apenas os dados locais da academia.");
     if (data.plan !== undefined && data.plan !== member.plan) invalid("Troca de plano deve ser feita na matrícula contratual.");
-    const userUpdate: { name?: string; whatsapp?: string | null } = {};
-    if (data.name !== undefined && data.name.trim() !== "" && data.name !== member.user.name) {
-      userUpdate.name = data.name.trim();
-    }
-    if (request.whatsapp !== undefined) {
-      const cleanWhatsapp = data.whatsapp || null;
-      if (cleanWhatsapp !== (member.user.whatsapp?.replace(/\D/g, "") || null)) {
-        userUpdate.whatsapp = cleanWhatsapp;
-      }
-    }
-    if (Object.keys(userUpdate).length > 0) {
-      await tx.user.update({
-        where: { id: member.userId },
-        data: userUpdate,
-      });
-    }
+    if (data.name !== undefined && data.name.trim() !== member.user.name) invalid("Nome pertence à conta global. Edite apenas os dados locais da academia.");
+    if (request.whatsapp !== undefined && (data.whatsapp || null) !== (member.user.whatsapp?.replace(/\D/g, "") || null)) invalid("Telefone pertence à conta global. A atualização deve ser feita pelo titular da conta.");
     const active = data.isActive ?? member.isActive;
     const roles = resolveAccessRoles(member.role, member.roleGrants, member.unitId || undefined);
     const workspace = await tx.workspace.findUniqueOrThrow({ where: { id: data.workspaceId }, select: { ownerId: true } });
@@ -204,6 +190,6 @@ export async function updateGymStudent(input: UpdateGymStudentInput) {
     const updated = await tx.workspaceMember.update({ where: { id: member.id }, data: { assignedStaffId: request.assignedStaffId !== undefined ? data.assignedStaffId : undefined, modality: data.modality, isActive: active, isMinor, canDoAnyWorkoutDay: request.canDoAnyWorkoutDay !== undefined ? data.canDoAnyWorkoutDay : undefined } });
     const profile = await tx.gymStudentProfile.upsert({ where: { memberId: member.id }, create: { memberId: member.id, ...profileData }, update: profileData });
     await tx.auditLog.create({ data: { userId: actorContext.userId, action: `GYM_STUDENT_LOCAL_UPDATED:${member.id}:active=${active}:minor=${isMinor}`, entity: "WORKSPACE", entityId: data.workspaceId, metadata: { before: { isActive: member.isActive, isMinor: member.isMinor, assignedStaffId: member.assignedStaffId }, after: { isActive: updated.isActive, isMinor: updated.isMinor, assignedStaffId: updated.assignedStaffId } } } });
-    return { member: { id: updated.id, unitId: updated.unitId, assignedStaffId: updated.assignedStaffId, isActive: updated.isActive, isMinor: updated.isMinor }, profile: { id: profile.id, registrationNumber: profile.registrationNumber, status: profile.status } };
+    return { canDoAnyWorkoutDay: updated.canDoAnyWorkoutDay, member: { id: updated.id, unitId: updated.unitId, assignedStaffId: updated.assignedStaffId, isActive: updated.isActive, isMinor: updated.isMinor }, profile: { id: profile.id, registrationNumber: profile.registrationNumber, status: profile.status } };
   });
 }

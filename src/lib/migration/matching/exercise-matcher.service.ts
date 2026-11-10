@@ -1,4 +1,5 @@
 import prisma from "@/lib/prisma";
+import { publishedExerciseScope } from "@/lib/exercises/catalog-visibility";
 import { slugifyExerciseName } from "../normalization/normalization.service";
 
 export interface ExerciseMatchResult {
@@ -18,7 +19,7 @@ const COMMON_SYNONYMS: Record<string, string[]> = {
   "leg press 45": ["leg press", "leg 45", "legpress"],
   "desenvolvimento com halteres": ["desenvolvimento", "shoulder press", "desenvolvimento halteres"],
   "rosca direta com barra": ["rosca direta", "biceps barra", "barbell curl"],
-  "tríceps no pulley": ["triceps pulley", "triceps corda", "triceps testa", "pushdown"],
+  "tríceps no pulley": ["triceps pulley", "triceps corda", "pushdown"],
   "elevação lateral": ["elevação lateral halteres", "lateral raise"],
 };
 
@@ -57,6 +58,7 @@ export async function matchExerciseName(
 
   const exercises = await prisma.exercise.findMany({
     where: {
+      AND: [publishedExerciseScope, { status: { not: "REJECTED" } }],
       OR: [{ isOfficial: true }, ...(creatorId ? [{ creatorId }] : [])],
     },
     select: {

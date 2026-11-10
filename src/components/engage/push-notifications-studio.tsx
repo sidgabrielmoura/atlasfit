@@ -2104,16 +2104,6 @@ export function PushNotificationsStudio() {
           </DialogHeader>
 
           <div className="p-4 sm:p-5 space-y-4">
-            <div className="p-3 bg-amber-500/10 border border-amber-500/20 rounded-xl text-xs text-amber-600 dark:text-amber-400 flex items-start gap-2.5">
-              <Zap className="size-4 shrink-0 mt-0.5" />
-              <div>
-                <span className="font-bold">Envio Imediato Sem Bloqueios:</span>
-                <p className="text-[11px] text-muted-foreground mt-0.5 leading-relaxed">
-                  Este disparo de teste ignora propositalmente a janela de silêncio noturno (22h às 07h), o limite de fadiga diária e as regras de anti-duplicação.
-                </p>
-              </div>
-            </div>
-
             {itemToTest ? (
               <div className="rounded-xl border border-border bg-secondary/20 p-3.5 space-y-2.5">
                 <div className="flex items-center justify-between">

@@ -117,6 +117,8 @@ model User {
   createdImportJobs       ImportJob[]              @relation("CreatedImportJobs")
   geminiUsageLogs         GeminiUsageLog[]         @relation("GeminiUsageLogs")
   creditPurchases         CreditPurchase[]
+  targetCreditGrantChallenges CreditGrantChallenge[] @relation("TargetCreditGrantChallenges")
+  actorCreditGrantChallenges  CreditGrantChallenge[] @relation("ActorCreditGrantChallenges")
   paymentProviderAccounts PaymentProviderAccount[] @relation("PaymentProviderAccounts")
   studentGymInvoices      GymInvoice[]             @relation("StudentUserGymInvoices")
   receivedGymPayments     GymPayment[]             @relation("StaffReceivedGymPayments")
@@ -342,6 +344,8 @@ model Plan {
   storageLimitMb         Int                     @default(1024)
   paymentMethods         String?                 @default("PIX")
   imageUrl               String?
+  type                   WorkspaceType           @default(PERSONAL)
+  maxStaff               Int?                    @default(10)
   // A null owner identifies an offer available in the global catalog.
   customWorkspaceId      String?
   publishedGlobalPlanId  String?                 @unique
@@ -388,10 +392,22 @@ model FreeTrial {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }
 
+model RateLimitBucket {
+  key String @id
+  count Int
+  resetAt DateTime
+  @@index([resetAt])
+}
+
 model Transaction {
   id            String     @id @default(cuid())
   userId        String
   workspaceId   String?
+  platformPlanId String?
+  expectedAmountInCents Int?
+  providerCheckoutId String? @unique
+  checkoutUrl String?
+  requestKey String? @unique
   amount        Float
   status        String // "APPROVED", "PENDING", "FAILED", "REFUNDED"
   paymentMethod String? // "CREDIT_CARD", "PIX", "BOLETO"
@@ -495,6 +511,27 @@ model PasswordResetToken {
   @@index([email])
 }
 
+model CreditGrantChallenge {
+  id           String   @id @default(cuid())
+  targetUserId String
+  actorUserId  String
+  amount       Int
+  codeHash     String
+  attempts     Int      @default(0)
+  maxAttempts  Int      @default(3)
+  status       String   @default("PENDING") // PENDING, COMPLETED, EXHAUSTED, EXPIRED
+  expiresAt    DateTime
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  targetUser User @relation("TargetCreditGrantChallenges", fields: [targetUserId], references: [id], onDelete: Cascade)
+  actorUser  User @relation("ActorCreditGrantChallenges", fields: [actorUserId], references: [id], onDelete: Cascade)
+
+  @@index([targetUserId, status])
+  @@index([actorUserId, status])
+  @@index([expiresAt])
+}
+
 model MuscleGroup {
   id            String     @id @default(cuid())
   name          String     @unique
@@ -511,6 +548,7 @@ model Exercise {
   videoUrl      String?
   usage         Int     @default(0)
   isOfficial    Boolean @default(false)
+  isWorkoutSpecific Boolean @default(false)
   status        String  @default("PENDING") // PENDING, APPROVED, REJECTED
   muscleGroupId String
 
@@ -1552,6 +1590,10 @@ model ImportJob {
   idempotencyKey   String? @unique
   previewValidated Boolean @default(false)
 
+  creditsConsumed  Int       @default(0)
+  pauseReason      String?
+  pausedAt         DateTime?
+
   errorCode        String?
   safeErrorMessage String?
 
@@ -1708,6 +1750,7 @@ model CreditPurchase {
   userId              String
   amountInCents       Int
   credits             Int
+  checkoutRequestKey  String?        @unique
   status              String         @default("PENDING")
   abacatePayBillingId String?        @unique
   abacatePayUrl       String?
@@ -2870,6 +2913,8 @@ model WorkspaceSubscription {
   storageLimitMb         Int                         @default(5120)
   externalSubscriptionId String?                     @unique
   externalCustomerId     String?
+    // Local checkout that established this license; older refunds cannot revoke its replacement.
+    platformOrderId        String?
   billingControlType    String                      @default("AUTOMATIC")
   nextDueDate           DateTime?
   priceInCents          Int?

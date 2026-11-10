@@ -17,6 +17,8 @@ import {
   FileText,
   Layers,
   FileSpreadsheet,
+  Coins,
+  CreditCard,
 } from "lucide-react";
 import { WorkspaceSwitcher } from "./workspace-switcher";
 import {
@@ -71,6 +73,8 @@ const managementNavItems: NavItemDef[] = [
   { title: "Financeiro & Métricas", href: "/gym/finance", icon: DollarSign, requiresFinance: true },
   { title: "Revisão de contratos e saldos", href: "/gym/reconciliation", icon: FileText, requiresManagement: true },
   { title: "Importação Assistida", href: "/gym/import", icon: FileSpreadsheet, requiresManagement: true },
+  { title: "Créditos", href: "/gym/credits", icon: Coins, requiresManagement: true },
+  { title: "Assinatura", href: "/gym/subscription", icon: CreditCard, requiresManagement: true },
   { title: "Configurações", href: "/gym/settings", icon: Settings, requiresManagement: true },
 ];
 
@@ -93,19 +97,21 @@ export function GymSidebar() {
   }, []);
 
   const roles = (workspaceSnap.activeWorkspace?.roles as string[]) || [];
+  const isSuperAdminOrImpersonated = user?.role === "SUPERADMIN" || Boolean((user as any)?.isImpersonated);
   const isReceptionOnly =
+    !isSuperAdminOrImpersonated &&
     roles.includes("RECEPTIONIST") &&
     !roles.some((r) => ["OWNER", "MANAGER", "FINANCE"].includes(r));
-  const hasFinanceRole = roles.some((r) => ["OWNER", "MANAGER", "FINANCE"].includes(r));
-  const hasManagementRole = roles.some((r) => ["OWNER", "MANAGER"].includes(r));
+  const hasFinanceRole = isSuperAdminOrImpersonated || roles.some((r) => ["OWNER", "MANAGER", "FINANCE"].includes(r));
+  const hasManagementRole = isSuperAdminOrImpersonated || roles.some((r) => ["OWNER", "MANAGER"].includes(r));
 
   const userInitials = user?.name
     ? user.name
-        .split(" ")
-        .map((n) => n[0])
-        .join("")
-        .slice(0, 2)
-        .toUpperCase()
+      .split(" ")
+      .map((n) => n[0])
+      .join("")
+      .slice(0, 2)
+      .toUpperCase()
     : "GY";
 
   const handleLogout = async () => {

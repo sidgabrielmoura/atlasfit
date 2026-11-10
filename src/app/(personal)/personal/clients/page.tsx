@@ -449,11 +449,11 @@ export default function ClientsPage() {
         throw new Error(await res.text());
       }
 
-      toast.success("Aluno excluído com sucesso.");
+      toast.success("Aluno, treinos e arquivos excluídos permanentemente com sucesso.");
       setIsDeleteOpen(false);
       fetchStudents();
     } catch (err: any) {
-      toast.error(err.message || "Erro ao excluir aluno.");
+      toast.error(err.message || "Erro ao excluir aluno permanentemente.");
     } finally {
       setDeleteLoading(false);
     }
@@ -1062,14 +1062,19 @@ export default function ClientsPage() {
       </Dialog>
 
       {/* DIALOG 5: Excluir Aluno (DELETE) */}
-      <Dialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+      <Dialog
+        open={isDeleteOpen}
+        onOpenChange={(open) => {
+          if (!deleteLoading) setIsDeleteOpen(open);
+        }}
+      >
         <DialogContent className="max-w-md! w-full! bg-popover border border-border">
           <DialogHeader>
             <DialogTitle className="text-xl font-bold flex items-center gap-2 text-destructive">
               <Trash2 className="size-5 text-destructive" /> Excluir Aluno Permanentemente
             </DialogTitle>
             <DialogDescription className="text-sm">
-              Tem certeza que deseja excluir <strong>{selectedStudent?.name}</strong>? Esta ação removerá o aluno deste workspace de forma irreversível.
+              Tem certeza que deseja excluir <strong>{selectedStudent?.name}</strong>? Todos os treinos, avaliações, arquivos e fotos vinculados exclusivamente a este aluno serão expurgados de forma irreversível.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="pt-2">
@@ -1082,8 +1087,14 @@ export default function ClientsPage() {
               disabled={deleteLoading}
               onClick={handleDeleteStudent}
             >
-              {deleteLoading && <Loader2 className="animate-spin size-4" />}
-              Excluir Permanentemente
+              {deleteLoading ? (
+                <>
+                  <Loader2 className="animate-spin size-4" />
+                  Excluindo permanentemente...
+                </>
+              ) : (
+                "Excluir Permanentemente"
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>

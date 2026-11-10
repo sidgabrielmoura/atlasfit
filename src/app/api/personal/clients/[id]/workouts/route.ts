@@ -135,6 +135,7 @@ export async function POST(
       groups, // Array opcional para grupos [{ id, type, config }]
       allowRepsModification,
       allowCompleteView,
+      allowSkipExercises,
     } = body;
 
     if (!workspaceId || dayOfWeek === undefined) {
@@ -211,8 +212,9 @@ export async function POST(
             workspaceId,
             studentId,
             dayOfWeek: Number(dayOfWeek),
-            allowRepsModification: templateWorkout.allowRepsModification,
-            allowCompleteView: templateWorkout.allowCompleteView,
+            allowRepsModification: allowRepsModification !== undefined ? Boolean(allowRepsModification) : (templateWorkout.allowRepsModification ?? true),
+            allowCompleteView: allowCompleteView !== undefined ? Boolean(allowCompleteView) : (templateWorkout.allowCompleteView ?? false),
+            allowSkipExercises: allowSkipExercises !== undefined ? Boolean(allowSkipExercises) : (templateWorkout.allowSkipExercises ?? false),
           },
         });
 
@@ -304,6 +306,7 @@ export async function POST(
             dayOfWeek: Number(dayOfWeek),
             allowRepsModification: allowRepsModification !== undefined ? Boolean(allowRepsModification) : true,
             allowCompleteView: allowCompleteView !== undefined ? Boolean(allowCompleteView) : false,
+            allowSkipExercises: allowSkipExercises !== undefined ? Boolean(allowSkipExercises) : false,
           },
         });
 

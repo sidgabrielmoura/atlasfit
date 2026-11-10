@@ -3,8 +3,6 @@ import { Geist, Geist_Mono, Figtree } from "next/font/google";
 import "./globals.css";
 import { cn } from "@/lib/utils";
 import { Providers } from "@/components/providers";
-import { ImpersonationBanner } from "@/components/application/impersonation-banner";
-import { LegalReacceptanceModal } from "@/components/privacy/legal-reacceptance-modal";
 
 const figtree = Figtree({ subsets: ['latin'], variable: '--font-sans' });
 
@@ -18,10 +16,9 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-import prisma from "@/lib/prisma";
+import { getPublicPlatformSettings } from "@/lib/cache/public-data";
 import { PWARegister } from "@/components/pwa-register";
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
-import { PwaFcmInit } from "@/components/pwa-fcm-init";
 import { SpeedInsights } from "@vercel/speed-insights/next"
 
 export const viewport: Viewport = {
@@ -34,11 +31,9 @@ export const viewport: Viewport = {
 export async function generateMetadata(): Promise<Metadata> {
   let platformName = "AtlasFit";
   try {
-    const setting = await prisma.systemSetting.findUnique({
-      where: { key: "platform_name" }
-    });
-    if (setting?.value) {
-      platformName = setting.value;
+    const settings = await getPublicPlatformSettings();
+    if (settings.platform_name) {
+      platformName = settings.platform_name;
     }
   } catch (error) {
   }
@@ -99,11 +94,8 @@ export default function RootLayout({
       <body className="min-h-full flex flex-col transition-colors duration-500 ease-in-out">
         <Providers>
           <PWARegister />
-          <PwaFcmInit />
           <PWAInstallPrompt />
           <SpeedInsights />
-          <ImpersonationBanner />
-          <LegalReacceptanceModal />
           {children}
         </Providers>
       </body>

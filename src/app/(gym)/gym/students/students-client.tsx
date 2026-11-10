@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
-import { formatCPF } from "@/lib/cpf-validator";
+import { formatCPF, formatCpfCnpj } from "@/lib/cpf-validator";
 import {
   Users,
   Search,
@@ -421,8 +421,6 @@ export function GymStudentsClient({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           workspaceId,
-          name: editForm.name.trim(),
-          whatsapp: editForm.whatsapp.replace(/\D/g, "") || null,
           assignedStaffId: editForm.assignedStaffId || null,
           emergencyContactPhone: editForm.emergencyContactPhone.replace(/\D/g, "") || null,
         }),
@@ -510,12 +508,12 @@ export function GymStudentsClient({
         throw new Error(data.error?.message || "Erro ao excluir aluno.");
       }
 
-      toast.success("Aluno excluído com sucesso.");
+      toast.success("Aluno, treinos e arquivos excluídos permanentemente com sucesso.");
       setIsDeleteOpen(false);
       setStudentToDelete(null);
       fetchStudents(pagination.page);
     } catch (err) {
-      toast.error(message(err, "Falha ao excluir aluno."));
+      toast.error(message(err, "Falha ao excluir aluno permanentemente."));
     } finally {
       setIsSubmittingDelete(false);
     }
@@ -757,9 +755,10 @@ export function GymStudentsClient({
                 </div>
                 <Input
                   id="register-cpf"
-                  placeholder="000.000.000-00"
+                  placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                  maxLength={18}
                   value={registerForm.cpfCnpj}
-                  onChange={(e) => setRegisterForm((prev) => ({ ...prev, cpfCnpj: formatCPF(e.target.value) }))}
+                  onChange={(e) => setRegisterForm((prev) => ({ ...prev, cpfCnpj: formatCpfCnpj(e.target.value) }))}
                 />
               </div>
 
@@ -983,6 +982,7 @@ export function GymStudentsClient({
               <Input
                 id="edit-name"
                 required
+                readOnly
                 className="bg-background border-border"
                 value={editForm.name}
                 onChange={(e) => setEditForm((prev) => ({ ...prev, name: e.target.value }))}
@@ -993,6 +993,7 @@ export function GymStudentsClient({
               <Label htmlFor="edit-whatsapp">WhatsApp</Label>
               <Input
                 id="edit-whatsapp"
+                readOnly
                 placeholder="(11) 99999-9999"
                 className="bg-background border-border"
                 value={editForm.whatsapp}
@@ -1100,14 +1101,19 @@ export function GymStudentsClient({
       {/* ========================================================================= */}
       {/* ALERT DIALOG: Excluir Aluno Permanentemente                               */}
       {/* ========================================================================= */}
-      <AlertDialog open={isDeleteOpen} onOpenChange={setIsDeleteOpen}>
+      <AlertDialog
+        open={isDeleteOpen}
+        onOpenChange={(open) => {
+          if (!isSubmittingDelete) setIsDeleteOpen(open);
+        }}
+      >
         <AlertDialogContent className="max-w-md bg-popover border border-border">
           <AlertDialogHeader>
             <AlertDialogTitle className="text-xl font-bold flex items-center gap-2 text-destructive">
               <Trash2 className="size-5 text-destructive" /> Excluir Aluno Permanentemente
             </AlertDialogTitle>
             <AlertDialogDescription className="text-sm">
-              Tem certeza que deseja excluir <strong>{studentToDelete?.name}</strong>? Esta ação removerá o aluno deste workspace de forma irreversível.
+              Tem certeza que deseja excluir permanentemente <strong>{studentToDelete?.name}</strong>? Todos os treinos, avaliações, arquivos e fotos vinculados exclusivamente a este aluno serão expurgados de forma irreversível.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter className="pt-2">
@@ -1117,10 +1123,19 @@ export function GymStudentsClient({
             <AlertDialogAction
               className="gap-2 font-medium bg-destructive text-destructive-foreground hover:bg-destructive/90"
               disabled={isSubmittingDelete}
-              onClick={handleDeleteStudent}
+              onClick={(e) => {
+                e.preventDefault();
+                handleDeleteStudent();
+              }}
             >
-              {isSubmittingDelete && <Loader2 className="animate-spin size-4" />}
-              Excluir Permanentemente
+              {isSubmittingDelete ? (
+                <>
+                  <Loader2 className="animate-spin size-4" />
+                  Excluindo permanentemente...
+                </>
+              ) : (
+                "Excluir Permanentemente"
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

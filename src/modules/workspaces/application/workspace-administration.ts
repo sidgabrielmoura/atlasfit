@@ -11,6 +11,7 @@ export const workspaceAdministrationSchema = z.object({
   ownerId: z.string().trim().min(1).max(100).optional(),
   type: z.enum(["PERSONAL", "GYM"]).optional(),
   isActive: z.boolean().optional(), expectedIsActive: z.boolean().optional(),
+  importCredits: z.number().int().min(0).optional(),
 }).strict().refine(data => Object.keys(data).some(key => key !== "expectedIsActive"), "Informe a alteração.")
   .refine(data => data.isActive === undefined || data.expectedIsActive !== undefined, "Recarregue o estado atual antes de suspender ou reativar.");
 
@@ -21,7 +22,7 @@ export async function updateWorkspaceAdministration(workspaceId: string, raw: un
   const input = parsed.data;
   const result = await idempotentSerializableTransaction(async tx => {
     await assertSuperadmin(tx, actorUserId);
-    const before = await tx.workspace.findUnique({ where: { id: workspaceId }, select: { id: true, ownerId: true, type: true, isActive: true } });
+    const before = await tx.workspace.findUnique({ where: { id: workspaceId }, select: { id: true, ownerId: true, type: true, isActive: true, importCredits: true } });
     if (!before) throw new WorkspaceAccessError(404, "WORKSPACE_NOT_FOUND", "Workspace não encontrado.");
     if ((input.isActive === true || (input.ownerId && input.ownerId !== before.ownerId)) && await tx.auditLog.findFirst({ where: { entity: "WORKSPACE", entityId: workspaceId, action: gymClosureAction }, select: { id: true } })) throw new WorkspaceAccessError(409, "GYM_DATA_RETENTION_REQUIRED", "Academia encerrada. A reabertura exige revisão própria de contratos, licença e retenção.");
     if (input.type !== undefined && input.type !== before.type) throw new WorkspaceAccessError(409, "INVALID_TYPE", "O tipo é definido no provisionamento e não pode ser convertido nesta edição.");
@@ -31,11 +32,20 @@ export async function updateWorkspaceAdministration(workspaceId: string, raw: un
       if (duplicate && duplicate.id !== workspaceId) throw new WorkspaceAccessError(409, "INVALID_REQUEST", "Slug já utilizado.");
     }
     if (input.ownerId && input.ownerId !== before.ownerId) await transferWorkspaceOwnerInTransaction(tx, { workspaceId, currentOwnerUserId: before.ownerId, targetUserId: input.ownerId, auditActorId: actorUserId });
-    const updated = await tx.workspace.update({ where: { id: workspaceId }, data: { name: input.name, slug: input.slug, isActive: input.isActive }, include: { settings: true, units: true, subscription: true } });
+    const updated = await tx.workspace.update({
+      where: { id: workspaceId },
+      data: {
+        name: input.name,
+        slug: input.slug,
+        isActive: input.isActive,
+        importCredits: input.importCredits,
+      },
+      include: { settings: true, units: true, subscription: true },
+    });
     await tx.auditLog.create({ data: {
-      userId: actorUserId, action: `SUPERADMIN_WORKSPACE_UPDATE:${JSON.stringify({ effectiveUserId, before, applied: { ownerId: updated.ownerId, type: updated.type, isActive: updated.isActive, name: updated.name, slug: updated.slug } })}`,
+      userId: actorUserId, action: `SUPERADMIN_WORKSPACE_UPDATE:${JSON.stringify({ effectiveUserId, before, applied: { ownerId: updated.ownerId, type: updated.type, isActive: updated.isActive, name: updated.name, slug: updated.slug, importCredits: updated.importCredits } })}`,
       entity: "WORKSPACE", entityId: workspaceId, severity: input.isActive === false ? "warning" : "success",
-      metadata: { before: { ownerId: before.ownerId, isActive: before.isActive, type: before.type }, after: { ownerId: updated.ownerId, isActive: updated.isActive, type: updated.type }, changedFields: Object.keys(input).filter(key => key !== "expectedIsActive") },
+      metadata: { before: { ownerId: before.ownerId, isActive: before.isActive, type: before.type, importCredits: before.importCredits }, after: { ownerId: updated.ownerId, isActive: updated.isActive, type: updated.type, importCredits: updated.importCredits }, changedFields: Object.keys(input).filter(key => key !== "expectedIsActive") },
     } });
     return updated;
   });

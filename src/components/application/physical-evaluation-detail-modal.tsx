@@ -767,7 +767,7 @@ export function PhysicalEvaluationDetailModal({
           </DialogHeader>
 
           <div className="flex flex-col md:flex-row min-h-112.5">
-            <div className="md:w-56 border-b md:border-b-0 md:border-r border-border dark:border-neutral-900 bg-muted/10 p-3 space-y-1 flex overflow-x-auto! items-center gap-3 max-w-100 mx-auto">
+            <div className="md:w-56 border-b md:border-b-0 flex flex-col md:border-r border-border dark:border-neutral-900 bg-muted/10 p-3 overflow-x-auto! items-center gap-1 max-w-100 mx-auto">
               {tabsConfig.filter(t => t.show).map((t) => {
                 const Icon = t.icon;
                 return (

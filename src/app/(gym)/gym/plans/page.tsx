@@ -32,12 +32,12 @@ export default async function GymPlansPage() {
   }, context.userId)
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto">
+    <div className="space-y-6 mx-auto">
       <GymPlansClient
         workspaceId={context.workspaceId}
         initialPlans={data.plans}
         initialPagination={data.pagination}
-        canManage={context.hasCapability("enrollments.manage")}
+        canManage={context.hasCapability("workspace.manage")}
       />
     </div>
   )

@@ -1,9 +1,13 @@
 import prisma from "@/lib/prisma";
+import { Prisma } from "@prisma/client";
 import { parseDayOfWeekToInt } from "./utils/day-of-week";
 import { newSetupTokenExpiry } from "@/lib/auth/setup-token-policy";
 import { WorkspaceAccessError } from "@/modules/workspaces/domain/types";
 import crypto from "crypto";
 import { validateAgeEligibility } from "@/lib/privacy/age-validator";
+import { serializableTransaction } from "@/modules/workspaces/application/transaction";
+import { lockImportReview } from "./commit-review-lock";
+import { publicExerciseCatalog } from "@/lib/exercises/catalog-visibility";
 
 export interface CommitPreviewResult {
   jobId: string;
@@ -23,19 +27,23 @@ export interface CommitPreviewResult {
  * Validates review state and generates a server-authoritative preview for the current commitVersion.
  */
 export async function generateCommitPreview(jobId: string, workspaceId: string): Promise<CommitPreviewResult> {
-  const job = await prisma.importJob.findUnique({
+  return serializableTransaction(async tx => {
+  await lockImportReview(tx, jobId);
+  const job = await tx.importJob.findUnique({
     where: { id: jobId, workspaceId },
     include: {
-      records: { select: { id: true, entityType: true, temporaryEntityId: true, matchedEntityId: true, normalizedData: true, status: true, reviewStatus: true } },
+      workspace: { select: { type: true } },
+      records: { take: 501, select: { id: true, entityType: true, temporaryEntityId: true, matchedEntityId: true, normalizedData: true, status: true, reviewStatus: true } },
     },
   });
 
   if (!job) throw new Error("Job de migração não encontrado.");
+  if (job.records.length > 500) throw new WorkspaceAccessError(413, "INVALID_IMPORT", "Importe até 500 registros por lote.");
 
-  const studentRecords = job.records.filter((r) => r.entityType === "STUDENT" && r.status !== "SKIPPED");
-  const workoutRecords = job.records.filter((r) => r.entityType === "WORKOUT" && r.status !== "SKIPPED");
-  const assessmentRecords = job.records.filter((r) => r.entityType === "ASSESSMENT" && r.status !== "SKIPPED");
-  const measurementRecords = job.records.filter((r) => r.entityType === "MEASUREMENT" && r.status !== "SKIPPED");
+  const studentRecords = job.records.filter((r) => r.entityType === "STUDENT" && r.status !== "SKIPPED" && r.status !== "COMMITTED");
+  const workoutRecords = job.records.filter((r) => r.entityType === "WORKOUT" && r.status !== "SKIPPED" && r.status !== "COMMITTED");
+  const assessmentRecords = job.records.filter((r) => r.entityType === "ASSESSMENT" && r.status !== "SKIPPED" && r.status !== "COMMITTED");
+  const measurementRecords = job.records.filter((r) => r.entityType === "MEASUREMENT" && r.status !== "SKIPPED" && r.status !== "COMMITTED");
 
   let newStudentsCount = 0;
   let updateStudentsCount = 0;
@@ -44,7 +52,7 @@ export async function generateCommitPreview(jobId: string, workspaceId: string):
   const warnings: string[] = [];
 
   const matchedIds = studentRecords.flatMap(record => record.matchedEntityId ? [record.matchedEntityId] : []);
-  const matchedMembers = matchedIds.length ? await prisma.workspaceMember.findMany({ where: { workspaceId, userId: { in: matchedIds }, role: "STUDENT" }, select: { userId: true } }) : [];
+  const matchedMembers = matchedIds.length ? await tx.workspaceMember.findMany({ where: { workspaceId, userId: { in: matchedIds }, role: "STUDENT" }, select: { userId: true } }) : [];
   const matched = new Set(matchedMembers.map(member => member.userId));
   for (const record of studentRecords) {
     if (record.matchedEntityId && matched.has(record.matchedEntityId)) updateStudentsCount++;
@@ -59,13 +67,19 @@ export async function generateCommitPreview(jobId: string, workspaceId: string):
   }
 
   const pendingRecords = job.records.filter((r) => {
-    if (r.status === "SKIPPED") return false;
+    if (r.status === "SKIPPED" || r.status === "COMMITTED") return false;
     if (r.reviewStatus === "PENDING") return true;
     const norm = (r.normalizedData as any) || {};
     if (r.entityType === "WORKOUT") {
-      if (norm.dayOfWeek === null || norm.dayOfWeek === undefined || !parseDayOfWeekToInt(norm.dayOfWeek)) return true;
+      if (norm.dayOfWeek === null || norm.dayOfWeek === undefined || parseDayOfWeekToInt(norm.dayOfWeek) === null) return true;
       if (!norm.exercises || norm.exercises.length === 0) return true;
-      if (norm.exercises.some((ex: any) => !ex.matchedExerciseId && !ex.matchedExerciseName && !ex.isRequestedOfficial)) return true;
+      if (norm.exercises.some((ex: any) => !String(ex.name || ex.matchedExerciseName || "").trim())) return true;
+      const targetStudentIds = Array.isArray(norm.targetStudentIds) && norm.targetStudentIds.length > 0
+        ? norm.targetStudentIds
+        : norm.temporaryStudentId
+        ? [norm.temporaryStudentId]
+        : [];
+      if (targetStudentIds.length === 0 && !norm.saveToLibrary) return true;
     }
     if (r.entityType === "STUDENT") {
       if (!norm.email && !norm.phone) return true;
@@ -74,11 +88,51 @@ export async function generateCommitPreview(jobId: string, workspaceId: string):
   });
 
   if (pendingRecords.length > 0) {
-    throw new Error(`Existem ${pendingRecords.length} registro(s) com pendências (dias de execução não definidos, falta de contatos ou exercícios fora do catálogo). Corrija os itens em destaque antes de prosseguir.`);
+    const details = pendingRecords.slice(0, 4).map((r) => {
+      const norm = (r.normalizedData as any) || {};
+      const name = norm.name || (r.entityType === "WORKOUT" ? "Treino sem nome" : "Aluno sem nome");
+      const issues: string[] = [];
+      if (r.entityType === "WORKOUT") {
+        if (norm.dayOfWeek === null || norm.dayOfWeek === undefined || parseDayOfWeekToInt(norm.dayOfWeek) === null) {
+          issues.push("dia de execução não definido");
+        }
+        const targetStudentIds = Array.isArray(norm.targetStudentIds) && norm.targetStudentIds.length > 0
+          ? norm.targetStudentIds
+          : norm.temporaryStudentId
+          ? [norm.temporaryStudentId]
+          : [];
+        if (targetStudentIds.length === 0 && !norm.saveToLibrary) {
+          issues.push("sem destino (vincule a um aluno ou à biblioteca)");
+        }
+        if (!norm.exercises || norm.exercises.length === 0) {
+          issues.push("nenhum exercício cadastrado");
+        } else if (norm.exercises.some((ex: any) => !String(ex.name || ex.matchedExerciseName || "").trim())) {
+          issues.push("exercício sem nome");
+        }
+      } else if (r.entityType === "STUDENT") {
+        if (!norm.email && !norm.phone) {
+          issues.push("sem WhatsApp ou e-mail");
+        }
+      }
+      return `"${name}": ${issues.join(", ") || "revisão pendente"}`;
+    });
+
+    const moreCount = pendingRecords.length - details.length;
+    const summary = `${details.join("; ")}${moreCount > 0 ? ` (e mais ${moreCount} item${moreCount > 1 ? "s" : ""})` : ""}`;
+
+    if (job.workspace.type === "GYM") {
+      warnings.push(
+        `${pendingRecords.length} registro(s) possuem pendências e não serão cadastrados nesta etapa: ${summary}. Os registros sem pendências serão salvos normalmente e os pendentes permanecerão na lista para correção.`
+      );
+    } else {
+      throw new Error(
+        `Existem ${pendingRecords.length} registro(s) com pendências que impedem a finalização: ${summary}. Corrija os itens destacados na revisão antes de concluir os cadastros.`
+      );
+    }
   }
 
   // Mark job as previewValidated = true for the current commitVersion
-  await prisma.importJob.update({
+  await tx.importJob.update({
     where: { id: jobId },
     data: {
       previewValidated: true,
@@ -98,6 +152,7 @@ export async function generateCommitPreview(jobId: string, workspaceId: string):
     readyToCommit: true,
     warnings,
   };
+  });
 }
 
 /**
@@ -109,6 +164,8 @@ export async function commitImportJob(
   commitVersion: number,
   idempotencyKey?: string
 ) {
+  const workspace = await prisma.workspace.findUnique({ where: { id: workspaceId }, select: { type: true } });
+  if (workspace?.type === "GYM") throw new WorkspaceAccessError(409, "INVALID_IMPORT", "Utilize a confirmação de importação da academia, com unidade e permissões do operador.");
   const job = await prisma.importJob.findUnique({
     where: { id: jobId, workspaceId },
     include: {
@@ -148,10 +205,12 @@ export async function commitImportJob(
 
   try {
     await prisma.$transaction(async (tx) => {
-      const studentRecords = job.records.filter((r) => r.entityType === "STUDENT" && r.status !== "SKIPPED");
-      const workoutRecords = job.records.filter((r) => r.entityType === "WORKOUT" && r.status !== "SKIPPED");
-      const assessmentRecords = job.records.filter((r) => r.entityType === "ASSESSMENT" && r.status !== "SKIPPED");
-      const measurementRecords = job.records.filter((r) => r.entityType === "MEASUREMENT" && r.status !== "SKIPPED");
+      const studentRecords = job.records.filter((r) => r.entityType === "STUDENT" && r.status !== "SKIPPED" && r.status !== "COMMITTED");
+      const workoutRecords = job.records.filter((r) => r.entityType === "WORKOUT" && r.status !== "SKIPPED" && r.status !== "COMMITTED");
+      const assessmentRecords = job.records.filter((r) => r.entityType === "ASSESSMENT" && r.status !== "SKIPPED" && r.status !== "COMMITTED");
+      const measurementRecords = job.records.filter((r) => r.entityType === "MEASUREMENT" && r.status !== "SKIPPED" && r.status !== "COMMITTED");
+
+      const committedRecordIds = [...studentRecords, ...workoutRecords, ...assessmentRecords, ...measurementRecords].map((r) => r.id);
 
       // 1. Commit Students
       for (const sr of studentRecords) {
@@ -230,100 +289,133 @@ export async function commitImportJob(
       // 2. Commit Workouts & WorkoutExercises
       for (const wr of workoutRecords) {
         const norm = wr.normalizedData as any;
-        let targetStudentId =
-          studentIdMap[norm.temporaryStudentId] ||
-          studentIdMap[wr.temporaryEntityId] ||
-          null;
+        const targetStudentIds: string[] = Array.isArray(norm.targetStudentIds) && norm.targetStudentIds.length > 0
+          ? norm.targetStudentIds
+          : norm.temporaryStudentId
+          ? [norm.temporaryStudentId]
+          : [];
+        const saveToLibrary = Boolean(norm.saveToLibrary || targetStudentIds.length === 0);
 
-        if (!targetStudentId && Object.keys(studentIdMap).length > 0) {
-          targetStudentId = Object.values(studentIdMap)[0];
+        const targets: Array<{ studentId: string | null }> = [];
+        for (const tempId of targetStudentIds) {
+          const mapped = studentIdMap[tempId] || (tempId.startsWith("student_") ? null : tempId);
+          if (mapped) {
+            targets.push({ studentId: mapped });
+          }
         }
 
-        const createdWorkout = await tx.workout.create({
-          data: {
-            name: norm.name || "Treino Migrado",
-            goal: norm.goal || "Hipertrofia",
-            difficulty: norm.difficulty || "Intermediário",
-            duration: norm.duration || "60 min",
-            workspaceId,
-            studentId: targetStudentId,
-            dayOfWeek: parseDayOfWeekToInt(norm.dayOfWeek),
-            muscleGroupLabel: norm.muscleGroupLabel ?? null,
-            restBetweenExercises: norm.restBetweenExercises || "2 min",
-            isActive: true,
-          },
-        });
+        if (saveToLibrary || targets.length === 0) {
+          targets.push({ studentId: null });
+        }
 
-        await tx.importEntityResult.upsert({
-          where: {
-            importJobId_entityType_temporaryEntityId: {
-              importJobId: jobId,
-              entityType: "WORKOUT",
-              temporaryEntityId: wr.temporaryEntityId,
+        let lastCreatedWorkoutId: string | null = null;
+
+        for (const target of targets) {
+          const createdWorkout = await tx.workout.create({
+            data: {
+              name: norm.name || "Treino Migrado",
+              goal: norm.goal || "Hipertrofia",
+              difficulty: norm.difficulty || "Intermediário",
+              duration: norm.duration || "60 min",
+              workspaceId,
+              studentId: target.studentId,
+              dayOfWeek: parseDayOfWeekToInt(norm.dayOfWeek),
+              muscleGroupLabel: norm.muscleGroupLabel ?? null,
+              restBetweenExercises: norm.restBetweenExercises || "2 min",
+              isActive: true,
             },
-          },
-          update: {
-            action: "CREATED",
-            databaseEntityId: createdWorkout.id,
-          },
-          create: {
-            importJobId: jobId,
-            action: "CREATED",
-            entityType: "WORKOUT",
-            temporaryEntityId: wr.temporaryEntityId,
-            databaseEntityId: createdWorkout.id,
-          },
-        });
+          });
 
-        if (norm.exercises && Array.isArray(norm.exercises)) {
-          for (let eIdx = 0; eIdx < norm.exercises.length; eIdx++) {
-            const ex = norm.exercises[eIdx];
-            let realExerciseId = ex.matchedExerciseId;
+          lastCreatedWorkoutId = createdWorkout.id;
 
-            if (realExerciseId) {
-              const existingEx = await tx.exercise.findUnique({
-                where: { id: realExerciseId },
-                select: { id: true },
-              });
-              if (!existingEx) realExerciseId = null;
-            }
+          if (norm.exercises && Array.isArray(norm.exercises)) {
+            for (let eIdx = 0; eIdx < norm.exercises.length; eIdx++) {
+              const ex = norm.exercises[eIdx];
+              let realExerciseId = ex.matchedExerciseId;
 
-            if (!realExerciseId) {
-              let defaultGroup = await tx.muscleGroup.findFirst({
-                where: { name: "Geral" },
-              });
-
-              if (!defaultGroup) {
-                defaultGroup = await tx.muscleGroup.create({
-                  data: { name: "Geral" },
+              if (realExerciseId) {
+                const existingEx = await tx.exercise.findUnique({
+                  where: { id: realExerciseId, ...publicExerciseCatalog },
+                  select: { id: true },
                 });
+                if (!existingEx) realExerciseId = null;
               }
 
-              const newEx = await tx.exercise.create({
+              if (!realExerciseId) {
+                let defaultGroup = await tx.muscleGroup.findFirst({
+                  where: { name: "Geral" },
+                });
+
+                if (!defaultGroup) {
+                  defaultGroup = await tx.muscleGroup.create({
+                    data: { name: "Geral" },
+                  });
+                }
+
+                const newEx = await tx.exercise.create({
+                  data: {
+                    name: ex.name || "Exercício Personalizado",
+                    muscleGroupId: defaultGroup.id,
+                    isOfficial: false,
+                    isWorkoutSpecific: true,
+                    creatorId: job.createdByUserId,
+                    status: ex.isRequestedOfficial ? "PENDING" : "CUSTOM",
+                  },
+                });
+                realExerciseId = newEx.id;
+              }
+
+              const isPc = ex.isBodyweight === true || String(ex.load || "").toLowerCase().includes("p.c");
+              const loadVal = isPc
+                ? "Peso do Corpo (p.c.)"
+                : ex.load
+                ? (String(ex.load).includes("kg") || isNaN(Number(ex.load)) ? String(ex.load) : `${ex.load}kg`)
+                : null;
+
+              const methodType = ["NONE", "DROPSET", "REST_PAUSE", "BISET", "TRISET", "CIRCUIT"].includes(ex.methodType)
+                ? ex.methodType
+                : "NONE";
+
+              await tx.workoutExercise.create({
                 data: {
-                  name: ex.name || "Exercício Personalizado",
-                  muscleGroupId: defaultGroup.id,
-                  isOfficial: false,
-                  creatorId: job.createdByUserId,
-                  status: ex.isRequestedOfficial ? "PENDING" : "APPROVED",
+                  workoutId: createdWorkout.id,
+                  exerciseId: realExerciseId,
+                  sets: Number(ex.sets) || 3,
+                  reps: ex.reps ? String(ex.reps) : "10-12",
+                  rest: ex.rest || (ex.restSeconds ? `${ex.restSeconds}s` : "60s"),
+                  load: loadVal,
+                  description: ex.notes ?? null,
+                  order: eIdx,
+                  methodType,
+                  methodConfig: methodType === "NONE" ? Prisma.DbNull : (ex.methodConfig ?? Prisma.DbNull),
+                  allowRepsModification: ex.allowRepsModification ?? null,
                 },
               });
-              realExerciseId = newEx.id;
             }
-
-            await tx.workoutExercise.create({
-              data: {
-                workoutId: createdWorkout.id,
-                exerciseId: realExerciseId,
-                sets: ex.sets || 3,
-                reps: ex.reps || "10-12",
-                rest: ex.restSeconds ? `${ex.restSeconds}s` : "60s",
-                load: ex.load ? `${ex.load}kg` : null,
-                description: ex.notes ?? null,
-                order: eIdx,
-              },
-            });
           }
+        }
+
+        if (lastCreatedWorkoutId) {
+          await tx.importEntityResult.upsert({
+            where: {
+              importJobId_entityType_temporaryEntityId: {
+                importJobId: jobId,
+                entityType: "WORKOUT",
+                temporaryEntityId: wr.temporaryEntityId,
+              },
+            },
+            update: {
+              action: "CREATED",
+              databaseEntityId: lastCreatedWorkoutId,
+            },
+            create: {
+              importJobId: jobId,
+              action: "CREATED",
+              entityType: "WORKOUT",
+              temporaryEntityId: wr.temporaryEntityId,
+              databaseEntityId: lastCreatedWorkoutId,
+            },
+          });
         }
       }
 
@@ -357,7 +449,7 @@ export async function commitImportJob(
 
                   if (realExerciseId) {
                     const existingEx = await tx.exercise.findUnique({
-                      where: { id: realExerciseId },
+                      where: { id: realExerciseId, ...publicExerciseCatalog },
                       select: { id: true },
                     });
                     if (!existingEx) realExerciseId = null;
@@ -379,23 +471,38 @@ export async function commitImportJob(
                         name: ex.name || "Exercício Personalizado",
                         muscleGroupId: defaultGroup.id,
                         isOfficial: false,
+                        isWorkoutSpecific: true,
                         creatorId: job.createdByUserId,
-                        status: ex.isRequestedOfficial ? "PENDING" : "APPROVED",
+                        status: ex.isRequestedOfficial ? "PENDING" : "CUSTOM",
                       },
                     });
                     realExerciseId = newEx.id;
                   }
 
+                  const isPc = ex.isBodyweight === true || String(ex.load || "").toLowerCase().includes("p.c");
+                  const loadVal = isPc
+                    ? "Peso do Corpo (p.c.)"
+                    : ex.load
+                    ? (String(ex.load).includes("kg") || isNaN(Number(ex.load)) ? String(ex.load) : `${ex.load}kg`)
+                    : null;
+
+                  const methodType = ["NONE", "DROPSET", "REST_PAUSE", "BISET", "TRISET", "CIRCUIT"].includes(ex.methodType)
+                    ? ex.methodType
+                    : "NONE";
+
                   await tx.workoutExercise.create({
                     data: {
                       workoutId: createdWorkout.id,
                       exerciseId: realExerciseId,
-                      sets: ex.sets || 3,
-                      reps: ex.reps || "10-12",
-                      rest: ex.restSeconds ? `${ex.restSeconds}s` : "60s",
-                      load: ex.load ? `${ex.load}kg` : null,
+                      sets: Number(ex.sets) || 3,
+                      reps: ex.reps ? String(ex.reps) : "10-12",
+                      rest: ex.rest || (ex.restSeconds ? `${ex.restSeconds}s` : "60s"),
+                      load: loadVal,
                       description: ex.notes ?? null,
                       order: eIdx,
+                      methodType,
+                      methodConfig: methodType === "NONE" ? Prisma.DbNull : (ex.methodConfig ?? Prisma.DbNull),
+                      allowRepsModification: ex.allowRepsModification ?? null,
                     },
                   });
                 }
@@ -495,10 +602,31 @@ export async function commitImportJob(
           },
         });
       }
-      await tx.importJob.update({ where: { id: jobId, workspaceId }, data: { status: "COMPLETED", processingStep: "IDLE" } });
+      if (committedRecordIds.length > 0) {
+        await tx.importRecord.updateMany({
+          where: { id: { in: committedRecordIds } },
+          data: { status: "COMMITTED" },
+        });
+      }
+
+      const pendingSourcesCount = await tx.importSource.count({
+        where: { importJobId: jobId, status: { notIn: ["EXTRACTED", "PARSED"] } },
+      });
+
+      const finalStatus = pendingSourcesCount > 0 ? "PARTIAL" : "COMPLETED";
+
+      await tx.importJob.update({
+        where: { id: jobId, workspaceId },
+        data: {
+          status: finalStatus,
+          processingStep: "IDLE",
+          previewValidated: false,
+        },
+      });
     }, { maxWait: 10_000, timeout: 30_000 });
 
-    return { success: true, status: "COMPLETED" };
+    const updatedJob = await prisma.importJob.findUnique({ where: { id: jobId } });
+    return { success: true, status: updatedJob?.status ?? "COMPLETED" };
   } catch (error: any) {
     await prisma.importJob.updateMany({
       where: { id: jobId, workspaceId, status: "IMPORTING" },
@@ -531,6 +659,7 @@ async function createStudentUser(tx: any, workspaceId: string, norm: any) {
       name: norm.name || "Aluno Importado",
       email: generatedEmail,
       whatsapp: norm.phone ?? null,
+        cpfCnpj: norm.cpfCnpj ?? null,
       birthDate: validatedBirthDate,
       objective: norm.objective ?? null,
       weight: norm.weight ?? null,
