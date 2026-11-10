@@ -33,6 +33,47 @@ export async function applyPersonalWebhookEffects(tx: GymTransactionClient, webh
     return;
   }
   if (event.resourceType !== "PAYMENT") throw new WebhookReviewRequired("WEBHOOK_EVENT_UNSUPPORTED");
+
+  // 1. Verifica se é pagamento de plano/mensalidade da plataforma (Personal Trainer ou Workspace)
+  const platformTx = await tx.transaction.findFirst({
+    where: { providerCheckoutId: event.resourceId },
+  });
+
+  if (platformTx) {
+    const settled = ["PAYMENT_RECEIVED", "PAYMENT_DUNNING_RECEIVED", "RECEIVED_IN_CASH", "PAYMENT_RECEIVED_IN_CASH"].includes(event.eventType);
+    const confirmed = event.eventType === "PAYMENT_CONFIRMED" || event.eventType === "CONFIRMED";
+
+    if (settled || confirmed) {
+      const paymentMethod = (event.rawPayload as any)?.payment?.billingType || platformTx.paymentMethod || "PIX";
+      const { confirmPersonalSubscriptionPayment } = await import("@/lib/asaas-personal-billing");
+      await confirmPersonalSubscriptionPayment({
+        transactionId: platformTx.id,
+        paymentMethod,
+        occurredAt: event.occurredAt,
+        tx,
+      });
+      return;
+    }
+
+    if (["PAYMENT_OVERDUE", "PAYMENT_FAILED"].includes(event.eventType)) {
+      await tx.transaction.update({
+        where: { id: platformTx.id },
+        data: { status: "FAILED" },
+      });
+      return;
+    }
+
+    if (["PAYMENT_REFUNDED", "PAYMENT_PARTIALLY_REFUNDED"].includes(event.eventType)) {
+      await tx.transaction.update({
+        where: { id: platformTx.id },
+        data: { status: "REFUNDED" },
+      });
+      return;
+    }
+
+    return;
+  }
+
   const links = await tx.studentBilling.findMany({ where: { providerBillingId: event.resourceId, account: { provider: "ASAAS", environment } }, select: { id: true, providerAccountId: true }, take: 2 });
   if (links.length !== 1) throw new WebhookReviewRequired("BILLING_LINK_REVIEW_REQUIRED");
   await tx.$queryRaw`SELECT id FROM "PaymentProviderAccount" WHERE id = ${links[0].providerAccountId} FOR NO KEY UPDATE`;
@@ -58,7 +99,7 @@ export async function applyPersonalWebhookEffects(tx: GymTransactionClient, webh
     }
     await tx.studentBilling.update({ where: { id: billing.id }, data: { ...(nextStatus ? { status: nextStatus } : {}), confirmedAt: billing.confirmedAt || event.occurredAt, ...(settled ? { settledAt: billing.settledAt || event.occurredAt, paidAt: billing.paidAt || event.occurredAt } : {}) } });
     await tx.walletLedgerEntry.upsert({ where: { idempotencyKey: creditKey }, create: { providerAccountId: billing.providerAccountId, billingId: billing.id, idempotencyKey: creditKey, type: settled ? "PAYMENT_SETTLED" : "PAYMENT_CONFIRMED", direction: "CREDIT", amountInCents: billing.personalNetEstimatedInCents, occurredAt: event.occurredAt, description: "Pagamento confirmado pelo provedor" }, update: settled ? { type: "PAYMENT_SETTLED" } : {} });
-    for (const userId of new Set([billing.account.personalUserId, billing.studentUserId].filter((id): id is string => !!id))) await publish(`webhook:${webhookId}:wallet:${userId}`, `user:${userId}`, "wallet:updated", { type: "BALANCE_UPDATED", eventType: event.eventType, billingId: billing.id, timestamp: event.occurredAt.toISOString() });
+    for (const userId of Array.from(new Set([billing.account.personalUserId, billing.studentUserId].filter((id): id is string => !!id)))) await publish(`webhook:${webhookId}:wallet:${userId}`, `user:${userId}`, "wallet:updated", { type: "BALANCE_UPDATED", eventType: event.eventType, billingId: billing.id, timestamp: event.occurredAt.toISOString() });
     if (firstSettlement) {
       const student = await tx.user.findUnique({ where: { id: billing.studentUserId }, select: { name: true, email: true } });
       const trainer = billing.account.personalUserId ? await tx.user.findUnique({ where: { id: billing.account.personalUserId }, select: { name: true, email: true } }) : null;

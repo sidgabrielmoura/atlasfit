@@ -98,6 +98,7 @@ export default function FinanceManagementPage() {
     paymentMethod: "PIX",
     description: "Mensalidade AtlasFit Pro - Manual",
     paidAt: new Date().toISOString().split("T")[0],
+    nextDueDate: "",
   });
 
   // States for transaction listing, filters and pagination
@@ -242,6 +243,7 @@ export default function FinanceManagementPage() {
           paymentMethod: manualForm.paymentMethod,
           description: manualForm.description,
           paidAt: manualForm.paidAt ? new Date(manualForm.paidAt).toISOString() : undefined,
+          nextDueDate: manualForm.nextDueDate ? manualForm.nextDueDate : undefined,
           isRecurring: false,
         }),
       });
@@ -261,6 +263,7 @@ export default function FinanceManagementPage() {
         paymentMethod: "PIX",
         description: "Mensalidade AtlasFit Pro - Manual",
         paidAt: new Date().toISOString().split("T")[0],
+        nextDueDate: "",
       });
       void superAdminActions.fetchFinance();
       setTransactionAttempt((prev) => prev + 1);
@@ -956,6 +959,21 @@ export default function FinanceManagementPage() {
                   className="rounded-xl h-11 border-border/40 focus:border-primary text-xs font-bold"
                 />
               </div>
+            </div>
+
+            {/* Próximo Vencimento Opcional */}
+            <div className="space-y-2">
+              <Label htmlFor="manualNextDueDate" className="text-xs font-bold uppercase tracking-widest text-muted-foreground flex items-center justify-between">
+                <span>Próximo Vencimento da Assinatura</span>
+                <span className="text-[10px] lowercase font-normal text-muted-foreground/80">(opcional - avança 1 ciclo se vazio)</span>
+              </Label>
+              <Input
+                id="manualNextDueDate"
+                type="date"
+                value={manualForm.nextDueDate}
+                onChange={(e) => setManualForm((prev) => ({ ...prev, nextDueDate: e.target.value }))}
+                className="rounded-xl h-11 border-border/40 focus:border-primary text-xs font-bold"
+              />
             </div>
 
             {/* Informação sobre Recorrência e Suspensão */}

@@ -19,6 +19,7 @@ import { requireGymWorkspaceAccess } from "@/modules/workspaces/application/guar
 import { assertGymPersonalAffiliation, isPersonalSubscriptionActive } from "@/modules/workspaces/application/personal-affiliation";
 import { WorkspaceAccessError } from "@/modules/workspaces/domain/types";
 import { PlatformBillingTopBanner } from "@/components/application/platform-billing-top-banner";
+import { GracePeriodModal } from "@/components/personal/grace-period-modal";
 
 export default async function PersonalLayout({
   children,
@@ -78,6 +79,7 @@ export default async function PersonalLayout({
       <PersonalSidebar academy={academy} />
       <SidebarInset>
         <PlatformBillingTopBanner role="PERSONAL" />
+        {!academy && <GracePeriodModal />}
         <header className="flex h-18 shrink-0 items-center justify-between border-b px-4 w-full">
           <div className="flex items-center gap-2 min-w-0">
             <SidebarTrigger className="px-4 mx-4 hidden md:inline-flex" />

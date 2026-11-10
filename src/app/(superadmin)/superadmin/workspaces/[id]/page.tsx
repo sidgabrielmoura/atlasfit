@@ -106,6 +106,7 @@ import {
 import { cn } from "@/lib/utils";
 import { WorkspacePlanActions } from "@/components/application/workspace-plan-actions";
 import { GymPurgeForm } from "@/components/application/gym-purge-form";
+import { ManualPaymentDialog } from "@/components/superadmin/manual-payment-dialog";
 
 /* -------------------------------------------------------------------------
    Componente de Card de Estatística Unificado
@@ -1204,7 +1205,13 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
                     Detalhes comerciais, quotas de capacidade e status de faturamento.
                   </CardDescription>
                 </div>
-                <WorkspacePlanActions workspace={workspace} onChanged={() => fetchWorkspace(false)} />
+                <div className="flex items-center gap-2 flex-wrap">
+                  <ManualPaymentDialog
+                    workspace={workspace}
+                    onSuccess={() => fetchWorkspace(false)}
+                  />
+                  <WorkspacePlanActions workspace={workspace} onChanged={() => fetchWorkspace(false)} />
+                </div>
               </CardHeader>
               <CardContent className="p-6 space-y-6">
                 {/* Cabeçalho do Plano */}

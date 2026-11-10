@@ -25,7 +25,7 @@ export async function personalCommercialContextResponse(options: { allowExpired?
   if (!workspace || workspace.type !== "PERSONAL") return NextResponse.json({ error: "Selecione sua assessoria própria para usar este recurso." }, { status: 403 });
   if (!workspace.isActive) return NextResponse.json({ error: "Assessoria inativa." }, { status: 403 });
   if (!options.allowExpired) {
-    const owner = await requestMemo(`personal-commercial:${workspace.ownerId}`, () => prisma.user.findUnique({ where: { id: workspace.ownerId }, select: { isTestAccount: true, subscription: { select: { status: true, startDate: true, endDate: true, isPreSubscription: true } }, freeTrial: { select: { isActive: true, startDate: true, endDate: true } } } }));
+    const owner = await requestMemo(`personal-commercial:${workspace.ownerId}`, () => prisma.user.findUnique({ where: { id: workspace.ownerId }, select: { isTestAccount: true, subscription: true, freeTrial: { select: { isActive: true, startDate: true, endDate: true } } } }));
     if (!owner?.isTestAccount && !isPersonalSubscriptionActive(owner?.subscription ?? null) && !isPersonalTrialActive(owner?.freeTrial)) return NextResponse.json({ error: "Sua assinatura pessoal expirou.", code: "PERSONAL_SUBSCRIPTION_EXPIRED" }, { status: 402 });
   }
   return null;

@@ -68,6 +68,7 @@ export async function GET() {
           id: true,
           isTestAccount: true,
           freeTrial: true,
+          cpfCnpj: true,
           subscription: {
             include: { plan: true },
           },
@@ -151,11 +152,20 @@ export async function GET() {
           });
         }
 
+        const toleranceLimit = new Date(dueDateTime + toleranceDays * 24 * 60 * 60 * 1000);
+        const amountInCents = sub.priceInCents || Math.round((sub.plan?.price || 0) * 100);
+
         return NextResponse.json({
           status: isLocked ? "LOCKED" : "WARNING",
           daysUntilLock,
           isManual: true,
           dueDate: dueDate.toISOString(),
+          toleranceLimit: toleranceLimit.toISOString(),
+          toleranceDays,
+          amountInCents,
+          inGracePeriod: !isLocked && nowTime > dueDateTime,
+          hasCpf: Boolean(owner?.cpfCnpj),
+          userCpf: owner?.cpfCnpj || null,
           whatsappUrl,
           checkoutUrl,
           planName: sub.plan.name,

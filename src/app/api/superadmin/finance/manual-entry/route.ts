@@ -124,11 +124,19 @@ export async function POST(req: Request) {
             });
           }
         } else {
-          // Pagamento avulso / pontual: mantém a assinatura ativa sem alterar as regras de recorrência do workspace
+          // Pagamento avulso / mensalidade paga: mantém a assinatura ativa e avança o ciclo para o próximo vencimento
           if (user.subscription) {
+            const { advanceBillingDueDate } = await import("@/lib/billing-due-date");
+            const currentDueDate = user.subscription.nextDueDate || user.subscription.endDate;
+            const newDueDate = nextDueDateObj || advanceBillingDueDate(currentDueDate, user.subscription.periodicity || "MENSAL", paidAtDate);
+
             await tx.subscription.update({
               where: { id: user.subscription.id },
-              data: { status: "active" },
+              data: {
+                status: "active",
+                nextDueDate: newDueDate,
+                endDate: newDueDate,
+              },
             });
           }
         }
@@ -219,6 +227,7 @@ export async function POST(req: Request) {
           userId: transactionUserId,
           workspaceId: transactionWorkspaceId,
           amount: data.amount,
+          expectedAmountInCents: priceInCents,
           status: "APPROVED",
           paymentMethod: data.paymentMethod,
           description: data.description,
@@ -238,6 +247,7 @@ export async function POST(req: Request) {
             transactionId: createdTx.id,
             targetType: data.targetType,
             amount: data.amount,
+            expectedAmountInCents: priceInCents,
             paymentMethod: data.paymentMethod,
             isRecurring: data.isRecurring,
             nextDueDate: data.nextDueDate || null,
@@ -249,6 +259,20 @@ export async function POST(req: Request) {
 
       return createdTx;
     });
+
+    // Notificação em tempo real via Ably
+    if (data.targetType === "PERSONAL" && data.userId) {
+      try {
+        const { publishToChannel } = await import("@/lib/ably");
+        await publishToChannel(`user:${data.userId}`, "subscription:updated", {
+          status: "active",
+          nextDueDate: nextDueDateObj,
+          updatedAt: new Date().toISOString(),
+        });
+      } catch (ablyErr) {
+        console.warn("[Ably] Falha ao notificar atualização de assinatura manual:", ablyErr);
+      }
+    }
 
     return NextResponse.json({
       success: true,

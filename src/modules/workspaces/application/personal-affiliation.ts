@@ -14,6 +14,7 @@ export function isPersonalSubscriptionActive(
     status: string;
     startDate: Date;
     endDate: Date | null;
+    nextDueDate?: Date | null;
     billingControlType?: string | null;
     toleranceDays?: number | null;
     autoSuspendEnabled?: boolean | null;
@@ -21,17 +22,32 @@ export function isPersonalSubscriptionActive(
   now = new Date()
 ) {
   if (!subscription || subscription.startDate > now) return false;
-  if (subscription.billingControlType === "MANUAL" && subscription.endDate) {
-    const tolerance = subscription.toleranceDays ?? 5;
-    const toleranceLimit = new Date(subscription.endDate.getTime() + tolerance * 24 * 60 * 60 * 1000);
-    if (subscription.autoSuspendEnabled && now > toleranceLimit) {
+  const status = subscription.status.toLowerCase();
+
+  const dueDate = subscription.nextDueDate || subscription.endDate;
+  const isManual = subscription.billingControlType?.toUpperCase() === "MANUAL";
+  const hasTolerance = subscription.toleranceDays !== undefined && subscription.toleranceDays !== null;
+
+  if ((isManual || hasTolerance) && dueDate) {
+    const tolerance = subscription.toleranceDays ?? (isManual ? 5 : 0);
+    const toleranceLimit = new Date(dueDate.getTime() + tolerance * 24 * 60 * 60 * 1000);
+    const autoSuspend = subscription.autoSuspendEnabled ?? true;
+
+    if (autoSuspend && now > toleranceLimit) {
       return false;
     }
-    return subscription.status.toLowerCase() === "active";
+
+    if (status === "canceled" && now > dueDate) {
+      return false;
+    }
+
+    return status === "active" || status === "past_due" || (status === "canceled" && now <= dueDate);
   }
+
   if (subscription.endDate && subscription.endDate <= now) return false;
-  return subscription.status.toLowerCase() === "active" || (subscription.status.toLowerCase() === "canceled" && subscription.endDate !== null);
+  return status === "active" || (status === "canceled" && subscription.endDate !== null);
 }
+
 
 /** A GYM grant permits the professional experience, never a global account role. */
 export async function assertGymPersonalAffiliation(workspaceId: string, userId: string, db: GymTransactionClient = prisma) {

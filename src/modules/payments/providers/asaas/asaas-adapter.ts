@@ -18,6 +18,7 @@ import { decryptSubAccountApiKey } from "./subaccount-crypto";
 import { calculatePlatformFee } from "../../domain/fee-calculator";
 import { timingSafeEqualString } from "../../security/wallet-security";
 import { z } from "zod";
+import { getMasterAsaasApiKey, getAsaasWebhookSecret } from "./asaas-config";
 
 export function asaasEnvironment(): "PRODUCTION" | "SANDBOX" {
   const value = process.env.ASAAS_ENVIRONMENT || "sandbox";
@@ -42,7 +43,7 @@ export class AsaasAdapter implements PaymentProviderAdapter {
   }
 
   private get masterApiKey(): string {
-    const key = (process.env.ASAAS_API_KEY || "").trim();
+    const key = getMasterAsaasApiKey();
     if (!key) throw new Error("ASAAS_MASTER_CREDENTIAL_UNAVAILABLE");
     return key;
   }
@@ -607,7 +608,7 @@ export class AsaasAdapter implements PaymentProviderAdapter {
 
   async verifyWebhook(headers: Record<string, string>, rawBody: string): Promise<boolean> {
     const token = headers["asaas-access-token"] || headers["Asaas-Access-Token"] || headers["ASAAS-ACCESS-TOKEN"];
-    const secret = process.env.ASAAS_WEBHOOK_SECRET;
+    const secret = getAsaasWebhookSecret() || process.env.ASAAS_WEBHOOK_SECRET;
     if (!secret || !token) return false;
     return timingSafeEqualString(token, secret);
   }
