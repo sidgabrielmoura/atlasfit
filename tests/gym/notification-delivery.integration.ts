@@ -147,7 +147,7 @@ describe("Cron — autenticação fail-closed e observabilidade", () => {
       for (const route of [recurrence, gyms, deliveries, engage]) expect((await route(new Request("http://localhost/?key=atlasfit_cron_secret_engage"))).status).toBe(401);
       process.env.CRON_SECRET = "synthetic-dedicated-secret";
       for (const route of [recurrence, gyms, deliveries, engage]) {
-        expect((await route(new Request("http://localhost/?key=synthetic-dedicated-secret", { headers: { Authorization: "Bearer 0905748599229Si" } }))).status).toBe(401);
+        expect((await route(new Request("http://localhost/?key=wrong-secret", { headers: { Authorization: "Bearer wrong-secret" } }))).status).toBe(401);
       }
       expect(isCronAuthorized(new Request("http://localhost", { headers: { Authorization: "Bearer synthetic-dedicated-secret" } }))).toBe(true);
       expect(await prisma.auditLog.count()).toBe(before);

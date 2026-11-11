@@ -128,7 +128,7 @@ export function ManualPaymentDialog({
             className="text-xs font-bold gap-1.5 rounded-xl border-border/60 hover:bg-secondary/40 cursor-pointer h-9"
           >
             <Banknote className="size-3.5 text-emerald-500" />
-            Lançar Pagamento Manual
+            Lançar Pagamento
           </Button>
         )}
       </DialogTrigger>

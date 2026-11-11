@@ -131,11 +131,11 @@ export function WorkspacePlanActions({ workspace, onChanged, compact = false }: 
   }
 
   return <>
-    <div className="flex flex-wrap items-center gap-2">
+    <div className="flex items-center gap-2">
       {compact ? <Button className="h-auto min-h-10 w-full whitespace-normal" disabled={pending} onClick={() => open(plan ? "edit" : "create")}>
         <Pencil data-icon="inline-start" />{plan ? "Editar plano" : "Atribuir novo plano personalizado"}
       </Button> : <>
-        <Button size="sm" className="h-auto min-h-9 whitespace-normal" disabled={pending} onClick={() => open("create")}><Plus data-icon="inline-start" />Atribuir novo plano personalizado</Button>
+        <Button size="sm" className="h-auto min-h-9 whitespace-normal" disabled={pending} onClick={() => open("create")}><Plus data-icon="inline-start" /> Plano personalizado</Button>
         {plan && <DropdownMenu>
           <DropdownMenuTrigger asChild><Button size="icon" variant="ghost" aria-label="Opções do plano" disabled={pending}><MoreHorizontal /></Button></DropdownMenuTrigger>
           <DropdownMenuContent align="end">
@@ -147,7 +147,6 @@ export function WorkspacePlanActions({ workspace, onChanged, compact = false }: 
             <DropdownMenuGroup><DropdownMenuItem variant="destructive" onSelect={() => setDeleteOpen(true)}><Trash2 />Deletar</DropdownMenuItem></DropdownMenuGroup>
           </DropdownMenuContent>
         </DropdownMenu>}
-        {plan && <Badge variant="outline">{isGlobal ? "Global" : published ? "Publicado globalmente" : "Exclusivo do workspace"}</Badge>}
       </>}
     </div>
 

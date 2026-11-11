@@ -1,8 +1,8 @@
-﻿# Rotinas agendadas
+# Rotinas agendadas
 
-Atualizado em 07/11/2026. Os endpoints existem no código; o agendamento externo e seus alertas precisam ser configurados e conferidos no ambiente publicado. Este documento não comprova execução em produção.
+Atualizado em 11/11/2026. Os endpoints existem no código; o agendamento externo e seus alertas precisam ser configurados e conferidos no ambiente publicado. Este documento não comprova execução em produção.
 
-Todas as chamadas agendadas usam exclusivamente `Authorization: Bearer <CRON_SECRET>`, sobre HTTPS. Segredos em query string não são aceitos. Ausência de configuração ou token incorreto retorna 401 antes de executar o job. A validação está em [cron-authorization.ts](../src/lib/cron-authorization.ts).
+Todas as chamadas agendadas usam autenticação via cabeçalho `Authorization: Bearer <CRON_SECRET>` (método recomendado para evitar exposição em logs) ou via parâmetros de query (`?secret=<CRON_SECRET>`, `?key=<CRON_SECRET>` ou `?cron_secret=<CRON_SECRET>`), obrigatoriamente sobre HTTPS. Requisições em HTTP recebem `308 Permanent Redirect` pelo provedor de borda (Vercel). Ausência de configuração ou token incorreto retorna 401 antes de executar o job. A validação está em [cron-authorization.ts](../src/lib/cron-authorization.ts).
 
 | Caminho | Método | Finalidade | Frequência inicial sugerida |
 | --- | --- | --- | --- |

@@ -577,7 +577,6 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
     });
   }, [workspace?.members, memberSearch, memberRoleFilter]);
 
-  // Filtro de Pagamentos
   const filteredPayments = useMemo(() => {
     return (workspace?.payments || []).filter((p: any) => {
       if (paymentStatusFilter !== "ALL") {
@@ -597,8 +596,7 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
   const planStatus = workspace.subscription?.status || "Inativo";
 
   return (
-    <div className="min-w-0 p-4 sm:p-6 md:p-8 space-y-8 max-w-[1400px] mx-auto animate-in fade-in duration-500 pb-24">
-      {/* 1. Breadcrumbs de Navegação */}
+    <div className="min-w-0 p-4 sm:p-6 md:p-8 space-y-8 mx-auto max-w-400 animate-in fade-in duration-500 pb-24">
       <Breadcrumb>
         <BreadcrumbList>
           <BreadcrumbItem>
@@ -625,7 +623,6 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
         </BreadcrumbList>
       </Breadcrumb>
 
-      {/* 2. Cabeçalho Principal Alinhado */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 border-b border-border/40 pb-6">
         <div className="flex items-start gap-4 min-w-0">
           <Button
@@ -890,7 +887,6 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
         ------------------------------------------------------------------- */}
         <TabsContent value="geral" className="space-y-6 animate-in fade-in duration-300">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Card Detalhes do Sistema */}
             <Card className="border-border/60 bg-card shadow-xs">
               <CardHeader className="pb-4 border-b border-border/40">
                 <CardTitle className="text-sm font-bold flex items-center gap-2">
@@ -1192,20 +1188,132 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
             ABA 2: ASSINATURA & PLANO ATIVO
         ------------------------------------------------------------------- */}
         <TabsContent value="assinatura" className="space-y-6 animate-in fade-in duration-300">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Card Principal do Plano */}
-            <Card className="lg:col-span-2 border-border/60 bg-card shadow-xs">
-              <CardHeader className="pb-4 border-b border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          {/* 1. Indicadores Principais de Capacidade e Assinatura */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Card 1: Plano Contratado */}
+            <Card className="border-border/60 bg-card shadow-xs">
+              <CardContent className="p-5 space-y-2.5">
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest">Plano Contratado</span>
+                  <CreditCard className="size-4 text-primary" />
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <h3 className="text-2xl font-black text-foreground truncate">
+                    {workspace.subscription?.plan?.name || "Sem plano"}
+                  </h3>
+                </div>
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-muted-foreground">
+                    {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
+                      workspace.subscription?.priceInCents
+                        ? workspace.subscription.priceInCents / 100
+                        : (workspace.subscription?.plan?.price || 0)
+                    )} <span className="text-[10px] font-normal text-muted-foreground/80">/ {workspace.subscription?.periodicity?.toLowerCase() || workspace.subscription?.plan?.interval || "mês"}</span>
+                  </span>
+                  <Badge
+                    variant={workspace.isActive ? "default" : "destructive"}
+                    className="text-[9px] font-bold h-4.5 px-1.5"
+                  >
+                    {workspace.isActive ? "Ativo" : "Suspenso"}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Card 2: Alunos Ativos */}
+            <Card className="border-border/60 bg-card shadow-xs">
+              <CardContent className="p-5 space-y-2.5">
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest">Alunos Ativos</span>
+                  <Users className="size-4 text-primary" />
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <h3 className="text-2xl font-black text-foreground">{workspace.studentsCount || 0}</h3>
+                  <span className="text-xs font-bold text-muted-foreground">
+                    / {workspace.subscription?.plan?.maxStudents || workspace.subscription?.maxStudents || "Ilimitado"}
+                  </span>
+                </div>
+                <Progress
+                  value={
+                    workspace.subscription?.plan?.maxStudents || workspace.subscription?.maxStudents
+                      ? Math.min(100, Math.round(((workspace.studentsCount || 0) / (workspace.subscription?.plan?.maxStudents || workspace.subscription?.maxStudents || 1)) * 100))
+                      : 0
+                  }
+                  className="h-2 bg-secondary"
+                />
+              </CardContent>
+            </Card>
+
+            {/* Card 3: Armazenamento em Nuvem */}
+            {(() => {
+              const mb = workspace.subscription?.plan?.storageLimitMb || workspace.subscription?.storageLimitMb || 1024;
+              const normalizedLimit = mb <= 50 ? mb * 1024 : mb;
+              const limitLabel = normalizedLimit >= 1024 ? `${(normalizedLimit / 1024).toFixed(normalizedLimit % 1024 === 0 ? 0 : 1)} GB` : `${normalizedLimit} MB`;
+              const usedMb = workspace.accountStorageQuota?.totalUsedMb ?? workspace.storageUsage?.totalUsedMb ?? 0;
+              const usedLabel = usedMb >= 1024 ? `${(usedMb / 1024).toFixed(1)} GB` : `${usedMb.toFixed(1)} MB`;
+              const pct = normalizedLimit <= 0 ? 0 : Math.min(100, Math.max(usedMb > 0 ? 1 : 0, Math.round((usedMb / normalizedLimit) * 100)));
+
+              return (
+                <Card className="border-border/60 bg-card shadow-xs">
+                  <CardContent className="p-5 space-y-2.5">
+                    <div className="flex items-center justify-between text-muted-foreground">
+                      <span className="text-[10px] font-extrabold uppercase tracking-widest">Armazenamento</span>
+                      <FileText className="size-4 text-purple-400" />
+                    </div>
+                    <div className="flex items-baseline gap-2">
+                      <h3 className="text-2xl font-black text-foreground">{usedLabel}</h3>
+                      <span className="text-xs font-bold text-muted-foreground">/ {limitLabel}</span>
+                    </div>
+                    <Progress value={pct} className="h-2 bg-secondary" />
+                  </CardContent>
+                </Card>
+              );
+            })()}
+
+            {/* Card 4: Créditos de IA */}
+            <Card className="border-border/60 bg-card shadow-xs">
+              <CardContent className="p-5 space-y-2.5">
+                <div className="flex items-center justify-between text-muted-foreground">
+                  <span className="text-[10px] font-extrabold uppercase tracking-widest">Créditos de IA</span>
+                  <Coins className="size-4 text-amber-500" />
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <h3 className="text-2xl font-black text-foreground">
+                    {(workspace.subscription?.plan?.importQuota ?? 25) + (workspace.importCredits ?? 0)}
+                  </h3>
+                  <span className="text-xs font-bold text-muted-foreground">disponíveis</span>
+                </div>
+                <div className="flex items-center justify-between text-[11px] text-muted-foreground">
+                  <span>{workspace.subscription?.plan?.importQuota ?? 25} quota + {workspace.importCredits ?? 0} avulsos</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setNewCreditsAmount(String(workspace.importCredits ?? 0));
+                      setIsEditCreditsOpen(true);
+                    }}
+                    className="text-[11px] font-bold text-primary hover:underline cursor-pointer"
+                  >
+                    Ajustar
+                  </button>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* 2. Grid Principal em 2 Colunas (Padrão de Layout do Workspace) */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <Card className="border-border/60 bg-card shadow-xs">
+              <CardHeader className="border-b border-border/40 flex flex-col sm:flex-row sm:items-center justify-between gap-1!">
                 <div>
                   <CardTitle className="text-sm font-bold flex items-center gap-2">
                     <CreditCard className="size-4 text-primary" />
-                    <span>Plano e Assinatura do Workspace</span>
+                    <span>Plano/Ciclo de Faturamento</span>
                   </CardTitle>
                   <CardDescription className="text-xs">
-                    Detalhes comerciais, quotas de capacidade e status de faturamento.
+                    Condições comerciais, periodicidade e controle de faturamento.
                   </CardDescription>
                 </div>
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-center gap-2">
                   <ManualPaymentDialog
                     workspace={workspace}
                     onSuccess={() => fetchWorkspace(false)}
@@ -1213,14 +1321,13 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
                   <WorkspacePlanActions workspace={workspace} onChanged={() => fetchWorkspace(false)} />
                 </div>
               </CardHeader>
-              <CardContent className="p-6 space-y-6">
-                {/* Cabeçalho do Plano */}
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-5 rounded-2xl border border-border/40 bg-secondary/15">
-                  <div className="space-y-1.5">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="text-xl font-black text-foreground">
+              <CardContent className="p-5 space-y-4 text-xs">
+                <div className="p-4 rounded-xl border border-border/50 bg-secondary/15 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-base font-black text-foreground">
                         {workspace.subscription?.plan?.name || "Sem plano ativo"}
-                      </h3>
+                      </h4>
                       {workspace.subscription?.billingControlType === "MANUAL" ? (
                         <Badge variant="outline" className="text-[10px] font-bold bg-amber-500/10 text-amber-500 border-amber-500/20">
                           Recorrência Manual
@@ -1231,16 +1338,15 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
                         </Badge>
                       )}
                     </div>
-                    <p className="text-xs text-muted-foreground font-medium">
+                    <p className="text-xs text-muted-foreground line-clamp-2">
                       {workspace.subscription?.plan?.features || "Plano com limites customizados e faturamento centralizado."}
                     </p>
                   </div>
-
-                  <div className="text-left sm:text-right shrink-0">
-                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground block">
+                  <div className="sm:text-right shrink-0">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/70 block">
                       Valor Contratado
                     </span>
-                    <span className="text-2xl font-black text-primary">
+                    <span className="text-lg font-black text-primary">
                       {new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" }).format(
                         workspace.subscription?.priceInCents
                           ? workspace.subscription.priceInCents / 100
@@ -1253,10 +1359,10 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
                   </div>
                 </div>
 
-                {/* Grid de Informações Financeiras e Recorrência */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                  <div className="p-4 rounded-xl border border-border/40 bg-card space-y-1">
-                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                {/* Parâmetros de Cobrança em Grid 2x2 */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-1">
+                  <div className="p-3.5 rounded-xl border border-border/40 bg-secondary/10 space-y-1">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
                       <CalendarDays className="size-3.5 text-primary" />
                       Próximo Vencimento
                     </span>
@@ -1275,8 +1381,8 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
                     </p>
                   </div>
 
-                  <div className="p-4 rounded-xl border border-border/40 bg-card space-y-1">
-                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                  <div className="p-3.5 rounded-xl border border-border/40 bg-secondary/10 space-y-1">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
                       <Clock className="size-3.5 text-amber-500" />
                       Tolerância / Carência
                     </span>
@@ -1288,214 +1394,161 @@ export default function WorkspaceDeepViewPage({ params }: { params: Promise<{ id
                     </p>
                   </div>
 
-                  <div className="p-4 rounded-xl border border-border/40 bg-card space-y-1">
-                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground flex items-center gap-1.5">
+                  <div className="p-3.5 rounded-xl border border-border/40 bg-secondary/10 space-y-1">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
+                      <CreditCard className="size-3.5 text-muted-foreground" />
+                      Método de Pagamento
+                    </span>
+                    <p className="text-sm font-bold text-foreground">
+                      {workspace.subscription?.paymentMethod || "PIX"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      Canal cadastrado para liquidação
+                    </p>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl border border-border/40 bg-secondary/10 space-y-1">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
                       <ShieldCheck className="size-3.5 text-emerald-500" />
                       Suspensão Automática
                     </span>
                     <p className="text-sm font-bold text-foreground">
                       {workspace.subscription?.autoSuspendEnabled ? (
-                        <span className="text-emerald-500">Ativada</span>
+                        <span className="text-emerald-500 font-bold">Ativada</span>
                       ) : (
                         <span className="text-muted-foreground">Desativada</span>
                       )}
                     </p>
                     <p className="text-[10px] text-muted-foreground">
-                      Bloqueio automático por atraso
+                      Bloqueio automático por inadimplência
                     </p>
-                  </div>
-                </div>
-
-                {/* Quotas e Capacidades */}
-                <div className="space-y-4 pt-2">
-                  <h4 className="text-xs font-bold uppercase tracking-widest text-muted-foreground">
-                    Cotas e Capacidades Técnicas
-                  </h4>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {/* Alunos */}
-                    <div className="p-4 rounded-xl border border-border/40 bg-secondary/10 space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold flex items-center gap-1.5 text-muted-foreground">
-                          <Users className="size-3.5 text-primary" /> Alunos Cadastrados
-                        </span>
-                        <span className="font-bold text-foreground">
-                          {workspace.studentsCount || 0} / {workspace.subscription?.plan?.maxStudents || workspace.subscription?.maxStudents || "Ilimitado"}
-                        </span>
-                      </div>
-                      <Progress
-                        value={
-                          workspace.subscription?.plan?.maxStudents || workspace.subscription?.maxStudents
-                            ? Math.min(100, Math.round(((workspace.studentsCount || 0) / (workspace.subscription?.plan?.maxStudents || workspace.subscription?.maxStudents || 1)) * 100))
-                            : 0
-                        }
-                        className="h-2 bg-secondary"
-                      />
-                    </div>
-
-                    <div className="p-4 rounded-xl border border-border/40 bg-secondary/10 space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold flex items-center gap-1.5 text-muted-foreground">
-                          <FileText className="size-3.5 text-purple-400" /> Armazenamento
-                        </span>
-                        <span className="font-bold text-foreground">
-                          {(() => {
-                            const mb = workspace.subscription?.plan?.storageLimitMb || workspace.subscription?.storageLimitMb || 1024;
-                            const normalizedLimit = mb <= 50 ? mb * 1024 : mb;
-                            const limitLabel = normalizedLimit >= 1024 ? `${(normalizedLimit / 1024).toFixed(normalizedLimit % 1024 === 0 ? 0 : 1)} GB` : `${normalizedLimit} MB`;
-
-                            const usedMb = workspace.accountStorageQuota?.totalUsedMb ?? workspace.storageUsage?.totalUsedMb ?? 0;
-                            const usedLabel = usedMb >= 1024 ? `${(usedMb / 1024).toFixed(2)} GB` : `${usedMb.toFixed(1)} MB`;
-
-                            return `${usedLabel} / ${limitLabel}`;
-                          })()}
-                        </span>
-                      </div>
-                      <Progress
-                        value={(() => {
-                          const mb = workspace.subscription?.plan?.storageLimitMb || workspace.subscription?.storageLimitMb || 1024;
-                          const normalizedLimit = mb <= 50 ? mb * 1024 : mb;
-                          if (normalizedLimit <= 0) return 0;
-                          const usedMb = workspace.accountStorageQuota?.totalUsedMb ?? workspace.storageUsage?.totalUsedMb ?? 0;
-                          return Math.min(100, Math.max(usedMb > 0 ? 1 : 0, Math.round((usedMb / normalizedLimit) * 100)));
-                        })()}
-                        className="h-2 bg-secondary"
-                      />
-                      <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5">
-                        <span>
-                          Mídias: {((workspace.storageUsage?.breakdown?.cloud?.totalMb ?? 0)).toFixed(1)} MB
-                        </span>
-                        <span>
-                          Banco: {((workspace.storageUsage?.breakdown?.database?.totalMb ?? 0)).toFixed(1)} MB
-                        </span>
-                      </div>
-                      {workspace.accountStorageQuota && workspace.accountStorageQuota.workspacesCount > 1 && (
-                        <p className="text-[9px] text-muted-foreground/75">
-                          Conta possui {workspace.accountStorageQuota.workspacesCount} workspaces ({workspace.accountStorageQuota.totalUsedMb.toFixed(1)} MB no total).
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Workspaces */}
-                    <div className="p-4 rounded-xl border border-border/40 bg-secondary/10 space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold flex items-center gap-1.5 text-muted-foreground">
-                          <Building2 className="size-3.5 text-emerald-400" /> Workspaces / Unidades
-                        </span>
-                        <span className="font-bold text-foreground">
-                          {workspace.subscription?.plan?.maxWorkspaces || workspace.subscription?.maxUnits || 1}
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground">
-                        Limite de unidades ou assessorias gerenciáveis.
-                      </p>
-                    </div>
-
-                    {/* Importação */}
-                    <div className="p-4 rounded-xl border border-border/40 bg-secondary/10 space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold flex items-center gap-1.5 text-muted-foreground">
-                          <Sparkles className="size-3.5 text-amber-400" /> Quota de Importação
-                        </span>
-                        <span className="font-bold text-foreground">
-                          {workspace.subscription?.plan?.importQuota ?? 25} créditos
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground">
-                        Créditos para importação automatizada de treinos via IA/PDF.
-                      </p>
-                    </div>
-
-                    {/* Saldo de Coins da Academia */}
-                    <div className="p-4 rounded-xl border border-amber-500/20 bg-amber-500/5 space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold flex items-center gap-1.5 text-amber-500">
-                          <Coins className="size-3.5" /> Saldo de créditos
-                        </span>
-                        <span className="font-black text-foreground tabular-nums">
-                          {workspace.importCredits ?? 0} créditos
-                        </span>
-                      </div>
-                      <p className="text-[10px] text-muted-foreground">
-                        Créditos adicionais para importação de alunos e treinos via IA.
-                      </p>
-                    </div>
-                  </div>
-
-                  {/* Resumo Consolidado de Créditos de IA */}
-                  <div className="mt-4 p-4 rounded-xl border border-primary/20 bg-primary/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                    <div className="space-y-1">
-                      <span className="text-[10px] font-black uppercase tracking-wider text-primary flex items-center gap-1.5">
-                        <Zap className="size-3" /> Balanço Total de Importação por IA
-                      </span>
-                      <p className="text-xs text-muted-foreground font-medium">
-                        Soma da quota mensal do plano ({workspace.subscription?.plan?.importQuota ?? 25}) com os créditos avulsos ({workspace.importCredits ?? 0}).
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <span className="text-2xl font-black text-foreground tabular-nums">
-                          {(workspace.subscription?.plan?.importQuota ?? 25) + (workspace.importCredits ?? 0)}
-                        </span>
-                        <span className="text-xs text-muted-foreground font-bold ml-1">créditos</span>
-                      </div>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        type="button"
-                        onClick={() => {
-                          setNewCreditsAmount(String(workspace.importCredits ?? 0));
-                          setIsEditCreditsOpen(true);
-                        }}
-                        className="h-8 text-xs font-bold gap-1.5 border-primary/30 text-primary hover:bg-primary/10 cursor-pointer"
-                      >
-                        <Coins className="size-3.5" /> Ajustar créditos
-                      </Button>
-                    </div>
                   </div>
                 </div>
               </CardContent>
             </Card>
 
-            {/* Card Lateral Resumo & Ações */}
-            <div className="space-y-6">
-              <Card className="border-border/60 bg-card shadow-xs">
-                <CardHeader className="pb-3 border-b border-border/40">
+            {/* Coluna 2: Limites & Franquias Técnicas */}
+            <Card className="border-border/60 bg-card shadow-xs">
+              <CardHeader className="pb-4 border-b border-border/40 flex flex-row items-center justify-between gap-4">
+                <div>
                   <CardTitle className="text-sm font-bold flex items-center gap-2">
-                    <CheckCircle2 className="size-4 text-emerald-500" />
-                    <span>Status Operacional</span>
+                    <Sliders className="size-4 text-primary" />
+                    <span>Limites & Franquias Técnicas</span>
                   </CardTitle>
-                </CardHeader>
-                <CardContent className="p-5 space-y-4 text-xs">
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Situação do Workspace</span>
-                    <Badge variant={workspace.isActive ? "default" : "destructive"} className="font-bold text-[10px]">
-                      {workspace.isActive ? "Operacional / Ativo" : "Suspenso"}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Status da Assinatura</span>
-                    <Badge variant="outline" className="font-bold text-[10px] text-primary border-primary/20">
-                      {workspace.subscription?.status || "INACTIVE"}
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Saldo de créditos</span>
-                    <Badge variant="secondary" className="font-bold text-[10px] bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">
-                      <Coins className="size-3 mr-1" /> {workspace.importCredits ?? 0} créditos
-                    </Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-muted-foreground">Método Cadastrado</span>
-                    <span className="font-bold">{workspace.subscription?.paymentMethod || "PIX"}</span>
+                  <CardDescription className="text-xs">
+                    Capacidade alocada de alunos, unidades e armazenamento.
+                  </CardDescription>
+                </div>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  type="button"
+                  onClick={() => {
+                    setNewCreditsAmount(String(workspace.importCredits ?? 0));
+                    setIsEditCreditsOpen(true);
+                  }}
+                  className="h-8 text-xs font-bold gap-1.5 border-primary/30 text-primary hover:bg-primary/10 cursor-pointer"
+                >
+                  <Coins className="size-3.5" /> Ajustar Créditos
+                </Button>
+              </CardHeader>
+              <CardContent className="p-5 space-y-4 text-xs">
+                {/* Grid de Cotas */}
+                <div className="grid grid-cols-3 gap-3">
+                  <div className="p-3 rounded-xl border border-border/40 bg-secondary/10 space-y-1">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1">
+                      <Users className="size-3 text-primary" /> Alunos
+                    </span>
+                    <p className="text-base font-black text-foreground">
+                      {workspace.subscription?.plan?.maxStudents || workspace.subscription?.maxStudents || "∞"}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {workspace.studentsCount || 0} em uso
+                    </p>
                   </div>
 
-                  <div className="pt-4 border-t border-border/40">
-                    <WorkspacePlanActions workspace={workspace} onChanged={() => fetchWorkspace(false)} compact />
+                  <div className="p-3 rounded-xl border border-border/40 bg-secondary/10 space-y-1">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1">
+                      <Building2 className="size-3 text-emerald-400" /> Unidades
+                    </span>
+                    <p className="text-base font-black text-foreground">
+                      {workspace.subscription?.plan?.maxWorkspaces || workspace.subscription?.maxUnits || 1}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      {workspace.units?.length || 1} ativas
+                    </p>
                   </div>
-                </CardContent>
-              </Card>
-            </div>
+
+                  <div className="p-3 rounded-xl border border-border/40 bg-secondary/10 space-y-1">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1">
+                      <Sparkles className="size-3 text-amber-500" /> Quota IA
+                    </span>
+                    <p className="text-base font-black text-foreground">
+                      {workspace.subscription?.plan?.importQuota ?? 25}
+                    </p>
+                    <p className="text-[10px] text-muted-foreground">
+                      créditos/mês
+                    </p>
+                  </div>
+                </div>
+
+                {/* Armazenamento Detalhado */}
+                <div className="p-3.5 rounded-xl border border-border/40 bg-secondary/10 space-y-2">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="font-bold flex items-center gap-1.5 text-muted-foreground">
+                      <FileText className="size-3.5 text-purple-400" /> Armazenamento em Nuvem
+                    </span>
+                    <span className="font-bold text-foreground">
+                      {(() => {
+                        const mb = workspace.subscription?.plan?.storageLimitMb || workspace.subscription?.storageLimitMb || 1024;
+                        const normalizedLimit = mb <= 50 ? mb * 1024 : mb;
+                        const limitLabel = normalizedLimit >= 1024 ? `${(normalizedLimit / 1024).toFixed(normalizedLimit % 1024 === 0 ? 0 : 1)} GB` : `${normalizedLimit} MB`;
+                        const usedMb = workspace.accountStorageQuota?.totalUsedMb ?? workspace.storageUsage?.totalUsedMb ?? 0;
+                        const usedLabel = usedMb >= 1024 ? `${(usedMb / 1024).toFixed(2)} GB` : `${usedMb.toFixed(1)} MB`;
+                        return `${usedLabel} / ${limitLabel}`;
+                      })()}
+                    </span>
+                  </div>
+                  <Progress
+                    value={(() => {
+                      const mb = workspace.subscription?.plan?.storageLimitMb || workspace.subscription?.storageLimitMb || 1024;
+                      const normalizedLimit = mb <= 50 ? mb * 1024 : mb;
+                      if (normalizedLimit <= 0) return 0;
+                      const usedMb = workspace.accountStorageQuota?.totalUsedMb ?? workspace.storageUsage?.totalUsedMb ?? 0;
+                      return Math.min(100, Math.max(usedMb > 0 ? 1 : 0, Math.round((usedMb / normalizedLimit) * 100)));
+                    })()}
+                    className="h-2 bg-secondary"
+                  />
+                  <div className="flex items-center justify-between text-[10px] text-muted-foreground pt-0.5">
+                    <span>Mídias: {((workspace.storageUsage?.breakdown?.cloud?.totalMb ?? 0)).toFixed(1)} MB</span>
+                    <span>Banco: {((workspace.storageUsage?.breakdown?.database?.totalMb ?? 0)).toFixed(1)} MB</span>
+                  </div>
+                  {workspace.accountStorageQuota && workspace.accountStorageQuota.workspacesCount > 1 && (
+                    <p className="text-[9px] text-muted-foreground/75 pt-1 border-t border-border/30">
+                      Conta possui {workspace.accountStorageQuota.workspacesCount} workspaces ({workspace.accountStorageQuota.totalUsedMb.toFixed(1)} MB no total).
+                    </p>
+                  )}
+                </div>
+
+                {/* Créditos Avulsos em Conta */}
+                <div className="p-3.5 rounded-xl border border-border/40 bg-secondary/10 flex items-center justify-between gap-3">
+                  <div className="space-y-0.5">
+                    <span className="text-[10px] font-extrabold uppercase tracking-widest text-muted-foreground/70 flex items-center gap-1.5">
+                      <Coins className="size-3.5 text-amber-500" />
+                      Créditos Avulsos em Conta
+                    </span>
+                    <p className="text-[11px] text-muted-foreground">
+                      Saldo acumulado para importação de treinos e alunos via IA.
+                    </p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <Badge variant="secondary" className="font-bold text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-500/20">
+                      {workspace.importCredits ?? 0} créditos
+                    </Badge>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </TabsContent>
 

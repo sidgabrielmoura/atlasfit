@@ -9,7 +9,9 @@ function safeCompare(a: string, b: string): boolean {
 
 /**
  * Validates that the request is authorized using the CRON_SECRET environment variable.
- * Accepts only the Authorization header; URL secrets leak into logs/history.
+ * Accepts the secret either via:
+ * 1. Authorization header: "Bearer <CRON_SECRET>" (recommended)
+ * 2. Query parameter: ?secret=..., ?key=..., or ?cron_secret=... (for external scheduler compatibility)
  */
 export function isCronAuthorized(request: Request): boolean {
   const secret = process.env.CRON_SECRET;
@@ -19,6 +21,23 @@ export function isCronAuthorized(request: Request): boolean {
   const authHeader = request.headers.get("authorization");
   if (authHeader && safeCompare(authHeader, `Bearer ${secret}`)) {
     return true;
+  }
+
+  // 2. Query parameter fallback: ?secret=..., ?key=..., or ?cron_secret=...
+  try {
+    const url = new URL(request.url, "http://localhost");
+    const querySecret =
+      url.searchParams.get("secret") ||
+      url.searchParams.get("key") ||
+      url.searchParams.get("cron_secret");
+
+    if (querySecret) {
+      if (safeCompare(querySecret, secret) || safeCompare(querySecret, `Bearer ${secret}`)) {
+        return true;
+      }
+    }
+  } catch {
+    // Return false if URL parsing fails
   }
 
   return false;
