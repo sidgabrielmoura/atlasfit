@@ -57,8 +57,8 @@ export function ManualPaymentDialog({
   const defaultPrice = workspace.subscription?.priceInCents
     ? (workspace.subscription.priceInCents / 100).toFixed(2)
     : workspace.subscription?.plan?.price
-    ? String(workspace.subscription.plan.price)
-    : "89.90";
+      ? String(workspace.subscription.plan.price)
+      : "89.90";
 
   // Calcula sugestão de próxima data de vencimento (+30 dias ou próximo mês)
   const defaultNextDueDate = (() => {
@@ -133,7 +133,7 @@ export function ManualPaymentDialog({
         )}
       </DialogTrigger>
 
-      <DialogContent className="max-w-md rounded-2xl bg-card border-border/40 font-sans">
+      <DialogContent className="max-w-md rounded-2xl! bg-card border-border/40 font-sans">
         <DialogHeader className="space-y-1.5">
           <div className="flex items-center gap-2">
             <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-500 shrink-0">

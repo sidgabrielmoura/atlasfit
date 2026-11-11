@@ -113,6 +113,27 @@ export async function ensureMasterAsaasCustomer(user: {
   return newCustomer.id;
 }
 
+export const MAX_PERSONAL_CHARGE_VALIDITY_HOURS = 3;
+export const MAX_PERSONAL_CHARGE_VALIDITY_MS = MAX_PERSONAL_CHARGE_VALIDITY_HOURS * 60 * 60 * 1000;
+
+/**
+ * Calcula a data de expiração máxima permitida para a cobrança (no máximo 3 horas a partir da criação).
+ * Mesmo que o Asaas retorne validade de 1 ano para o PIX estático, limitamos estritamente a 3 horas.
+ */
+export function calculatePersonalChargeExpiration(
+  createdAt: Date,
+  providerExpirationDate?: string | null
+): string {
+  const maxExpiresAt = new Date(createdAt.getTime() + MAX_PERSONAL_CHARGE_VALIDITY_MS);
+  if (providerExpirationDate) {
+    const parsed = new Date(providerExpirationDate.replace(" ", "T"));
+    if (!isNaN(parsed.getTime()) && parsed.getTime() < maxExpiresAt.getTime()) {
+      return parsed.toISOString();
+    }
+  }
+  return maxExpiresAt.toISOString();
+}
+
 /**
  * Gera ou recupera uma cobrança Asaas pendente do plano para o Personal Trainer em carência.
  */
@@ -168,13 +189,23 @@ export async function getOrCreatePersonalPlanCharge(userId: string, inputCpf?: s
   });
   const now = new Date();
 
-  // Verifica se já existe uma cobrança PENDING criada nas últimas 24h
+  // Expira no banco qualquer cobrança pendente criada há mais de 3 horas
+  await prisma.transaction.updateMany({
+    where: {
+      userId,
+      status: "PENDING",
+      createdAt: { lt: new Date(now.getTime() - MAX_PERSONAL_CHARGE_VALIDITY_MS) },
+    },
+    data: { status: "EXPIRED" },
+  });
+
+  // Verifica se já existe uma cobrança PENDING criada dentro do limite das últimas 3 horas
   const existingTx = await prisma.transaction.findFirst({
     where: {
       userId,
       status: "PENDING",
       providerCheckoutId: { not: null },
-      createdAt: { gte: new Date(now.getTime() - 24 * 60 * 60 * 1000) },
+      createdAt: { gte: new Date(now.getTime() - MAX_PERSONAL_CHARGE_VALIDITY_MS) },
     },
     orderBy: { createdAt: "desc" },
   });
@@ -223,18 +254,20 @@ export async function getOrCreatePersonalPlanCharge(userId: string, inputCpf?: s
           pixExpirationDate = qrData.expirationDate || null;
         }
 
+        const effectiveExpires = calculatePersonalChargeExpiration(existingTx.createdAt, pixExpirationDate);
         return {
           isPaid: false,
           transactionId: existingTx.id,
           paymentId: existingTx.providerCheckoutId,
-          invoiceUrl: paymentData.invoiceUrl || paymentData.bankSlipUrl || existingTx.checkoutUrl,
+          invoiceUrl: paymentData.invoiceUrl || existingTx.checkoutUrl,
           amountInCents,
           amountFormatted: (amountInCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
           pixQrCodeBase64,
           pixCopiaECola,
-          pixExpirationDate,
+          pixExpirationDate: effectiveExpires,
           planName: sub.plan?.name || "Plano Personal",
           dueDate: paymentData.dueDate,
+          createdAt: existingTx.createdAt.toISOString(),
         };
       }
     }
@@ -319,19 +352,125 @@ export async function getOrCreatePersonalPlanCharge(userId: string, inputCpf?: s
     },
   });
 
+  const effectiveExpires = calculatePersonalChargeExpiration(newTx.createdAt, pixExpirationDate);
   return {
     isPaid: false,
     transactionId: newTx.id,
     paymentId: paymentData.id,
-    invoiceUrl: paymentData.invoiceUrl || paymentData.bankSlipUrl,
+    invoiceUrl: paymentData.invoiceUrl || newTx.checkoutUrl,
     amountInCents,
     amountFormatted: (amountInCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
     pixQrCodeBase64,
     pixCopiaECola,
-    pixExpirationDate,
+    pixExpirationDate: effectiveExpires,
     planName: sub.plan?.name || "Plano Personal",
     dueDate: paymentData.dueDate,
+    createdAt: newTx.createdAt.toISOString(),
   };
+}
+
+/**
+ * Consulta a cobrança ativa pendente existente para o usuário, se houver, sem gerar uma nova.
+ */
+export async function getActivePersonalCharge(userId: string) {
+  const existingTx = await prisma.transaction.findFirst({
+    where: {
+      userId,
+      status: "PENDING",
+      providerCheckoutId: { not: null },
+    },
+    orderBy: { createdAt: "desc" },
+  });
+
+  if (!existingTx || !existingTx.providerCheckoutId) {
+    return null;
+  }
+
+  // Se a cobrança pendente existente foi criada há mais de 3 horas, ela expirou
+  if (Date.now() - existingTx.createdAt.getTime() > MAX_PERSONAL_CHARGE_VALIDITY_MS) {
+    await prisma.transaction.update({
+      where: { id: existingTx.id },
+      data: { status: "EXPIRED" },
+    });
+    return { isExpired: true, transactionId: existingTx.id };
+  }
+
+  const sub = await prisma.subscription.findUnique({
+    where: { userId },
+    include: { plan: true },
+  });
+
+  const { apiKey, baseUrl } = getAsaasConfig();
+  if (!apiKey) return null;
+  const headers = getMasterHeaders(apiKey);
+
+  try {
+    const checkRes = await fetch(`${baseUrl}/payments/${existingTx.providerCheckoutId}`, {
+      method: "GET",
+      headers,
+    });
+
+    if (!checkRes.ok) return null;
+    const paymentData = await checkRes.json();
+
+    if (["RECEIVED", "CONFIRMED", "RECEIVED_IN_CASH"].includes(paymentData.status)) {
+      await confirmPersonalSubscriptionPayment({
+        transactionId: existingTx.id,
+        paymentMethod: paymentData.billingType || "PIX",
+        occurredAt: new Date(),
+      });
+      return { isPaid: true, transactionId: existingTx.id };
+    }
+
+    if (["OVERDUE", "FAILED", "CANCELLED", "REFUNDED"].includes(paymentData.status)) {
+      await prisma.transaction.update({
+        where: { id: existingTx.id },
+        data: { status: "EXPIRED" },
+      });
+      return { isExpired: true, transactionId: existingTx.id };
+    }
+
+    if (paymentData.status === "PENDING") {
+      const qrRes = await fetch(`${baseUrl}/payments/${existingTx.providerCheckoutId}/pixQrCode`, {
+        method: "GET",
+        headers,
+      });
+
+      let pixQrCodeBase64: string | null = null;
+      let pixCopiaECola: string | null = null;
+      let pixExpirationDate: string | null = null;
+
+      if (qrRes.ok) {
+        const qrData = await qrRes.json();
+        pixQrCodeBase64 = qrData.encodedImage ? `data:image/png;base64,${qrData.encodedImage}` : null;
+        pixCopiaECola = qrData.payload || null;
+        pixExpirationDate = qrData.expirationDate || null;
+      }
+
+      const amountInCents = existingTx.expectedAmountInCents || Math.round((existingTx.amount || 89.9) * 100);
+      const effectiveExpires = calculatePersonalChargeExpiration(existingTx.createdAt, pixExpirationDate);
+
+      return {
+        isPaid: false,
+        isExpired: false,
+        transactionId: existingTx.id,
+        paymentId: existingTx.providerCheckoutId,
+        invoiceUrl: paymentData.invoiceUrl || existingTx.checkoutUrl,
+        amountInCents,
+        amountFormatted: (amountInCents / 100).toLocaleString("pt-BR", { style: "currency", currency: "BRL" }),
+        pixQrCodeBase64,
+        pixCopiaECola,
+        pixExpirationDate: effectiveExpires,
+        planName: sub?.plan?.name || "Plano Personal",
+        dueDate: paymentData.dueDate,
+        createdAt: existingTx.createdAt.toISOString(),
+      };
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
 }
 
 /**

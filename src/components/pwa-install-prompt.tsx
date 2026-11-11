@@ -1,16 +1,22 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Download, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useSnapshot } from "valtio";
 import { workspaceStore } from "@/stores/workspace.store";
+import { useRegisterBottomAlert, useIsModalOpen } from "@/hooks/use-bottom-alert";
+import { cn } from "@/lib/utils";
 
 export function PWAInstallPrompt() {
   const [showPrompt, setShowPrompt] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [installing, setInstalling] = useState(false);
   const snap = useSnapshot(workspaceStore);
+  const promptRef = useRef<HTMLDivElement>(null);
+  const isModalOpen = useIsModalOpen();
+
+  useRegisterBottomAlert("pwa-install-prompt", promptRef, showPrompt);
 
   const appName = snap.activeWorkspace?.name || "AtlasFit";
   const appLogo = snap.activeWorkspace?.logoUrl;
@@ -82,7 +88,13 @@ export function PWAInstallPrompt() {
   if (!showPrompt) return null;
 
   return (
-    <div className="fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 sm:w-80 z-50 animate-in fade-in slide-in-from-bottom-5 duration-300 ease-out">
+    <div
+      ref={promptRef}
+      className={cn(
+        "fixed z-30 max-md:bottom-[calc(1rem+env(safe-area-inset-bottom,0px))] max-md:left-1/2 max-md:-translate-x-1/2 max-md:w-[calc(100%-2rem)] max-md:max-w-sm md:left-auto md:right-6 md:bottom-6 md:w-80 animate-in fade-in slide-in-from-bottom-5 duration-300 ease-out transition-[opacity]",
+        isModalOpen && "opacity-0 pointer-events-none invisible"
+      )}
+    >
       <div className="relative p-5 bg-neutral-950/95 backdrop-blur-md border border-neutral-800/80 rounded-2xl shadow-2xl flex flex-col gap-4 text-white">
         {/* Close Button */}
         <button

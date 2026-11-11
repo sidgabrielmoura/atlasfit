@@ -8,12 +8,15 @@ import { useSidebar } from "@/components/ui/sidebar";
 import { LayoutDashboard, Users, Dumbbell, CalendarDays, Menu } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
+import { useBottomAlertOffset, useIsModalOpen } from "@/hooks/use-bottom-alert";
 
 export function PersonalMobileNavbar({ academy = false }: { academy?: boolean }) {
   const pathname = usePathname();
   const academyView = useSearchParams().get("view");
   const { toggleSidebar } = useSidebar();
   const [mounted, setMounted] = useState(false);
+  const bottomAlertOffset = useBottomAlertOffset();
+  const isModalOpen = useIsModalOpen();
 
   useEffect(() => {
     setMounted(true);
@@ -34,7 +37,18 @@ export function PersonalMobileNavbar({ academy = false }: { academy?: boolean })
   if (!mounted) return null;
 
   return createPortal(
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-sm md:hidden">
+    <div
+      style={{
+        bottom:
+          bottomAlertOffset > 0
+            ? `calc(1.5rem + ${bottomAlertOffset}px + env(safe-area-inset-bottom, 0px))`
+            : "calc(1.5rem + var(--mobile-bottom-offset, 0px) + env(safe-area-inset-bottom, 0px))",
+      }}
+      className={cn(
+        "fixed left-1/2 -translate-x-1/2 z-30 w-[calc(100%-2rem)] max-w-sm md:hidden transition-[bottom,opacity] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]",
+        isModalOpen && "opacity-0 pointer-events-none invisible"
+      )}
+    >
       <div className="bg-white/80 dark:bg-neutral-950/35 backdrop-blur-3xl border border-black/10 dark:border-white/15 rounded-2xl p-1.5 flex items-center justify-between shadow-lg dark:shadow-2xl dark:shadow-black/70 ring-1 ring-black/5 dark:ring-white/10">
         <div className="flex items-center gap-1.5 flex-1 justify-between">
           {navItems.map((item) => {

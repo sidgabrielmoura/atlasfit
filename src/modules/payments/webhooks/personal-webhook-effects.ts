@@ -52,14 +52,133 @@ export async function applyPersonalWebhookEffects(tx: GymTransactionClient, webh
         occurredAt: event.occurredAt,
         tx,
       });
+
+      // Dispara email de confirmação da mensalidade via Resend
+      const user = await tx.user.findUnique({
+        where: { id: platformTx.userId },
+        select: { name: true, email: true },
+      });
+      if (user?.email) {
+        const { getPersonalPlanPaymentSuccessEmailTemplate } = await import("@/lib/emails/templates/saas.templates");
+        const sub = await tx.subscription.findUnique({
+          where: { userId: platformTx.userId },
+          include: { plan: true },
+        });
+        const planName = sub?.plan?.name || "AtlasFit Pro";
+        const amountFormatted = (platformTx.amount || 89.9).toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        });
+        const nextDueDateFormatted = sub?.nextDueDate
+          ? new Date(sub.nextDueDate).toLocaleDateString("pt-BR")
+          : "";
+        const paidAtFormatted = new Intl.DateTimeFormat("pt-BR", {
+          dateStyle: "short",
+          timeStyle: "short",
+          timeZone: "America/Sao_Paulo",
+        }).format(event.occurredAt);
+
+        await email(
+          `sub-payment:${platformTx.id}:success:email`,
+          user.email,
+          getPersonalPlanPaymentSuccessEmailTemplate({
+            trainerName: user.name || "Personal",
+            planName,
+            amountFormatted,
+            nextDueDateFormatted,
+            paidAtFormatted,
+            paymentMethod,
+            recipientEmail: user.email,
+          })
+        );
+      }
       return;
     }
 
-    if (["PAYMENT_OVERDUE", "PAYMENT_FAILED"].includes(event.eventType)) {
+    if (["PAYMENT_OVERDUE", "PAYMENT_DELETED"].includes(event.eventType)) {
+      await tx.transaction.update({
+        where: { id: platformTx.id },
+        data: { status: "EXPIRED" },
+      });
+
+      // Notifica a interface do personal via Ably que a cobrança expirou
+      await publish(
+        `sub-payment:${platformTx.id}:expired:ably`,
+        `user:${platformTx.userId}`,
+        "subscription:charge_expired",
+        {
+          type: "CHARGE_EXPIRED",
+          transactionId: platformTx.id,
+          timestamp: event.occurredAt.toISOString(),
+        }
+      );
+
+      // Dispara email informando que o prazo de pagamento expirou
+      const user = await tx.user.findUnique({
+        where: { id: platformTx.userId },
+        select: { name: true, email: true },
+      });
+      if (user?.email) {
+        const { getPersonalPlanPaymentExpiredEmailTemplate } = await import("@/lib/emails/templates/saas.templates");
+        const amountFormatted = (platformTx.amount || 89.9).toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        });
+        await email(
+          `sub-payment:${platformTx.id}:expired:email`,
+          user.email,
+          getPersonalPlanPaymentExpiredEmailTemplate({
+            trainerName: user.name || "Personal",
+            planName: "AtlasFit Pro",
+            amountFormatted,
+            recipientEmail: user.email,
+          })
+        );
+      }
+      return;
+    }
+
+    if (["PAYMENT_FAILED"].includes(event.eventType)) {
       await tx.transaction.update({
         where: { id: platformTx.id },
         data: { status: "FAILED" },
       });
+
+      // Notifica a interface do personal via Ably que o pagamento falhou
+      await publish(
+        `sub-payment:${platformTx.id}:failed:ably`,
+        `user:${platformTx.userId}`,
+        "subscription:payment_failed",
+        {
+          type: "PAYMENT_FAILED",
+          transactionId: platformTx.id,
+          timestamp: event.occurredAt.toISOString(),
+        }
+      );
+
+      // Dispara email informando que o pagamento falhou
+      const user = await tx.user.findUnique({
+        where: { id: platformTx.userId },
+        select: { name: true, email: true },
+      });
+      if (user?.email) {
+        const { getPersonalPlanPaymentFailedEmailTemplate } = await import("@/lib/emails/templates/saas.templates");
+        const amountFormatted = (platformTx.amount || 89.9).toLocaleString("pt-BR", {
+          style: "currency",
+          currency: "BRL",
+        });
+        await email(
+          `sub-payment:${platformTx.id}:failed:email`,
+          user.email,
+          getPersonalPlanPaymentFailedEmailTemplate({
+            trainerName: user.name || "Personal",
+            planName: "AtlasFit Pro",
+            amountFormatted,
+            reason: "Transação não autorizada pela instituição financeira",
+            recipientEmail: user.email,
+          })
+        );
+      }
       return;
     }
 

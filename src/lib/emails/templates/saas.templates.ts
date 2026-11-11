@@ -82,3 +82,130 @@ export function getTrialEndingTrainerEmailTemplate(params: {
 
   return { html, text, subject: `⏳ Restam ${daysRemaining} dias de teste gratuito no AtlasFit - Ative seu plano` };
 }
+
+export function getPersonalPlanPaymentSuccessEmailTemplate(params: {
+  trainerName: string;
+  planName: string;
+  amountFormatted: string;
+  nextDueDateFormatted: string;
+  paidAtFormatted: string;
+  paymentMethod: string;
+  recipientEmail?: string;
+}) {
+  const { trainerName, planName, amountFormatted, nextDueDateFormatted, paidAtFormatted, paymentMethod, recipientEmail } = params;
+  const dashboardUrl = `${getAppBaseUrl()}/personal/dashboard`;
+
+  const html = renderBaseEmailLayout({
+    title: "Pagamento Confirmado!",
+    badgeText: "Assinatura Renovada",
+    badgeColor: "#10b981",
+    previewText: `Sua assinatura do ${planName} foi renovada com sucesso (${amountFormatted})`,
+    recipientEmail,
+    contentHtml: `
+      <p style="margin: 0 0 16px 0;">Olá, <strong>${trainerName}</strong>!</p>
+      <p style="margin: 0 0 20px 0; color: #d4d4d8;">
+        Confirmamos com sucesso o pagamento da mensalidade do seu plano <strong>${planName}</strong> no AtlasFit. Seu acesso segue 100% liberado e seu próximo ciclo já foi atualizado!
+      </p>
+
+      <div style="background-color: #09090b; border: 1px solid #27272a; border-radius: 16px; padding: 20px; margin-bottom: 20px; font-size: 13px;">
+        <div style="margin-bottom: 8px;"><strong style="color: #ffffff;">Plano:</strong> <span style="color: #d4d4d8;">${planName}</span></div>
+        <div style="margin-bottom: 8px;"><strong style="color: #ffffff;">Valor Pago:</strong> <span style="color: #10b981; font-weight: 800; font-size: 15px;">${amountFormatted}</span></div>
+        <div style="margin-bottom: 8px;"><strong style="color: #ffffff;">Forma de Pagamento:</strong> <span style="color: #d4d4d8;">${paymentMethod}</span></div>
+        <div style="margin-bottom: 8px;"><strong style="color: #ffffff;">Data da Confirmação:</strong> <span style="color: #d4d4d8;">${paidAtFormatted}</span></div>
+        <div><strong style="color: #ffffff;">Próximo Vencimento:</strong> <span style="color: #3b82f6; font-weight: bold;">${nextDueDateFormatted}</span></div>
+      </div>
+
+      <p style="margin: 0; color: #a1a1aa;">
+        Obrigado por confiar no AtlasFit para potencializar sua consultoria e seus alunos.
+      </p>
+    `,
+    ctaButton: {
+      text: "Acessar Plataforma",
+      url: dashboardUrl,
+      color: "#10b981",
+    },
+  });
+
+  const text = `AtlasFit | Pagamento Confirmado\n\nOlá, ${trainerName}!\nSeu pagamento de ${amountFormatted} (${planName}) foi confirmado em ${paidAtFormatted}.\nPróximo vencimento: ${nextDueDateFormatted}.\nAcesse a plataforma: ${dashboardUrl}`;
+
+  return { html, text, subject: `Assinatura Renovada com Sucesso - AtlasFit ✅` };
+}
+
+export function getPersonalPlanPaymentExpiredEmailTemplate(params: {
+  trainerName: string;
+  planName: string;
+  amountFormatted: string;
+  recipientEmail?: string;
+}) {
+  const { trainerName, planName, amountFormatted, recipientEmail } = params;
+  const billingUrl = `${getAppBaseUrl()}/personal/dashboard`;
+
+  const html = renderBaseEmailLayout({
+    title: "Prazo de Pagamento Expirado",
+    badgeText: "Atenção ao Prazo",
+    badgeColor: "#f59e0b",
+    previewText: `O tempo limite para pagamento da fatura de ${amountFormatted} expirou`,
+    recipientEmail,
+    contentHtml: `
+      <p style="margin: 0 0 16px 0;">Olá, <strong>${trainerName}</strong>!</p>
+      <p style="margin: 0 0 16px 0; color: #d4d4d8;">
+        Identificamos que o prazo limite para pagamento do código PIX gerado para o seu plano <strong>${planName}</strong> (${amountFormatted}) expirou.
+      </p>
+      <p style="margin: 0 0 20px 0; color: #d4d4d8;">
+        Para evitar interrupções no acesso dos seus alunos às rotinas de treinos e à plataforma, acesse o sistema para gerar uma nova cobrança instantânea.
+      </p>
+    `,
+    ctaButton: {
+      text: "Gerar Nova Cobrança",
+      url: billingUrl,
+      color: "#f59e0b",
+    },
+  });
+
+  const text = `AtlasFit | Prazo de Pagamento Expirado\n\nOlá, ${trainerName}!\nO prazo para o código PIX de ${amountFormatted} (${planName}) expirou.\nAcesse para gerar uma nova cobrança: ${billingUrl}`;
+
+  return { html, text, subject: `⚠️ Prazo de pagamento expirado - Regularize sua assinatura AtlasFit` };
+}
+
+export function getPersonalPlanPaymentFailedEmailTemplate(params: {
+  trainerName: string;
+  planName: string;
+  amountFormatted: string;
+  reason?: string;
+  recipientEmail?: string;
+}) {
+  const { trainerName, planName, amountFormatted, reason, recipientEmail } = params;
+  const billingUrl = `${getAppBaseUrl()}/personal/dashboard`;
+
+  const html = renderBaseEmailLayout({
+    title: "Falha no Processamento do Pagamento",
+    badgeText: "Pagamento Negado",
+    badgeColor: "#ef4444",
+    previewText: `Não foi possível processar a cobrança de ${amountFormatted} para o plano ${planName}`,
+    recipientEmail,
+    contentHtml: `
+      <p style="margin: 0 0 16px 0;">Olá, <strong>${trainerName}</strong>!</p>
+      <p style="margin: 0 0 16px 0; color: #d4d4d8;">
+        Houve uma falha ao tentar processar o pagamento da sua assinatura do plano <strong>${planName}</strong> no valor de <strong>${amountFormatted}</strong>.
+      </p>
+      ${reason ? `
+        <div style="background-color: #09090b; border: 1px solid #3f3f46; border-radius: 12px; padding: 12px 16px; margin-bottom: 18px; font-size: 12px; color: #ef4444;">
+          <strong>Motivo informado:</strong> ${reason}
+        </div>
+      ` : ""}
+      <p style="margin: 0 0 20px 0; color: #a1a1aa;">
+        Recomendamos tentar novamente utilizando o <strong>PIX Instantâneo</strong>, que possui compensação imediata e dispensa autorização de operadora de cartão:
+      </p>
+    `,
+    ctaButton: {
+      text: "Regularizar via PIX",
+      url: billingUrl,
+      color: "#ef4444",
+    },
+  });
+
+  const text = `AtlasFit | Falha no Pagamento\n\nOlá, ${trainerName}!\nNão foi possível processar o pagamento de ${amountFormatted} (${planName}).\nRegularize via PIX no app: ${billingUrl}`;
+
+  return { html, text, subject: `❌ Falha no pagamento da sua assinatura AtlasFit` };
+}
+

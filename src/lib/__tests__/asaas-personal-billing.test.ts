@@ -43,8 +43,41 @@ vi.mock("@/lib/prisma", () => ({
   default: mockPrisma,
 }));
 
-import { confirmPersonalSubscriptionPayment } from "@/lib/asaas-personal-billing";
+import {
+  confirmPersonalSubscriptionPayment,
+  calculatePersonalChargeExpiration,
+  MAX_PERSONAL_CHARGE_VALIDITY_HOURS,
+} from "@/lib/asaas-personal-billing";
 import { publishToChannel } from "@/lib/ably";
+
+describe("calculatePersonalChargeExpiration", () => {
+  it("limita estritamente a validade a no máximo 3 horas se o Asaas retornar 1 ano (ex: 8.836 horas)", () => {
+    const createdAt = new Date("2026-11-10T12:00:00.000Z");
+    const asaasOneYearExpiry = "2027-11-10 23:59:59"; // ~8836 horas
+
+    const result = calculatePersonalChargeExpiration(createdAt, asaasOneYearExpiry);
+    const expected = new Date("2026-11-10T15:00:00.000Z").toISOString(); // exatamente 3 horas depois
+
+    expect(result).toBe(expected);
+    expect(MAX_PERSONAL_CHARGE_VALIDITY_HOURS).toBe(3);
+  });
+
+  it("respeita expiração menor se o provedor retornar algo inferior a 3 horas (ex: 1 hora)", () => {
+    const createdAt = new Date("2026-11-10T12:00:00.000Z");
+    const asaasOneHourExpiry = "2026-11-10T13:00:00.000Z";
+
+    const result = calculatePersonalChargeExpiration(createdAt, asaasOneHourExpiry);
+    expect(result).toBe("2026-11-10T13:00:00.000Z");
+  });
+
+  it("calcula 3 horas a partir de createdAt se o provedor não retornar expirationDate", () => {
+    const createdAt = new Date("2026-11-10T12:00:00.000Z");
+    const result = calculatePersonalChargeExpiration(createdAt, null);
+    const expected = new Date("2026-11-10T15:00:00.000Z").toISOString();
+
+    expect(result).toBe(expected);
+  });
+});
 
 describe("confirmPersonalSubscriptionPayment", () => {
   beforeEach(() => {

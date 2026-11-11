@@ -5,6 +5,15 @@ vi.mock("@/lib/ably", () => ({
   publishToChannel: vi.fn().mockResolvedValue(true),
 }));
 
+// Mock outbox delivery
+vi.mock("@/lib/delivery/outbox", () => ({
+  enqueueDelivery: vi.fn().mockResolvedValue({ id: "outbox-job-1" }),
+}));
+
+vi.mock("@/lib/delivery/worker", () => ({
+  triggerOutboxProcessing: vi.fn(),
+}));
+
 // Mock logger
 vi.mock("@/lib/logger", () => ({
   logSystemError: vi.fn(),
@@ -28,6 +37,12 @@ const { mockPrisma } = vi.hoisted(() => {
     auditLog: {
       create: vi.fn(),
     },
+    user: {
+      findUnique: vi.fn().mockResolvedValue({ name: "Personal Teste", email: "personal@teste.com" }),
+    },
+    deliveryOutbox: {
+      createMany: vi.fn().mockResolvedValue({ count: 1 }),
+    },
     paymentWebhookEvent: {
       createMany: vi.fn(),
       findUniqueOrThrow: vi.fn(),
@@ -50,7 +65,15 @@ import { AsaasAdapter } from "../providers/asaas/asaas-adapter";
 describe("Webhook do Asaas - Pagamento de Assinatura da Plataforma", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockPrisma.transaction.findFirst.mockReset();
+    mockPrisma.transaction.findUnique.mockReset();
+    mockPrisma.transaction.update.mockReset();
+    mockPrisma.subscription.findUnique.mockReset();
+    mockPrisma.subscription.update.mockReset();
+    mockPrisma.workspace.updateMany.mockReset();
     vi.stubEnv("ASAAS_WEBHOOK_SECRET", "whsec_test_secret_123");
+    vi.stubEnv("AUTH_SECRET", "super_secret_test_key_with_at_least_32_characters_1234567890");
+    vi.stubEnv("RESEND_API_KEY", "re_test_key");
   });
 
   it("valida autenticidade do webhook com timingSafeEqualString", async () => {
@@ -175,6 +198,36 @@ describe("Webhook do Asaas - Pagamento de Assinatura da Plataforma", () => {
     expect(mockPrisma.transaction.update).toHaveBeenCalledWith({
       where: { id: "tx-platform-2" },
       data: { status: "FAILED" },
+    });
+  });
+
+  it("processa evento PAYMENT_OVERDUE atualizando a transação para EXPIRED e notificando expiração", async () => {
+    mockPrisma.transaction.findFirst.mockResolvedValueOnce({
+      id: "tx-platform-overdue",
+      userId: "trainer-100",
+      status: "PENDING",
+      providerCheckoutId: "pay_asaas_overdue",
+    });
+
+    const normalizedEvent: any = {
+      providerEventId: "evt_overdue_123",
+      eventType: "PAYMENT_OVERDUE",
+      resourceType: "PAYMENT",
+      resourceId: "pay_asaas_overdue",
+      occurredAt: new Date(),
+      rawPayload: { event: "PAYMENT_OVERDUE" },
+    };
+
+    await applyPersonalWebhookEffects(
+      mockPrisma,
+      "webhook-evt-overdue",
+      "PRODUCTION" as any,
+      normalizedEvent
+    );
+
+    expect(mockPrisma.transaction.update).toHaveBeenCalledWith({
+      where: { id: "tx-platform-overdue" },
+      data: { status: "EXPIRED" },
     });
   });
 

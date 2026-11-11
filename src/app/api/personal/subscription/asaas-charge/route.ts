@@ -3,6 +3,7 @@ import { auth } from "@/auth";
 import {
   getOrCreatePersonalPlanCharge,
   checkAndConfirmPersonalCharge,
+  getActivePersonalCharge,
 } from "@/lib/asaas-personal-billing";
 import { logSystemError } from "@/lib/logger";
 
@@ -52,8 +53,14 @@ export async function GET(req: Request) {
     }
 
     const { searchParams } = new URL(req.url);
-    const transactionId = searchParams.get("transactionId") || undefined;
+    const fetchActive = searchParams.get("active") === "true";
 
+    if (fetchActive) {
+      const active = await getActivePersonalCharge(session.user.id);
+      return NextResponse.json({ activeCharge: active });
+    }
+
+    const transactionId = searchParams.get("transactionId") || undefined;
     const result = await checkAndConfirmPersonalCharge(session.user.id, transactionId);
     return NextResponse.json(result);
   } catch (error: any) {

@@ -43,6 +43,9 @@ import {
 import {
   getImportJobCompletedTrainerEmailTemplate,
   getTrialEndingTrainerEmailTemplate,
+  getPersonalPlanPaymentSuccessEmailTemplate,
+  getPersonalPlanPaymentExpiredEmailTemplate,
+  getPersonalPlanPaymentFailedEmailTemplate,
 } from "./templates/saas.templates";
 import { renderBaseEmailLayout } from "./templates/base-layout";
 
@@ -648,4 +651,55 @@ export class EmailService {
 
     return this.send({ to, subject: `${title} - AtlasFit`, html, text });
   }
+
+  // ==========================================
+  // PLATFORM PERSONAL SUBSCRIPTION DISPATCHERS
+  // ==========================================
+
+  static async sendPersonalPlanPaymentSuccessEmail(params: {
+    to: string;
+    trainerName: string;
+    planName: string;
+    amountFormatted: string;
+    nextDueDateFormatted: string;
+    paidAtFormatted: string;
+    paymentMethod: string;
+  }): Promise<SendEmailResult> {
+    const { to, ...rest } = params;
+    const { html, text, subject } = getPersonalPlanPaymentSuccessEmailTemplate({
+      ...rest,
+      recipientEmail: to,
+    });
+    return this.send({ to, subject, html, text });
+  }
+
+  static async sendPersonalPlanPaymentExpiredEmail(params: {
+    to: string;
+    trainerName: string;
+    planName: string;
+    amountFormatted: string;
+  }): Promise<SendEmailResult> {
+    const { to, ...rest } = params;
+    const { html, text, subject } = getPersonalPlanPaymentExpiredEmailTemplate({
+      ...rest,
+      recipientEmail: to,
+    });
+    return this.send({ to, subject, html, text });
+  }
+
+  static async sendPersonalPlanPaymentFailedEmail(params: {
+    to: string;
+    trainerName: string;
+    planName: string;
+    amountFormatted: string;
+    reason?: string;
+  }): Promise<SendEmailResult> {
+    const { to, ...rest } = params;
+    const { html, text, subject } = getPersonalPlanPaymentFailedEmailTemplate({
+      ...rest,
+      recipientEmail: to,
+    });
+    return this.send({ to, subject, html, text });
+  }
 }
+

@@ -260,7 +260,7 @@ export async function POST(req: Request) {
       return createdTx;
     });
 
-    // Notificação em tempo real via Ably
+    // Notificação em tempo real via Ably e disparo de email via Resend
     if (data.targetType === "PERSONAL" && data.userId) {
       try {
         const { publishToChannel } = await import("@/lib/ably");
@@ -271,6 +271,36 @@ export async function POST(req: Request) {
         });
       } catch (ablyErr) {
         console.warn("[Ably] Falha ao notificar atualização de assinatura manual:", ablyErr);
+      }
+
+      try {
+        const personalUser = await prisma.user.findUnique({
+          where: { id: data.userId },
+          select: { name: true, email: true },
+        });
+        if (personalUser?.email) {
+          const { EmailService } = await import("@/lib/emails/service");
+          const amountFormatted = data.amount.toLocaleString("pt-BR", {
+            style: "currency",
+            currency: "BRL",
+          });
+          const nextDueDateFormatted = nextDueDateObj
+            ? nextDueDateObj.toLocaleDateString("pt-BR")
+            : "";
+          const paidAtFormatted = paidAtDate.toLocaleDateString("pt-BR");
+
+          await EmailService.sendPersonalPlanPaymentSuccessEmail({
+            to: personalUser.email,
+            trainerName: personalUser.name || "Personal",
+            planName: "AtlasFit Pro",
+            amountFormatted,
+            nextDueDateFormatted,
+            paidAtFormatted,
+            paymentMethod: data.paymentMethod,
+          });
+        }
+      } catch (emailErr) {
+        console.warn("[EmailService] Falha ao enviar email de confirmação manual:", emailErr);
       }
     }
 
