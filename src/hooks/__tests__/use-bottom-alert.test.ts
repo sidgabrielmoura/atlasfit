@@ -83,4 +83,33 @@ describe("use-bottom-alert offset calculation logic", () => {
     expect(offset).toBe(0);
     // Navbar bottom is 24px (bottom-6)
   });
+
+  it("calculates correct offset for desktop bottom-right alert expansion (~180px height)", () => {
+    // Desktop alert is at md:bottom-5 (20px).
+    // Height = 180px.
+    // Alert occupies from Y = 20px to Y = 200px from the bottom.
+    // DEFAULT_GAP = 12px.
+    // Elements stacked above (like chat notification toasts) should have offset:
+    // desktopOffset = alertHeight + DEFAULT_GAP = 180 + 12 = 192px.
+    // Base bottom of toast is 24px.
+    // Toast bottom becomes 24 + 192 = 216px.
+    // Distance between top of alert (200px) and bottom of toast (216px) is 16px >= 12px gap!
+    const alertHeight = 180;
+    const desktopOffset = alertHeight + 12;
+    expect(desktopOffset).toBe(192);
+
+    const toastBottom = 24 + desktopOffset;
+    const alertTop = 20 + alertHeight;
+    expect(toastBottom - alertTop).toBeGreaterThanOrEqual(12);
+  });
+
+  it("calculates correct offset for desktop bottom-right alert minimization (~48px height)", () => {
+    const alertHeight = 48;
+    const desktopOffset = alertHeight + 12;
+    expect(desktopOffset).toBe(60);
+
+    const toastBottom = 24 + desktopOffset;
+    const alertTop = 20 + alertHeight;
+    expect(toastBottom - alertTop).toBeGreaterThanOrEqual(12);
+  });
 });

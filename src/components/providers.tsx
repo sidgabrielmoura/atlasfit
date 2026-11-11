@@ -29,6 +29,10 @@ const PwaFcmInit = dynamic(
   () => import("@/components/pwa-fcm-init").then(mod => mod.PwaFcmInit),
   { ssr: false }
 );
+const ChatNotificationToaster = dynamic(
+  () => import("@/components/chat/chat-notification-toaster").then(mod => mod.ChatNotificationToaster),
+  { ssr: false }
+);
 
 function AuthenticatedFeatures() {
   const { data: session, status } = useSession();
@@ -40,6 +44,7 @@ function AuthenticatedFeatures() {
       <LegalReacceptanceModal key={`legal-${session.user.id}`} />
       <PwaFcmInit key={`pwa-${session.user.id}`} />
       <EngageRenderer key={`engage-${session.user.id}`} />
+      <ChatNotificationToaster />
     </>
   );
 }

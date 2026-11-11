@@ -131,6 +131,7 @@ export const POST = withAuditedRequest(async function POST(req: Request) {
             select: {
               id: true,
               name: true,
+              image: true,
               updatedAt: true,
             },
           },
@@ -201,6 +202,11 @@ export const POST = withAuditedRequest(async function POST(req: Request) {
       lastMessage: conversation.lastMessage,
       lastMessageAt: conversation.lastMessageAt,
       senderId: userId,
+      senderName: storedMessage.sender.name,
+      senderImage: storedMessage.sender.image || null,
+      messageType: type,
+      content: conversation.lastMessage,
+      isNewMessage: true,
     });
 
     // 4. Send Notifications to other participants (integrated with system push and preferences)
@@ -220,20 +226,7 @@ export const POST = withAuditedRequest(async function POST(req: Request) {
         });
         const senderName = senderUser?.name || "Mensagem";
 
-        // Fetch last 5 messages in chronological order
-        const last5 = await prisma.message.findMany({
-          where: { conversationId },
-          orderBy: { createdAt: "desc" },
-          take: 5,
-          include: {
-            sender: {
-              select: { name: true }
-            }
-          }
-        });
-        const chronological = [...last5].reverse();
-
-        // Format active message body
+        // Format active message body (only the latest message)
         let currentMsgText = "";
         if (type === "TEXT") {
           currentMsgText = content || "";
@@ -248,29 +241,6 @@ export const POST = withAuditedRequest(async function POST(req: Request) {
           currentMsgText = content ? `${label}: ${content}` : label;
         }
 
-        // Format multiline WhatsApp-style text
-        let finalDescription = currentMsgText;
-        if (chronological.length > 1) {
-          const historyLines = chronological.map(m => {
-            let msgStr = "";
-            if (m.type === "TEXT") {
-              msgStr = m.content || "";
-            } else {
-              const typeLabels: Record<string, string> = {
-                IMAGE: "📷 Foto",
-                VIDEO: "🎥 Vídeo",
-                AUDIO: "🎵 Mensagem de voz",
-                FILE: "📄 Arquivo",
-              };
-              const label = typeLabels[m.type] || "Anexo";
-              msgStr = m.content ? `${label}: ${m.content}` : label;
-            }
-            return `• ${m.sender.name}: ${msgStr}`;
-          }).join("\n");
-
-          finalDescription = `${currentMsgText}\n\nMensagens recentes:\n${historyLines}`;
-        }
-
         for (const part of otherParticipants) {
           // Check recipient role to decide deepLink route
           const member = await prisma.workspaceMember.findFirst({
@@ -281,12 +251,25 @@ export const POST = withAuditedRequest(async function POST(req: Request) {
           });
           const deepLink = member?.role === "STUDENT" ? "/student/chat" : "/personal/chat";
 
+          // Prune any previous unread chat notification for this conversation so only the latest remains in the notifications area
+          await prisma.notification.deleteMany({
+            where: {
+              userId: part.userId,
+              type: NotificationType.MESSAGE_RECEIVED,
+              isRead: false,
+              payload: {
+                path: ["conversationId"],
+                equals: conversationId,
+              },
+            },
+          }).catch(() => {});
+
           await NotificationService.sendNotification({
             userId: part.userId,
             type: NotificationType.MESSAGE_RECEIVED,
             category: NotificationCategory.MESSAGE,
             title: senderName,
-            description: finalDescription,
+            description: currentMsgText,
             deepLink: deepLink,
             workspaceId: conversation.workspaceId,
             payload: {

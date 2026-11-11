@@ -138,14 +138,79 @@ export function AblyProvider({ children }: AblyProviderProps) {
     }));
     // Listen to conversation list updates (last message, etc.)
     runRealtimeOperation(() => channel.subscribe("conversation:update", (message) => {
-      const { conversationId, messageId, lastMessage, lastMessageAt, senderId } = message.data;
-      if (!current() || !chatStore.conversations.some(conversation => conversation.id === conversationId && conversation.workspaceId === activeWorkspaceId)) return;
-      chatActions.updateConversation(conversationId, lastMessage, lastMessageAt, senderId);
+      const {
+        conversationId,
+        messageId,
+        lastMessage,
+        lastMessageAt,
+        senderId,
+        senderName,
+        senderImage,
+        messageType,
+        content,
+      } = message.data || {};
 
-      // Increment unread count and trigger delivery receipt if we are not currently viewing this conversation
-      if (chatStore.activeConversationId !== conversationId && senderId !== userId) {
-        chatActions.incrementUnread(conversationId, userId);
-        playNotificationSound();
+      if (!current()) return;
+
+      const conversationExists = chatStore.conversations.some(
+        (conversation) => conversation.id === conversationId && conversation.workspaceId === activeWorkspaceId
+      );
+
+      if (conversationExists) {
+        chatActions.updateConversation(conversationId, lastMessage, lastMessageAt, senderId);
+      } else {
+        fetch(`/api/chat/conversations?workspaceId=${encodeURIComponent(activeWorkspaceId)}`)
+          .then((res) => (res.ok ? res.json() : null))
+          .then((data) => {
+            if (data && current()) chatActions.setConversations(data);
+          })
+          .catch(() => {});
+      }
+
+      // Increment unread count, trigger delivery receipt and emit toast if we are not currently viewing this conversation
+      const isSenderMe = senderId === userId;
+      const isViewingThisConversation =
+        chatStore.activeConversationId === conversationId &&
+        typeof window !== "undefined" &&
+        window.location.pathname.includes("/chat") &&
+        document.visibilityState === "visible";
+
+      if (!isSenderMe) {
+        if (!isViewingThisConversation) {
+          chatActions.incrementUnread(conversationId, userId);
+          playNotificationSound();
+
+          let resolvedName = senderName;
+          let resolvedImage = senderImage;
+          if (!resolvedName) {
+            const conv = chatStore.conversations.find((c) => c.id === conversationId);
+            const otherPart = conv?.participants.find((p) => p.userId === senderId);
+            resolvedName = otherPart?.user?.name || "Nova mensagem";
+            resolvedImage = otherPart?.user?.image || null;
+          }
+
+          let resolvedContent = content || lastMessage || "Enviou uma nova mensagem";
+          if (messageType && messageType !== "TEXT") {
+            const typeLabels: Record<string, string> = {
+              IMAGE: "📷 Foto",
+              VIDEO: "🎥 Vídeo",
+              AUDIO: "🎵 Mensagem de voz",
+              FILE: "📄 Arquivo",
+            };
+            resolvedContent = typeLabels[messageType] || resolvedContent;
+          }
+
+          chatActions.addMessageToast({
+            id: messageId || `toast-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
+            conversationId,
+            senderId,
+            senderName: resolvedName || "Nova mensagem",
+            senderImage: resolvedImage,
+            messageType: messageType || "TEXT",
+            content: resolvedContent,
+            createdAt: lastMessageAt || new Date(),
+          });
+        }
 
         if (messageId) {
           fetch(`/api/chat/messages/${messageId}`, {

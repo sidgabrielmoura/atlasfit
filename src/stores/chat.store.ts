@@ -63,6 +63,17 @@ export interface UploadProgress {
   cancelUpload?: () => void;
 }
 
+export interface ChatToast {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  senderName: string;
+  senderImage?: string | null;
+  messageType?: "TEXT" | "IMAGE" | "VIDEO" | "FILE" | "AUDIO";
+  content: string;
+  createdAt: string | Date;
+}
+
 interface ChatState {
   conversations: Conversation[];
   activeConversationId: string | null;
@@ -74,6 +85,7 @@ interface ChatState {
   presence: Record<string, boolean>; // userId -> isOnline
   replyToMessage: Message | null;
   activeUploads: UploadProgress[];
+  messageToasts: ChatToast[];
 }
 
 export const chatStore = proxy<ChatState>({
@@ -87,6 +99,7 @@ export const chatStore = proxy<ChatState>({
   presence: {},
   replyToMessage: null,
   activeUploads: [],
+  messageToasts: [],
 });
 
 export const chatActions = {
@@ -100,6 +113,7 @@ export const chatActions = {
     chatStore.presence = {};
     chatStore.replyToMessage = null;
     chatStore.activeUploads = [];
+    chatStore.messageToasts = [];
     chatStore.isLoadingConversations = false;
     chatStore.isLoadingMessages = false;
   },
@@ -279,5 +293,21 @@ export const chatActions = {
 
   removeUpload(fileId: string) {
     chatStore.activeUploads = chatStore.activeUploads.filter((u) => u.fileId !== fileId);
+  },
+
+  addMessageToast(toast: ChatToast) {
+    if (chatStore.messageToasts.some((t) => t.id === toast.id)) return;
+    if (chatStore.messageToasts.length >= 4) {
+      chatStore.messageToasts.shift();
+    }
+    chatStore.messageToasts.push(toast);
+  },
+
+  removeMessageToast(id: string) {
+    chatStore.messageToasts = chatStore.messageToasts.filter((t) => t.id !== id);
+  },
+
+  clearMessageToasts() {
+    chatStore.messageToasts = [];
   },
 };

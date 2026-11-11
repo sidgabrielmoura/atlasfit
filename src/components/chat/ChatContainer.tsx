@@ -252,6 +252,8 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
   const [zoomScale, setZoomScale] = useState(1);
   const galleryViewportRef = useRef<HTMLDivElement | null>(null);
   const [highlightedMessageId, setHighlightedMessageId] = useState<string | null>(null);
+  const highlightTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const lastScrolledMessageIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     setZoomScale(1);
@@ -306,8 +308,12 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
       .then(async (data) => {
         chatActions.setConversations(data);
 
+        const queryConversationId = searchParams.get("conversationId");
         const queryStudentId = searchParams.get("studentId");
-        if (queryStudentId) {
+
+        if (queryConversationId && data.some((c: any) => c.id === queryConversationId)) {
+          chatActions.setActiveConversationId(queryConversationId);
+        } else if (queryStudentId) {
           const existing = data.find((c: any) =>
             c.participants.some((p: any) => p.userId === queryStudentId)
           );
@@ -345,6 +351,13 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
   }, [activeWorkspaceId, searchParams]);
 
   useEffect(() => {
+    const queryConversationId = searchParams.get("conversationId");
+    if (queryConversationId && chatSnap.conversations.some((c) => c.id === queryConversationId)) {
+      chatActions.setActiveConversationId(queryConversationId);
+    }
+  }, [searchParams, chatSnap.conversations]);
+
+  useEffect(() => {
     if (!activeConversationId) return;
 
     chatActions.setLoadingMessages(true);
@@ -356,7 +369,8 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
       .then((data) => {
         chatActions.setMessages(activeConversationId, data.messages, data.nextCursor);
         setTimeout(() => {
-          if (messagesEndRef.current) {
+          const queryMsgId = searchParams.get("messageId");
+          if (!queryMsgId && messagesEndRef.current) {
             messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
           }
         }, 100);
@@ -367,18 +381,91 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
       .finally(() => {
         chatActions.setLoadingMessages(false);
       });
-  }, [activeConversationId]);
+  }, [activeConversationId, searchParams]);
 
   useEffect(() => {
     if (!activeConversationId) return;
     const viewport = viewportRef.current;
     if (!viewport) return;
 
+    const queryMsgId = searchParams.get("messageId");
     const isNearBottom = viewport.scrollHeight - viewport.scrollTop - viewport.clientHeight < 150;
-    if (isNearBottom) {
+    if (isNearBottom && !queryMsgId) {
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }
-  }, [messages.length, activeConversationId]);
+  }, [messages.length, activeConversationId, searchParams]);
+
+  // Efeito para navegar e iluminar a mensagem quando vindo de notificação ou link
+  const targetMessageId = searchParams.get("messageId");
+
+  useEffect(() => {
+    if (!targetMessageId) {
+      lastScrolledMessageIdRef.current = null;
+      return;
+    }
+
+    let attempts = 0;
+    const maxAttempts = 15;
+    let timer: NodeJS.Timeout | null = null;
+
+    const checkAndScroll = () => {
+      const el = document.getElementById(`message-${targetMessageId}`);
+      if (el) {
+        lastScrolledMessageIdRef.current = targetMessageId;
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setHighlightedMessageId(targetMessageId);
+
+        if (highlightTimerRef.current) {
+          clearTimeout(highlightTimerRef.current);
+        }
+        highlightTimerRef.current = setTimeout(() => {
+          setHighlightedMessageId(null);
+        }, 2200);
+        return;
+      }
+
+      attempts++;
+      if (attempts < maxAttempts) {
+        timer = setTimeout(checkAndScroll, 100);
+      }
+    };
+
+    const raf = requestAnimationFrame(checkAndScroll);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      if (timer) clearTimeout(timer);
+    };
+  }, [targetMessageId, messages.length, activeConversationId]);
+
+  // Listener para evento customizado de focar em mensagem (para resposta instantânea em tempo real)
+  useEffect(() => {
+    const handleFocusMessage = (e: Event) => {
+      const customEvent = e as CustomEvent<{ conversationId?: string; messageId?: string }>;
+      const msgId = customEvent.detail?.messageId;
+      if (!msgId) return;
+
+      const el = document.getElementById(`message-${msgId}`);
+      if (el) {
+        el.scrollIntoView({ behavior: "smooth", block: "center" });
+        setHighlightedMessageId(msgId);
+        if (highlightTimerRef.current) {
+          clearTimeout(highlightTimerRef.current);
+        }
+        highlightTimerRef.current = setTimeout(() => {
+          setHighlightedMessageId(null);
+        }, 2200);
+      }
+    };
+
+    window.addEventListener("chat:focus-message", handleFocusMessage);
+    return () => {
+      window.removeEventListener("chat:focus-message", handleFocusMessage);
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current);
+      }
+    };
+  }, []);
 
   const handleOpenContactDialog = () => {
     if (!activeWorkspaceId) return;
@@ -825,9 +912,12 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
     if (el) {
       el.scrollIntoView({ behavior: "smooth", block: "center" });
       setHighlightedMessageId(messageId);
-      setTimeout(() => {
+      if (highlightTimerRef.current) {
+        clearTimeout(highlightTimerRef.current);
+      }
+      highlightTimerRef.current = setTimeout(() => {
         setHighlightedMessageId(null);
-      }, 1500);
+      }, 2200);
     }
   };
 
@@ -1411,7 +1501,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
 
                               <div
                                 className={cn(
-                                  "relative rounded-2xl text-sm break-all font-medium max-w-full shadow-xs border transition-all duration-500",
+                                  "relative rounded-2xl text-sm break-all font-medium max-w-full shadow-xs border transition-all duration-500 overflow-hidden",
                                   ["IMAGE", "AUDIO"].includes(m.type)
                                     ? cn(
                                       "p-1 bg-white/15 dark:bg-black/45 backdrop-blur-md border-white/25 dark:border-white/10 text-foreground",
@@ -1420,12 +1510,7 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                                     : isSelf
                                       ? cn("p-3 bg-primary border-primary/10 rounded-tr-none", contrast.textPrimary)
                                       : "p-3 bg-card text-foreground border-border/60 rounded-tl-none",
-                                  isSystem && "p-3 bg-secondary/25 border-none italic text-muted-foreground",
-                                  highlightedMessageId === m.id && (
-                                    isSelf
-                                      ? "ring-4 ring-white/80 scale-[1.03] z-10 duration-200"
-                                      : "ring-4 ring-primary/80 scale-[1.03] z-10 bg-primary/10 duration-200"
-                                  )
+                                  isSystem && "p-3 bg-secondary/25 border-none italic text-muted-foreground"
                                 )}
                               >
                                 {editingMessageId === m.id ? (
@@ -1839,6 +1924,15 @@ export function ChatContainer({ userRole }: ChatContainerProps) {
                                       </p>
                                     )}
                                   </>
+                                )}
+
+                                {highlightedMessageId === m.id && (
+                                  <div
+                                    aria-hidden="true"
+                                    className="absolute inset-0 pointer-events-none overflow-hidden rounded-[inherit] z-20"
+                                  >
+                                    <div className="animate-glass-sheen" />
+                                  </div>
                                 )}
                               </div>
 

@@ -352,7 +352,25 @@ export async function POST(req: Request) {
           lastMessage: lastMsgText,
           lastMessageAt: new Date(),
           senderId: trainerId,
+          senderName: trainerName,
+          senderImage: session.user.image || null,
+          messageType: "TEXT",
+          content: lastMsgText,
+          isNewMessage: true,
         });
+
+        // Prune previous unread chat notification for this conversation so only the latest remains in the notifications area
+        await prisma.notification.deleteMany({
+          where: {
+            userId: studentId,
+            type: "MESSAGE_RECEIVED",
+            isRead: false,
+            payload: {
+              path: ["conversationId"],
+              equals: conversationId,
+            },
+          },
+        }).catch(() => {});
 
         // Send Push/In-app Notification
         await NotificationService.sendNotification({
