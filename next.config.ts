@@ -5,7 +5,10 @@ const nextConfig: NextConfig = {
   reactCompiler: true,
   distDir: process.env.ATLASFIT_BUILD_DIR || ".next",
   typescript: { tsconfigPath: process.env.ATLASFIT_BUILD_TSCONFIG || "tsconfig.json" },
-  experimental: { proxyClientMaxBodySize: "32mb" },
+  experimental: {
+    proxyClientMaxBodySize: "32mb",
+    agentUpgrade: "security",
+  },
   async headers() {
     return [
       {
