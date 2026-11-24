@@ -8,8 +8,8 @@ import * as Sentry from "@sentry/nextjs";
 Sentry.init({
   dsn: "https://508e986949b86b997b46aaef401aafe2@o4512447963267072.ingest.us.sentry.io/4512448965115904",
 
-  // Define how likely traces are sampled. Adjust this value in production, or use tracesSampler for greater control.
-  tracesSampleRate: 1,
+  // Sample all traces in development and 10% in production builds.
+  tracesSampleRate: process.env.NODE_ENV === "development" ? 1 : 0.1,
 
   // Turns off collection of data that could identify users. Adjust per category:
   // https://docs.sentry.io/platforms/javascript/configuration/options/#dataCollection
