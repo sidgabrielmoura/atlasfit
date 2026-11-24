@@ -25,6 +25,7 @@
     "@hugeicons/react": "^1.1.6",
     "@prisma/adapter-pg": "^7.10.1",
     "@prisma/client": "^7.10.1",
+    "@sentry/nextjs": "^11.14.0",
     "@types/papaparse": "^5.5.2",
     "@vercel/analytics": "^2.0.1",
     "@vercel/speed-insights": "^2.0.0",
